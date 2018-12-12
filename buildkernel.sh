@@ -20,7 +20,7 @@ export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
-# Setting up for build
+#Setting up for build
 PREBUILT_KERNEL_IMAGE=$(basename ${TARGET_PREBUILT_INT_KERNEL})
 IMAGE_FILE_PATH=arch/${ARCH}/boot
 FILES="
@@ -81,7 +81,7 @@ fi
 
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make O=${OUT_DIR} ${DEFCONFIG})
+  (cd ${KERNEL_DIR} && make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
   set +x
 fi
 
@@ -91,13 +91,12 @@ fi
 
 #Install headers
 set -x
-  (cd ${OUT_DIR} && make O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
+  (cd ${OUT_DIR} && make HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
 set +x
-
 
 # Building Kernel
 set -x
-  (cd ${OUT_DIR} && make O=${OUT_DIR} ${CC_ARG} -j($(nproc)/2) ${MAKE_ARGS})
+  (cd ${OUT_DIR} && make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
 set +x
 
 # Modules Install

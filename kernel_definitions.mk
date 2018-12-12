@@ -38,20 +38,6 @@ else
 KERNEL_CROSS_COMPILE := $(shell pwd)/$(TARGET_TOOLS_PREFIX)
 endif
 
-ifeq ($(KERNEL_LLVM_SUPPORT), true)
-  ifeq ($(KERNEL_SD_LLVM_SUPPORT), true)  #Using sd-llvm compiler
-    ifeq ($(shell echo $(SDCLANG_PATH) | head -c 1),/)
-       KERNEL_LLVM_BIN := $(SDCLANG_PATH)/clang
-    else
-       KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH)/clang
-    endif
-    $(warning "Using sdllvm" $(KERNEL_LLVM_BIN))
-  else
-     KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG) #Using aosp-llvm compiler
-    $(warning "Using aosp-llvm" $(KERNEL_LLVM_BIN))
-  endif
-endif
-
 ifeq ($(TARGET_PREBUILT_KERNEL),)
 
 KERNEL_GCC_NOANDROID_CHK := $(shell (echo "int main() {return 0;}" | $(KERNEL_CROSS_COMPILE)gcc -E -mno-android - > /dev/null 2>&1 ; echo $$?))
@@ -100,7 +86,7 @@ KERNEL_MODULES_OUT ?= $(PRODUCT_OUT)/$(KERNEL_MODULES_INSTALL)/lib/modules
 
 TARGET_PREBUILT_KERNEL := $(TARGET_PREBUILT_INT_KERNEL)
 
-BOARD_VENDOR_KERNEL_MODULES += $(shell ls $(KERNEL_MODULES_OUT)/*.ko)
+BOARD_VENDOR_KERNEL_MODULES += $$(ls $(KERNEL_MODULES_OUT)/*.ko)
 
 endif
 endif
