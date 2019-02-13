@@ -59,8 +59,14 @@
 #   SKIP_DEFCONFIG
 #     if defined, skip `make defconfig`
 #
+#   PRE_DEFCONFIG_CMDS
+#     Command evaluated before `make defconfig`
+#
 #   POST_DEFCONFIG_CMDS
 #     Command evaluated after `make defconfig` and before `make`.
+#
+#   POST_KERNEL_BUILD_CMDS
+#     Command evaluated after `make`.
 #
 #   IN_KERNEL_MODULES
 #     if defined, install kernel modules
