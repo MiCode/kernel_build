@@ -30,153 +30,222 @@ vmlinux
 System.map
 "
 
-cd ${ROOT_DIR}
-
-if [ ! -e ${OUT_DIR} ]; then
-	mkdir -p ${OUT_DIR}
-fi
-
-if [ -z "${FORCE_KERNEL_BUILD}" ]; then
-	if [ -d ${KERNEL_PREBUILT_DIR} ]; then
-		echo "Kernel Prebuilt directory exist, copying binaries..."
-		# Copy headers
-		mkdir -p ${KERNEL_HEADERS_INSTALL}
-		cd ${KERNEL_PREBUILT_DIR}/usr;find  -name *.h -exec cp --parents {} ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL} \;
-		cd ${ROOT_DIR}
-
-		# Copy Image, generated headers, vmlinux, System.map
-		cd ${KERNEL_PREBUILT_DIR}
-		for FILE in ${FILES}; do
-			if [ -f ${KERNEL_PREBUILT_DIR}/$FILE ]; then
-				# Copy for prebuilt
-				echo "  $FILE ${KERNEL_PREBUILT_DIR}"
-				echo ${KERNEL_PREBUILT_DIR}/${FILE}
-				cp -p ${KERNEL_PREBUILT_DIR}/${FILE} ${OUT_DIR}/
-				echo $FILE copied to ${KERNEL_PREBUILT_DIR}
-			else
-				echo "$FILE does not exist, skipping"
-			fi
-		done
-		if [ ! -e ${OUT_DIR}/${IMAGE_FILE_PATH} ]; then
-			mkdir -p ${OUT_DIR}/${IMAGE_FILE_PATH}
-		fi
-		cp -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
-		cp -p -r ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS} ${OUT_DIR}/${ARCH_GEN_HEADERS_LOC}
-		cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_GEN_HEADERS} ${OUT_DIR}
-
-		cd ${ROOT_DIR}
-		# Copy Modules
-		MODULES=$(find ${KERNEL_PREBUILT_DIR} -type f -name "*.ko")
-		if [ ! -e  ${KERNEL_MODULES_OUT} ]; then
-			mkdir -p  ${KERNEL_MODULES_OUT}
-		fi
-		for FILE in ${MODULES}; do
-			echo "Copy ${FILE#${KERNEL_MODULES_OUT}/}"
-			cp -p ${FILE} ${KERNEL_MODULES_OUT}
-		done
-
-		#copy scripts directory
-		cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_SCRIPTS} ${OUT_DIR}
-
-		#return success
-		exit 0
-	else
-		echo "Kernel Prebuilt directory doesn't exist, compiling..."
+#defconfig
+make_defconfig()
+{
+	if [ -z "${SKIP_DEFCONFIG}" ] ; then
+		echo "======================"
+		echo "Building defconfig"
+		set -x
+		(cd ${KERNEL_DIR} && \
+		make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		set +x
 	fi
-fi
+}
 
+#Install headers
+headers_install()
+{
+	echo "======================"
+	echo "Installing kernel headers"
+	set -x
+	(cd ${OUT_DIR} && \
+	make HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
+	set +x
+}
 
-if [ -z "${SKIP_DEFCONFIG}" ] ; then
-  set -x
-  (cd ${KERNEL_DIR} && make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
-  set +x
-fi
+# Building Kernel
+build_kernel()
+{
+	echo "======================"
+	echo "Building kernel"
+	set -x
+	(cd ${OUT_DIR} && \
+	make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
+	set +x
+}
 
+# Modules Install
+modules_install()
+{
+	echo "======================"
+	echo "Installing kernel modules"
+	rm -rf ${MODULES_STAGING_DIR}
+	mkdir -p ${MODULES_STAGING_DIR}
+	set -x
+	(cd ${OUT_DIR} && \
+	make O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
+	set +x
+}
+
+copy_modules_to_prebuilt()
+{
+	if [[ ! -e ${KERNEL_MODULES_OUT} ]]; then
+		mkdir -p ${KERNEL_MODULES_OUT}
+	fi
+
+	MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
+	if [ -n "${MODULES}" ]; then
+		echo "======================"
+		echo " Copying modules files"
+		for FILE in ${MODULES}; do
+			echo "${FILE#${KERNEL_MODULES_OUT}/}"
+			cp -p ${FILE} ${KERNEL_MODULES_OUT}
+
+			# Copy for prebuilt
+			if [ ! -e ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT} ]; then
+				mkdir -p ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT}
+			fi
+			cp -p ${FILE} ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT}
+		done
+	fi
+}
+
+copy_all_to_prebuilt()
+{
+	echo ${KERNEL_PREBUILT_DIR}
+
+	if [[ ! -e ${KERNEL_PREBUILT_DIR} ]]; then
+		mkdir -p ${KERNEL_PREBUILT_DIR}
+	fi
+
+	copy_modules_to_prebuilt
+
+	#copy necessary files from the out directory
+	echo "============="
+	echo "Copying files to prebuilt"
+	for FILE in ${FILES}; do
+	  if [ -f ${OUT_DIR}/${FILE} ]; then
+	    # Copy for prebuilt
+	    echo "$FILE ${KERNEL_PREBUILT_DIR}"
+	    cp -p ${OUT_DIR}/${FILE} ${KERNEL_PREBUILT_DIR}/
+	    echo $FILE copied to ${KERNEL_PREBUILT_DIR}
+	  else
+	    echo "$FILE does not exist, skipping"
+	  fi
+	done
+
+	#copy kernel image
+	echo "============="
+	echo "Copying kernel image to prebuilt"
+	if [ ! -e ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH} ]; then
+		mkdir -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}
+	fi
+	cp -p ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
+
+	#copy arch generated headers
+	echo "============="
+	echo "Copying arch-specific generated headers to prebuilt"
+	CUR_DIR=$(pwd)
+	cd ${OUT_DIR}; find arch -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR} \;
+	cd $CUR_DIR
+
+	#copy kernel generated headers
+	echo "============="
+	echo "Copying kernel generated headers to prebuilt"
+	cp -p -r ${OUT_DIR}/${KERNEL_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}
+
+	#copy userspace facing headers
+	CUR_DIR=$(pwd)
+	echo "============"
+	echo "Copying userspace headers to prebuilt"
+	mkdir -p ${KERNEL_PREBUILT_DIR}/usr
+	cd ${KERNEL_HEADERS_INSTALL};find  -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR}/usr \;
+	cd $CUR_DIR
+
+	#copy kernel scripts
+	echo "============"
+	echo "Copying kernel scripts to prebuilt"
+	cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${KERNEL_PREBUILT_DIR}
+}
+
+copy_from_prebuilt()
+{
+	cd ${ROOT_DIR}
+
+	if [ ! -e ${OUT_DIR} ]; then
+		mkdir -p ${OUT_DIR}
+	fi
+
+	#Copy userspace headers
+	echo "============"
+	echo "Copying userspace headers from prebuilt"
+	mkdir -p ${KERNEL_HEADERS_INSTALL}
+	cd ${KERNEL_PREBUILT_DIR}/usr;find  -name *.h -exec cp --parents {} ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL} \;
+	cd ${ROOT_DIR}
+
+	#Copy files, such as System.map, vmlinux, etc
+	echo "============"
+	echo "Copying kernel files from prebuilt"
+	cd ${KERNEL_PREBUILT_DIR}
+	for FILE in ${FILES}; do
+		if [ -f ${KERNEL_PREBUILT_DIR}/$FILE ]; then
+			# Copy for prebuilt
+			echo "  $FILE ${KERNEL_PREBUILT_DIR}"
+			echo ${KERNEL_PREBUILT_DIR}/${FILE}
+			cp -p ${KERNEL_PREBUILT_DIR}/${FILE} ${OUT_DIR}/
+			echo $FILE copied to ${KERNEL_PREBUILT_DIR}
+		else
+			echo "$FILE does not exist, skipping"
+		fi
+	done
+
+	#copy kernel image
+	echo "============"
+	echo "Copying kernel image from prebuilt"
+	if [ ! -e ${OUT_DIR}/${IMAGE_FILE_PATH} ]; then
+		mkdir -p ${OUT_DIR}/${IMAGE_FILE_PATH}
+	fi
+	cp -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
+
+	#copy arch generated headers, and kernel generated headers
+	echo "============"
+	echo "Copying arch-specific generated headers from prebuilt"
+	cp -p -r ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS} ${OUT_DIR}/${ARCH_GEN_HEADERS_LOC}
+	echo "============"
+	echo "Copying kernel generated headers from prebuilt"
+	cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_GEN_HEADERS} ${OUT_DIR}
+
+	#copy modules
+	echo "============"
+	echo "Copying kernel modules from prebuilt"
+	cd ${ROOT_DIR}
+	MODULES=$(find ${KERNEL_PREBUILT_DIR} -type f -name "*.ko")
+	if [ ! -e  ${KERNEL_MODULES_OUT} ]; then
+		mkdir -p  ${KERNEL_MODULES_OUT}
+	fi
+	for FILE in ${MODULES}; do
+		echo "Copy ${FILE#${KERNEL_MODULES_OUT}/}"
+		cp -p ${FILE} ${KERNEL_MODULES_OUT}
+	done
+
+	#copy scripts directory
+	echo "============"
+	echo "Copying kernel scripts from prebuilt"
+	cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_SCRIPTS} ${OUT_DIR}
+}
+
+#script starts executing here
 if [ -n "${CC}" ]; then
   CC_ARG="CC=${CC}"
 fi
 
-#Install headers
-set -x
-  (cd ${OUT_DIR} && make HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
-set +x
-
-# Building Kernel
-set -x
-  (cd ${OUT_DIR} && make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
-set +x
-
-# Modules Install
-rm -rf ${MODULES_STAGING_DIR}
-mkdir -p ${MODULES_STAGING_DIR}
-set -x
-(cd ${OUT_DIR} && \
-   make O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
-set +x
-
-echo ${KERNEL_PREBUILT_DIR}
-
-if [[ ! -e ${KERNEL_PREBUILT_DIR} ]]; then
-	mkdir -p ${KERNEL_PREBUILT_DIR}
+#use prebuilts if we want to use them, and they are available
+if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_PREBUILT_DIR} ]; then
+	copy_from_prebuilt
+	exit 0
 fi
 
-if [[ ! -e ${KERNEL_MODULES_OUT} ]]; then
-	mkdir -p ${KERNEL_MODULES_OUT}
+#use kernel source for building
+if [ ! -z ${HEADERS_INSTALL} ]; then
+	make_defconfig
+	headers_install
+else
+	make_defconfig
+	headers_install
+	build_kernel
+	modules_install
+	copy_all_to_prebuilt
 fi
-
-MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
-if [ -n "${MODULES}" ]; then
-  echo "======================"
-  echo " Copying modules files"
-    for FILE in ${MODULES}; do
-      echo "${FILE#${KERNEL_MODULES_OUT}/}"
-      cp -p ${FILE} ${KERNEL_MODULES_OUT}
-
-      # Copy for prebuilt
-      if [ ! -e ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT} ]; then
-	      mkdir -p ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT}
-      fi
-      cp -p ${FILE} ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT}
-
-    done
-fi
-
-echo "============="
-echo "Copying files"
-for FILE in ${FILES}; do
-  if [ -f ${OUT_DIR}/${FILE} ]; then
-    # Copy for prebuilt
-    echo "  $FILE ${KERNEL_PREBUILT_DIR}"
-    cp -p ${OUT_DIR}/${FILE} ${KERNEL_PREBUILT_DIR}/
-    echo $FILE copied to ${KERNEL_PREBUILT_DIR}
-  else
-    echo "  $FILE does not exist, skipping"
-  fi
-done
-
-
-if [ ! -e ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH} ]; then
-	mkdir -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}
-fi
-
-# copy images, arch generated headers, and kernel generated headers
-cp -p ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
-
-CUR_DIR=$(pwd)
-cd ${OUT_DIR}; find arch -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR} \;
-cd $CUR_DIR
-
-cp -p -r ${OUT_DIR}/${KERNEL_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}
-
-CUR_DIR=$(pwd)
-echo "============"
-echo "Copy headers"
-mkdir -p ${KERNEL_PREBUILT_DIR}/usr
-cd ${KERNEL_HEADERS_INSTALL};find  -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR}/usr \;
-cd $CUR_DIR
-
-echo "============"
-echo "Copying scripts"
-cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${KERNEL_PREBUILT_DIR}
 
 exit 0
