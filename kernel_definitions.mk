@@ -44,6 +44,17 @@ KERNEL_GCC_NOANDROID_CHK := $(shell (echo "int main() {return 0;}" | $(KERNEL_CR
 
 real_cc :=
 ifeq ($(KERNEL_LLVM_SUPPORT),true)
+  ifeq ($(KERNEL_SD_LLVM_SUPPORT), true)  #Using sd-llvm compiler
+    ifeq ($(shell echo $(SDCLANG_PATH) | head -c 1),/)
+       KERNEL_LLVM_BIN := $(SDCLANG_PATH)/clang
+    else
+       KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH)/clang
+    endif
+    $(warning "Using sdllvm" $(KERNEL_LLVM_BIN))
+  else
+    KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG) #Using aosp-llvm compiler
+    $(warning "Using aosp-llvm" $(KERNEL_LLVM_BIN))
+  endif
 real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
 else
 ifeq ($(strip $(KERNEL_GCC_NOANDROID_CHK)),0)
