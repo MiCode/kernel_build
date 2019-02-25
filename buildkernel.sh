@@ -4,8 +4,6 @@
 #   build/build.sh <make options>*
 #
 # The kernel is built in ${COMMON_OUT_DIR}/${KERNEL_DIR}.
-#
-# TODO: External module compilation
 
 set -e
 
@@ -23,6 +21,10 @@ export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 #Setting up for build
 PREBUILT_KERNEL_IMAGE=$(basename ${TARGET_PREBUILT_INT_KERNEL})
 IMAGE_FILE_PATH=arch/${ARCH}/boot
+KERNEL_GEN_HEADERS=include
+ARCH_GEN_HEADERS=arch/${ARCH}/include
+ARCH_GEN_HEADERS_LOC=arch/${ARCH}
+KERNEL_SCRIPTS=scripts
 FILES="
 vmlinux
 System.map
@@ -42,7 +44,7 @@ if [ -z "${FORCE_KERNEL_BUILD}" ]; then
 		cd ${KERNEL_PREBUILT_DIR}/usr;find  -name *.h -exec cp --parents {} ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL} \;
 		cd ${ROOT_DIR}
 
-		# Copy Image, vmlinux, System.map
+		# Copy Image, generated headers, vmlinux, System.map
 		cd ${KERNEL_PREBUILT_DIR}
 		for FILE in ${FILES}; do
 			if [ -f ${KERNEL_PREBUILT_DIR}/$FILE ]; then
@@ -59,6 +61,8 @@ if [ -z "${FORCE_KERNEL_BUILD}" ]; then
 			mkdir -p ${OUT_DIR}/${IMAGE_FILE_PATH}
 		fi
 		cp -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
+		cp -p -r ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS} ${OUT_DIR}/${ARCH_GEN_HEADERS_LOC}
+		cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_GEN_HEADERS} ${OUT_DIR}
 
 		cd ${ROOT_DIR}
 		# Copy Modules
@@ -70,6 +74,9 @@ if [ -z "${FORCE_KERNEL_BUILD}" ]; then
 			echo "Copy ${FILE#${KERNEL_MODULES_OUT}/}"
 			cp -p ${FILE} ${KERNEL_MODULES_OUT}
 		done
+
+		#copy scripts directory
+		cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_SCRIPTS} ${OUT_DIR}
 
 		#return success
 		exit 0
@@ -152,7 +159,14 @@ if [ ! -e ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH} ]; then
 	mkdir -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}
 fi
 
+# copy images, arch generated headers, and kernel generated headers
 cp -p ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
+
+CUR_DIR=$(pwd)
+cd ${OUT_DIR}; find arch -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR} \;
+cd $CUR_DIR
+
+cp -p -r ${OUT_DIR}/${KERNEL_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}
 
 CUR_DIR=$(pwd)
 echo "============"
@@ -160,5 +174,9 @@ echo "Copy headers"
 mkdir -p ${KERNEL_PREBUILT_DIR}/usr
 cd ${KERNEL_HEADERS_INSTALL};find  -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR}/usr \;
 cd $CUR_DIR
+
+echo "============"
+echo "Copying scripts"
+cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${KERNEL_PREBUILT_DIR}
 
 exit 0
