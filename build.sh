@@ -142,6 +142,14 @@ if [ -z "${SKIP_MRPROPER}" ] ; then
   set +x
 fi
 
+if [ "${PRE_DEFCONFIG_CMDS}" != "" ]; then
+  echo "========================================================"
+  echo " Running pre-defconfig command(s):"
+  set -x
+  eval ${PRE_DEFCONFIG_CMDS}
+  set +x
+fi
+
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
 set -x
 (cd ${KERNEL_DIR} && make O=${OUT_DIR} ${DEFCONFIG})
@@ -171,6 +179,14 @@ set -x
 (cd ${OUT_DIR} && \
  make O=${OUT_DIR} ${CC_ARG} ${LD_ARG} -j$(nproc) $@)
 set +x
+
+if [ "${POST_KERNEL_BUILD_CMDS}" != "" ]; then
+  echo "========================================================"
+  echo " Running post-kernel-build command(s):"
+  set -x
+  eval ${POST_KERNEL_BUILD_CMDS}
+  set +x
+fi
 
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
