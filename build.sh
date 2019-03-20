@@ -139,12 +139,22 @@ cd ${ROOT_DIR}
 
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
+if [ -n "${CC}" ]; then
+  CC_ARG="CC=${CC}"
+fi
+
+if [ -n "${LD}" ]; then
+  LD_ARG="LD=${LD}"
+fi
+
+CC_LD_ARG="${CC_ARG} ${LD_ARG}"
+
 mkdir -p ${OUT_DIR}
 echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make O=${OUT_DIR} mrproper)
+  (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} mrproper)
   set +x
 fi
 
@@ -158,7 +168,7 @@ fi
 
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
 set -x
-(cd ${KERNEL_DIR} && make O=${OUT_DIR} ${DEFCONFIG})
+(cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${DEFCONFIG})
 set +x
 
 if [ "${POST_DEFCONFIG_CMDS}" != "" ]; then
@@ -173,17 +183,9 @@ fi
 echo "========================================================"
 echo " Building kernel"
 
-if [ -n "${CC}" ]; then
-  CC_ARG="CC=${CC}"
-fi
-
-if [ -n "${LD}" ]; then
-  LD_ARG="LD=${LD}"
-fi
-
 set -x
 (cd ${OUT_DIR} && \
- make O=${OUT_DIR} ${CC_ARG} ${LD_ARG} -j$(nproc) $@)
+ make O=${OUT_DIR} ${CC_LD_ARG} -j$(nproc) $@)
 set +x
 
 if [ "${POST_KERNEL_BUILD_CMDS}" != "" ]; then
@@ -202,7 +204,7 @@ if [ -n "${IN_KERNEL_MODULES}" ]; then
   echo " Installing kernel modules into staging directory"
 
   (cd ${OUT_DIR} && \
-   make O=${OUT_DIR} ${CC_ARG} ${LD_ARG} INSTALL_MOD_STRIP=1 \
+   make O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1 \
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} modules_install)
 fi
 
@@ -223,9 +225,9 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_ARG} ${LD_ARG} -j$(nproc) "$@"
+                       O=${OUT_DIR} ${CC_LD_ARG} -j$(nproc) "$@"
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_ARG} ${LD_ARG} INSTALL_MOD_STRIP=1   \
+                       O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1   \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} modules_install
     set +x
   done
@@ -297,7 +299,7 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo "========================================================"
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_ARG} INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" -j$(nproc) headers_install
+  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_LD_ARG} INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" -j$(nproc) headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
   # are only side products. We don't want those. Let's delete them.
   find ${KERNEL_UAPI_HEADERS_DIR} \( -name ..install.cmd -o -name .install \) -exec rm '{}' +
