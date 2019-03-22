@@ -46,7 +46,10 @@
 #     for debugging purposes.
 #
 #   CC
-#     Override compiler to be used. (e.g. CC=clang)
+#     Override compiler to be used. (e.g. CC=clang) Specifying CC=gcc
+#     effectively unsets CC to fall back to the default gcc detected by kbuild
+#     (including any target triplet). To use a custom 'gcc' from PATH, use an
+#     absolute path, e.g.  CC=/usr/local/bin/gcc
 #
 #   LD
 #     Override linker (flags) to be used.
@@ -138,6 +141,11 @@ export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_heade
 cd ${ROOT_DIR}
 
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
+
+# CC=gcc is effectively a fallback to the default gcc including any target
+# triplets. If the user wants to use a custom compiler, they are still able to
+# pass an absolute path, e.g. CC=/usr/bin/gcc.
+[ "${CC}" == "gcc" ] && unset CC
 
 if [ -n "${CC}" ]; then
   CC_ARG="CC=${CC}"
