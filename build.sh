@@ -320,7 +320,7 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
 	echo "========================================================"
 	KERNEL_HEADERS_TAR=${DIST_DIR}/kernel-headers.tar.gz
 	echo " Copying kernel headers to ${KERNEL_HEADERS_TAR}"
-	TMP_DIR="/tmp"
+	TMP_DIR="${OUT_DIR}/tmp"
 	TMP_KERNEL_HEADERS_CHILD="kernel-headers"
 	TMP_KERNEL_HEADERS_DIR=$TMP_DIR/$TMP_KERNEL_HEADERS_CHILD
 	CURDIR=$(pwd)
