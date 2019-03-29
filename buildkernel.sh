@@ -136,9 +136,7 @@ copy_all_to_prebuilt()
 	#copy arch generated headers
 	echo "============="
 	echo "Copying arch-specific generated headers to prebuilt"
-	CUR_DIR=$(pwd)
-	cd ${OUT_DIR}; find arch -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR} \;
-	cd $CUR_DIR
+	cp -p -r ${OUT_DIR}/${ARCH_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS}
 
 	#copy kernel generated headers
 	echo "============="
@@ -146,12 +144,10 @@ copy_all_to_prebuilt()
 	cp -p -r ${OUT_DIR}/${KERNEL_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}
 
 	#copy userspace facing headers
-	CUR_DIR=$(pwd)
 	echo "============"
 	echo "Copying userspace headers to prebuilt"
 	mkdir -p ${KERNEL_PREBUILT_DIR}/usr
-	cd ${KERNEL_HEADERS_INSTALL};find  -name *.h -exec cp --parents {} ${KERNEL_PREBUILT_DIR}/usr \;
-	cd $CUR_DIR
+	cp -p -r ${KERNEL_HEADERS_INSTALL}/include ${KERNEL_PREBUILT_DIR}/usr
 
 	#copy kernel scripts
 	echo "============"
@@ -171,8 +167,7 @@ copy_from_prebuilt()
 	echo "============"
 	echo "Copying userspace headers from prebuilt"
 	mkdir -p ${KERNEL_HEADERS_INSTALL}
-	cd ${KERNEL_PREBUILT_DIR}/usr;find  -name *.h -exec cp --parents {} ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL} \;
-	cd ${ROOT_DIR}
+	cp -p -r ${KERNEL_PREBUILT_DIR}/usr/include ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL}
 
 	#Copy files, such as System.map, vmlinux, etc
 	echo "============"
