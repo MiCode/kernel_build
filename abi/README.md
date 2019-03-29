@@ -28,6 +28,14 @@ there is only one option: 'libabigail' (default). A sample invocation looks as
 follows:
   $ dump_abi --linux-tree path/to/out --out-file /path/to/abidump.out
 
+To ensure a consistent environment and stable toolchain, a wrapper script is
+provided at the topmost directory of this project: `build_abi.sh`. It builds
+the kernel using `build.sh` and therefore accepts the same environment
+variables to customize the build, such as BUILD_CONFIG, CC and the various
+SKIP_* variables to speed up incremental builds. Following a successful build,
+`build_abi.sh` will create an ABI dump in the DIST_DIR of the build. A sample
+invocation from the top of the repo tree looks as follows:
+  $ BUILD_CONFIG=path/to/build.config build/build_abi.sh
 
 Comparing ABI dumps
 -------------------
