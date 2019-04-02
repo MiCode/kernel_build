@@ -20,12 +20,17 @@
 #     just:
 #       make -j24
 
+[ -n "$ENVSETUP_SH_INCLUDED" ] && return || export ENVSETUP_SH_INCLUDED=1
 
 # TODO: Use a $(gettop) style method.
 export ROOT_DIR=$PWD
 
 export BUILD_CONFIG=${BUILD_CONFIG:-build.config}
 . ${ROOT_DIR}/${BUILD_CONFIG}
+
+export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
+export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
+export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 
 echo "========================================================"
 echo "= build config: ${ROOT_DIR}/${BUILD_CONFIG}"
