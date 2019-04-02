@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ABIGAIL_VERSION=1.5
+ABIGAIL_VERSION=1.6
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
 BASE_DIR=$(readlink -f $(dirname $0))
