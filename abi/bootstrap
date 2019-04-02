@@ -29,8 +29,11 @@ fi
 
 set -x
 
+PACKAGES="libxml2-dev elfutils libdw-dev"
 # Install the dependencies.
-sudo apt-get install libxml2-dev elfutils libdw-dev
+if ! dpkg -s ${PACKAGES} > /dev/null 2>&1 ; then
+    sudo apt-get install ${PACKAGES}
+fi
 
 if [ ! -d "${LIBABIGAIL_SRC}" ]; then
   git clone git://sourceware.org/git/libabigail.git "${LIBABIGAIL_SRC}"
