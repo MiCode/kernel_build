@@ -130,11 +130,8 @@ SIGN_ALGO=sha512
 source "${ROOT_DIR}/build/envsetup.sh"
 
 export MAKE_ARGS=$@
-export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
-export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
-export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 
