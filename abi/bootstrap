@@ -29,10 +29,17 @@ fi
 
 set -x
 
-PACKAGES="libxml2-dev elfutils libdw-dev"
+PACKAGES="autoconf elfutils libxml2-dev libdw-dev"
 # Install the dependencies.
 if ! dpkg -s ${PACKAGES} > /dev/null 2>&1 ; then
     sudo apt-get install ${PACKAGES}
+fi
+
+# Assert minimum package versions
+if ! dpkg --compare-versions \
+    $(dpkg-query --showformat='${Version}' --show libdw-dev) ge 0.165 ; then
+  echo "ERROR: Minimum version of v0.165 for libdw-dev not met!"
+  exit 1
 fi
 
 if [ ! -d "${LIBABIGAIL_SRC}" ]; then
