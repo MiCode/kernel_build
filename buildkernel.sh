@@ -136,7 +136,7 @@ copy_all_to_prebuilt()
 	#copy arch generated headers
 	echo "============="
 	echo "Copying arch-specific generated headers to prebuilt"
-	cp -p -r ${OUT_DIR}/${ARCH_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS}
+	cp -p -r ${OUT_DIR}/${ARCH_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS_LOC}
 
 	#copy kernel generated headers
 	echo "============="
