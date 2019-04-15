@@ -314,20 +314,18 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
 fi
 
 if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
-	echo "========================================================"
-	KERNEL_HEADERS_TAR=${DIST_DIR}/kernel-headers.tar.gz
-	echo " Copying kernel headers to ${KERNEL_HEADERS_TAR}"
-	TMP_DIR="${OUT_DIR}/tmp"
-	TMP_KERNEL_HEADERS_CHILD="kernel-headers"
-	TMP_KERNEL_HEADERS_DIR=$TMP_DIR/$TMP_KERNEL_HEADERS_CHILD
-	CURDIR=$(pwd)
-	mkdir -p $TMP_KERNEL_HEADERS_DIR
-	cd $ROOT_DIR/$KERNEL_DIR; find arch -name *.h -exec cp --parents {} $TMP_KERNEL_HEADERS_DIR \;
-	cd $ROOT_DIR/$KERNEL_DIR; find include -name *.h -exec cp --parents {} $TMP_KERNEL_HEADERS_DIR \;
-	cd $OUT_DIR; find  -name *.h -exec cp --parents {} $TMP_KERNEL_HEADERS_DIR \;
-	tar -czvf $KERNEL_HEADERS_TAR --directory=$TMP_DIR $TMP_KERNEL_HEADERS_CHILD > /dev/null 2>&1
-	rm -rf $TMP_KERNEL_HEADERS_DIR
-	cd $CURDIR
+  echo "========================================================"
+  KERNEL_HEADERS_TAR=${DIST_DIR}/kernel-headers.tar.gz
+  echo " Copying kernel headers to ${KERNEL_HEADERS_TAR}"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    find arch include $OUT_DIR -name *.h -print0               \
+            | tar -czf $KERNEL_HEADERS_TAR                     \
+              --absolute-names                                 \
+              --dereference                                    \
+              --transform "s,.*$OUT_DIR,,"                     \
+              --transform "s,^,kernel-headers/,"               \
+              --null -T -
+  popd
 fi
 
 echo "========================================================"
