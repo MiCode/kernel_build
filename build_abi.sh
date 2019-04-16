@@ -39,6 +39,14 @@ function update_config_for_abi_dump() {
      make O=${OUT_DIR} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
 
+# ensure we have a sufficient abigail installation in path before continuing
+if ! dpkg --compare-versions \
+       $(abidiff --version | awk '{print $2}') ge 1.6.0; then
+    echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
+    echo "Did you run abi/bootstrap and followed the instructions?"
+    exit 1
+fi
+
 # delegate the actual build to build.sh
 ${ROOT_DIR}/build/build.sh $*
 
