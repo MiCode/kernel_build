@@ -8,9 +8,17 @@ future. Follow the instructions below to set up the current prerequisites.
 
 Set up the prerequisites
 ------------------------
-The script `bootstrap` will install the system prerequisites
- - libxml2-dev
+The script `bootstrap` will ensure the following system prerequisites are
+installed. At the moment, only apt based package managers are supported.
+ - autoconf
  - elfutils
+ - g++
+ - libtool
+ - libxml2-dev
+ - libdw-dev
+ - make
+ - pkg-config
+ - python3
 
 It will then acquire the libabigail sources and build the required binaries.
 At the very end the script will print instructions how to add the binaries to
