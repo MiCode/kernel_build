@@ -40,8 +40,10 @@ function update_config_for_abi_dump() {
 }
 
 # ensure we have a sufficient abigail installation in path before continuing
-if ! dpkg --compare-versions \
-       $(abidiff --version | awk '{print $2}') ge 1.6.0; then
+if ! (    hash abidiff 2>/dev/null                                     \
+       && dpkg --compare-versions                                      \
+               $(abidiff --version | awk '{print $2}') ge 1.6.0)
+then
     echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
     echo "Did you run abi/bootstrap and followed the instructions?"
     exit 1
