@@ -28,6 +28,11 @@ ifeq ($(KERNEL_TARGET),)
 INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
 endif
 
+ifneq ($(TARGET_KERNEL_APPEND_DTB), true)
+$(info Using DTB Image)
+INSTALLED_DTBIMAGE_TARGET := $(PRODUCT_OUT)/dtb.img
+endif
+
 TARGET_KERNEL_ARCH := $(strip $(TARGET_KERNEL_ARCH))
 ifeq ($(TARGET_KERNEL_ARCH),)
 KERNEL_ARCH := arm
@@ -159,3 +164,7 @@ $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 
 $(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL) | $(ACP)
 	$(transform-prebuilt-to-target)
+
+# Creating a dtb.img once the kernel is compiled if TARGET_KERNEL_APPEND_DTB is set to be false
+$(INSTALLED_DTBIMAGE_TARGET): $(INSTALLED_KERNEL_TARGET)
+	cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb > $@
