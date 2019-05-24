@@ -1,5 +1,22 @@
 #!/bin/bash -xE
 
+# Copyright (c) 2019 The Linux Foundation. All rights reserved.
+# Not a Contribution.
+#
+# Copyright (C) 2019 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Usage:
 #   build/build.sh <make options>*
 #
@@ -29,6 +46,9 @@ FILES="
 vmlinux
 System.map
 "
+PRIMARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/primary_kernel
+SECONDARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/secondary_kernel
+KERN_SHA1_LOC=${KERNEL_PREBUILT_DIR}/kernel_sha1.txt
 
 #defconfig
 make_defconfig()
@@ -80,6 +100,8 @@ modules_install()
 
 copy_modules_to_prebuilt()
 {
+	PREBUILT_OUT=$1
+
 	if [[ ! -e ${KERNEL_MODULES_OUT} ]]; then
 		mkdir -p ${KERNEL_MODULES_OUT}
 	fi
@@ -93,23 +115,24 @@ copy_modules_to_prebuilt()
 			cp -p ${FILE} ${KERNEL_MODULES_OUT}
 
 			# Copy for prebuilt
-			if [ ! -e ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT} ]; then
-				mkdir -p ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT}
+			if [ ! -e ${PREBUILT_OUT}/${KERNEL_MODULES_OUT} ]; then
+				mkdir -p ${PREBUILT_OUT}/${KERNEL_MODULES_OUT}
 			fi
-			cp -p ${FILE} ${KERNEL_PREBUILT_DIR}/${KERNEL_MODULES_OUT}
+			cp -p ${FILE} ${PREBUILT_OUT}/${KERNEL_MODULES_OUT}
 		done
 	fi
 }
 
 copy_all_to_prebuilt()
 {
-	echo ${KERNEL_PREBUILT_DIR}
+	PREBUILT_OUT=$1
+	echo ${PREBUILT_OUT}
 
-	if [[ ! -e ${KERNEL_PREBUILT_DIR} ]]; then
-		mkdir -p ${KERNEL_PREBUILT_DIR}
+	if [[ ! -e ${PREBUILT_OUT} ]]; then
+		mkdir -p ${PREBUILT_OUT}
 	fi
 
-	copy_modules_to_prebuilt
+	copy_modules_to_prebuilt ${PREBUILT_OUT}
 
 	#copy necessary files from the out directory
 	echo "============="
@@ -117,9 +140,9 @@ copy_all_to_prebuilt()
 	for FILE in ${FILES}; do
 	  if [ -f ${OUT_DIR}/${FILE} ]; then
 	    # Copy for prebuilt
-	    echo "$FILE ${KERNEL_PREBUILT_DIR}"
-	    cp -p ${OUT_DIR}/${FILE} ${KERNEL_PREBUILT_DIR}/
-	    echo $FILE copied to ${KERNEL_PREBUILT_DIR}
+	    echo "$FILE ${PREBUILT_OUT}"
+	    cp -p ${OUT_DIR}/${FILE} ${PREBUILT_OUT}/
+	    echo $FILE copied to ${PREBUILT_OUT}
 	  else
 	    echo "$FILE does not exist, skipping"
 	  fi
@@ -128,35 +151,44 @@ copy_all_to_prebuilt()
 	#copy kernel image
 	echo "============="
 	echo "Copying kernel image to prebuilt"
-	if [ ! -e ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH} ]; then
-		mkdir -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}
+	if [ ! -e ${PREBUILT_OUT}/${IMAGE_FILE_PATH} ]; then
+		mkdir -p ${PREBUILT_OUT}/${IMAGE_FILE_PATH}
 	fi
-	cp -p ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
+	cp -p ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
 
 	#copy arch generated headers
 	echo "============="
 	echo "Copying arch-specific generated headers to prebuilt"
-	cp -p -r ${OUT_DIR}/${ARCH_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS}
+	cp -p -r ${OUT_DIR}/${ARCH_GEN_HEADERS} ${PREBUILT_OUT}/${ARCH_GEN_HEADERS_LOC}
 
 	#copy kernel generated headers
 	echo "============="
 	echo "Copying kernel generated headers to prebuilt"
-	cp -p -r ${OUT_DIR}/${KERNEL_GEN_HEADERS} ${KERNEL_PREBUILT_DIR}
+	cp -p -r ${OUT_DIR}/${KERNEL_GEN_HEADERS} ${PREBUILT_OUT}
 
 	#copy userspace facing headers
 	echo "============"
 	echo "Copying userspace headers to prebuilt"
-	mkdir -p ${KERNEL_PREBUILT_DIR}/usr
-	cp -p -r ${KERNEL_HEADERS_INSTALL}/include ${KERNEL_PREBUILT_DIR}/usr
+	mkdir -p ${PREBUILT_OUT}/usr
+	cp -p -r ${KERNEL_HEADERS_INSTALL}/include ${PREBUILT_OUT}/usr
 
 	#copy kernel scripts
 	echo "============"
 	echo "Copying kernel scripts to prebuilt"
-	cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${KERNEL_PREBUILT_DIR}
+	cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${PREBUILT_OUT}
+}
+
+extract_kernel_sha1()
+{
+	CUR_DIR=$(pwd)
+	cd ${KERNEL_DIR}
+	git rev-list --max-count=1 HEAD > ${KERN_SHA1_LOC}
+	cd ${CUR_DIR}
 }
 
 copy_from_prebuilt()
 {
+	PREBUILT_OUT=$1
 	cd ${ROOT_DIR}
 
 	if [ ! -e ${OUT_DIR} ]; then
@@ -167,19 +199,19 @@ copy_from_prebuilt()
 	echo "============"
 	echo "Copying userspace headers from prebuilt"
 	mkdir -p ${KERNEL_HEADERS_INSTALL}
-	cp -p -r ${KERNEL_PREBUILT_DIR}/usr/include ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL}
+	cp -p -r ${PREBUILT_OUT}/usr/include ${ROOT_DIR}/${KERNEL_HEADERS_INSTALL}
 
 	#Copy files, such as System.map, vmlinux, etc
 	echo "============"
 	echo "Copying kernel files from prebuilt"
-	cd ${KERNEL_PREBUILT_DIR}
+	cd ${PREBUILT_OUT}
 	for FILE in ${FILES}; do
-		if [ -f ${KERNEL_PREBUILT_DIR}/$FILE ]; then
+		if [ -f ${PREBUILT_OUT}/$FILE ]; then
 			# Copy for prebuilt
-			echo "  $FILE ${KERNEL_PREBUILT_DIR}"
-			echo ${KERNEL_PREBUILT_DIR}/${FILE}
-			cp -p ${KERNEL_PREBUILT_DIR}/${FILE} ${OUT_DIR}/
-			echo $FILE copied to ${KERNEL_PREBUILT_DIR}
+			echo "  $FILE ${PREBUILT_OUT}"
+			echo ${PREBUILT_OUT}/${FILE}
+			cp -p ${PREBUILT_OUT}/${FILE} ${OUT_DIR}/
+			echo $FILE copied to ${PREBUILT_OUT}
 		else
 			echo "$FILE does not exist, skipping"
 		fi
@@ -191,21 +223,21 @@ copy_from_prebuilt()
 	if [ ! -e ${OUT_DIR}/${IMAGE_FILE_PATH} ]; then
 		mkdir -p ${OUT_DIR}/${IMAGE_FILE_PATH}
 	fi
-	cp -p ${KERNEL_PREBUILT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
+	cp -p ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE} ${OUT_DIR}/${IMAGE_FILE_PATH}/${PREBUILT_KERNEL_IMAGE}
 
 	#copy arch generated headers, and kernel generated headers
 	echo "============"
 	echo "Copying arch-specific generated headers from prebuilt"
-	cp -p -r ${KERNEL_PREBUILT_DIR}/${ARCH_GEN_HEADERS} ${OUT_DIR}/${ARCH_GEN_HEADERS_LOC}
+	cp -p -r ${PREBUILT_OUT}/${ARCH_GEN_HEADERS} ${OUT_DIR}/${ARCH_GEN_HEADERS_LOC}
 	echo "============"
 	echo "Copying kernel generated headers from prebuilt"
-	cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_GEN_HEADERS} ${OUT_DIR}
+	cp -p -r ${PREBUILT_OUT}/${KERNEL_GEN_HEADERS} ${OUT_DIR}
 
 	#copy modules
 	echo "============"
 	echo "Copying kernel modules from prebuilt"
 	cd ${ROOT_DIR}
-	MODULES=$(find ${KERNEL_PREBUILT_DIR} -type f -name "*.ko")
+	MODULES=$(find ${PREBUILT_OUT} -type f -name "*.ko")
 	if [ ! -e  ${KERNEL_MODULES_OUT} ]; then
 		mkdir -p  ${KERNEL_MODULES_OUT}
 	fi
@@ -217,7 +249,7 @@ copy_from_prebuilt()
 	#copy scripts directory
 	echo "============"
 	echo "Copying kernel scripts from prebuilt"
-	cp -p -r ${KERNEL_PREBUILT_DIR}/${KERNEL_SCRIPTS} ${OUT_DIR}
+	cp -p -r ${PREBUILT_OUT}/${KERNEL_SCRIPTS} ${OUT_DIR}
 }
 
 #script starts executing here
@@ -225,9 +257,16 @@ if [ -n "${CC}" ]; then
   CC_ARG="CC=${CC}"
 fi
 
+#choose between secondary and primary kernel image
+if [[ ${DEFCONFIG} == *"perf_defconfig" ]]; then
+	KERNEL_BINS=${SECONDARY_KERN_BINS}
+else
+	KERNEL_BINS=${PRIMARY_KERN_BINS}
+fi
+
 #use prebuilts if we want to use them, and they are available
-if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_PREBUILT_DIR} ]; then
-	copy_from_prebuilt
+if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_BINS} ]; then
+	copy_from_prebuilt ${KERNEL_BINS}
 	exit 0
 fi
 
@@ -240,7 +279,8 @@ else
 	headers_install
 	build_kernel
 	modules_install
-	copy_all_to_prebuilt
+	copy_all_to_prebuilt ${KERNEL_BINS}
+	extract_kernel_sha1
 fi
 
 exit 0
