@@ -35,6 +35,11 @@ class Libabigail(AbiTool):
     """" Concrete AbiTool implementation for libabigail """
     def dump_kernel_abi(self, linux_tree, dump_path):
         dump_abi_cmd = ['abidw',
+                        # omit various sources of indeterministic abidw output
+                        '--short-locs',
+                        '--no-corpus-path',
+                        '--no-comp-dir-path',
+                        # the path containing vmlinux and *.ko
                         '--linux-tree',
                         linux_tree,
                         '--out-file',
