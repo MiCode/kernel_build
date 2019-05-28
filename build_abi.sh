@@ -50,7 +50,7 @@ then
 fi
 
 # delegate the actual build to build.sh
-${ROOT_DIR}/build/build.sh $*
+ABI_DEFINITION= ${ROOT_DIR}/build/build.sh $*
 
 echo "========================================================"
 echo " Creating ABI dump"
