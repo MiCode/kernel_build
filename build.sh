@@ -57,7 +57,7 @@
 #   ABI_DEFINITION
 #     Location of the abi definition file relative to <REPO_ROOT>/KERNEL_DIR
 #     If defined (usually in build.config), also copy that abi definition to
-#     <OUT_DIR>/dist/abi.out when creating the distribution.
+#     <OUT_DIR>/dist/abi.xml when creating the distribution.
 #
 # Environment variables to influence the stages of the kernel build.
 #
@@ -353,12 +353,12 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
   popd
 fi
 
-# Copy the abi_${arch}.out file from the sources into the dist dir
+# Copy the abi_${arch}.xml file from the sources into the dist dir
 if [ -n "${ABI_DEFINITION}" ]; then
   echo "========================================================"
-  echo " Copying abi definition to ${DIST_DIR}/abi.out"
+  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
   pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.out
+    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
   popd
 fi
 
