@@ -58,12 +58,12 @@ echo " Creating ABI dump"
 # create abi dump
 COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
 id=${ABI_OUT_TAG:-$(git -C $KERNEL_DIR describe --dirty --always)}
-abi_out_file=abi-${id}.out
+abi_out_file=abi-${id}.xml
 ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree $OUT_DIR                     \
     --out-file ${DIST_DIR}/${abi_out_file}
 
-ln -sf ${abi_out_file} ${DIST_DIR}/abi.out
+ln -sf ${abi_out_file} ${DIST_DIR}/abi.xml
 
 echo "========================================================"
 echo " ABI dump has been created at ${DIST_DIR}/${abi_out_file}"
