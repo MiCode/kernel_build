@@ -34,7 +34,7 @@ Provided a linux kernel tree with built vmlinux and kernel modules, the tool
 `dump_abi` creates an ABI representation using the selected abi tool. As of now
 there is only one option: 'libabigail' (default). A sample invocation looks as
 follows:
-  $ dump_abi --linux-tree path/to/out --out-file /path/to/abidump.out
+  $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml
 
 To ensure a consistent environment and stable toolchain, a wrapper script is
 provided at the topmost directory of this project: `build_abi.sh`. It builds
@@ -50,7 +50,7 @@ Comparing ABI dumps
 ABI dumps created by `dump_abi` can be compared with `diff_abi`. Ensure to use
 the same abi-tool for `dump_abi` and `diff_abi`. A sample invocation looks as
 follows:
-  $ diff_abi --baseline dump1.out --new dump2.out --report report.out
+  $ diff_abi --baseline abi1.xml --new abi2.xml --report report.out
 
 The report created is tool specific, but generally lists ABI changes detected
 that affect the Kernel's module interface.
