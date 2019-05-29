@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ABIGAIL_VERSION=1.6
+ABIGAIL_VERSION=fb70149c
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
 BASE_DIR=$(readlink -f $(dirname $0))
@@ -48,7 +48,7 @@ else
   git -C ${LIBABIGAIL_SRC} fetch
 fi
 
-git -C ${LIBABIGAIL_SRC} checkout libabigail-${ABIGAIL_VERSION}
+git -C ${LIBABIGAIL_SRC} checkout ${ABIGAIL_VERSION}
 
 # Build libabigail
 pushd "${LIBABIGAIL_SRC}"
