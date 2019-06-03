@@ -68,3 +68,20 @@ ln -sf ${abi_out_file} ${DIST_DIR}/abi.xml
 echo "========================================================"
 echo " ABI dump has been created at ${DIST_DIR}/${abi_out_file}"
 
+if [ -n "$ABI_DEFINITION" ]; then
+    echo "========================================================"
+    echo " Comparing ABI against expected definition ($ABI_DEFINITION)"
+    abi_report=${DIST_DIR}/abi.report
+    set +e
+    ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
+                                   --new      ${DIST_DIR}/${abi_out_file} \
+                                   --report   ${abi_report}
+    rc=$?
+    set -e
+    echo "========================================================"
+    echo " ABI report has been created at ${abi_report}"
+    if [ $rc -ne 0 ] ; then
+        echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"
+        exit $rc
+    fi
+fi
