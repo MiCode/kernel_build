@@ -63,6 +63,12 @@ ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree $OUT_DIR                     \
     --out-file ${DIST_DIR}/${abi_out_file}
 
+# sanitize the abi.xml by removing any occurences of the kernel path
+sed -i "s#${ROOT_DIR}/${KERNEL_DIR}/##g" ${DIST_DIR}/${abi_out_file}
+# now also do that with any left over paths sneaking in
+# (e.g. from the prebuilts)
+sed -i "s#${ROOT_DIR}/##g" ${DIST_DIR}/${abi_out_file}
+
 ln -sf ${abi_out_file} ${DIST_DIR}/abi.xml
 
 echo "========================================================"
