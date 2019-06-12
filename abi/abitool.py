@@ -36,7 +36,6 @@ class Libabigail(AbiTool):
     def dump_kernel_abi(self, linux_tree, dump_path):
         dump_abi_cmd = ['abidw',
                         # omit various sources of indeterministic abidw output
-                        '--short-locs',
                         '--no-corpus-path',
                         '--no-comp-dir-path',
                         # the path containing vmlinux and *.ko
