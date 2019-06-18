@@ -121,6 +121,12 @@ copy_modules_to_prebuilt()
 			cp -p ${FILE} ${PREBUILT_OUT}/${KERNEL_MODULES_OUT}
 		done
 	fi
+
+	echo "Copying module signing certificate into prebuilt"
+	if [[ ! -e ${PREBUILT_OUT}/certs ]]; then
+		mkdir -p ${PREBUILT_OUT}/certs
+	fi
+	cp -p ${OUT_DIR}/certs/*.*  ${PREBUILT_OUT}/certs/
 }
 
 copy_all_to_prebuilt()
@@ -268,6 +274,13 @@ copy_from_prebuilt()
 	echo "============"
 	echo "Copying kernel scripts from prebuilt"
 	cp -p -r ${PREBUILT_OUT}/${KERNEL_SCRIPTS} ${OUT_DIR}
+
+	echo "Copying sign certificates from prebuilt"
+	if [[ ! -e ${OUT_DIR}/certs ]]; then
+		mkdir -p ${OUT_DIR}/certs
+	fi
+	cp -p -r ${PREBUILT_OUT}/certs ${OUT_DIR}
+
 }
 
 #script starts executing here
@@ -284,6 +297,7 @@ fi
 
 #use prebuilts if we want to use them, and they are available
 if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_BINS} ]; then
+	make_defconfig
 	copy_from_prebuilt ${KERNEL_BINS}
 	exit 0
 fi
