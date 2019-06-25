@@ -90,6 +90,6 @@ echo
 echo "Note: Export following environment before running the executables:"
 echo
 echo "export PATH=\"${OUT_DIR}/bin:\${PATH}\""
-echo "export LD_LIBRARY_PATH=\"${OUT_DIR}/lib:\${LD_LIBRARY_PATH}\""
+echo "export LD_LIBRARY_PATH=\"${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:\${LD_LIBRARY_PATH}\""
 echo
 echo
