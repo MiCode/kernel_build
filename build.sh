@@ -170,7 +170,7 @@ export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 [ "${CC}" == "gcc" ] && unset CC
 
 if [ -n "${CC}" ]; then
-  CC_ARG="CC=${CC}"
+  CC_ARG="CC=${CC} HOSTCC=${CC}"
 fi
 
 if [ -n "${LD}" ]; then
