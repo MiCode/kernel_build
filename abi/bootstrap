@@ -30,13 +30,25 @@ if [ -e "${OUT_DIR}" ]; then
   read
 fi
 
-set -x
-
 PACKAGES="autoconf libtool libxml2-dev pkg-config python3"
 # Install the dependencies.
-if ! dpkg -s ${PACKAGES} > /dev/null 2>&1 ; then
+if ! ( hash dpkg 2>/dev/null ); then
+    echo "WARN: not running on a Debian compatible system!"
+    echo "      Please be sure you have the required packages installed on"
+    echo "      your system before continuing."
+    echo ""
+    echo "      The list of required packages is, at the minimum:"
+    echo "        ${PACKAGES}"
+    echo "      but some distributions may require more."
+    echo "      You are on your own here, be careful."
+    echo ""
+    echo "Press enter to continue or Ctrl-C to abort."
+    read
+elif ! dpkg -s ${PACKAGES} > /dev/null 2>&1 ; then
+    set -x
     sudo apt-get install --yes ${PACKAGES}
 fi
+set -x
 
 # Acquire elfutils sources
 if [ ! -d "${ELFUTILS_SRC}" ]; then
