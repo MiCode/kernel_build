@@ -39,13 +39,22 @@ function update_config_for_abi_dump() {
      make O=${OUT_DIR} ${CC_LD_ARG} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
 
-# ensure we have a sufficient abigail installation in path before continuing
-if ! (    hash abidiff 2>/dev/null                                     \
-       && dpkg --compare-versions                                      \
-               $(abidiff --version | awk '{print $2}') ge 1.6.0)
-then
+function version_greater_than() {
+    test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
+}
+
+# ensure that abigail is present in path
+if ! ( hash abidiff 2>/dev/null); then
+    echo "ERROR: libabigail is not found in \$PATH at all!"
+    echo "Have you run abi/bootstrap and followed the instructions?"
+    exit 1
+fi
+
+# ensure we have a "new enough" version of abigail present before continuing
+if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
+			    "1.6.0" ); then
     echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
-    echo "Did you run abi/bootstrap and followed the instructions?"
+    echo "Have you run abi/bootstrap and followed the instructions?"
     exit 1
 fi
 
