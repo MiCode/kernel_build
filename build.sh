@@ -288,12 +288,12 @@ done
 mkdir -p ${DIST_DIR}
 echo "========================================================"
 echo " Copying files"
-for FILE in ${FILES}; do
+for FILE in $(cd ${OUT_DIR} && ls -1 ${FILES}); do
   if [ -f ${OUT_DIR}/${FILE} ]; then
     echo "  $FILE"
     cp -p ${OUT_DIR}/${FILE} ${DIST_DIR}/
   else
-    echo "  $FILE does not exist, skipping"
+    echo "  $FILE is not a file, skipping"
   fi
 done
 
