@@ -46,7 +46,7 @@ function version_greater_than() {
 # ensure that abigail is present in path
 if ! ( hash abidiff 2>/dev/null); then
     echo "ERROR: libabigail is not found in \$PATH at all!"
-    echo "Have you run abi/bootstrap and followed the instructions?"
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
     exit 1
 fi
 
@@ -54,7 +54,7 @@ fi
 if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
 			    "1.6.0" ); then
     echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
-    echo "Have you run abi/bootstrap and followed the instructions?"
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
     exit 1
 fi
 
