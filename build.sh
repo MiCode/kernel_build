@@ -152,6 +152,10 @@ SIGN_SEC=certs/signing_key.pem
 SIGN_CERT=certs/signing_key.x509
 SIGN_ALGO=sha512
 
+# Save environment parameters before being overwritten by sourcing
+# BUILD_CONFIG.
+CC_ARG=${CC}
+
 source "${ROOT_DIR}/build/envsetup.sh"
 
 export MAKE_ARGS=$@
@@ -164,10 +168,14 @@ cd ${ROOT_DIR}
 
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
+# Restore the previously saved CC argument that might have been overridden by
+# the BUILD_CONFIG.
+[ -n "${CC_ARG}" ] && CC=${CC_ARG}
+
 # CC=gcc is effectively a fallback to the default gcc including any target
-# triplets. If the user wants to use a custom compiler, they are still able to
-# pass an absolute path, e.g. CC=/usr/bin/gcc.
-[ "${CC}" == "gcc" ] && unset CC
+# triplets. An absolute path (e.g., CC=/usr/bin/gcc) must be specified to use a
+# custom compiler.
+[ "${CC}" == "gcc" ] && unset CC && unset CC_ARG
 
 if [ -n "${CC}" ]; then
   CC_ARG="CC=${CC} HOSTCC=${CC}"
