@@ -52,7 +52,7 @@ for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
     eval PREBUILT_BIN="${PREBUILT_BIN}"
     if [ -n "${PREBUILT_BIN}" ]; then
         # Mitigate dup paths
-        PATH=${PATH//"${ROOT_DIR}/${PREBUILT_BIN}:"}
+        PATH=${PATH//"${ROOT_DIR}\/${PREBUILT_BIN}:"}
         PATH=${ROOT_DIR}/${PREBUILT_BIN}:${PATH}
     fi
 done
