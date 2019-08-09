@@ -29,6 +29,7 @@ set -e
 set -a
 
 source "${ROOT_DIR}/build/envsetup.sh"
+export ENVSETUP_SH_INCLUDED=1
 
 # inject CONFIG_DEBUG_INFO=y
 export POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} : && update_config_for_abi_dump"
@@ -38,6 +39,8 @@ function update_config_for_abi_dump() {
     (cd ${OUT_DIR} && \
      make O=${OUT_DIR} ${CC_LD_ARG} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
+export -f check_defconfig
+export -f update_config_for_abi_dump
 
 function version_greater_than() {
     test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";

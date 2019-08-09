@@ -14,13 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Usage:
-#   source build/envsetup.sh
-#     to setup your path and cross compiler so that a kernel build command is
-#     just:
-#       make -j24
 
-[ -n "$ENVSETUP_SH_INCLUDED" ] && return || export ENVSETUP_SH_INCLUDED=1
+# Usage:
+# $ build/build.sh
+#
+# Usage (deprecated):
+# $ source build/envsetup.sh  # to setup your path and cross compiler
+#                             # so that a kernel build command is just:
+# $ make -j24
+
+[ -n "$ENVSETUP_SH_INCLUDED" ] && return
 
 # TODO: Use a $(gettop) style method.
 export ROOT_DIR=$PWD
