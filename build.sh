@@ -20,7 +20,7 @@
 #   OUT_DIR=<out dir> DIST_DIR=<dist dir> build/build.sh <make options>*
 #
 # Example:
-#   OUT_DIR=output DIST_DIR=dist build/build.sh -j24
+#   OUT_DIR=output DIST_DIR=dist build/build.sh -j24 V=1
 #
 #
 # The following environment variables are considered during execution:
@@ -161,7 +161,8 @@ CC_ARG=${CC}
 
 source "${ROOT_DIR}/build/envsetup.sh"
 
-export MAKE_ARGS=$@
+export MAKE_ARGS=$*
+export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
@@ -196,7 +197,7 @@ echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} mrproper)
+  (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} mrproper)
   set +x
 fi
 
@@ -210,7 +211,7 @@ fi
 
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
 set -x
-(cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${DEFCONFIG})
+(cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
 set +x
 
 if [ "${POST_DEFCONFIG_CMDS}" != "" ]; then
@@ -226,8 +227,7 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && \
- make O=${OUT_DIR} ${CC_LD_ARG} -j$(nproc) $@)
+(cd ${OUT_DIR} && make O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS})
 set +x
 
 if [ "${POST_KERNEL_BUILD_CMDS}" != "" ]; then
@@ -245,9 +245,9 @@ if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo "========================================================"
   echo " Installing kernel modules into staging directory"
 
-  (cd ${OUT_DIR} && \
-   make O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1 \
-        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} modules_install)
+  (cd ${OUT_DIR} &&                                                           \
+   make O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1                         \
+        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 fi
 
 if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
@@ -267,10 +267,11 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_LD_ARG} -j$(nproc) "$@"
+                       O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS}
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1   \
-                       INSTALL_MOD_PATH=${MODULES_STAGING_DIR} modules_install
+                       O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1          \
+                       INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
+                       ${MAKE_ARGS} modules_install
     set +x
   done
 
@@ -291,7 +292,8 @@ for ODM_DIR in ${ODM_DIRS}; do
   if [ -d ${OVERLAY_DIR} ]; then
     OVERLAY_OUT_DIR=${OUT_DIR}/overlays/${ODM_DIR}
     mkdir -p ${OVERLAY_OUT_DIR}
-    make -C ${OVERLAY_DIR} DTC=${OUT_DIR}/scripts/dtc/dtc OUT_DIR=${OVERLAY_OUT_DIR}
+    make -C ${OVERLAY_DIR} DTC=${OUT_DIR}/scripts/dtc/dtc                     \
+                           OUT_DIR=${OVERLAY_OUT_DIR} ${MAKE_ARGS}
     OVERLAYS=$(find ${OVERLAY_OUT_DIR} -name "*.dtbo")
     OVERLAYS_OUT="$OVERLAYS_OUT $OVERLAYS"
   fi
@@ -356,7 +358,9 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo "========================================================"
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_LD_ARG} INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" -j$(nproc) headers_install
+  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_LD_ARG}                                \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" ${MAKE_ARGS}      \
+          headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
   # are only side products. We don't want those. Let's delete them.
   find ${KERNEL_UAPI_HEADERS_DIR} \( -name ..install.cmd -o -name .install \) -exec rm '{}' +
