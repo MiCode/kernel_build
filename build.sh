@@ -108,6 +108,9 @@
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #
+#   BUILD_INITRAMFS
+#     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -159,6 +162,7 @@ export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
+export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 
 cd ${ROOT_DIR}
 
@@ -229,7 +233,7 @@ fi
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
-if [ -n "${IN_KERNEL_MODULES}" ]; then
+if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo "========================================================"
   echo " Installing kernel modules into staging directory"
 
@@ -306,13 +310,28 @@ done
 
 MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 if [ -n "${MODULES}" ]; then
-  echo "========================================================"
-  echo " Copying modules files"
   if [ -n "${IN_KERNEL_MODULES}" -o "${EXT_MODULES}" != "" ]; then
+    echo "========================================================"
+    echo " Copying modules files"
     for FILE in ${MODULES}; do
       echo "  ${FILE#${MODULES_STAGING_DIR}/}"
       cp -p ${FILE} ${DIST_DIR}
     done
+  fi
+  if [ -n "${BUILD_INITRAMFS}" ]; then
+    echo "========================================================"
+    echo " Creating initramfs"
+    set -x
+    rm -rf ${INITRAMFS_STAGING_DIR}
+    mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/kernel/
+    cp -r ${MODULES_STAGING_DIR}/lib/modules/*/kernel/* ${INITRAMFS_STAGING_DIR}/lib/modules/kernel/
+    cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.* ${INITRAMFS_STAGING_DIR}/lib/modules/
+    cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load
+
+    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    gzip -f ${MODULES_STAGING_DIR}/initramfs.cpio
+    mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
+    set +x
   fi
 fi
 
