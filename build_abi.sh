@@ -28,8 +28,7 @@ export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 set -e
 set -a
 
-source "${ROOT_DIR}/build/envsetup.sh"
-export ENVSETUP_SH_INCLUDED=1
+source "${ROOT_DIR}/build/_setup_env.sh"
 
 # inject CONFIG_DEBUG_INFO=y
 export POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} : && update_config_for_abi_dump"
