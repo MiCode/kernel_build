@@ -159,7 +159,7 @@ SIGN_ALGO=sha512
 # BUILD_CONFIG.
 CC_ARG=${CC}
 
-source "${ROOT_DIR}/build/envsetup.sh"
+source "${ROOT_DIR}/build/_setup_env.sh"
 
 export MAKE_ARGS=$@
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
