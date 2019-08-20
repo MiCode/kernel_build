@@ -78,7 +78,7 @@ set -e
 
 # Pick the correct patch to test.
 verify_file_exists ${APPLIED_PROP_PATH}
-GIT_SHA1=$(grep -Po "${KERNEL_DIR}.*\K[0-9a-f]{40}" "${APPLIED_PROP_PATH}") || true
+GIT_SHA1=$(grep -Po "${KERNEL_DIR} .*\K[0-9a-f]{40}" "${APPLIED_PROP_PATH}") || true
 if [[ -z ${GIT_SHA1} ]]; then
   # Since applied.prop only tracks user changes, ignore projects that are
   # included in presubmit without any changed files.
@@ -98,4 +98,3 @@ if [ "${KERNEL_DIR}" == "common" ]; then
 fi
 
 ${STATIC_ANALYSIS_SRC_DIR}/checkpatch.sh --git_sha1 ${GIT_SHA1} ${FORWARDED_ARGS[*]}
-
