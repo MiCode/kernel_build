@@ -54,3 +54,12 @@ follows:
 
 The report created is tool specific, but generally lists ABI changes detected
 that affect the Kernel's module interface.
+
+Updating ABI dumps
+------------------
+To update the ABI dump, `build_abi.sh` can be invoked with the `--update` flag.
+It will update the corresponding abi.xml file that is defined via the
+build.config. It might be useful to invoke the script also with
+`--print-report` to print the differences the update cleans up. That
+information is useful in the commit message when updating the abi.xml in the
+source control.

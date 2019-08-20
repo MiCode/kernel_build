@@ -25,10 +25,51 @@
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
+function show_help {
+    echo "USAGE: $0 [-u|--update] [-n|--nodiff]"
+    echo
+    echo "  -u | --update         Update the abi.xml in the source directory"
+    echo "  -n | --nodiff         Do not generate a ABI report with abidiff"
+    echo "  -r | --print-report   Print ABI report in case of differences"
+}
+
+UPDATE=0
+DIFF=1
+PRINT_REPORT=0
+
+ARGS=()
+for i in "$@"
+do
+case $i in
+    -u|--update)
+    UPDATE=1
+    shift # past argument=value
+    ;;
+    -n|--nodiff)
+    DIFF=0
+    shift # past argument=value
+    ;;
+    -r|--print-report)
+    PRINT_REPORT=1
+    shift # past argument=value
+    ;;
+    -h|--help)
+    show_help
+    exit 0
+    ;;
+    *)
+    ARGS+=("$1")
+    shift
+    ;;
+esac
+done
+
+set -- "${ARGS[@]}"
+
 set -e
 set -a
 
-source "${ROOT_DIR}/build/envsetup.sh"
+source "${ROOT_DIR}/build/_setup_env.sh"
 
 # inject CONFIG_DEBUG_INFO=y
 export POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} : && update_config_for_abi_dump"
@@ -38,14 +79,25 @@ function update_config_for_abi_dump() {
     (cd ${OUT_DIR} && \
      make O=${OUT_DIR} ${CC_LD_ARG} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
+export -f check_defconfig
+export -f update_config_for_abi_dump
 
-# ensure we have a sufficient abigail installation in path before continuing
-if ! (    hash abidiff 2>/dev/null                                     \
-       && dpkg --compare-versions                                      \
-               $(abidiff --version | awk '{print $2}') ge 1.6.0)
-then
+function version_greater_than() {
+    test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
+}
+
+# ensure that abigail is present in path
+if ! ( hash abidiff 2>/dev/null); then
+    echo "ERROR: libabigail is not found in \$PATH at all!"
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
+    exit 1
+fi
+
+# ensure we have a "new enough" version of abigail present before continuing
+if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
+			    "1.6.0" ); then
     echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
-    echo "Did you run abi/bootstrap and followed the instructions?"
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
     exit 1
 fi
 
@@ -74,20 +126,36 @@ ln -sf ${abi_out_file} ${DIST_DIR}/abi.xml
 echo "========================================================"
 echo " ABI dump has been created at ${DIST_DIR}/${abi_out_file}"
 
+rc=0
 if [ -n "$ABI_DEFINITION" ]; then
-    echo "========================================================"
-    echo " Comparing ABI against expected definition ($ABI_DEFINITION)"
-    abi_report=${DIST_DIR}/abi.report
-    set +e
-    ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
-                                   --new      ${DIST_DIR}/${abi_out_file} \
-                                   --report   ${abi_report}
-    rc=$?
-    set -e
-    echo "========================================================"
-    echo " ABI report has been created at ${abi_report}"
-    if [ $rc -ne 0 ] ; then
-        echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"
-        exit $rc
+    if [ $DIFF -eq 1 ]; then
+        echo "========================================================"
+        echo " Comparing ABI against expected definition ($ABI_DEFINITION)"
+        abi_report=${DIST_DIR}/abi.report
+        set +e
+        ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
+                                       --new      ${DIST_DIR}/${abi_out_file} \
+                                       --report   ${abi_report}
+        rc=$?
+        set -e
+        echo "========================================================"
+        echo " ABI report has been created at ${abi_report}"
+
+        if [ $rc -ne 0 ]; then
+            echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"
+        fi
+
+        if [ $PRINT_REPORT -eq 1 ] && [ $rc -ne 0 ] ; then
+            echo "========================================================"
+            cat ${abi_report}
+        fi
+    fi
+    if [ $UPDATE -eq 1 ] ; then
+        echo "========================================================"
+        echo " Updating expected ABI definition ($ABI_DEFINITION)"
+        cp -v ${DIST_DIR}/${abi_out_file} $KERNEL_DIR/$ABI_DEFINITION
     fi
 fi
+
+exit $rc
+

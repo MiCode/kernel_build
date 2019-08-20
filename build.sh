@@ -20,7 +20,7 @@
 #   OUT_DIR=<out dir> DIST_DIR=<dist dir> build/build.sh <make options>*
 #
 # Example:
-#   OUT_DIR=output DIST_DIR=dist build/build.sh -j24
+#   OUT_DIR=output DIST_DIR=dist build/build.sh -j24 V=1
 #
 #
 # The following environment variables are considered during execution:
@@ -108,6 +108,9 @@
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #
+#   BUILD_INITRAMFS
+#     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -152,22 +155,32 @@ SIGN_SEC=certs/signing_key.pem
 SIGN_CERT=certs/signing_key.x509
 SIGN_ALGO=sha512
 
-source "${ROOT_DIR}/build/envsetup.sh"
+# Save environment parameters before being overwritten by sourcing
+# BUILD_CONFIG.
+CC_ARG=${CC}
 
-export MAKE_ARGS=$@
+source "${ROOT_DIR}/build/_setup_env.sh"
+
+export MAKE_ARGS=$*
+export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
+export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 
 cd ${ROOT_DIR}
 
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
+# Restore the previously saved CC argument that might have been overridden by
+# the BUILD_CONFIG.
+[ -n "${CC_ARG}" ] && CC=${CC_ARG}
+
 # CC=gcc is effectively a fallback to the default gcc including any target
-# triplets. If the user wants to use a custom compiler, they are still able to
-# pass an absolute path, e.g. CC=/usr/bin/gcc.
-[ "${CC}" == "gcc" ] && unset CC
+# triplets. An absolute path (e.g., CC=/usr/bin/gcc) must be specified to use a
+# custom compiler.
+[ "${CC}" == "gcc" ] && unset CC && unset CC_ARG
 
 if [ -n "${CC}" ]; then
   CC_ARG="CC=${CC} HOSTCC=${CC}"
@@ -184,7 +197,7 @@ echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} mrproper)
+  (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} mrproper)
   set +x
 fi
 
@@ -198,7 +211,7 @@ fi
 
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
 set -x
-(cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${DEFCONFIG})
+(cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
 set +x
 
 if [ "${POST_DEFCONFIG_CMDS}" != "" ]; then
@@ -214,8 +227,7 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && \
- make O=${OUT_DIR} ${CC_LD_ARG} -j$(nproc) $@)
+(cd ${OUT_DIR} && make O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS})
 set +x
 
 if [ "${POST_KERNEL_BUILD_CMDS}" != "" ]; then
@@ -229,13 +241,13 @@ fi
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
-if [ -n "${IN_KERNEL_MODULES}" ]; then
+if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo "========================================================"
   echo " Installing kernel modules into staging directory"
 
-  (cd ${OUT_DIR} && \
-   make O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1 \
-        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} modules_install)
+  (cd ${OUT_DIR} &&                                                           \
+   make O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1                         \
+        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 fi
 
 if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
@@ -255,10 +267,11 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_LD_ARG} -j$(nproc) "$@"
+                       O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS}
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1   \
-                       INSTALL_MOD_PATH=${MODULES_STAGING_DIR} modules_install
+                       O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1          \
+                       INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
+                       ${MAKE_ARGS} modules_install
     set +x
   done
 
@@ -279,7 +292,8 @@ for ODM_DIR in ${ODM_DIRS}; do
   if [ -d ${OVERLAY_DIR} ]; then
     OVERLAY_OUT_DIR=${OUT_DIR}/overlays/${ODM_DIR}
     mkdir -p ${OVERLAY_OUT_DIR}
-    make -C ${OVERLAY_DIR} DTC=${OUT_DIR}/scripts/dtc/dtc OUT_DIR=${OVERLAY_OUT_DIR}
+    make -C ${OVERLAY_DIR} DTC=${OUT_DIR}/scripts/dtc/dtc                     \
+                           OUT_DIR=${OVERLAY_OUT_DIR} ${MAKE_ARGS}
     OVERLAYS=$(find ${OVERLAY_OUT_DIR} -name "*.dtbo")
     OVERLAYS_OUT="$OVERLAYS_OUT $OVERLAYS"
   fi
@@ -288,12 +302,12 @@ done
 mkdir -p ${DIST_DIR}
 echo "========================================================"
 echo " Copying files"
-for FILE in ${FILES}; do
+for FILE in $(cd ${OUT_DIR} && ls -1 ${FILES}); do
   if [ -f ${OUT_DIR}/${FILE} ]; then
     echo "  $FILE"
     cp -p ${OUT_DIR}/${FILE} ${DIST_DIR}/
   else
-    echo "  $FILE does not exist, skipping"
+    echo "  $FILE is not a file, skipping"
   fi
 done
 
@@ -306,13 +320,28 @@ done
 
 MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 if [ -n "${MODULES}" ]; then
-  echo "========================================================"
-  echo " Copying modules files"
   if [ -n "${IN_KERNEL_MODULES}" -o "${EXT_MODULES}" != "" ]; then
+    echo "========================================================"
+    echo " Copying modules files"
     for FILE in ${MODULES}; do
       echo "  ${FILE#${MODULES_STAGING_DIR}/}"
       cp -p ${FILE} ${DIST_DIR}
     done
+  fi
+  if [ -n "${BUILD_INITRAMFS}" ]; then
+    echo "========================================================"
+    echo " Creating initramfs"
+    set -x
+    rm -rf ${INITRAMFS_STAGING_DIR}
+    mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/kernel/
+    cp -r ${MODULES_STAGING_DIR}/lib/modules/*/kernel/* ${INITRAMFS_STAGING_DIR}/lib/modules/kernel/
+    cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.* ${INITRAMFS_STAGING_DIR}/lib/modules/
+    cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load
+
+    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    gzip -f ${MODULES_STAGING_DIR}/initramfs.cpio
+    mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
+    set +x
   fi
 fi
 
@@ -329,7 +358,9 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo "========================================================"
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_LD_ARG} INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" -j$(nproc) headers_install
+  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_LD_ARG}                                \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" ${MAKE_ARGS}      \
+          headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
   # are only side products. We don't want those. Let's delete them.
   find ${KERNEL_UAPI_HEADERS_DIR} \( -name ..install.cmd -o -name .install \) -exec rm '{}' +
