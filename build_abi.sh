@@ -101,7 +101,9 @@ if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
     exit 1
 fi
 
-# delegate the actual build to build.sh
+# delegate the actual build to build.sh.
+# suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
+# the generated abi.xml to be copied to <DIST_DIR>/abi.out.
 ABI_DEFINITION= ${ROOT_DIR}/build/build.sh $*
 
 echo "========================================================"
