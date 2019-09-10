@@ -122,6 +122,17 @@ BOARD_VENDOR_KERNEL_MODULES += $(wildcard $(KERNEL_MODULES_OUT)/*.ko)
 endif
 endif
 
+# Add RTIC DTB to dtb.img if RTIC MPGen is enabled.
+# Note: unfortunately we can't define RTIC DTS + DTB rule here as the
+# following variable/ tools (needed for DTS generation)
+# are missing - DTB_OBJS, OBJDUMP, KCONFIG_CONFIG, CC, DTC_FLAGS (the only available is DTC).
+# The existing RTIC kernel integration in scripts/link-vmlinux.sh generates RTIC MP DTS
+# that will be compiled with optional rule below.
+# To be safe, we check for MPGen enable.
+ifdef RTIC_MPGEN
+RTIC_DTB := $(KERNEL_SYMLINK)/rtic_mp.dtb
+endif
+
 # Android Kernel make rules
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(DTC) $(UFDT_APPLY_OVERLAY)
@@ -165,6 +176,13 @@ $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 $(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL) | $(ACP)
 	$(transform-prebuilt-to-target)
 
+# RTIC DTS to DTB (if MPGen enabled;
+# and make sure we don't break the build if rtic_mp.dts missing)
+$(RTIC_DTB): $(INSTALLED_KERNEL_TARGET)
+	stat $(KERNEL_SYMLINK)/rtic_mp.dts 2>/dev/null >&2 && \
+	$(DTC) -O dtb -o $(RTIC_DTB) -b 1 $(DTC_FLAGS) $(KERNEL_SYMLINK)/rtic_mp.dts || \
+	touch $(RTIC_DTB)
+
 # Creating a dtb.img once the kernel is compiled if TARGET_KERNEL_APPEND_DTB is set to be false
-$(INSTALLED_DTBIMAGE_TARGET): $(INSTALLED_KERNEL_TARGET)
-	cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb > $@
+$(INSTALLED_DTBIMAGE_TARGET): $(INSTALLED_KERNEL_TARGET) $(RTIC_DTB)
+	cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb $(RTIC_DTB) > $@
