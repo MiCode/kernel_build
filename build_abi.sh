@@ -22,6 +22,14 @@
 #   ABI_OUT_TAG
 #     Customize the output file name for the abi dump. If undefined, the tag is
 #     derived from `git describe`.
+#
+#   ABI_DEFINITION
+#     Specify an expected Kernel ABI representation. If defined, this script
+#     will, in addition to extracting the ABI representation from the currently
+#     built kernel, compare the extracted ABI to the expected one. In case of
+#     any significant differences, it will exit with the return code of
+#     diff_abi and optionally (-r) print a report.
+#     ABI_DEFINITION is supposed to be defined relative to $KERNEL_DIR/
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
