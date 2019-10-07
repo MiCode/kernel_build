@@ -223,6 +223,15 @@ if [ "${POST_DEFCONFIG_CMDS}" != "" ]; then
 fi
 fi
 
+if [ "${TAGS_CONFIG}" != "" ]; then
+  echo "========================================================"
+  echo " Running tags command:"
+  set -x
+  (cd ${KERNEL_DIR} && SRCARCH=${ARCH} ./scripts/tags.sh ${TAGS_CONFIG})
+  set +x
+  exit 0
+fi
+
 echo "========================================================"
 echo " Building kernel"
 
