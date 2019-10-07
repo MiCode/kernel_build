@@ -21,9 +21,9 @@ import sys
 
 from abitool import get_abi_tool
 
-def dump_abi(abitool, linux_tree, out_file):
+def dump_abi(abitool, linux_tree, out_file, whitelist):
     tool = get_abi_tool(abitool)
-    tool.dump_kernel_abi(linux_tree, out_file)
+    tool.dump_kernel_abi(linux_tree, out_file, whitelist)
 
 def main():
     """ Build the linux kernel, freshly cloning if needed"""
@@ -36,12 +36,15 @@ def main():
                         help='abi tool to be used to monitor abi')
     parser.add_argument('--out-file', default=None,
                         help='where to write the abi dump to')
+    parser.add_argument('--kmi-whitelist', default=None,
+                        help='KMI whitelist to filter for')
 
     args = parser.parse_args()
 
     dump_abi(args.abi_tool,
              args.linux_tree,
-             args.out_file or os.path.join(args.linux_tree, "abi.xml"))
+             args.out_file or os.path.join(args.linux_tree, "abi.xml"),
+             args.kmi_whitelist)
 
 if __name__ == "__main__":
     sys.exit(main())
