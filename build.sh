@@ -76,6 +76,10 @@
 #   POST_KERNEL_BUILD_CMDS
 #     Command evaluated after `make`.
 #
+#   TAGS_CONFIG
+#     if defined, calls ./scripts/tags.sh utility with TAGS_CONFIG as argument
+#     and exit once tags have been generated
+#
 #   IN_KERNEL_MODULES
 #     if defined, install kernel modules
 #
