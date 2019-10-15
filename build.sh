@@ -208,7 +208,7 @@ if [ -z "${SKIP_MRPROPER}" ] ; then
   set +x
 fi
 
-if [ "${PRE_DEFCONFIG_CMDS}" != "" ]; then
+if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   echo "========================================================"
   echo " Running pre-defconfig command(s):"
   set -x
@@ -221,7 +221,7 @@ set -x
 (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
 set +x
 
-if [ "${POST_DEFCONFIG_CMDS}" != "" ]; then
+if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
   echo "========================================================"
   echo " Running pre-make command(s):"
   set -x
@@ -230,7 +230,7 @@ if [ "${POST_DEFCONFIG_CMDS}" != "" ]; then
 fi
 fi
 
-if [ "${TAGS_CONFIG}" != "" ]; then
+if [ -n "${TAGS_CONFIG}" ]; then
   echo "========================================================"
   echo " Running tags command:"
   set -x
@@ -246,7 +246,7 @@ set -x
 (cd ${OUT_DIR} && make O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS})
 set +x
 
-if [ "${POST_KERNEL_BUILD_CMDS}" != "" ]; then
+if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
   echo "========================================================"
   echo " Running post-kernel-build command(s):"
   set -x
@@ -266,7 +266,7 @@ if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 fi
 
-if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
+if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
   echo "========================================================"
   echo " Building external modules and installing them into staging directory"
 
@@ -293,7 +293,7 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ "${EXT_MODULES}" != "" ]]; then
 
 fi
 
-if [ "${EXTRA_CMDS}" != "" ]; then
+if [ -n "${EXTRA_CMDS}" ]; then
   echo "========================================================"
   echo " Running extra build command(s):"
   set -x
@@ -336,7 +336,7 @@ done
 
 MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 if [ -n "${MODULES}" ]; then
-  if [ -n "${IN_KERNEL_MODULES}" -o "${EXT_MODULES}" != "" ]; then
+  if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" ]; then
     echo "========================================================"
     echo " Copying modules files"
     for FILE in ${MODULES}; do
@@ -354,7 +354,7 @@ if [ -n "${MODULES}" ]; then
     cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.* ${INITRAMFS_STAGING_DIR}/lib/modules/
     cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load
 
-    if [ "${EXT_MODULES}" != "" ]; then
+    if [ -n "${EXT_MODULES}" ]; then
       mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/extra/
       cp -r ${MODULES_STAGING_DIR}/lib/modules/*/extra/* ${INITRAMFS_STAGING_DIR}/lib/modules/extra/
     fi
@@ -366,7 +366,7 @@ if [ -n "${MODULES}" ]; then
   fi
 fi
 
-if [ "${UNSTRIPPED_MODULES}" != "" ]; then
+if [ -n "${UNSTRIPPED_MODULES}" ]; then
   echo "========================================================"
   echo " Copying unstripped module files for debugging purposes (not loaded on device)"
   mkdir -p ${UNSTRIPPED_DIR}
