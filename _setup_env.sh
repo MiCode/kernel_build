@@ -32,7 +32,7 @@ export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 
-if which repo > /dev/null; then
+if sh -c 'which repo && repo info' >/dev/null 2>&1; then
   # extract the repo branch name (e.g. common-android-mainline)
   repo_branch=$(repo --color=never info -o | grep -E "Manifest merge branch" |
                                              sed "s|.*refs/heads/\(.*\)|\1|")
