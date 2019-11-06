@@ -164,7 +164,7 @@ SIGN_ALGO=sha512
 
 # Save environment parameters before being overwritten by sourcing
 # BUILD_CONFIG.
-CC_ARG=${CC}
+CC_ARG="${CC}"
 
 source "${ROOT_DIR}/build/_setup_env.sh"
 
@@ -182,29 +182,41 @@ export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
 # Restore the previously saved CC argument that might have been overridden by
 # the BUILD_CONFIG.
-[ -n "${CC_ARG}" ] && CC=${CC_ARG}
+[ -n "${CC_ARG}" ] && CC="${CC_ARG}"
 
 # CC=gcc is effectively a fallback to the default gcc including any target
 # triplets. An absolute path (e.g., CC=/usr/bin/gcc) must be specified to use a
 # custom compiler.
 [ "${CC}" == "gcc" ] && unset CC && unset CC_ARG
 
+TOOL_ARGS=()
+
 if [ -n "${CC}" ]; then
-  CC_ARG="CC=${CC} HOSTCC=${CC}"
+  TOOL_ARGS+=("CC=${CC}" "HOSTCC=${CC}")
 fi
 
 if [ -n "${LD}" ]; then
-  LD_ARG="LD=${LD}"
+  TOOL_ARGS+=("LD=${LD}")
 fi
 
-CC_LD_ARG="${CC_ARG} ${LD_ARG}"
+if [ -n "${NM}" ]; then
+  TOOL_ARGS+=("NM=${NM}")
+fi
+
+if [ -n "${OBJCOPY}" ]; then
+  TOOL_ARGS+=("OBJCOPY=${OBJCOPY}")
+fi
+
+# Allow hooks that refer to $CC_LD_ARG to keep working until they can be
+# updated.
+CC_LD_ARG="${TOOL_ARGS[@]}"
 
 mkdir -p ${OUT_DIR}
 echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} mrproper)
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} mrproper)
   set +x
 fi
 
@@ -218,7 +230,7 @@ fi
 
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
 set -x
-(cd ${KERNEL_DIR} && make ${CC_LD_ARG} O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
+(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
 set +x
 
 if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
@@ -243,7 +255,7 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && make O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS})
+(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS})
 set +x
 
 if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
@@ -262,7 +274,7 @@ if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo " Installing kernel modules into staging directory"
 
   (cd ${OUT_DIR} &&                                                           \
-   make O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1                         \
+   make O=${OUT_DIR} "${TOOL_ARGS[@]}" INSTALL_MOD_STRIP=1                    \
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 fi
 
@@ -283,9 +295,9 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_LD_ARG} ${MAKE_ARGS}
+                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} ${CC_LD_ARG} INSTALL_MOD_STRIP=1          \
+                       O=${OUT_DIR} "${TOOL_ARGS[@]}" INSTALL_MOD_STRIP=1     \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
                        ${MAKE_ARGS} modules_install
     set +x
@@ -379,7 +391,7 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo "========================================================"
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} ${CC_LD_ARG}                                \
+  make -C ${OUT_DIR} O=${OUT_DIR} "${TOOL_ARGS[@]}"                           \
           INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" ${MAKE_ARGS}      \
           headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
