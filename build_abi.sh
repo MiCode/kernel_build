@@ -85,7 +85,7 @@ function update_config_for_abi_dump() {
     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
          -e CONFIG_DEBUG_INFO
     (cd ${OUT_DIR} && \
-     make O=${OUT_DIR} ${CC_LD_ARG} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
+     make O=${OUT_DIR} "${TOOL_ARGS[@]}" $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
 export -f check_defconfig
 export -f update_config_for_abi_dump
