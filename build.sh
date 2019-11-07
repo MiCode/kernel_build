@@ -118,6 +118,11 @@
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
 #
+#   MODULES_OPTIONS
+#     A /lib/modules/modules.options file is created on the ramdisk containing
+#     the contents of this variable, lines should be of the form: options
+#     <modulename> <param1>=<val> <param2>=<val> ...
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -353,6 +358,7 @@ if [ -n "${MODULES}" ]; then
     cp -r ${MODULES_STAGING_DIR}/lib/modules/*/kernel/* ${INITRAMFS_STAGING_DIR}/lib/modules/kernel/
     cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.* ${INITRAMFS_STAGING_DIR}/lib/modules/
     cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load
+    echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
 
     if [ -n "${EXT_MODULES}" ]; then
       mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/extra/
