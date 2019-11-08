@@ -27,10 +27,8 @@ automated:
  3. Build the kernel and its ABI representation
  4. Analyze ABI differences between the build and a reference
  5. Update the ABI representation (if required)
+ 6. Working with symbol whitelists
 
- (More advanced use)
- 6. Extract the ABI representation from the kernel and the built modules
- 7. Analyze ABI differences among different kernel builds
 
 The following instructions work for any kernel that can be built using a
 supported toolchain (i.e. a prebuilt Clang toolchain). There exist [`repo`
@@ -146,7 +144,7 @@ tree and can be specified on the command line or (more commonly) as a value in
 Above, the `build.config.gki.aarch64` defines the reference file (as
 *abi_gki_aarch64.xml*) and therefore the analysis has been completed. If an
 abidiff was executed, then `build_abi.sh` will print the location of the report
-and identify any ABI breakage. If breakages are detected, then `build_abi.sh
+and identify any ABI breakage. If breakages are detected, then `build_abi.sh`
 will terminate and return a non-zero exit code.
 
 ### 5. Update the ABI representation (if required)
@@ -156,6 +154,31 @@ It will update the corresponding abi.xml file that is defined via the
 build.config. It might also be useful to invoke the script with `--print-report`
 to print the differences the update fixes. The report is useful to include in
 the commit message when updating the abi.xml.
+
+### 6. Working with symbol whitelists
+
+`build_abi.sh` can be parameterized to filter symbols during extraction and
+comparison with KMI (Kernel Module Interface) whitelists. These are simple
+plain text files that list relevant ABI kernel symbols. E.g. a whitelist file
+with the following content would limit ABI analysis to the ELF symbols with the
+names `symbol1` and `symbol2`:
+
+```
+  [abi_whitelist]
+    symbol1
+    symbol2
+```
+
+**NOTE**: Please refer to the [libabigail
+documentation](https://sourceware.org/libabigail/manual/kmidiff.html#environment)
+for details about the KMI whitelist file format.
+
+Changes to other ELF symbols would not be considered any longer unless they are
+indirectly affecting symbols that are whitelisted. A whitelist file can be
+specified -- similar to the abi baseline file via `ABI_DEFINITION=` -- in the
+corresponding `build.config` configuration file with `KMI_WHITELIST=` as a file
+relative to the kernel source directory (`$KERNEL_DIR`).
+
 
 Working with the lower level ABI tooling
 ----------------------------------------
@@ -196,6 +219,16 @@ that affect the kernel's module interface. The files specified as `baseline`
 and `new` are ABI representations collected with `dump_abi`. `diff_abi`
 propagates the exit code of the underlying tool and therefore returns a
 non-zero value in case the ABIs compared are incompatible.
+
+### Using KMI whitelists
+
+To filter dumps created with `dump_abi` or filter symbols compared with
+`diff_abi`, each of those tools provides a parameter `--kmi-whitelist` that
+takes a path to a KMI whitelist file:
+
+```
+  $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-whitelist /path/to/whitelist
+```
 
 Dealing with ABI breakages
 --------------------------
