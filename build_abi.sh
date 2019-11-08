@@ -30,6 +30,13 @@
 #     any significant differences, it will exit with the return code of
 #     diff_abi and optionally (-r) print a report.
 #     ABI_DEFINITION is supposed to be defined relative to $KERNEL_DIR/
+#
+#   KMI_WHITELIST
+#     Define a Kernel Module Interface white list description. If defined, it
+#     will be taken into account when extracting Kernel ABI information from
+#     vmlinux and kernel modules.
+#     KMI_WHITELIST is supposed to be defined relative to $KERNEL_DIR/
+#
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
@@ -114,6 +121,12 @@ fi
 # the generated abi.xml to be copied to <DIST_DIR>/abi.out.
 ABI_DEFINITION= ${ROOT_DIR}/build/build.sh $*
 
+# define a common KMI whitelist flag for the abi tools
+KMI_WHITELIST_FLAG=
+if [ -n "$KMI_WHITELIST" ]; then
+    KMI_WHITELIST_FLAG="--kmi-whitelist $KERNEL_DIR/$KMI_WHITELIST"
+fi
+
 echo "========================================================"
 echo " Creating ABI dump"
 
@@ -123,7 +136,8 @@ id=${ABI_OUT_TAG:-$(git -C $KERNEL_DIR describe --dirty --always)}
 abi_out_file=abi-${id}.xml
 ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree $OUT_DIR                     \
-    --out-file ${DIST_DIR}/${abi_out_file}
+    --out-file ${DIST_DIR}/${abi_out_file}    \
+    $KMI_WHITELIST_FLAG
 
 # sanitize the abi.xml by removing any occurences of the kernel path
 sed -i "s#${ROOT_DIR}/${KERNEL_DIR}/##g" ${DIST_DIR}/${abi_out_file}
@@ -145,7 +159,8 @@ if [ -n "$ABI_DEFINITION" ]; then
         set +e
         ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
                                        --new      ${DIST_DIR}/${abi_out_file} \
-                                       --report   ${abi_report}
+                                       --report   ${abi_report}               \
+                                       $KMI_WHITELIST_FLAG
         rc=$?
         set -e
         echo "========================================================"
