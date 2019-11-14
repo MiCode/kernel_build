@@ -98,6 +98,49 @@ modules_install()
 	set +x
 }
 
+
+archive_kernel_modules()
+{
+	echo "======================"
+	pushd ${KERNEL_MODULES_OUT}
+
+	# Zip the vendor-ramdisk kernel modules
+	FINAL_RAMDISK_KERNEL_MODULES=""
+	for MODULE in ${VENDOR_RAMDISK_KERNEL_MODULES}; do
+		if [ -f "${MODULE}" ]; then
+			FINAL_RAMDISK_KERNEL_MODULES="${FINAL_RAMDISK_KERNEL_MODULES} ${MODULE}"
+		fi
+	done
+
+	echo "Archiving vendor ramdisk kernel modules: "
+	echo ${FINAL_RAMDISK_KERNEL_MODULES}
+
+	if [ ! -z "${FINAL_RAMDISK_KERNEL_MODULES}" ]; then
+		zip -rq ${VENDOR_RAMDISK_KERNEL_MODULES_ARCHIVE} ${FINAL_RAMDISK_KERNEL_MODULES}
+	fi
+
+	# Filter-out the modules in vendor-ramdisk and zip the vendor kernel modules
+	VENDOR_KERNEL_MODULES=`ls *.ko`
+	for MODULE in ${FINAL_RAMDISK_KERNEL_MODULES}; do
+		VENDOR_KERNEL_MODULES=`echo ${VENDOR_KERNEL_MODULES} | sed "s/${MODULE}//g"`
+	done
+
+	echo "Archiving vendor kernel modules: "
+	echo ${VENDOR_KERNEL_MODULES}
+
+	# Also package the modules.blacklist file
+	set -x
+	BLACKLIST_FILE=""
+	if [ -f "modules.blacklist" ]; then
+		BLACKLIST_FILE="modules.blacklist"
+	fi
+
+	zip -rq ${VENDOR_KERNEL_MODULES_ARCHIVE} ${VENDOR_KERNEL_MODULES} ${BLACKLIST_FILE}
+	set +x
+
+	popd
+}
+
 copy_modules_to_prebuilt()
 {
 	PREBUILT_OUT=$1
@@ -127,6 +170,14 @@ copy_modules_to_prebuilt()
 		mkdir -p ${PREBUILT_OUT}/certs
 	fi
 	cp -p ${OUT_DIR}/certs/*.*  ${PREBUILT_OUT}/certs/
+
+	# Copy the modules.blacklist file
+	set -x
+	BLACKLIST_FILE=${PWD}/device/qcom/kernelscripts/modules_blacklist/modules.blacklist.${TARGET_PRODUCT}
+	if [ -f "${BLACKLIST_FILE}" ]; then
+		cp ${BLACKLIST_FILE} ${KERNEL_MODULES_OUT}/modules.blacklist
+	fi
+	set +x
 }
 
 copy_all_to_prebuilt()
@@ -315,6 +366,7 @@ else
 	build_kernel
 	modules_install
 	copy_all_to_prebuilt ${KERNEL_BINS}
+	archive_kernel_modules
 	extract_kernel_sha1
 fi
 
