@@ -112,9 +112,12 @@
 #       device-specific rc files.>
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
-#     - BASE_ADDRESS=<base address to load the kernel from>
-#     - PAGE_SIZE=<kernel's page size>
+#       (defaults to 3)
 #     - KERNEL_CMDLINE=<string of kernel parameters for boot>
+#     If the BOOT_IMAGE_HEADER_VERSION is less than 3, two additional variables must
+#     be defined:
+#     - BASE_ADDRESS=<base address to load the kernel at>
+#     - PAGE_SIZE=<flash page size>
 #
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
@@ -446,6 +449,9 @@ echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
 if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
+	if [ -z "${BOOT_IMAGE_HEADER_VERSION}" ]; then
+		BOOT_IMAGE_HEADER_VERSION="3"
+	fi
 	MKBOOTIMG_BASE_ADDR=
 	MKBOOTIMG_PAGE_SIZE=
 	MKBOOTIMG_CMDLINE=
@@ -459,12 +465,16 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_CMDLINE="--cmdline \"${KERNEL_CMDLINE}\""
 	fi
 
-	DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
-	if [ -z "${DTB_FILE_LIST}" ]; then
-		echo "No *.dtb files found in ${DIST_DIR}"
-		exit 1
+	MKBOOTIMG_DTB=
+	if [ "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
+		DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
+		if [ -z "${DTB_FILE_LIST}" ]; then
+			echo "No *.dtb files found in ${DIST_DIR}"
+			exit 1
+		fi
+		cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
+		MKBOOTIMG_DTB="--dtb ${DIST_DIR}/dtb.img"
 	fi
-	cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
 
 	set -x
 	MKBOOTIMG_RAMDISKS=()
@@ -518,7 +528,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	# executed outside of this "bash -c".
 	(set -x; bash -c "python $MKBOOTIMG_PATH --kernel ${DIST_DIR}/$KERNEL_BINARY \
 		--ramdisk ${DIST_DIR}/ramdisk.gz \
-		--dtb ${DIST_DIR}/dtb.img --header_version $BOOT_IMAGE_HEADER_VERSION \
+		${MKBOOTIMG_DTB} --header_version $BOOT_IMAGE_HEADER_VERSION \
 		${MKBOOTIMG_BASE_ADDR} ${MKBOOTIMG_PAGE_SIZE} ${MKBOOTIMG_CMDLINE} \
 		-o ${DIST_DIR}/boot.img"
 	)
