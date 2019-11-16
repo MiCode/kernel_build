@@ -104,6 +104,7 @@
 #     When the BUILD_BOOT_IMG flag is defined, the following flags that point to the
 #     various components needed to build a boot.img also need to be defined.
 #     - MKBOOTIMG_PATH=<path to the mkbootimg.py script which builds boot.img>
+#       (defaults to tools/mkbootimg/mkbootimg.py)
 #     - GKI_RAMDISK_PREBUILT_BINARY=<Name of the GKI ramdisk prebuilt which includes
 #       the generic ramdisk components like init and the non-device-specific rc files>
 #     - VENDOR_RAMDISK_BINARY=<Name of the vendor ramdisk binary which includes the
@@ -495,6 +496,9 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	fi
 	set -x
 
+	if [ -z "${MKBOOTIMG_PATH}" ]; then
+		MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
+	fi
 	if [ ! -f "$MKBOOTIMG_PATH" ]; then
 		echo "mkbootimg.py script not found. MKBOOTIMG_PATH = $MKBOOTIMG_PATH"
 		exit 1
