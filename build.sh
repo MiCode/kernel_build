@@ -389,8 +389,10 @@ if [ -n "${MODULES}" ]; then
       cp -r ${MODULES_STAGING_DIR}/lib/modules/*/extra/* ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
     fi
 
-    # strip debug symbols off initramfs modules
-    find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" -exec ${CROSS_COMPILE}strip --strip-debug {} \;
+    if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
+      # strip debug symbols off initramfs modules
+      find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" -exec ${CROSS_COMPILE}strip --strip-debug {} \;
+    fi
 
     # Re-run depmod to detect any dependencies between in-kernel and external
     # modules. Then, create modules.load based on all the modules compiled.
