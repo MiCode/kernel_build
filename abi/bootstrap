@@ -30,6 +30,10 @@ if [ -e "${OUT_DIR}" ]; then
   read
 fi
 
+# Add the future PATHs to the environment for the builds to pick up
+export PATH="${OUT_DIR}/bin:${PATH}"
+export LD_LIBRARY_PATH="${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:${LD_LIBRARY_PATH}"
+
 PACKAGES="autoconf libtool libxml2-dev pkg-config python3"
 # Install the dependencies.
 if ! ( hash dpkg 2>/dev/null ); then
