@@ -390,7 +390,7 @@ if [ -n "${MODULES}" ]; then
     fi
 
     # strip debug symbols off initramfs modules
-    find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" -exec strip --strip-debug {} \;
+    find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" -exec ${CROSS_COMPILE}strip --strip-debug {} \;
 
     # Re-run depmod to detect any dependencies between in-kernel and external
     # modules. Then, create modules.load based on all the modules compiled.
