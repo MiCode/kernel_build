@@ -86,6 +86,10 @@
 #   SKIP_EXT_MODULES
 #     if defined, skip building and installing of external modules
 #
+#   DO_NOT_STRIP_MODULES
+#     Keep debug information for distributed modules.
+#     Note, modules will still be stripped when copied into the ramdisk.
+#
 #   EXTRA_CMDS
 #     Command evaluated after building and installing kernel and modules.
 #
@@ -278,12 +282,16 @@ fi
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
+if [ -z "${DO_NOT_STRIP_MODULES}" ]; then
+    MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
+fi
+
 if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo "========================================================"
   echo " Installing kernel modules into staging directory"
 
   (cd ${OUT_DIR} &&                                                           \
-   make O=${OUT_DIR} "${TOOL_ARGS[@]}" INSTALL_MOD_STRIP=1                    \
+   make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}                   \
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 fi
 
@@ -306,7 +314,7 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                        O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} "${TOOL_ARGS[@]}" INSTALL_MOD_STRIP=1     \
+                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}    \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
                        ${MAKE_ARGS} modules_install
     set +x
@@ -380,6 +388,9 @@ if [ -n "${MODULES}" ]; then
       mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
       cp -r ${MODULES_STAGING_DIR}/lib/modules/*/extra/* ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
     fi
+
+    # strip debug symbols off initramfs modules
+    find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" -exec strip --strip-debug {} \;
 
     # Re-run depmod to detect any dependencies between in-kernel and external
     # modules. Then, create modules.load based on all the modules compiled.
