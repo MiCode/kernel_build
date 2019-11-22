@@ -75,7 +75,11 @@ ifeq ($(KERNEL_LLVM_SUPPORT),true)
     KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG) #Using aosp-llvm compiler
     $(warning "Using aosp-llvm" $(KERNEL_LLVM_BIN))
   endif
-real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
+  ifeq ($(KERNEL_ARCH), arm64)
+      real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
+  else
+      real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=arm-linux-gnueabihf
+  endif
 else
 ifeq ($(strip $(KERNEL_GCC_NOANDROID_CHK)),0)
 KERNEL_CFLAGS := KCFLAGS=-mno-android
