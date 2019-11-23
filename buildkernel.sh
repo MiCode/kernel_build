@@ -48,7 +48,6 @@ System.map
 "
 PRIMARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/primary_kernel
 SECONDARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/secondary_kernel
-KERN_SHA1_LOC=${KERNEL_PREBUILT_DIR}/kernel_sha1.txt
 
 #defconfig
 make_defconfig()
@@ -193,14 +192,6 @@ copy_all_to_prebuilt()
 	cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${PREBUILT_OUT}
 }
 
-extract_kernel_sha1()
-{
-	CUR_DIR=$(pwd)
-	cd ${KERNEL_DIR}
-	git rev-list --max-count=1 HEAD > ${KERN_SHA1_LOC}
-	cd ${CUR_DIR}
-}
-
 copy_from_prebuilt()
 {
 	PREBUILT_OUT=$1
@@ -312,7 +303,6 @@ else
 	build_kernel
 	modules_install
 	copy_all_to_prebuilt ${KERNEL_BINS}
-	extract_kernel_sha1
 fi
 
 exit 0
