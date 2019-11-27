@@ -22,7 +22,11 @@ TARGET_KERNEL_MAKE_ENV += HOSTLD=$(SOURCE_ROOT)/prebuilts/gcc/linux-x86/host/x86
 TARGET_KERNEL_MAKE_CFLAGS = "-I$(SOURCE_ROOT)/$(TARGET_KERNEL_SOURCE)/include/uapi -I/usr/include -I/usr/include/x86_64-linux-gnu -L/usr/lib -L/usr/lib/x86_64-linux-gnu -I$(SOURCE_ROOT)/$(TARGET_KERNEL_SOURCE)/include"
 TARGET_KERNEL_MAKE_LDFLAGS = "-L/usr/lib -L/usr/lib/x86_64-linux-gnu"
 
+BUILD_CONFIG := $(TARGET_KERNEL_SOURCE)/build.config.common
+CLANG_VERSION := $(shell IFS="/"; while read LINE; do if [[ $$LINE == *"CLANG_PREBUILT_BIN"* ]]; then read -ra CLANG <<< "$$LINE"; for VERSION in "$${CLANG[@]}"; do if [[ $$VERSION == *"clang-"* ]]; then echo "$$VERSION"; fi; done; fi; done < $(BUILD_CONFIG))
 KERNEL_LLVM_BIN := $(lastword $(sort $(wildcard $(SOURCE_ROOT)/$(LLVM_PREBUILTS_BASE)/$(BUILD_OS)-x86/clang-4*)))/bin/clang
+KERNEL_AOSP_LLVM_BIN := $(SOURCE_ROOT)/$(LLVM_PREBUILTS_BASE)/$(BUILD_OS)-x86/$(CLANG_VERSION)/bin/clang
+USE_KERNEL_AOSP_LLVM := $(shell test -f "$(KERNEL_AOSP_LLVM_BIN)" && echo "true" || echo "false")
 
 KERNEL_TARGET := $(strip $(INSTALLED_KERNEL_TARGET))
 ifeq ($(KERNEL_TARGET),)
@@ -73,8 +77,13 @@ ifeq ($(KERNEL_LLVM_SUPPORT),true)
     endif
     $(warning "Using sdllvm" $(KERNEL_LLVM_BIN))
   else
-    KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG) #Using aosp-llvm compiler
-    $(warning "Using aosp-llvm" $(KERNEL_LLVM_BIN))
+    ifeq ($(USE_KERNEL_AOSP_LLVM), true)  #Using kernel aosp-llvm compiler
+       KERNEL_LLVM_BIN := $(KERNEL_AOSP_LLVM_BIN)
+       $(warning "Using latest kernel aosp llvm" $(KERNEL_LLVM_BIN))
+    else
+       KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG)
+       $(warning "Not using latest aosp-llvm" $(KERNEL_LLVM_BIN))
+    endif
   endif
 real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
 else
