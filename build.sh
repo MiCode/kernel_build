@@ -459,6 +459,15 @@ if [ -n "${ABI_DEFINITION}" ]; then
   popd
 fi
 
+# Copy the abi whitelist file from the sources into the dist dir
+if [ -n "${KMI_WHITELIST}" ]; then
+  echo "========================================================"
+  echo " Copying abi whitelist definition to ${DIST_DIR}/abi_whitelist"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
+  popd
+fi
+
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
