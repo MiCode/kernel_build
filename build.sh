@@ -397,7 +397,23 @@ if [ -n "${MODULES}" ]; then
 
     # Re-run depmod to detect any dependencies between in-kernel and external
     # modules. Then, create modules.load based on all the modules compiled.
-    (cd ${INITRAMFS_STAGING_DIR} && depmod -b . 0.0)
+    (
+      set +x
+      set +e # disable exiting of error so we can add extra comments
+      cd ${INITRAMFS_STAGING_DIR}
+      DEPMOD_OUTPUT=$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)
+      if [[ "$?" -ne 0 ]]; then
+        echo "$DEPMOD_OUTPUT"
+        exit 1;
+      fi
+      echo "$DEPMOD_OUTPUT"
+      if [[ -n $(echo $DEPMOD_OUTPUT | grep "needs unknown symbol") ]]; then
+        echo "ERROR: out-of-tree kernel module(s) need unknown symbol(s)"
+        exit 1
+      fi
+      set -e
+      set -x
+    )
     (cd ${INITRAMFS_STAGING_DIR}/lib/modules/0.0 && \
         find . -type f -name *.ko | cut -c3- > modules.load)
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.options
