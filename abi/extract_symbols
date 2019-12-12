@@ -150,8 +150,17 @@ def main():
 
   args = parser.parse_args()
 
+  if not os.path.isdir(args.directory):
+    print("Expected a directory to search for binaries, but got %s" %
+          args.directory)
+    return 1
+
   # Locate the Kernel Binaries
   vmlinux, modules = find_binaries(args.directory)
+
+  if vmlinux is None or not os.path.isfile(vmlinux):
+    print("Could not find a suitable vmlinux file.")
+    return 1
 
   # Get required symbols of all modules
   undefined_symbols = extract_undefined_symbols(modules)
