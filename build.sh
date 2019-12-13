@@ -383,10 +383,14 @@ if [ -n "${MODULES}" ]; then
     # the final initramfs image.
     mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/kernel/
     cp -r ${MODULES_STAGING_DIR}/lib/modules/*/kernel/* ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/kernel/
+    cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order
+    cp ${MODULES_STAGING_DIR}/lib/modules/*/modules.builtin ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.builtin
 
     if [ -n "${EXT_MODULES}" ]; then
       mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
       cp -r ${MODULES_STAGING_DIR}/lib/modules/*/extra/* ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
+      (cd ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/ && \
+          find extra -type f -name "*.ko" | sort >> modules.order)
     fi
 
     if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
@@ -414,8 +418,7 @@ if [ -n "${MODULES}" ]; then
       set -e
       set -x
     )
-    (cd ${INITRAMFS_STAGING_DIR}/lib/modules/0.0 && \
-        find . -type f -name *.ko | cut -c3- > modules.load)
+    cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.options
     mv ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/* ${INITRAMFS_STAGING_DIR}/lib/modules/.
     rmdir ${INITRAMFS_STAGING_DIR}/lib/modules/0.0
