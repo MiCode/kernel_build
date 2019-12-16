@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import re
 import subprocess
 import logging
 
@@ -25,7 +26,7 @@ class AbiTool(object):
     def dump_kernel_abi(self, linux_tree, dump_path, whitelist):
         raise NotImplementedError()
 
-    def diff_abi(self, old_dump, new_dump, diff_report, whitelist):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report, whitelist):
         raise NotImplementedError()
 
     def name(self):
@@ -49,7 +50,7 @@ class Libabigail(AbiTool):
 
         subprocess.check_call(dump_abi_cmd)
 
-    def diff_abi(self, old_dump, new_dump, diff_report, whitelist):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report, whitelist):
         log.info('libabigail diffing: {} and {} at {}'.format(old_dump,
                                                                 new_dump,
                                                                 diff_report))
@@ -70,6 +71,13 @@ class Libabigail(AbiTool):
                 if e.returncode in (1, 2):  # abigail error, user error
                     raise
                 return True  # actual abi change
+
+        if short_report is not None:
+            with open(diff_report) as full_report:
+                with open(short_report, 'w') as out:
+                    out.write(re.sub(r'impacted interfaces:\n([ ]+.+\n)+',
+                           'impacted interfaces\n',
+                           full_report.read()))
 
         return False  # no abi change
 
