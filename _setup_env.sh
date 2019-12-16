@@ -21,7 +21,7 @@
 [ -n "$_SETUP_ENV_SH_INCLUDED" ] && return || _SETUP_ENV_SH_INCLUDED=1
 
 # TODO: Use a $(gettop) style method.
-export ROOT_DIR=$PWD
+export ROOT_DIR=$(readlink -f $PWD)
 
 export BUILD_CONFIG=${BUILD_CONFIG:-build.config}
 set -a
