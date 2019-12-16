@@ -21,9 +21,9 @@ import sys
 
 from abitool import get_abi_tool
 
-def diff_abi(abitool, baseline, new, out_file, whitelist):
+def diff_abi(abitool, baseline, new, report, short_report, whitelist):
     tool = get_abi_tool(abitool)
-    return tool.diff_abi(baseline, new, out_file, whitelist)
+    return tool.diff_abi(baseline, new, report, short_report, whitelist)
 
 def main():
     """ Build the linux kernel, freshly cloning if needed"""
@@ -36,6 +36,8 @@ def main():
                         help='abi tool to be used to monitor abi')
     parser.add_argument('--report', help='where to write the report to',
                         required=True)
+    parser.add_argument('--short-report', help='where to write a short report to',
+                        default=None)
     parser.add_argument('--kmi-whitelist', default=None,
                         help='KMI whitelist to filter for')
 
@@ -45,6 +47,7 @@ def main():
                            args.baseline,
                            args.new,
                            args.report,
+                           args.short_report,
                            args.kmi_whitelist)
     if abi_changed:
         return 8
