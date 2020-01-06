@@ -36,6 +36,13 @@ def symbol_sort(symbols):
     # E.g. __blk_mq_end_request, _blk_mq_end_request, blk_mq_end_request get
     # replaced by blkmqendrequest, blkmqendrequest_, blkmqendrequest__ and
     # compared lexicographically.
+
+    # if the caller passes None or an empty string something is odd, so assert
+    # and ignore if asserts are disabled as we do not need to deal with that
+    assert (a)
+    if not a:
+      return a
+
     tmp = a.lower()
     for idx, c in enumerate(tmp):
       if c != "_":
@@ -111,7 +118,7 @@ def update_whitelist(whitelist, undefined_symbols, exported_in_vmlinux):
   new_wl = []
   if os.path.isfile(whitelist):
     with open(whitelist) as wl:
-      new_wl = [line.strip() for line in wl.readlines()[1:]]
+      new_wl = [line.strip() for line in wl.readlines()[1:] if line.strip()]
 
   new_wl.extend(
       [symbol for symbol in undefined_symbols if symbol in exported_in_vmlinux])
