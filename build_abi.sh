@@ -167,7 +167,7 @@ if [ -n "$ABI_DEFINITION" ]; then
         ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
                                        --new      ${DIST_DIR}/${abi_out_file} \
                                        --report   ${abi_report}               \
-                                       --short-report ${abi_report}.short
+                                       --short-report ${abi_report}.short     \
                                        $KMI_WHITELIST_FLAG
         rc=$?
         set -e
