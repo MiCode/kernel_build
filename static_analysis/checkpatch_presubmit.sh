@@ -95,6 +95,12 @@ if [ "${KERNEL_DIR}" == "common" ]; then
         echo "Merge commit detected for a ${KERNEL_DIR} kernel. Skipping this check."
         exit 0
     fi
+
+    SUBJECT=$(git -C ${KERNEL_DIR} show --no-patch --format="%s" ${GIT_SHA1})
+    if [[ "$SUBJECT" =~ ^UPSTREAM|^BACKPORT|^FROMGIT ]]; then
+        echo "Not linting upstream patches for a ${KERNEL_DIR} kernel. Skipping this check."
+        exit 0
+    fi
 fi
 
 ${STATIC_ANALYSIS_SRC_DIR}/checkpatch.sh --git_sha1 ${GIT_SHA1} ${FORWARDED_ARGS[*]}
