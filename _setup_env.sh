@@ -28,7 +28,7 @@ set -a
 . ${ROOT_DIR}/${BUILD_CONFIG}
 set +a
 
-export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
+export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 
