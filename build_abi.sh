@@ -84,7 +84,19 @@ set -- "${ARGS[@]}"
 set -e
 set -a
 
+# if we are using the default OUT_DIR, add a suffix so we are free to wipe it
+# before building to ensure a clean build/analysis. That is the default case.
+if [[ -z "$OUT_DIR" ]]; then
+    export OUT_DIR_SUFFIX="_abi"
+    wipe_out_dir=1
+fi
+
 source "${ROOT_DIR}/build/_setup_env.sh"
+
+# Now actually do the wipe out as above.
+if [[ $wipe_out_dir -eq 1 ]]; then
+    rm -rf "${OUT_DIR}"
+fi
 
 # inject CONFIG_DEBUG_INFO=y
 export POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} : && update_config_for_abi_dump"
