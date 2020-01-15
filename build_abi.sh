@@ -146,6 +146,15 @@ ABI_DEFINITION= ${ROOT_DIR}/build/build.sh $*
 # define a common KMI whitelist flag for the abi tools
 KMI_WHITELIST_FLAG=
 if [ -n "$KMI_WHITELIST" ]; then
+
+    if [ $UPDATE -eq 1 ]; then
+        echo "========================================================"
+        echo " Updating the ABI whitelist"
+        ${ROOT_DIR}/build/abi/extract_symbols       \
+            --whitelist $KERNEL_DIR/$KMI_WHITELIST  \
+            ${DIST_DIR}
+    fi
+
     KMI_WHITELIST_FLAG="--kmi-whitelist $KERNEL_DIR/$KMI_WHITELIST"
 fi
 
