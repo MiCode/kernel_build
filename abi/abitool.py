@@ -32,6 +32,11 @@ class AbiTool(object):
     def name(self):
         raise NotImplementedError()
 
+ABIDIFF_ERROR                   = (1<<0)
+ABIDIFF_USAGE_ERROR             = (1<<1)
+ABIDIFF_ABI_CHANGE              = (1<<2)
+ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
+
 class Libabigail(AbiTool):
     """" Concrete AbiTool implementation for libabigail """
     def dump_kernel_abi(self, linux_tree, dump_path, whitelist):
@@ -68,7 +73,7 @@ class Libabigail(AbiTool):
             try:
                 subprocess.check_call(diff_abi_cmd, stdout=out, stderr=out)
             except subprocess.CalledProcessError as e:
-                if e.returncode in (1, 2):  # abigail error, user error
+                if e.returncode & (ABIDIFF_ERROR | ABIDIFF_USAGE_ERROR):
                     raise
                 return True  # actual abi change
 
