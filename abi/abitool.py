@@ -69,13 +69,15 @@ class Libabigail(AbiTool):
         if whitelist is not None:
             diff_abi_cmd.extend(['--kmi-whitelist', whitelist])
 
+        abi_changed = False
+
         with open(diff_report, 'w') as out:
             try:
                 subprocess.check_call(diff_abi_cmd, stdout=out, stderr=out)
             except subprocess.CalledProcessError as e:
                 if e.returncode & (ABIDIFF_ERROR | ABIDIFF_USAGE_ERROR):
                     raise
-                return True  # actual abi change
+                abi_changed = True  # actual abi change
 
         if short_report is not None:
             with open(diff_report) as full_report:
@@ -84,7 +86,7 @@ class Libabigail(AbiTool):
                            'impacted interfaces\n',
                            full_report.read()))
 
-        return False  # no abi change
+        return abi_changed
 
 def get_abi_tool(abi_tool):
     if abi_tool == 'libabigail':
