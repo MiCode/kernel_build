@@ -95,7 +95,7 @@ source "${ROOT_DIR}/build/_setup_env.sh"
 
 # Now actually do the wipe out as above.
 if [[ $wipe_out_dir -eq 1 ]]; then
-    rm -rf "${OUT_DIR}"
+    rm -rf "${COMMON_OUT_DIR}"
 fi
 
 # inject CONFIG_DEBUG_INFO=y
