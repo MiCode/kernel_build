@@ -484,7 +484,16 @@ if [ -n "${KMI_WHITELIST}" ]; then
   echo " Copying abi whitelist definition to ${DIST_DIR}/abi_whitelist"
   pushd $ROOT_DIR/$KERNEL_DIR
     cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
-  popd
+
+    # If there are additional whitelists specified, append them
+    if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
+      for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
+          echo >> ${DIST_DIR}/abi_whitelist
+          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
+      done
+    fi
+
+  popd # $ROOT_DIR/$KERNEL_DIR
 fi
 
 echo "========================================================"
