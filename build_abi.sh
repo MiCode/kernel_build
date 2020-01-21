@@ -155,7 +155,7 @@ if [ -n "$KMI_WHITELIST" ]; then
             ${DIST_DIR}
     fi
 
-    KMI_WHITELIST_FLAG="--kmi-whitelist $KERNEL_DIR/$KMI_WHITELIST"
+    KMI_WHITELIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_whitelist"
 fi
 
 echo "========================================================"

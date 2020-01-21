@@ -177,7 +177,11 @@ Changes to other ELF symbols would not be considered any longer unless they are
 indirectly affecting symbols that are whitelisted. A whitelist file can be
 specified -- similar to the abi baseline file via `ABI_DEFINITION=` -- in the
 corresponding `build.config` configuration file with `KMI_WHITELIST=` as a file
-relative to the kernel source directory (`$KERNEL_DIR`).
+relative to the kernel source directory (`$KERNEL_DIR`). In order to allow a
+certain level of organization, additional whitelist files can be specified by
+using `ADDITIONAL_KMI_WHITELISTS=` in the `build.config`. Similarly, it refers
+to whitelists in the `$KERNEL_DIR` and multiple files need to be separated by
+whitespaces.
 
 In order to **create an initial whitelist or to update an existing one**, the
 script `extract_symbols` is provided. When run pointing at a `DIST_DIR` of an
