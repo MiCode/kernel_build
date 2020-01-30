@@ -59,6 +59,16 @@
 #     If defined (usually in build.config), also copy that abi definition to
 #     <OUT_DIR>/dist/abi.xml when creating the distribution.
 #
+#   KMI_WHITELIST
+#     Location of the main KMI whitelist file relative to <REPO_ROOT>/KERNEL_DIR
+#     If defined (usually in build.config), also copy that whitelist definition
+#     to <OUT_DIR>/dist/abi_whitelist when creating the distribution.
+#
+#   ADDITIONAL_KMI_WHITELISTS
+#     Location of secondary KMI whitelist files relative to
+#     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
+#     appended to the main one before proceeding to the distribution creation.
+#
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
