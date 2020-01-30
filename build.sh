@@ -234,7 +234,8 @@ fi
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
 
-mkdir -p ${OUT_DIR}
+mkdir -p ${OUT_DIR} ${DIST_DIR}
+
 echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
@@ -272,6 +273,33 @@ if [ -n "${TAGS_CONFIG}" ]; then
   (cd ${KERNEL_DIR} && SRCARCH=${ARCH} ./scripts/tags.sh ${TAGS_CONFIG})
   set +x
   exit 0
+fi
+
+# Copy the abi_${arch}.xml file from the sources into the dist dir
+if [ -n "${ABI_DEFINITION}" ]; then
+  echo "========================================================"
+  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
+  popd
+fi
+
+# Copy the abi whitelist file from the sources into the dist dir
+if [ -n "${KMI_WHITELIST}" ]; then
+  echo "========================================================"
+  echo " Generating abi whitelist definition to ${DIST_DIR}/abi_whitelist"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
+
+    # If there are additional whitelists specified, append them
+    if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
+      for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
+          echo >> ${DIST_DIR}/abi_whitelist
+          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
+      done
+    fi
+
+  popd # $ROOT_DIR/$KERNEL_DIR
 fi
 
 echo "========================================================"
@@ -354,7 +382,6 @@ for ODM_DIR in ${ODM_DIRS}; do
   fi
 done
 
-mkdir -p ${DIST_DIR}
 echo "========================================================"
 echo " Copying files"
 for FILE in $(cd ${OUT_DIR} && ls -1 ${FILES}); do
@@ -477,33 +504,6 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
               --transform "s,^,kernel-headers/,"               \
               --null -T -
   popd
-fi
-
-# Copy the abi_${arch}.xml file from the sources into the dist dir
-if [ -n "${ABI_DEFINITION}" ]; then
-  echo "========================================================"
-  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
-  pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
-  popd
-fi
-
-# Copy the abi whitelist file from the sources into the dist dir
-if [ -n "${KMI_WHITELIST}" ]; then
-  echo "========================================================"
-  echo " Copying abi whitelist definition to ${DIST_DIR}/abi_whitelist"
-  pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
-
-    # If there are additional whitelists specified, append them
-    if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
-      for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
-          echo >> ${DIST_DIR}/abi_whitelist
-          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
-      done
-    fi
-
-  popd # $ROOT_DIR/$KERNEL_DIR
 fi
 
 echo "========================================================"
