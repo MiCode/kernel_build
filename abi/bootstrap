@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ELFUTILS_VERSION=elfutils-0.176
+ELFUTILS_VERSION=elfutils-0.178
 ABIGAIL_VERSION=4752d416
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
@@ -29,6 +29,9 @@ if [ -e "${OUT_DIR}" ]; then
   echo "WARN: ${OUT_DIR} exists. Press enter to continue or Ctrl-C to abort."
   read
 fi
+
+# Clear out the OUT_DIR
+rm -rf "${OUT_DIR}"
 
 # Add the future PATHs to the environment for the builds to pick up
 export PATH="${OUT_DIR}/bin:${PATH}"
@@ -69,7 +72,9 @@ pushd "${ELFUTILS_SRC}"
   autoreconf -i --force
   mkdir -p build/
   pushd build/
-    ../configure --prefix="${OUT_DIR}" --enable-maintainer-mode
+    ../configure --prefix="${OUT_DIR}"    \
+                 --enable-maintainer-mode \
+                 --disable-debuginfod
     make -j${NUM_CORES}
     make -j${NUM_CORES} install
   popd
