@@ -651,14 +651,49 @@ def kernel_component_factory(filename: str) -> KernelComponentBase:
                                             " ".join([*stop_error.args]))
 
 
-def work_on_all_components(args) -> List[KernelComponentBase]:
+class KernelComponentProcess(multiprocessing.Process):
+    """Process to make the KernelComponent concurrently."""
+    def __init__(self) -> None:
+        multiprocessing.Process.__init__(self)
+        self._queue = multiprocessing.Queue()
+        self.start()
+
+    def run(self) -> None:
+        """Create and save the KernelComponent."""
+        self._queue.put(kernel_component_factory("vmlinux.o"))
+
+    def get_component(self) -> KernelComponentBase:
+        """Return the kernel component."""
+        kernel_component = self._queue.get()
+        self.join()  # must be after queue.get() otherwise it deadlocks
+        return kernel_component
+
+
+def work_on_all_components(options) -> List[KernelComponentBase]:
     """Return a list of KernelComponentBase objects."""
-    files = ["vmlinux.o"] + [str(ko) for ko in pathlib.Path().rglob("*.ko")]
-    if args.sequential:
-        return [kernel_component_factory(file) for file in files]
-    with multiprocessing.Pool(os.cpu_count()) as pool:
-        components = pool.map(kernel_component_factory, files)
-    return components
+    files = [str(ko) for ko in pathlib.Path().rglob("*.ko")]
+    if options.sequential:
+        return [
+            kernel_component_factory(file) for file in ["vmlinux.o"] + files
+        ]
+
+    #  There is significantly more work to be done for the vmlinux.o than
+    #  the *.ko kernel modules.  A dedicated process is started to do the
+    #  work for vmlinux.o as soon as possible instead of leaving it to the
+    #  vagaries of multiprocessing.Pool() and how it would spreads the work.
+    #  This significantly reduces the elapsed time for this work.
+
+    kernel_component_process = KernelComponentProcess()
+
+    chunk_size = 128
+    processes = max(1, len(files) // (chunk_size * 3))
+    processes = min(processes, os.cpu_count())
+    with multiprocessing.Pool(processes) as pool:
+        components = pool.map(kernel_component_factory, files, chunk_size)
+
+    kernel_component = kernel_component_process.get_component()
+
+    return [kernel_component] + components
 
 
 def work_on_whole_build(options) -> int:
