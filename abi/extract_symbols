@@ -16,6 +16,7 @@
 #
 
 import argparse
+import collections
 import functools
 import itertools
 import os
@@ -72,7 +73,7 @@ def extract_undefined_symbols(modules):
   # yes, we could pass all of them to nm, but I want to avoid hitting shell
   # limits with long lists of modules
   result = {}
-  for module in modules:
+  for module in sorted(modules):
     symbols = []
     out = subprocess.check_output(["nm", "--undefined-only", module],
                                   encoding="ascii",
@@ -80,7 +81,7 @@ def extract_undefined_symbols(modules):
     for line in out.splitlines():
       symbols.append(line.strip().split()[1])
 
-    result[module] = symbol_sort(symbols)
+    result[os.path.basename(module)] = symbol_sort(symbols)
 
   return result
 
@@ -113,20 +114,43 @@ def report_missing(module_symbols, exported):
             symbol, module))
 
 
-def update_whitelist(whitelist, undefined_symbols, exported_in_vmlinux):
-  """Create or update an existing symbol whitelist for libabigail."""
-  new_wl = []
-  if os.path.isfile(whitelist):
-    with open(whitelist) as wl:
-      new_wl = [line.strip() for line in wl.readlines()[1:] if line.strip()]
+def create_whitelist(whitelist, undefined_symbols, exported):
+  """Create a symbol whitelist for libabigail."""
+  symbol_counter = collections.Counter(
+      itertools.chain.from_iterable(undefined_symbols.values()))
 
-  new_wl.extend(
-      [symbol for symbol in undefined_symbols if symbol in exported_in_vmlinux])
-  new_wl = symbol_sort(new_wl)
+
   with open(whitelist, "w") as wl:
-    pass
-    wl.write("[abi_whitelist]\n  ")
-    wl.write("\n  ".join(new_wl))
+
+    common_wl_section = symbol_sort([
+        symbol for symbol, count in symbol_counter.items()
+        if count > 1 and symbol in exported
+    ])
+
+    # always write the header
+    wl.write("[abi_whitelist]\n")
+
+    if common_wl_section:
+      wl.write("# commonly used symbols\n  ")
+      wl.write("\n  ".join(common_wl_section))
+      wl.write("\n")
+    else:
+      # ensure the whitelist contains at least one symbol to not be ignored
+      wl.write("  dummy_symbol\n")
+
+    for module, symbols in undefined_symbols.items():
+
+      new_wl_section = symbol_sort([
+          symbol for symbol in symbols
+          if symbol in exported and symbol not in common_wl_section
+      ])
+
+      if not new_wl_section:
+        continue
+
+      wl.write("\n# required by {}\n  ".format(module))
+      wl.write("\n  ".join(new_wl_section))
+      wl.write("\n")
 
 
 def main():
@@ -155,7 +179,7 @@ def main():
   parser.add_argument(
       "--whitelist",
       default="/dev/stdout",
-      help="The whitelist to create or update")
+      help="The whitelist to create")
 
   args = parser.parse_args()
 
@@ -173,8 +197,6 @@ def main():
 
   # Get required symbols of all modules
   undefined_symbols = extract_undefined_symbols(modules)
-  all_undefined = symbol_sort(
-      itertools.chain.from_iterable(undefined_symbols.values()))
 
   # Get the actually defined and exported symbols
   exported_in_vmlinux = extract_exported_symbols(vmlinux)
@@ -190,10 +212,10 @@ def main():
   if args.report_missing:
     report_missing(undefined_symbols, all_exported)
 
-  # If specified, update the whitelist
+  # If specified, create the whitelist
   if args.whitelist:
-    update_whitelist(
-        args.whitelist, all_undefined,
+    create_whitelist(
+        args.whitelist, undefined_symbols,
         all_exported if args.include_module_exports else exported_in_vmlinux)
 
 
