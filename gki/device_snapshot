@@ -423,6 +423,84 @@ fi
 Reports the differences between stdin and \${input}" ]
 perform_diff() {
   diff -U1 "${input}" - |
+    # Squash noise, replacing long stretches of changes with trailing ...
+    sed '/^@@ -1,[0-9]\{4,\} [+]0,0 @@$/ q
+         /^@@ -0,0 [+]1,[0-9]\{4,\} @@$/ q
+         /^-\/sys\/module\/[^\/]*\/sections\/[.]bss$/ {
+           N
+           /^\(-\/sys\/module\/[^\/]*\/sections\/[.]\)bss\n\1data$/ {
+             : loop
+             N
+             /^-\(\/sys\/module\/[^\/]*\/sections\/[.]\)bss\n-\1data.*\n[+]\1bss[.][^\n]*$/ b loop
+             s/^-\(\/sys\/module\/[^\/]*\/sections\/[.]\)bss\n-\1data\(.*\n[+]\1bss[.][^\n]*\)\(\n\)\([^\n]*\)$/-\1bss\2\3-\1data\3\4/
+           }
+         }' |
+    sed '/^[-+ ]\/sys\/module\/[^\/]*$/ {
+           : loop1
+           N
+           /^ \([^\n]*\)\n[+]\1\/\(coresize\|parameters\)$/ b loop2
+           /^\([-+][^\n]*\)\n\1\/\(coresize\|parameters\)$/ {
+             : loop2
+             N
+             /^\([-+][^\n]*\)\n.*\n\1\/uevent$/ b skip1
+             /^ \([^\n]*\)\n.*\n[+]\1\/uevent$/ b skip2
+             /^ \([^\n]*\)\n.*\n[+]\1\/[^\n]*$/ b loop2
+             /^\([-+][^\n]*\)\n.*\n\1\/[^\n]*$/ b loop2
+             h
+             s/^\([-+][^\n]*\)\n.*\n\1\/[^\n]*\n[^\n]*$/\1\/.../
+             s/^ \([^\n]*\)\(\n\).*\n[+]\1\/[^\n]*\n[^\n]*$/ \1\2+\1\/.../
+             p
+             g
+             s/^.*\n\([^\n]*\)$/\1/
+             /^[-+ ]\/sys\/module\/[^\/]*$/ b loop1
+             b exit
+             : skip1
+             s/^\([^\n]*\)\n.*\n\1\/uevent$/\1\/.../
+             b exit
+             : skip2
+             s/^ \([^\n]*\)\(\n\).*\n[+]\1\/uevent$/\1\2\1\/.../
+             : exit
+           }
+         }
+         /^[-+]\/sys\/module\/[^\/]*\/refcnt$/ {
+           : loop3
+           N
+           /^\([-+][^\n]*\/\)refcnt.*\n\1[^\n]*$/ b loop3
+           h
+           s/^\([-+][^\n]*\/\)\(refcnt\n\).*\n\1[^\n]*\n[^\n]*$/\1\2\1.../
+           p
+           g
+           s/^.*\n\([^\n]*\)$/\1/
+           /^[-+ ]\/sys\/module\/[^\/]*$/ b loop1
+         }
+         /^-\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)$/ {
+           : loop4
+           N
+           /^-\(\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)\).*\n[+]\1[.][^\n]*$/ b loop4
+           h
+           s/^-\(\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)\)\n.*\(\n\)[+]\1[.][^\n]*\n[^\n]*$/-\1\3+\1.../
+           s/^-\(\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)\)\n[^\n]*[^.][^.]$/-\1/
+           s/^-\(\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)\)\(\n[+]\1[.][^\n]*\)\n[^\n]*[^.][^.]$/-\1\3/
+           p
+           g
+           s/^.*\n\([^\n]*\)$/\1/
+           /^-\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)$/ b loop4
+           /^[-+ ]\/sys\/module\/[^\/]*$/ b loop1
+         }
+         /^ \/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)[.]/ {
+           : loop5
+           N
+           /^ \(\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)\)[.][^\n].*\n[+]\1[.][^\n]*$/ b loop5
+           h
+           s/^ \(\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)\)\([.][^\n]*\n\).*\n[+]\1[.][^\n]*\n[^\n]*$/ \1\3+\1.../
+           s/^\( \/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)[.][^\n]*\)\n[^\n]*[^.][^.]$/\1/
+           p
+           g
+           s/^.*\n\([^\n]*\)$/\1/
+           /^ \/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)[.]/ b loop5
+           /^-\/sys\/module\/[^\/]*\/sections\/[.]\(bss\|data\|rodata\|text\)$/ b loop4
+           /^[-+ ]\/sys\/module\/[^\/]*$/ b loop1
+         }' |
     grep '[-+ ]' ||
     echo "${BLUE}[     INFO ]${NORMAL} no differences in /dev/ and /sys/ since last device snapshot" >&2
   if [ -s "${output}.probed" -a -s "${input}.probed" ]; then
@@ -639,6 +717,7 @@ fi |
        s@\(/sys/kernel/debug/binder/proc/\)[0-9][0-9]*\$@\1${NUM}@
        s@\(/sys/kernel/debug/kgsl/proc/\)[0-9][0-9]*@\1${NUM}@
        s@\(/sys/kernel/debug/kgsl/kgsl-[0-9a-f][0-9a-f]*/ctx/\)[0-9][0-9]*@\1${NUM}@
+       s@\(/sys/module/[^/]*/sections/.*[.]llvm[.]\)[0-9][0-9]*\$@\1${NUM}@
        s@\(/sys/kernel/debug/msm_cvp/core0/inst_\)[0-9a-f][0-9a-f]*@\1${NUM}@
        s@\(/sys/kernel/iommu_groups/\)[0-9][0-9]*@\1${NUM}@
        s@\(/devices/soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb\)[0-9][0-9]*@\1${NUM}@
@@ -651,6 +730,7 @@ fi |
       else
         cat - >"${output}"
       fi
+    [ -s "${output}" ] || rm -f "${output}"
   else
     TMP=`mktemp -d`
     if [ X"${output}" = X"-" ]; then
