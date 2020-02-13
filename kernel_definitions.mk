@@ -1,7 +1,26 @@
 # Android Kernel compilation/common definitions
 
-ifeq ($(KERNEL_DEFCONFIG),)
-     KERNEL_DEFCONFIG := vendor/$(TARGET_PRODUCT)_defconfig
+
+ifeq ($(TARGET_PRODUCT),lmiin)
+    TARGET_PREFIX := lmi
+else
+    TARGET_PREFIX := $(TARGET_PRODUCT)
+endif
+
+ifeq ($(TARGET_PRODUCT),kona)
+    KERNEL_DEFCONFIG := vendor/$(TARGET_PRODUCT)_defconfig
+else
+    ifeq ($(KERNEL_DEFCONFIG),)
+        ifeq ($(TARGET_BUILD_VARIANT),eng)
+             KERNEL_DEFCONFIG := $(TARGET_PREFIX)_debug_defconfig
+        else
+             ifeq (true,$(ENABLE_SYSTEM_MTBF))
+                  KERNEL_DEFCONFIG := $(TARGET_PREFIX)_stability_defconfig
+             else
+                  KERNEL_DEFCONFIG := $(TARGET_PREFIX)_user_defconfig
+             endif
+        endif
+    endif
 endif
 
 TARGET_KERNEL := msm-$(TARGET_KERNEL_VERSION)
@@ -51,11 +70,15 @@ KERNEL_CONFIG_OVERRIDE := CONFIG_ANDROID_BINDER_IPC_32BIT=y
 endif
 endif
 
+ifeq ($(FACTORY_BUILD),1)
+KERNEL_CONFIG_OVERRIDE_FACTORY := CONFIG_FACTORY_BUILD=y
+endif
+
 TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(strip $(TARGET_KERNEL_CROSS_COMPILE_PREFIX))
 ifeq ($(TARGET_KERNEL_CROSS_COMPILE_PREFIX),)
 KERNEL_CROSS_COMPILE := arm-eabi-
 else
-KERNEL_CROSS_COMPILE := $(TARGET_KERNEL_CROSS_COMPILE_PREFIX)
+KERNEL_CROSS_COMPILE := $(shell pwd)/$(TARGET_TOOLS_PREFIX)
 endif
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
@@ -75,11 +98,7 @@ ifeq ($(KERNEL_LLVM_SUPPORT),true)
     KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG) #Using aosp-llvm compiler
     $(warning "Using aosp-llvm" $(KERNEL_LLVM_BIN))
   endif
-  ifeq ($(KERNEL_ARCH), arm64)
-      real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
-  else
-      real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=arm-linux-gnueabihf
-  endif
+real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
 else
 ifeq ($(strip $(KERNEL_GCC_NOANDROID_CHK)),0)
 KERNEL_CFLAGS := KCFLAGS=-mno-android
@@ -149,6 +168,8 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(DTC) $(UFDT_APPLY_OVERLAY)
 	TARGET_PREBUILT_INT_KERNEL=$(TARGET_PREBUILT_INT_KERNEL) \
 	TARGET_INCLUDES=$(TARGET_KERNEL_MAKE_CFLAGS) \
 	TARGET_LINCLUDES=$(TARGET_KERNEL_MAKE_LDFLAGS) \
+	KERNEL_CONFIG_OVERRIDE_FACTORY=$(KERNEL_CONFIG_OVERRIDE_FACTORY) \
+	KERNEL_CONFIG_OVERRIDE_DEVMEM=$(KERNEL_CONFIG_OVERRIDE_DEVMEM) \
 	device/qcom/kernelscripts/buildkernel.sh \
 	$(real_cc) \
 	$(TARGET_KERNEL_MAKE_ENV)
@@ -171,6 +192,8 @@ $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 	TARGET_PREBUILT_INT_KERNEL=$(TARGET_PREBUILT_INT_KERNEL) \
 	TARGET_INCLUDES=$(TARGET_KERNEL_MAKE_CFLAGS) \
 	TARGET_LINCLUDES=$(TARGET_KERNEL_MAKE_LDFLAGS) \
+	KERNEL_CONFIG_OVERRIDE_FACTORY=$(KERNEL_CONFIG_OVERRIDE_FACTORY) \
+	KERNEL_CONFIG_OVERRIDE_DEVMEM=$(KERNEL_CONFIG_OVERRIDE_DEVMEM) \
 	device/qcom/kernelscripts/buildkernel.sh \
 	$(real_cc) \
 	$(TARGET_KERNEL_MAKE_ENV)

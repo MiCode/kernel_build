@@ -4,6 +4,7 @@
 # Not a Contribution.
 #
 # Copyright (C) 2019 The Android Open Source Project
+# Copyright (C) 2020 XiaoMi, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +49,7 @@ System.map
 "
 PRIMARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/primary_kernel
 SECONDARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/secondary_kernel
+KERN_SHA1_LOC=${KERNEL_PREBUILT_DIR}/kernel_sha1.txt
 
 #defconfig
 make_defconfig()
@@ -58,6 +60,17 @@ make_defconfig()
 		set -x
 		(cd ${KERNEL_DIR} && \
 		make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		set +x
+	fi
+
+    if [ ! -z "${KERNEL_CONFIG_OVERRIDE_FACTORY}"  ]; then
+		echo "Rebuilding defconfig"
+		echo "Overriding kernel config with" ${KERNEL_CONFIG_OVERRIDE_FACTORY};
+		echo ${KERNEL_CONFIG_OVERRIDE_FACTORY} >> ${OUT_DIR}/.config;
+		echo ${KERNEL_CONFIG_OVERRIDE_DEVMEM} >>${OUT_DIR}/.config;
+		set +x
+		(cd ${KERNEL_DIR} && \
+		make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig)
 		set +x
 	fi
 }
@@ -192,6 +205,14 @@ copy_all_to_prebuilt()
 	cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${PREBUILT_OUT}
 }
 
+extract_kernel_sha1()
+{
+	CUR_DIR=$(pwd)
+	cd ${KERNEL_DIR}
+	git rev-list --max-count=1 HEAD > ${KERN_SHA1_LOC}
+	cd ${CUR_DIR}
+}
+
 copy_from_prebuilt()
 {
 	PREBUILT_OUT=$1
@@ -303,6 +324,7 @@ else
 	build_kernel
 	modules_install
 	copy_all_to_prebuilt ${KERNEL_BINS}
+	extract_kernel_sha1
 fi
 
 exit 0
