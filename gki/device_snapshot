@@ -698,7 +698,7 @@ fi |
   grep -v '^/sys/devices/system/cpu/cpufreq/policy[0-9]*/schedutil' |
   grep -v '/__trace_printk_fmt$' |
   sed "s@\(/regulator[.]\)[0-9][0-9]*\$@\1${NUM}@
-       s@\(/regulator[.]\)[0-9][0-9]*/@\1${NUM}/@g
+       s@\(/regulator[.]\)[0-9][0-9]*\(/\|-SUPPLY\)@\1${NUM}\2@g
        s@\(/vppservice_\)[0-9][0-9]*\$@\1${NUM}@
        s@\(/msi_irqs/\)[0-9][0-9]*\$@\1${NUM}@
        s@\(/sys/class/rfkill/rfkill\)[0-9][0-9]*@\1${NUM}@
