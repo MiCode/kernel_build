@@ -25,8 +25,9 @@ TARGET_KERNEL_MAKE_LDFLAGS = "-L/usr/lib -L/usr/lib/x86_64-linux-gnu"
 BUILD_CONFIG := $(TARGET_KERNEL_SOURCE)/build.config.common
 CLANG_VERSION := $(shell IFS="/"; while read LINE; do if [[ $$LINE == *"CLANG_PREBUILT_BIN"* ]]; then read -ra CLANG <<< "$$LINE"; for VERSION in "$${CLANG[@]}"; do if [[ $$VERSION == *"clang-"* ]]; then echo "$$VERSION"; fi; done; fi; done < $(BUILD_CONFIG))
 KERNEL_LLVM_BIN := $(lastword $(sort $(wildcard $(SOURCE_ROOT)/$(LLVM_PREBUILTS_BASE)/$(BUILD_OS)-x86/clang-4*)))/bin/clang
-KERNEL_AOSP_LLVM_BIN := $(SOURCE_ROOT)/$(LLVM_PREBUILTS_BASE)/$(BUILD_OS)-x86/$(CLANG_VERSION)/bin/clang
-USE_KERNEL_AOSP_LLVM := $(shell test -f "$(KERNEL_AOSP_LLVM_BIN)" && echo "true" || echo "false")
+KERNEL_AOSP_LLVM_BIN := $(SOURCE_ROOT)/$(LLVM_PREBUILTS_BASE)/$(BUILD_OS)-x86/$(CLANG_VERSION)/bin
+KERNEL_AOSP_LLVM_CLANG := $(KERNEL_AOSP_LLVM_BIN)/clang
+USE_KERNEL_AOSP_LLVM := $(shell test -f "$(KERNEL_AOSP_LLVM_CLANG)" && echo "true" || echo "false")
 
 KERNEL_TARGET := $(strip $(INSTALLED_KERNEL_TARGET))
 ifeq ($(KERNEL_TARGET),)
@@ -76,16 +77,17 @@ ifeq ($(KERNEL_LLVM_SUPPORT),true)
        KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH)/clang
     endif
     $(warning "Using sdllvm" $(KERNEL_LLVM_BIN))
+  real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
   else
     ifeq ($(USE_KERNEL_AOSP_LLVM), true)  #Using kernel aosp-llvm compiler
-       KERNEL_LLVM_BIN := $(KERNEL_AOSP_LLVM_BIN)
+       KERNEL_LLVM_BIN := $(KERNEL_AOSP_LLVM_CLANG)
        $(warning "Using latest kernel aosp llvm" $(KERNEL_LLVM_BIN))
     else
        KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG)
        $(warning "Not using latest aosp-llvm" $(KERNEL_LLVM_BIN))
     endif
+  real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu- LLVM_AR=$(KERNEL_AOSP_LLVM_BIN)/llvm-ar LLVM_NM=$(KERNEL_AOSP_LLVM_BIN)/llvm-nm LD=$(KERNEL_AOSP_LLVM_BIN)/ld.lld
   endif
-real_cc := REAL_CC=$(KERNEL_LLVM_BIN) CLANG_TRIPLE=aarch64-linux-gnu-
 else
 ifeq ($(strip $(KERNEL_GCC_NOANDROID_CHK)),0)
 KERNEL_CFLAGS := KCFLAGS=-mno-android
