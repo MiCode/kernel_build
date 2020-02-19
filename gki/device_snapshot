@@ -514,6 +514,8 @@ perform_diff() {
     sed -n 's@^.*init: Loaded kernel module /lib/modules/@@p' ${input}.dmesg > ${TMP}/input &
     sed -n 's@^.*init: Loaded kernel module /lib/modules/@@p' ${output}.dmesg |
       diff -U1 ${TMP}/input - |
+      sed '/^@@ -1,[0-9]\{3,\} [+]0,0 @@$/ q
+           /^@@ -0,0 [+]1,[0-9]\{3,\} @@$/ q' |
       grep '[-+ ]' ||
       echo "${BLUE}[     INFO ]${NORMAL} no differences in module load order" >&2
     wait
