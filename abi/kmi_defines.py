@@ -25,6 +25,7 @@ even think about what concurrent updates would cause to shuch a facility.
 #   then we can have the syntax highlighting here in Gerrit."
 
 import argparse
+import collections
 import logging
 import multiprocessing
 import os
@@ -35,10 +36,8 @@ import sys
 from typing import List, Optional, Tuple
 from typing import Set  # pytype needs this, pylint: disable=unused-import
 
-COMPILER = "clang"  # TODO(pantin): should be determined at run-time
-DEBUG = True  # TODO(pantin): should be a program argument
 INDENT = 4  # number of spaces to indent for each depth level
-PROGRAM = os.path.basename(sys.argv[0])
+COMPILER = "clang"  # TODO(pantin): should be determined at run-time
 
 #   Dependency that is hidden by the transformation of the .o.d file into
 #   the .o.cmd file as part of the Linux build environment.  This header is
@@ -652,44 +651,43 @@ def kernel_component_factory(filename: str) -> KernelComponentBase:
                                             " ".join([*stop_error.args]))
 
 
-def work_on_all_components() -> List[KernelComponentBase]:
+def work_on_all_components(args) -> List[KernelComponentBase]:
     """Return a list of KernelComponentBase objects."""
-
-    #   TODO(pantin): Matthias suggested: "make it a command line option
-    #   to run on the main thread only" ... "for debugging purposes that
-    #   can be very helpful"
-    #
+    files = ["vmlinux.o"] + [str(ko) for ko in pathlib.Path().rglob("*.ko")]
+    if args.sequential:
+        return [kernel_component_factory(file) for file in files]
     with multiprocessing.Pool(os.cpu_count()) as pool:
-        components = pool.map(kernel_component_factory, ["vmlinux.o"] +
-                              [str(ko) for ko in pathlib.Path().rglob("*.ko")])
+        components = pool.map(kernel_component_factory, files)
     return components
 
 
-def work_on_whole_build() -> int:
+def work_on_whole_build(options) -> int:
     """Work on the whole build to extract the #define constants."""
-    components = work_on_all_components()
-    all_kmod_h_set = set()
-    kernel_h_set = set()
+    if not os.path.isfile("vmlinux.o"):
+        logging.error("file not found: vmlinux.o")
+        return 1
+    components = work_on_all_components(options)
     failed = False
+    header_count = collections.defaultdict(int)
     for comp in components:
         error = comp.get_error()
         if error:
             logging.error(error)
             failed = True
             continue
-        if comp.is_kernel():
-            kernel_h_set = comp.get_deps_set()
-        else:
-            all_kmod_h_set |= comp.get_deps_set()
+        deps_set = comp.get_deps_set()
+        for header in deps_set:
+            header_count[header] += 1
     if failed:
         return 1
-    if DEBUG:
+    if options.dump:
         dump(components)
-    headers = kernel_h_set & all_kmod_h_set
-    hlist = list(headers)
-    hlist.sort()
-    for dep in hlist:
-        print(dep)
+    if options.dump and options.includes:
+        print()
+    if options.includes:
+        for header, count in header_count.items():
+            if count >= 2:
+                print(header)
     return 0
 
 
@@ -701,23 +699,36 @@ def main() -> int:
                 "{0} is not a valid file".format(file))
         return file
 
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("file",
-                            nargs='?',
-                            default="vmlinux.o",
-                            type=existing_file)
-    args = arg_parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d",
+                        "--dump",
+                        action="store_true",
+                        help="dump internal state")
+    parser.add_argument("-s",
+                        "--sequential",
+                        action="store_true",
+                        help="execute without concurrency")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-i",
+                       "--includes",
+                       action="store_true",
+                       help="show relevant include files")
+    group.add_argument("-c",
+                       "--component",
+                       type=existing_file,
+                       help="show information for a component")
+    options = parser.parse_args()
 
-    if len(sys.argv) == 1:
-        return work_on_whole_build()
+    if not options.component:
+        return work_on_whole_build(options)
 
-    comp = kernel_component_factory(args.file)
+    comp = kernel_component_factory(options.component)
 
     error = comp.get_error()
     if error:
         logging.error(error)
         return 1
-    if DEBUG:
+    if options.dump:
         dump([comp])
     return 0
 
