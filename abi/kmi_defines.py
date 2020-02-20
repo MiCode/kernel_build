@@ -163,6 +163,38 @@ def extract_c_src(obj: str, dependencies: List[str]) -> Tuple[str, List[str]]:
     return src, dependencies[1:]
 
 
+def get_src_ccline_deps(obj: str) -> Tuple[str, str, List[str]]:
+    """Get the C source file, its cc_line, and non C source dependencies.
+
+    If the tool used to produce the object is not the compiler, or if the
+    source file is not a C source file then it returns:
+        "", "" []
+
+    Otherwise it returns a triplet with the C source file name, its cc_line,
+    the remaining dependencies.
+    """
+    dot_obj = os.path.join(os.path.dirname(obj), "." + os.path.basename(obj))
+    cmd = dot_obj + ".cmd"
+    content = readfile(cmd)
+    line = lines_get_first_line(content)
+    _, cc_line = makefile_assignment_split(line)
+    if cc_line.split(maxsplit=1)[0] != COMPILER:
+        #   The object file was made by strip, symbol renames, etc.
+        #   i.e. it was not the result of running the compiler, thus
+        #   it can not contribute to #define compile time constants.
+        return "", "", []
+
+    odkeep = dot_obj + ".d.keep"
+    file_must_exist(odkeep)
+    content = readfile(odkeep)
+    src, dependendencies = extract_c_src(
+        obj, makefile_depends_get_dependencies(content))
+    if not src:
+        return "", "", []
+
+    return src, cc_line, dependendencies
+
+
 def lines_to_list(lines: str) -> List[str]:
     """Split a string into a list of non-empty lines."""
     return [line for line in lines.strip().splitlines() if line]
@@ -479,29 +511,11 @@ class KernelComponent(KernelComponentBase):
         self._targets = []
         for obj in self._files_o:
             file_must_exist(obj)
-            dot_obj = os.path.join(os.path.dirname(obj),
-                                   "." + os.path.basename(obj))
-            cmd = dot_obj + ".cmd"
-            content = readfile(cmd)
-
-            line = lines_get_first_line(content)
-            _, cc_line = makefile_assignment_split(line)
-            if cc_line.split(maxsplit=1)[0] != COMPILER:
-                #   The object file was made by strip, symbol renames, etc.
-                #   i.e. it was not the result of running the compiler, thus
-                #   it can not contribute to #define compile time constants.
+            src, cc_line, dependendencies = get_src_ccline_deps(obj)
+            if not cc_line or not src:
                 continue
 
-            odkeep = dot_obj + ".d.keep"
-            file_must_exist(odkeep)
-
-            content = readfile(odkeep)
-            src, dependendencies = extract_c_src(
-                obj, makefile_depends_get_dependencies(content))
-            if not src:
-                continue
             file_must_exist(src)
-
             depends = []
             for dep in dependendencies:
                 if not os.path.isabs(dep):
