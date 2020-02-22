@@ -25,10 +25,6 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-blacklist mmc_core
-blacklist mmc_block
-blacklist sdhci-pltfm
-blacklist sdhci
 blacklist 8250_of
 blacklist dummy_hcd
 blacklist llcc_perfmon
@@ -74,3 +70,14 @@ blacklist radio-i2c-rtc6226-qca
 blacklist dummy-cpufreq
 blacklist dummy_hcd
 blacklist kheaders
+blacklist net_failover
+blacklist adc-tm
+blacklist rtc-test
+blacklist can-bcm
+blacklist can-gw
+blacklist can-raw
+blacklist failover
+blacklist vmw_vsock_virtio_transport
+blacklist vmw_vsock_virtio_transport_common
+blacklist vsock_diag
+blacklist vsock
