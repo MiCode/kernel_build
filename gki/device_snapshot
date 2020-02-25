@@ -567,7 +567,8 @@ if [ -z "${filter}" ]; then
   fi
   if inRecovery; then
     echo "${RED}[    ERROR ]${NORMAL} in recovery mode" >&2
-    exit 1
+    echo "${BLUE}[     INFO ]${NORMAL} waiting 2 more minutes for adb ..."
+    adb_wait 2m || exit 1
   fi
   if ! inAdb; then
     any_wait 2m
