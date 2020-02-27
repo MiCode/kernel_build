@@ -64,6 +64,10 @@
 #     If defined (usually in build.config), also copy that whitelist definition
 #     to <OUT_DIR>/dist/abi_whitelist when creating the distribution.
 #
+#     On kernels having support for the CONFIG_UNUSED_KSYMS_WHITELIST
+#     configuration option, setting KMI_WHITELIST also unexports all unused and
+#     non-whitelisted symbols from the kernel image.
+#
 #   ADDITIONAL_KMI_WHITELISTS
 #     Location of secondary KMI whitelist files relative to
 #     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
@@ -99,6 +103,10 @@
 #   DO_NOT_STRIP_MODULES
 #     Keep debug information for distributed modules.
 #     Note, modules will still be stripped when copied into the ramdisk.
+#
+#   DO_NOT_TRIM_NONLISTED_KMI
+#     Keep un-used and non-whitelisted symbols exported in the kernel image,
+#     even if KMI_WHITELIST is set.
 #
 #   EXTRA_CMDS
 #     Command evaluated after building and installing kernel and modules.
@@ -234,7 +242,8 @@ fi
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
 
-mkdir -p ${OUT_DIR}
+mkdir -p ${OUT_DIR} ${DIST_DIR}
+
 echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
@@ -272,6 +281,46 @@ if [ -n "${TAGS_CONFIG}" ]; then
   (cd ${KERNEL_DIR} && SRCARCH=${ARCH} ./scripts/tags.sh ${TAGS_CONFIG})
   set +x
   exit 0
+fi
+
+# Copy the abi_${arch}.xml file from the sources into the dist dir
+if [ -n "${ABI_DEFINITION}" ]; then
+  echo "========================================================"
+  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
+  popd
+fi
+
+# Copy the abi whitelist file from the sources into the dist dir
+if [ -n "${KMI_WHITELIST}" ]; then
+  echo "========================================================"
+  echo " Generating abi whitelist definition to ${DIST_DIR}/abi_whitelist"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
+
+    # If there are additional whitelists specified, append them
+    if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
+      for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
+          echo >> ${DIST_DIR}/abi_whitelist
+          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
+      done
+    fi
+
+    if [ -z "${DO_NOT_TRIM_NONLISTED_KMI}" ]; then
+        # Create the raw whitelist
+        cat ${DIST_DIR}/abi_whitelist | \
+                ${ROOT_DIR}/build/abi/flatten_whitelist > \
+                ${OUT_DIR}/abi_whitelist.raw
+
+        # Update the kernel configuration
+        ./scripts/config --file ${OUT_DIR}/.config \
+                -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
+                --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
+        (cd ${OUT_DIR} && \
+                make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+    fi
+  popd # $ROOT_DIR/$KERNEL_DIR
 fi
 
 echo "========================================================"
@@ -354,7 +403,6 @@ for ODM_DIR in ${ODM_DIRS}; do
   fi
 done
 
-mkdir -p ${DIST_DIR}
 echo "========================================================"
 echo " Copying files"
 for FILE in $(cd ${OUT_DIR} && ls -1 ${FILES}); do
@@ -477,33 +525,6 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
               --transform "s,^,kernel-headers/,"               \
               --null -T -
   popd
-fi
-
-# Copy the abi_${arch}.xml file from the sources into the dist dir
-if [ -n "${ABI_DEFINITION}" ]; then
-  echo "========================================================"
-  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
-  pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
-  popd
-fi
-
-# Copy the abi whitelist file from the sources into the dist dir
-if [ -n "${KMI_WHITELIST}" ]; then
-  echo "========================================================"
-  echo " Copying abi whitelist definition to ${DIST_DIR}/abi_whitelist"
-  pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
-
-    # If there are additional whitelists specified, append them
-    if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
-      for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
-          echo >> ${DIST_DIR}/abi_whitelist
-          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
-      done
-    fi
-
-  popd # $ROOT_DIR/$KERNEL_DIR
 fi
 
 echo "========================================================"
