@@ -26,7 +26,6 @@ def dump_abi(abitool, linux_tree, out_file, whitelist):
     tool.dump_kernel_abi(linux_tree, out_file, whitelist)
 
 def main():
-    """ Build the linux kernel, freshly cloning if needed"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--linux-tree',
                         help='Path to kernel tree containing '
