@@ -141,6 +141,11 @@
 #     the contents of this variable, lines should be of the form: options
 #     <modulename> <param1>=<val> <param2>=<val> ...
 #
+#   TRIM_NONLISTED_KMI
+#     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
+#     to un-export from the build any un-used and non-whitelisted (as per
+#     KMI_WHITELIST) symbol.
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -299,7 +304,23 @@ if [ -n "${KMI_WHITELIST}" ]; then
       done
     fi
 
+    if [ -n "${TRIM_NONLISTED_KMI}" ]; then
+        # Create the raw whitelist
+        cat ${DIST_DIR}/abi_whitelist | \
+                ${ROOT_DIR}/build/abi/flatten_whitelist > \
+                ${OUT_DIR}/abi_whitelist.raw
+
+        # Update the kernel configuration
+        ./scripts/config --file ${OUT_DIR}/.config \
+                -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
+                --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
+        (cd ${OUT_DIR} && \
+                make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+    fi
   popd # $ROOT_DIR/$KERNEL_DIR
+elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
+  echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_WHITELIST" >&2
+  exit 1
 fi
 
 echo "========================================================"
