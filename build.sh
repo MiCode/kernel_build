@@ -64,10 +64,6 @@
 #     If defined (usually in build.config), also copy that whitelist definition
 #     to <OUT_DIR>/dist/abi_whitelist when creating the distribution.
 #
-#     On kernels having support for the CONFIG_UNUSED_KSYMS_WHITELIST
-#     configuration option, setting KMI_WHITELIST also unexports all unused and
-#     non-whitelisted symbols from the kernel image.
-#
 #   ADDITIONAL_KMI_WHITELISTS
 #     Location of secondary KMI whitelist files relative to
 #     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
@@ -103,10 +99,6 @@
 #   DO_NOT_STRIP_MODULES
 #     Keep debug information for distributed modules.
 #     Note, modules will still be stripped when copied into the ramdisk.
-#
-#   DO_NOT_TRIM_NONLISTED_KMI
-#     Keep un-used and non-whitelisted symbols exported in the kernel image,
-#     even if KMI_WHITELIST is set.
 #
 #   EXTRA_CMDS
 #     Command evaluated after building and installing kernel and modules.
@@ -307,19 +299,6 @@ if [ -n "${KMI_WHITELIST}" ]; then
       done
     fi
 
-    if [ -z "${DO_NOT_TRIM_NONLISTED_KMI}" ]; then
-        # Create the raw whitelist
-        cat ${DIST_DIR}/abi_whitelist | \
-                ${ROOT_DIR}/build/abi/flatten_whitelist > \
-                ${OUT_DIR}/abi_whitelist.raw
-
-        # Update the kernel configuration
-        ./scripts/config --file ${OUT_DIR}/.config \
-                -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
-                --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
-        (cd ${OUT_DIR} && \
-                make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
-    fi
   popd # $ROOT_DIR/$KERNEL_DIR
 fi
 
