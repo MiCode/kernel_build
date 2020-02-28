@@ -284,6 +284,23 @@ takes a path to a KMI whitelist file:
   $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-whitelist /path/to/whitelist
 ```
 
+### Comparing Kernel Binaries against the GKI reference KMI
+
+While working on the GKI Kernel compliance, it might be useful to regularly
+compare a local Kernel build to a reference GKI KMI representation without
+having to use `build_abi.sh`. The tool `gki_check` is a lightweight tool to
+do exactly that. Given a local Linux Kernel build tree, a sample invocation to
+compare the local binaries' representation to e.g. the 5.4 representation:
+
+```
+  $ build/abi/gki_check --linux-tree path/to/out/ --kernel-version 5.4
+```
+
+`gki_check` uses parameter names consistent with `dump_abi` and `diff_abi`.
+Hence, `--kmi-whitelist path/to/kmi_whitelist` can be used to limit that
+comparison to whitelisted symbols by passing a KMI whitelist.
+
+
 Dealing with ABI breakages
 --------------------------
 
