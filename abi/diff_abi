@@ -26,7 +26,6 @@ def diff_abi(abitool, baseline, new, report, short_report, whitelist):
     return tool.diff_abi(baseline, new, report, short_report, whitelist)
 
 def main():
-    """ Build the linux kernel, freshly cloning if needed"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--baseline', help='baseline dump to compare to',
                         required=True)
