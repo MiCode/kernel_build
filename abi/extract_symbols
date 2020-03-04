@@ -25,6 +25,7 @@ import sys
 
 _ALWAYS_WHITELISTED = [
     "module_layout",  # is exported even if CONFIG_TRIM_UNUSED_KSYMS is enabled
+    "__put_task_struct",  # this allows us to keep `struct task_struct` stable
 ]
 
 def symbol_sort(symbols):
