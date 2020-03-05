@@ -23,6 +23,10 @@ import os
 import subprocess
 import sys
 
+_ALWAYS_WHITELISTED = [
+    "module_layout",  # is exported even if CONFIG_TRIM_UNUSED_KSYMS is enabled
+    "__put_task_struct",  # this allows us to keep `struct task_struct` stable
+]
 
 def symbol_sort(symbols):
   # use the method that `sort` uses: case insensitive and ignoring
@@ -125,18 +129,13 @@ def create_whitelist(whitelist, undefined_symbols, exported):
     common_wl_section = symbol_sort([
         symbol for symbol, count in symbol_counter.items()
         if count > 1 and symbol in exported
-    ])
+    ] + _ALWAYS_WHITELISTED)
 
-    # always write the header
+    # write the header
     wl.write("[abi_whitelist]\n")
-
-    if common_wl_section:
-      wl.write("# commonly used symbols\n  ")
-      wl.write("\n  ".join(common_wl_section))
-      wl.write("\n")
-    else:
-      # ensure the whitelist contains at least one symbol to not be ignored
-      wl.write("  dummy_symbol\n")
+    wl.write("# commonly used symbols\n  ")
+    wl.write("\n  ".join(common_wl_section))
+    wl.write("\n")
 
     for module, symbols in undefined_symbols.items():
 
