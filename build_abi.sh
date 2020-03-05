@@ -131,7 +131,7 @@ fi
 # For now we require a specific versions of libabigail identified by a commit
 # hash. That is a bit inconvenient, but we do not have another reliable
 # identifier at this time.
-required_abigail_version="1.7.0-$(cat ${ROOT_DIR}/build/abi/bootstrap| grep 'ABIGAIL_VERSION=' | cut -d= -f2)"
+required_abigail_version="1.8.0-$(cat ${ROOT_DIR}/build/abi/bootstrap| grep 'ABIGAIL_VERSION=' | cut -d= -f2)"
 if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
     echo "ERROR: required libabigail version is $required_abigail_version"
     echo "Have you run build/abi/bootstrap and followed the instructions?"

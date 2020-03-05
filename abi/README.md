@@ -390,7 +390,8 @@ use `diff_abi` to compare it to the expected ABI for that particular source tree
 
 Caveats and known issues
 ------------------------
-- Version 1.7 of libabigail, that contains all currently required patches to
-  properly work on clang-built aarch64 Android kernels, has not been released
-  yet. Using a recent master is a sufficient workaround for that. The
-  `bootstrap` script refers to a sufficient commit from upstream.
+
+Version 1.8 of libabigail contains most, but not all currently required patches
+to properly work on clang-built aarch64 Android kernels. Using a recent mm-next
+is a sufficient workaround for that. The `bootstrap` script refers to a
+sufficient commit from upstream.
