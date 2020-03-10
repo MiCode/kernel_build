@@ -23,6 +23,10 @@ To only create commit related to symbols needed for cam_spec.ko module:
 
     $ grep /cam_spec[.]ko kernel_build_error_log | add_EXPORT_SYMBOL_GPL
 
+To only create commit related to a specific list of symbols, there is
+the option to land just the symbols, no spaces, one per line, into a
+manufactured or edited kernel_build_error_log and feed that to the script.
+
 The script will only affect the current directory level and downward,
 this allows one to segregate the adjusted content.  Any symbols that
 are needed outside the range of that directory will result in errors

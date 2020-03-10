@@ -18,6 +18,10 @@ To acquire the kernel_build_error_log eg:
 To only create commit related to symbols needed for cam_spec.ko module:
 \$ grep /cam_spec[.]ko kernel_build_error_log | ${progname}
 
+To only create commit related to a specific list of symbols, there is
+the option to land just the symbols, no spaces, one per line, into a
+manufactured or edited kernel_build_error_log and feed that to the script.
+
 The script will only affect the current directory level and downward,
 this allows one to segregate the adjusted content.  Any symbols that
 are needed outside the range of that directory will result in errors
@@ -90,6 +94,8 @@ skip_arch_files() {
 echo "Reading symbols" >&2
 MODULES="`
   sed -n \
+      -e '/^abi_gki_.*_whitelist$/d' \
+      -e 's/^[_a-zA-Z][_a-zA-Z0-9]\{6,\}$/&/p' \
       -e 's/^ERROR: "\([^"]*\)" [[]\(.*[.]ko\)[]] undefined!$/\1 \2/p' \
       -e 's/^[^:]*:[0-9]*: undefined reference to \`\([^'\'']*\)'\''$/\1/p' \
       ${INPUT} |
