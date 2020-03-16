@@ -82,9 +82,11 @@ class Libabigail(AbiTool):
         if short_report is not None:
             with open(diff_report) as full_report:
                 with open(short_report, 'w') as out:
-                    out.write(re.sub(r'impacted interfaces:\n([ ]+.+\n)+',
-                           'impacted interfaces\n',
-                           full_report.read()))
+                    out.write(re.sub(
+                        r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
+                        r"\1\2\n",
+                        full_report.read(),
+                        flags=re.MULTILINE))
 
         return abi_changed
 
@@ -94,4 +96,3 @@ def get_abi_tool(abi_tool):
         return Libabigail()
 
     raise ValueError("not a valid abi_tool: %s" % abi_tool)
-
