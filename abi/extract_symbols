@@ -116,7 +116,7 @@ def report_missing(module_symbols, exported):
             symbol, module))
 
 
-def create_whitelist(whitelist, undefined_symbols, exported):
+def create_whitelist(whitelist, undefined_symbols, exported, module_grouping):
   """Create a symbol whitelist for libabigail."""
   symbol_counter = collections.Counter(
       itertools.chain.from_iterable(undefined_symbols.values()))
@@ -126,12 +126,14 @@ def create_whitelist(whitelist, undefined_symbols, exported):
 
     common_wl_section = symbol_sort([
         symbol for symbol, count in symbol_counter.items()
-        if count > 1 and symbol in exported
+        if (count > 1 or not module_grouping) and symbol in exported
     ] + _ALWAYS_WHITELISTED)
 
     # write the header
     wl.write("[abi_whitelist]\n")
-    wl.write("# commonly used symbols\n  ")
+    if module_grouping:
+      wl.write("# commonly used symbols\n")
+    wl.write("  ")
     wl.write("\n  ".join(common_wl_section))
     wl.write("\n")
 
@@ -178,6 +180,13 @@ def main():
       default="/dev/stdout",
       help="The whitelist to create")
 
+  parser.add_argument(
+      "--skip-module-grouping",
+      action="store_false",
+      dest="module_grouping",
+      default=True,
+      help="Do not group symbols by module.")
+
   args = parser.parse_args()
 
   if not os.path.isdir(args.directory):
@@ -213,7 +222,8 @@ def main():
   if args.whitelist:
     create_whitelist(
         args.whitelist, undefined_symbols,
-        all_exported if args.include_module_exports else exported_in_vmlinux)
+        all_exported if args.include_module_exports else exported_in_vmlinux,
+        args.module_grouping)
 
 
 if __name__ == "__main__":
