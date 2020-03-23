@@ -145,9 +145,10 @@ copy_modules_to_prebuilt()
 {
 	PREBUILT_OUT=$1
 
-	if [[ ! -e ${KERNEL_MODULES_OUT} ]]; then
-		mkdir -p ${KERNEL_MODULES_OUT}
-	fi
+	# Clean the DLKM directory to remove stale modules
+	rm -rf ${KERNEL_MODULES_OUT}
+
+	mkdir -p ${KERNEL_MODULES_OUT}
 
 	MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 	if [ -n "${MODULES}" ]; then
