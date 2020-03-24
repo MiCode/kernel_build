@@ -300,6 +300,12 @@ compare the local binaries' representation to e.g. the 5.4 representation:
 Hence, `--kmi-whitelist path/to/kmi_whitelist` can be used to limit that
 comparison to whitelisted symbols by passing a KMI whitelist.
 
+**NOTE:** When comparing the ABI representations between the GKI Kernel and the
+locally built kernel, there might be cases that ABI changes are reported that
+are purely caused by modifications to the kernel configuration (such as adding
+modules with =m) without any other relevant code changes. As those are still
+breakages, they need to be worked out in the Android Common Kernels. Please
+contact kernel-team@android.com for advice.
 
 Dealing with ABI breakages
 --------------------------
