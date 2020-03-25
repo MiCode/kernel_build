@@ -128,6 +128,9 @@
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #       (defaults to 3)
 #     - KERNEL_CMDLINE=<string of kernel parameters for boot>
+#     - KERNEL_VENDOR_CMDLINE=<string of kernel parameters for vendor_boot>
+#     - VENDOR_FSTAB=<Path to the vendor fstab to be included in the vendor
+#       ramdisk>
 #     If the BOOT_IMAGE_HEADER_VERSION is less than 3, two additional variables must
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
@@ -482,6 +485,13 @@ if [ -n "${MODULES}" ]; then
     mv ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/* ${INITRAMFS_STAGING_DIR}/lib/modules/.
     rmdir ${INITRAMFS_STAGING_DIR}/lib/modules/0.0
 
+    if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+      mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
+      if [ -f "${VENDOR_FSTAB}" ]; then
+        cp ${VENDOR_FSTAB} ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk/.
+      fi
+    fi
+
     (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o > ${MODULES_STAGING_DIR}/initramfs.cpio)
     gzip -fc ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.gz
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
@@ -537,7 +547,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	fi
 	MKBOOTIMG_BASE_ADDR=
 	MKBOOTIMG_PAGE_SIZE=
-	MKBOOTIMG_CMDLINE=
+	MKBOOTIMG_BOOT_CMDLINE=
 	if [ -n  "${BASE_ADDRESS}" ]; then
 		MKBOOTIMG_BASE_ADDR="--base ${BASE_ADDRESS}"
 	fi
@@ -545,23 +555,19 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_PAGE_SIZE="--pagesize ${PAGE_SIZE}"
 	fi
 	if [ -n "${KERNEL_CMDLINE}" ]; then
-		MKBOOTIMG_CMDLINE="--cmdline \"${KERNEL_CMDLINE}\""
+		MKBOOTIMG_BOOT_CMDLINE="--cmdline \"${KERNEL_CMDLINE}\""
 	fi
 
-	MKBOOTIMG_DTB=
-	if [ "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
-		DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
-		if [ -z "${DTB_FILE_LIST}" ]; then
-			echo "No *.dtb files found in ${DIST_DIR}"
-			exit 1
-		fi
-		cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
-		MKBOOTIMG_DTB="--dtb ${DIST_DIR}/dtb.img"
+	DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
+	if [ -z "${DTB_FILE_LIST}" ]; then
+		echo "No *.dtb files found in ${DIST_DIR}"
+		exit 1
 	fi
+	cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
 
 	set -x
 	MKBOOTIMG_RAMDISKS=()
-	for ramdisk in ${VENDOR_RAMDISK_BINARY} ${GKI_RAMDISK_PREBUILT_BINARY} \
+	for ramdisk in ${VENDOR_RAMDISK_BINARY} \
 		       "${MODULES_STAGING_DIR}/initramfs.cpio"; do
 		if [ -f "${DIST_DIR}/${ramdisk}" ]; then
 			MKBOOTIMG_RAMDISKS+=("${DIST_DIR}/${ramdisk}")
@@ -602,19 +608,32 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		exit 1
 	fi
 
-	if [ -z "${BOOT_IMAGE_HEADER_VERSION}" ]; then
-		echo "BOOT_IMAGE_HEADER_VERSION must specify the boot image header version"
-		exit 1
+	VENDOR_BOOT_ARGS=
+	MKBOOTIMG_BOOT_RAMDISK="--ramdisk ${DIST_DIR}/ramdisk.gz"
+	if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+		MKBOOTIMG_VENDOR_CMDLINE=
+		if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
+			MKBOOTIMG_VENDOR_CMDLINE="--vendor_cmdline \"${KERNEL_VENDOR_CMDLINE}\""
+		fi
+
+		MKBOOTIMG_BOOT_RAMDISK=
+		if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
+			MKBOOTIMG_BOOT_RAMDISK="--ramdisk ${GKI_RAMDISK_PREBUILT_BINARY}"
+		fi
+
+		VENDOR_BOOT_ARGS="--vendor_boot ${DIST_DIR}/vendor_boot.img \
+			--vendor_ramdisk ${DIST_DIR}/ramdisk.gz ${MKBOOTIMG_VENDOR_CMDLINE}"
 	fi
 
-	# (b/141990457) Investigate parenthesis issue with MKBOOTIMG_CMDLINE when
+	# (b/141990457) Investigate parenthesis issue with MKBOOTIMG_BOOT_CMDLINE when
 	# executed outside of this "bash -c".
 	(set -x; bash -c "python $MKBOOTIMG_PATH --kernel ${DIST_DIR}/$KERNEL_BINARY \
-		--ramdisk ${DIST_DIR}/ramdisk.gz \
-		${MKBOOTIMG_DTB} --header_version $BOOT_IMAGE_HEADER_VERSION \
-		${MKBOOTIMG_BASE_ADDR} ${MKBOOTIMG_PAGE_SIZE} ${MKBOOTIMG_CMDLINE} \
-		-o ${DIST_DIR}/boot.img"
+		${MKBOOTIMG_BOOT_RAMDISK} \
+		--dtb ${DIST_DIR}/dtb.img --header_version $BOOT_IMAGE_HEADER_VERSION \
+		${MKBOOTIMG_BASE_ADDR} ${MKBOOTIMG_PAGE_SIZE} ${MKBOOTIMG_BOOT_CMDLINE} \
+		-o ${DIST_DIR}/boot.img ${VENDOR_BOOT_ARGS}"
 	)
+
 	set +x
 	echo "boot image created at ${DIST_DIR}/boot.img"
 fi
