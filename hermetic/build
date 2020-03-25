@@ -1,0 +1,9 @@
+#!/bin/sh
+
+cd /b/
+
+# uncomment for incremental builds
+#export SKIP_MRPROPER=1
+
+export PATH=/l/bin:/b/build/build-tools/path/linux-x86
+BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
