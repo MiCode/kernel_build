@@ -70,6 +70,9 @@ blacklist radio-i2c-rtc6226-qca
 blacklist dummy-cpufreq
 blacklist dummy_hcd
 blacklist kheaders
+blacklist atomic64_test
+blacklist test_user_copy
+blacklist lkdtm
 blacklist net_failover
 blacklist adc-tm
 blacklist rtc-test
