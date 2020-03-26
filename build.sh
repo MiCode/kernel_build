@@ -209,7 +209,7 @@ export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 
 cd ${ROOT_DIR}
 
-export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
+export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
 
 # Restore the previously saved CC argument that might have been overridden by
 # the BUILD_CONFIG.
@@ -330,7 +330,7 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS})
+(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} ${MAKE_GOALS})
 set +x
 
 if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
