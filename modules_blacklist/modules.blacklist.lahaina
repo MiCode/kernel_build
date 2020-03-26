@@ -81,3 +81,4 @@ blacklist vmw_vsock_virtio_transport
 blacklist vmw_vsock_virtio_transport_common
 blacklist vsock_diag
 blacklist vsock
+blacklist qca_cld3_wlan
