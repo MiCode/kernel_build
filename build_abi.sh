@@ -171,6 +171,8 @@ ${ROOT_DIR}/build/abi/dump_abi                \
     $KMI_WHITELIST_FLAG
 
 # sanitize the abi.xml by removing any occurences of the kernel path
+effective_kernel_dir=$(readlink -f ${ROOT_DIR}/${KERNEL_DIR})
+sed -i "s#${effective_kernel_dir}/##g" ${DIST_DIR}/${abi_out_file}
 sed -i "s#${ROOT_DIR}/${KERNEL_DIR}/##g" ${DIST_DIR}/${abi_out_file}
 # now also do that with any left over paths sneaking in
 # (e.g. from the prebuilts)
