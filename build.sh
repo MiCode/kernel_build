@@ -135,6 +135,8 @@
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
+#     If the BOOT_IMAGE_HEADER_VERSION is 3, a vendor_boot image will be built unless
+#     SKIP_VENDOR_BOOT is defined.
 #
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
@@ -558,12 +560,17 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_BOOT_CMDLINE="--cmdline \"${KERNEL_CMDLINE}\""
 	fi
 
+	MKBOOTIMG_DTB=
 	DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
 	if [ -z "${DTB_FILE_LIST}" ]; then
-		echo "No *.dtb files found in ${DIST_DIR}"
-		exit 1
+		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
+			echo "No *.dtb files found in ${DIST_DIR}"
+			exit 1
+		fi
+	else
+		cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
+		MKBOOTIMG_DTB="--dtb ${DIST_DIR}/dtb.img"
 	fi
-	cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
 
 	set -x
 	MKBOOTIMG_RAMDISKS=()
@@ -589,7 +596,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	set -e # re-enable exiting on errors
 	if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
 		cat ${MKBOOTIMG_RAMDISKS[*]} | gzip - > ${DIST_DIR}/ramdisk.gz
-	else
+	elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
 		echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
 		exit 1
 	fi
@@ -621,15 +628,17 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 			MKBOOTIMG_BOOT_RAMDISK="--ramdisk ${GKI_RAMDISK_PREBUILT_BINARY}"
 		fi
 
-		VENDOR_BOOT_ARGS="--vendor_boot ${DIST_DIR}/vendor_boot.img \
-			--vendor_ramdisk ${DIST_DIR}/ramdisk.gz ${MKBOOTIMG_VENDOR_CMDLINE}"
+		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
+			VENDOR_BOOT_ARGS="--vendor_boot ${DIST_DIR}/vendor_boot.img \
+				--vendor_ramdisk ${DIST_DIR}/ramdisk.gz ${MKBOOTIMG_VENDOR_CMDLINE}"
+		fi
 	fi
 
 	# (b/141990457) Investigate parenthesis issue with MKBOOTIMG_BOOT_CMDLINE when
 	# executed outside of this "bash -c".
 	(set -x; bash -c "python $MKBOOTIMG_PATH --kernel ${DIST_DIR}/$KERNEL_BINARY \
 		${MKBOOTIMG_BOOT_RAMDISK} \
-		--dtb ${DIST_DIR}/dtb.img --header_version $BOOT_IMAGE_HEADER_VERSION \
+		${MKBOOTIMG_DTB} --header_version $BOOT_IMAGE_HEADER_VERSION \
 		${MKBOOTIMG_BASE_ADDR} ${MKBOOTIMG_PAGE_SIZE} ${MKBOOTIMG_BOOT_CMDLINE} \
 		-o ${DIST_DIR}/boot.img ${VENDOR_BOOT_ARGS}"
 	)
