@@ -99,7 +99,8 @@ if [[ $wipe_out_dir -eq 1 ]]; then
 fi
 
 # inject CONFIG_DEBUG_INFO=y
-export POST_DEFCONFIG_CMDS="${POST_DEFCONFIG_CMDS} : && update_config_for_abi_dump"
+append_cmd POST_DEFCONFIG_CMDS 'update_config_for_abi_dump'
+export POST_DEFCONFIG_CMDS
 function update_config_for_abi_dump() {
     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
          -e CONFIG_DEBUG_INFO
