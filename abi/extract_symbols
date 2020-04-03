@@ -181,6 +181,12 @@ def main():
       help="The whitelist to create")
 
   parser.add_argument(
+      "--print-modules",
+      action="store_true",
+      default=False,
+      help="Emit the names of the processed modules")
+
+  parser.add_argument(
       "--skip-module-grouping",
       action="store_false",
       dest="module_grouping",
@@ -224,6 +230,11 @@ def main():
         args.whitelist, undefined_symbols,
         all_exported if args.include_module_exports else exported_in_vmlinux,
         args.module_grouping)
+
+  if args.print_modules:
+    print("These modules have been considered when creating the whitelist:")
+    print("  " +
+          "\n  ".join(sorted([os.path.basename(mod) for mod in modules])))
 
 
 if __name__ == "__main__":
