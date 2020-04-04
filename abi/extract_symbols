@@ -116,7 +116,8 @@ def report_missing(module_symbols, exported):
             symbol, module))
 
 
-def create_whitelist(whitelist, undefined_symbols, exported, module_grouping):
+def create_whitelist(whitelist, undefined_symbols, exported,
+                     emit_module_whitelists, module_grouping):
   """Create a symbol whitelist for libabigail."""
   symbol_counter = collections.Counter(
       itertools.chain.from_iterable(undefined_symbols.values()))
@@ -151,6 +152,14 @@ def create_whitelist(whitelist, undefined_symbols, exported, module_grouping):
       wl.write("\n  ".join(new_wl_section))
       wl.write("\n")
 
+      if emit_module_whitelists:
+        mod_wl_file = whitelist + "_" + os.path.splitext(module)[0]
+        with open(mod_wl_file, "w") as mod_wl:
+          # write the header
+          mod_wl.write("[abi_whitelist]\n  ")
+          mod_wl.write("\n  ".join(symbols))
+          mod_wl.write("\n")
+
 
 def main():
   """Extract the required symbols for a directory full of kernel modules."""
@@ -179,6 +188,18 @@ def main():
       "--whitelist",
       default="/dev/stdout",
       help="The whitelist to create")
+
+  parser.add_argument(
+      "--print-modules",
+      action="store_true",
+      default=False,
+      help="Emit the names of the processed modules")
+
+  parser.add_argument(
+      "--emit-module-whitelists",
+      action="store_true",
+      default=False,
+      help="Emit a separate whitelist for each module")
 
   parser.add_argument(
       "--skip-module-grouping",
@@ -223,7 +244,13 @@ def main():
     create_whitelist(
         args.whitelist, undefined_symbols,
         all_exported if args.include_module_exports else exported_in_vmlinux,
+        args.emit_module_whitelists,
         args.module_grouping)
+
+  if args.print_modules:
+    print("These modules have been considered when creating the whitelist:")
+    print("  " +
+          "\n  ".join(sorted([os.path.basename(mod) for mod in modules])))
 
 
 if __name__ == "__main__":
