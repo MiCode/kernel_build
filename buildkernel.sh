@@ -145,9 +145,10 @@ copy_modules_to_prebuilt()
 {
 	PREBUILT_OUT=$1
 
-	if [[ ! -e ${KERNEL_MODULES_OUT} ]]; then
-		mkdir -p ${KERNEL_MODULES_OUT}
-	fi
+	# Clean the DLKM directory to remove stale modules
+	rm -rf ${KERNEL_MODULES_OUT}
+
+	mkdir -p ${KERNEL_MODULES_OUT}
 
 	MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 	if [ -n "${MODULES}" ]; then
@@ -245,14 +246,6 @@ copy_all_to_prebuilt()
 	echo "============"
 	echo "Copying kernel scripts to prebuilt"
 	cp -p -r ${OUT_DIR}/${KERNEL_SCRIPTS} ${PREBUILT_OUT}
-}
-
-extract_kernel_sha1()
-{
-	CUR_DIR=$(pwd)
-	cd ${KERNEL_DIR}
-	git rev-list --max-count=1 HEAD > ${KERN_SHA1_LOC}
-	cd ${CUR_DIR}
 }
 
 copy_from_prebuilt()
@@ -367,7 +360,6 @@ else
 	modules_install
 	copy_all_to_prebuilt ${KERNEL_BINS}
 	archive_kernel_modules
-	extract_kernel_sha1
 fi
 
 exit 0
