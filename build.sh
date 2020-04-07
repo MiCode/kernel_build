@@ -209,6 +209,8 @@ export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 
+BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
+
 cd ${ROOT_DIR}
 
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
@@ -544,9 +546,6 @@ echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
 if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
-	if [ -z "${BOOT_IMAGE_HEADER_VERSION}" ]; then
-		BOOT_IMAGE_HEADER_VERSION="3"
-	fi
 	MKBOOTIMG_BASE_ADDR=
 	MKBOOTIMG_PAGE_SIZE=
 	MKBOOTIMG_BOOT_CMDLINE=
