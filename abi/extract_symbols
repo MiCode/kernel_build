@@ -140,6 +140,14 @@ def create_whitelist(whitelist, undefined_symbols, exported,
 
     for module, symbols in undefined_symbols.items():
 
+      if emit_module_whitelists:
+        mod_wl_file = whitelist + "_" + os.path.splitext(module)[0]
+        with open(mod_wl_file, "w") as mod_wl:
+          # write the header
+          mod_wl.write("[abi_whitelist]\n  ")
+          mod_wl.write("\n  ".join(symbols))
+          mod_wl.write("\n")
+
       new_wl_section = symbol_sort([
           symbol for symbol in symbols
           if symbol in exported and symbol not in common_wl_section
@@ -151,14 +159,6 @@ def create_whitelist(whitelist, undefined_symbols, exported,
       wl.write("\n# required by {}\n  ".format(module))
       wl.write("\n  ".join(new_wl_section))
       wl.write("\n")
-
-      if emit_module_whitelists:
-        mod_wl_file = whitelist + "_" + os.path.splitext(module)[0]
-        with open(mod_wl_file, "w") as mod_wl:
-          # write the header
-          mod_wl.write("[abi_whitelist]\n  ")
-          mod_wl.write("\n  ".join(symbols))
-          mod_wl.write("\n")
 
 
 def main():
