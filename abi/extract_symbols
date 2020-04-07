@@ -186,7 +186,7 @@ def main():
 
   parser.add_argument(
       "--whitelist",
-      default="/dev/stdout",
+      default=None,
       help="The whitelist to create")
 
   parser.add_argument(
@@ -214,6 +214,13 @@ def main():
     print("Expected a directory to search for binaries, but got %s" %
           args.directory)
     return 1
+
+  if args.emit_module_whitelists and not args.whitelist:
+    print("Emitting module whitelists requires the --whitelist parameter.")
+    return 1
+
+  if args.whitelist is None:
+    args.whitelist = "/dev/stdout"
 
   # Locate the Kernel Binaries
   vmlinux, modules = find_binaries(args.directory)
