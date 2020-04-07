@@ -20,6 +20,7 @@ import collections
 import functools
 import itertools
 import os
+import re
 import subprocess
 import sys
 
@@ -208,6 +209,13 @@ def main():
       default=True,
       help="Do not group symbols by module.")
 
+  parser.add_argument(
+      "--module-filter",
+      action="append",
+      dest="module_filters",
+      help="Only process modules matching the filter. Can be passed multiple times."
+  )
+
   args = parser.parse_args()
 
   if not os.path.isdir(args.directory):
@@ -224,6 +232,12 @@ def main():
 
   # Locate the Kernel Binaries
   vmlinux, modules = find_binaries(args.directory)
+
+  if args.module_filters:
+    modules = [
+        mod for mod in modules if any(
+            [re.search(f, os.path.basename(mod)) for f in args.module_filters])
+    ]
 
   if vmlinux is None or not os.path.isfile(vmlinux):
     print("Could not find a suitable vmlinux file.")
@@ -243,7 +257,9 @@ def main():
   all_exported = set(all_exported)
 
   # For sanity, check for inconsistencies between required and exported symbols
-  if args.report_missing:
+  # Do not do this analysis if module_filters are in place as likely
+  # inter-module dependencies are broken by this.
+  if args.report_missing and not args.module_filters:
     report_missing(undefined_symbols, all_exported)
 
   # If specified, create the whitelist
