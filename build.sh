@@ -546,20 +546,17 @@ echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
 if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
-	MKBOOTIMG_BASE_ADDR=
-	MKBOOTIMG_PAGE_SIZE=
-	MKBOOTIMG_BOOT_CMDLINE=
+	MKBOOTIMG_ARGS=()
 	if [ -n  "${BASE_ADDRESS}" ]; then
-		MKBOOTIMG_BASE_ADDR="--base ${BASE_ADDRESS}"
+		MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
 	fi
 	if [ -n  "${PAGE_SIZE}" ]; then
-		MKBOOTIMG_PAGE_SIZE="--pagesize ${PAGE_SIZE}"
+		MKBOOTIMG_ARGS+=("--pagesize" "${PAGE_SIZE}")
 	fi
 	if [ -n "${KERNEL_CMDLINE}" ]; then
-		MKBOOTIMG_BOOT_CMDLINE="--cmdline \"${KERNEL_CMDLINE}\""
+		MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
 	fi
 
-	MKBOOTIMG_DTB=
 	DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
 	if [ -z "${DTB_FILE_LIST}" ]; then
 		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
@@ -568,7 +565,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		fi
 	else
 		cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
-		MKBOOTIMG_DTB="--dtb ${DIST_DIR}/dtb.img"
+		MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
 	fi
 
 	set -x
@@ -614,35 +611,28 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		exit 1
 	fi
 
-	VENDOR_BOOT_ARGS=
-	MKBOOTIMG_BOOT_RAMDISK="--ramdisk ${DIST_DIR}/ramdisk.gz"
 	if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
-		MKBOOTIMG_VENDOR_CMDLINE=
-		if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
-			MKBOOTIMG_VENDOR_CMDLINE="--vendor_cmdline \"${KERNEL_VENDOR_CMDLINE}\""
-		fi
-
-		MKBOOTIMG_BOOT_RAMDISK=
 		if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
-			MKBOOTIMG_BOOT_RAMDISK="--ramdisk ${GKI_RAMDISK_PREBUILT_BINARY}"
+			MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
 		fi
 
 		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
-			VENDOR_BOOT_ARGS="--vendor_boot ${DIST_DIR}/vendor_boot.img \
-				--vendor_ramdisk ${DIST_DIR}/ramdisk.gz ${MKBOOTIMG_VENDOR_CMDLINE}"
+			MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img" \
+				"--vendor_ramdisk" "${DIST_DIR}/ramdisk.gz")
+			if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
+				MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
+			fi
 		fi
+	else
+		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.gz")
 	fi
 
-	# (b/141990457) Investigate parenthesis issue with MKBOOTIMG_BOOT_CMDLINE when
-	# executed outside of this "bash -c".
-	(set -x; bash -c "python $MKBOOTIMG_PATH --kernel ${DIST_DIR}/$KERNEL_BINARY \
-		${MKBOOTIMG_BOOT_RAMDISK} \
-		${MKBOOTIMG_DTB} --header_version $BOOT_IMAGE_HEADER_VERSION \
-		${MKBOOTIMG_BASE_ADDR} ${MKBOOTIMG_PAGE_SIZE} ${MKBOOTIMG_BOOT_CMDLINE} \
-		-o ${DIST_DIR}/boot.img ${VENDOR_BOOT_ARGS}"
-	)
-
+	set -x
+	python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
+		--header_version "${BOOT_IMAGE_HEADER_VERSION}" \
+		"${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
 	set +x
+
 	echo "boot image created at ${DIST_DIR}/boot.img"
 fi
 
