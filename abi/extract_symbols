@@ -146,7 +146,7 @@ def create_whitelist(whitelist, undefined_symbols, exported,
         with open(mod_wl_file, "w") as mod_wl:
           # write the header
           mod_wl.write("[abi_whitelist]\n  ")
-          mod_wl.write("\n  ".join(symbols))
+          mod_wl.write("\n  ".join([s for s in symbols if s in exported]))
           mod_wl.write("\n")
 
       new_wl_section = symbol_sort([
