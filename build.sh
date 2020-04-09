@@ -103,6 +103,9 @@
 #   EXTRA_CMDS
 #     Command evaluated after building and installing kernel and modules.
 #
+#   DIST_CMDS
+#     Command evaluated after copying files to DIST_DIR
+#
 #   SKIP_CP_KERNEL_HDR
 #     if defined, skip installing kernel headers.
 #
@@ -425,6 +428,14 @@ for FILE in ${OVERLAYS_OUT}; do
   mkdir -p ${OVERLAY_DIST_DIR}
   cp ${FILE} ${OVERLAY_DIST_DIR}/
 done
+
+if [ -n "${DIST_CMDS}" ]; then
+  echo "========================================================"
+  echo " Running extra dist command(s):"
+  set -x
+  eval ${DIST_CMDS}
+  set +x
+fi
 
 MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 if [ -n "${MODULES}" ]; then
