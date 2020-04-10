@@ -591,16 +591,14 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 			fi
 		fi
 	done
-	set +e # disable exiting of error so gzip -t can be handled properly
 	for ((i=0; i<"${#MKBOOTIMG_RAMDISKS[@]}"; i++)); do
-		TEST_GZIP=$(gzip -t "${MKBOOTIMG_RAMDISKS[$i]}" 2>&1 > /dev/null)
-		if [ "$?" -eq 0 ]; then
-			CPIO_NAME=$(echo "${MKBOOTIMG_RAMDISKS[$i]}" | sed -e 's/\(.\+\)\.[a-z]\+$/\1.cpio/')
-			gzip -cd "${MKBOOTIMG_RAMDISKS[$i]}" > ${CPIO_NAME}
+		CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
+		if gzip -cd "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
 			MKBOOTIMG_RAMDISKS[$i]=${CPIO_NAME}
+		else
+			rm -f ${CPIO_NAME}
 		fi
 	done
-	set -e # re-enable exiting on errors
 	if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
 		cat ${MKBOOTIMG_RAMDISKS[*]} | gzip - > ${DIST_DIR}/ramdisk.gz
 	elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
