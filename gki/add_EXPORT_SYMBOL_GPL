@@ -68,6 +68,8 @@ fi
 TAB="`echo | tr '\n' '\t'`"
 # A _real_ embedded escape character
 ESCAPE="`echo | tr '\n' '\033'`"
+# A _real_ embedded carriage return character
+CR="`echo | tr '\n' '\r'`"
 # Colours
 RED="${ESCAPE}[38;5;196m"
 BLUE="${ESCAPE}[35m"
@@ -93,12 +95,13 @@ skip_arch_files() {
 #  dependent on a module, we collect it to provide a signal for future work.
 echo "Reading symbols" >&2
 MODULES="`
-  sed -n \
-      -e '/^abi_gki_.*_whitelist$/d' \
-      -e 's/^[_a-zA-Z][_a-zA-Z0-9]\{6,\}$/&/p' \
-      -e 's/^ERROR: "\([^"]*\)" [[]\(.*[.]ko\)[]] undefined!$/\1 \2/p' \
-      -e 's/^[^:]*:[0-9]*: undefined reference to \`\([^'\'']*\)'\''$/\1/p' \
-      ${INPUT} |
+  cat ${INPUT:--} |
+    tr -d \"${CR}\" |
+    sed -n \
+        -e '/^abi_gki_.*_whitelist$/d' \
+        -e 's/^[_a-zA-Z][_a-zA-Z0-9]\{6,\}$/&/p' \
+        -e 's/^ERROR: "\([^"]*\)" [[]\(.*[.]ko\)[]] undefined!$/\1 \2/p' \
+        -e 's/^[^:]*:[0-9]*: undefined reference to \`\([^'\'']*\)'\''$/\1/p' |
     sort -u`"
 SYMBOLS="`echo \"${MODULES}\" | sed 's/ .*$//' | sort -u`"
 if [ -z "${SYMBOLS}" ]; then
