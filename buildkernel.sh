@@ -344,7 +344,17 @@ save_unstripped_modules()
 
 	MODULES=$(find ${UNSTRIPPED_DIR} -type f -name "*.ko")
 	for MODULE in ${MODULES}; do
+		# Replace all hyphens in module name with underscores
+		MODULE_NAME=$(basename ${MODULE})
+		CORRECTED_NAME=$(echo "${MODULE_NAME//-/$'_'}")
 		cp -p ${MODULE} ${UNSTRIPPED_DIR}
+		# Rename all modules with hyphens to names wth underscores
+		# As t32 expects module names with underscores to match
+		# symbols of the modules actually loaded, rename and save
+		# modules in unstripped folder for debugging
+		if [ ${MODULE_NAME} != ${CORRECTED_NAME} ]; then
+			mv ${UNSTRIPPED_DIR}/${MODULE_NAME} ${UNSTRIPPED_DIR}/${CORRECTED_NAME}
+		fi
 	done
 
 	# Remove the /lib/modules/$(uname -r) hierarchy
