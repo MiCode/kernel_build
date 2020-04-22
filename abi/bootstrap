@@ -37,7 +37,7 @@ rm -rf "${OUT_DIR}"
 export PATH="${OUT_DIR}/bin:${PATH}"
 export LD_LIBRARY_PATH="${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:${LD_LIBRARY_PATH}"
 
-PACKAGES="autoconf libtool libxml2-dev pkg-config python3"
+PACKAGES="autoconf gawk libtool libxml2-dev pkg-config python3 zlib1g-dev"
 # Install the dependencies.
 if ! ( hash dpkg 2>/dev/null ); then
     echo "WARN: not running on a Debian compatible system!"
