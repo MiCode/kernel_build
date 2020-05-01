@@ -154,6 +154,14 @@
 #     to un-export from the build any un-used and non-whitelisted (as per
 #     KMI_WHITELIST) symbol.
 #
+#   KMI_WHITELIST_STRICT_MODE
+#     if defined, add a build-time check between the KMI_WHITELIST and the
+#     KMI resulting from the build, to ensure they match 1-1.
+#
+#   KMI_STRICT_MODE_OBJECTS
+#     optional list of objects to consider for the KMI_WHITELIST_STRICT_MODE
+#     check. Defaults to 'vmlinux'.
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -326,10 +334,16 @@ if [ -n "${KMI_WHITELIST}" ]; then
                 --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
         (cd ${OUT_DIR} && \
                 make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+    elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+      echo "ERROR: KMI_WHITELIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
+      exit 1
     fi
   popd # $ROOT_DIR/$KERNEL_DIR
 elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
   echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_WHITELIST" >&2
+  exit 1
+elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+  echo "ERROR: KMI_WHITELIST_STRICT_MODE requires a KMI_WHITELIST" >&2
   exit 1
 fi
 
@@ -345,6 +359,15 @@ if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
   echo " Running post-kernel-build command(s):"
   set -x
   eval ${POST_KERNEL_BUILD_CMDS}
+  set +x
+fi
+
+if [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+  echo "========================================================"
+  echo " Comparing the KMI and the whitelists:"
+  set -x
+  ${ROOT_DIR}/build/abi/compare_to_wl "${OUT_DIR}/Module.symvers" \
+                                      "${OUT_DIR}/abi_whitelist.raw"
   set +x
 fi
 
