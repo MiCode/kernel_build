@@ -69,6 +69,11 @@
 #     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
 #     appended to the main one before proceeding to the distribution creation.
 #
+#   KMI_ENFORCED
+#     This is an indicative option to signal that KMI is enforced in this build
+#     config. If set, downstream KMI checking tools might respect it and react
+#     to it by failing if KMI differences are detected.
+#
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
@@ -313,6 +318,9 @@ if [ -n "${ABI_DEFINITION}" ]; then
     echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
   fi
 
+  if [ -n "${KMI_ENFORCED}" ]; then
+    echo "KMI_ENFORCED=1" >> ${ABI_PROP}
+  fi
 fi
 
 # Copy the abi_${arch}.xml file from the sources into the dist dir
