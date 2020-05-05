@@ -298,33 +298,50 @@ if [ -n "${TAGS_CONFIG}" ]; then
   exit 0
 fi
 
+if [ -n "${ABI_DEFINITION}" ]; then
+
+  ABI_PROP=${DIST_DIR}/abi.prop
+  ABI_XML=${DIST_DIR}/abi.xml
+
+  : > ${ABI_PROP}
+
+  echo "KMI_DEFINITION=abi.xml" >> ${ABI_PROP}
+  echo "KMI_MONITORED=1"        >> ${ABI_PROP}
+
+  if [ -n "${KMI_WHITELIST}" ]; then
+    ABI_WL=${DIST_DIR}/abi_whitelist
+    echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
+  fi
+
+fi
+
 # Copy the abi_${arch}.xml file from the sources into the dist dir
 if [ -n "${ABI_DEFINITION}" ]; then
   echo "========================================================"
-  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
+  echo " Copying abi definition to ${ABI_XML}"
   pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
+    cp "${ABI_DEFINITION}" ${ABI_XML}
   popd
 fi
 
 # Copy the abi whitelist file from the sources into the dist dir
 if [ -n "${KMI_WHITELIST}" ]; then
   echo "========================================================"
-  echo " Generating abi whitelist definition to ${DIST_DIR}/abi_whitelist"
+  echo " Generating abi whitelist definition to ${ABI_WL}"
   pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
+    cp "${KMI_WHITELIST}" ${ABI_WL}
 
     # If there are additional whitelists specified, append them
     if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
       for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
-          echo >> ${DIST_DIR}/abi_whitelist
-          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
+          echo >> ${ABI_WL}
+          cat "${whitelist}" >> ${ABI_WL}
       done
     fi
 
     if [ -n "${TRIM_NONLISTED_KMI}" ]; then
         # Create the raw whitelist
-        cat ${DIST_DIR}/abi_whitelist | \
+        cat ${ABI_WL} | \
                 ${ROOT_DIR}/build/abi/flatten_whitelist > \
                 ${OUT_DIR}/abi_whitelist.raw
 
