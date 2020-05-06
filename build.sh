@@ -303,24 +303,25 @@ if [ -n "${TAGS_CONFIG}" ]; then
   exit 0
 fi
 
+# Truncate abi.prop file
+ABI_PROP=${DIST_DIR}/abi.prop
+: > ${ABI_PROP}
+
 if [ -n "${ABI_DEFINITION}" ]; then
 
-  ABI_PROP=${DIST_DIR}/abi.prop
   ABI_XML=${DIST_DIR}/abi.xml
-
-  : > ${ABI_PROP}
 
   echo "KMI_DEFINITION=abi.xml" >> ${ABI_PROP}
   echo "KMI_MONITORED=1"        >> ${ABI_PROP}
 
-  if [ -n "${KMI_WHITELIST}" ]; then
-    ABI_WL=${DIST_DIR}/abi_whitelist
-    echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
-  fi
-
   if [ -n "${KMI_ENFORCED}" ]; then
     echo "KMI_ENFORCED=1" >> ${ABI_PROP}
   fi
+fi
+
+if [ -n "${KMI_WHITELIST}" ]; then
+  ABI_WL=${DIST_DIR}/abi_whitelist
+  echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
 fi
 
 # Copy the abi_${arch}.xml file from the sources into the dist dir
