@@ -43,9 +43,9 @@ export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 function show_help {
     echo "USAGE: $0 [-u|--update] [-n|--nodiff]"
     echo
-    echo "  -u | --update         Update the abi.xml in the source directory"
-    echo "  -n | --nodiff         Do not generate a ABI report with abidiff"
-    echo "  -r | --print-report   Print ABI report in case of differences"
+    echo "  -u | --update         Update ABI representation and main whitelist in the source directory"
+    echo "  -n | --nodiff         Do not generate an ABI report with diff_abi"
+    echo "  -r | --print-report   Print ABI short report in case of any differences"
 }
 
 UPDATE=0
