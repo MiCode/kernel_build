@@ -146,7 +146,7 @@ function build_kernel() {
   ABI_DEFINITION= ${ROOT_DIR}/build/build.sh "$@"
 }
 
-build_kernel
+build_kernel "$@"
 
 # define a common KMI whitelist flag for the abi tools
 KMI_WHITELIST_FLAG=
@@ -179,7 +179,7 @@ fi
 if [ $WHITELIST_GOT_UPDATE -eq 1 ]; then
   echo "========================================================"
   echo " Whitelist got updated, rerunning the build"
-  SKIP_MRPROPER=1 build_kernel
+  SKIP_MRPROPER=1 build_kernel "$@"
 fi
 
 echo "========================================================"
