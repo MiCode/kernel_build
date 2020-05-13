@@ -32,7 +32,7 @@ export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export KERNEL_PREBUILT_DIR=$(readlink -m ${KERNEL_DIR}/../ship_prebuilt)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
-export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
+export UNSTRIPPED_DIR=${ROOT_DIR}/${KERNEL_MODULES_OUT}/unstripped
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
 #Setting up for build
@@ -330,6 +330,39 @@ copy_from_prebuilt()
 
 }
 
+save_unstripped_modules()
+{
+	echo "======================"
+	echo "Creating a copy of unstripped modules"
+	rm -rf ${UNSTRIPPED_DIR}
+	mkdir -p ${UNSTRIPPED_DIR}
+
+	set -x
+
+	(cd ${OUT_DIR} && \
+	${MAKE_PATH}make O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_PATH=${UNSTRIPPED_DIR} ${MAKE_ARGS} modules_install)
+
+	MODULES=$(find ${UNSTRIPPED_DIR} -type f -name "*.ko")
+	for MODULE in ${MODULES}; do
+		# Replace all hyphens in module name with underscores
+		MODULE_NAME=$(basename ${MODULE})
+		CORRECTED_NAME=$(echo "${MODULE_NAME//-/$'_'}")
+		cp -p ${MODULE} ${UNSTRIPPED_DIR}
+		# Rename all modules with hyphens to names wth underscores
+		# As t32 expects module names with underscores to match
+		# symbols of the modules actually loaded, rename and save
+		# modules in unstripped folder for debugging
+		if [ ${MODULE_NAME} != ${CORRECTED_NAME} ]; then
+			mv ${UNSTRIPPED_DIR}/${MODULE_NAME} ${UNSTRIPPED_DIR}/${CORRECTED_NAME}
+		fi
+	done
+
+	# Remove the /lib/modules/$(uname -r) hierarchy
+	rm -rf ${UNSTRIPPED_DIR}/lib
+
+	set +x
+}
+
 #script starts executing here
 if [ -n "${CC}" ]; then
   CC_ARG="CC=${CC}"
@@ -360,6 +393,7 @@ else
 	modules_install
 	copy_all_to_prebuilt ${KERNEL_BINS}
 	archive_kernel_modules
+	save_unstripped_modules
 fi
 
 exit 0
