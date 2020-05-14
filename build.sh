@@ -360,6 +360,13 @@ if [ -n "${KMI_WHITELIST}" ]; then
                 --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
         (cd ${OUT_DIR} && \
                 make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+        # Make sure the config is applied
+        grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
+          echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
+          echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
+          exit 1
+        }
+
     elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
       echo "ERROR: KMI_WHITELIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
       exit 1
