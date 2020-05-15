@@ -143,7 +143,9 @@ function build_kernel() {
   # delegate the actual build to build.sh.
   # suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
   # the generated abi.xml to be copied to <DIST_DIR>/abi.out.
-  ABI_DEFINITION= ${ROOT_DIR}/build/build.sh "$@"
+  # similarly, disable the KMI strict mode check, as the whitelist may be
+  # out of date.
+  ABI_DEFINITION= KMI_WHITELIST_STRICT_MODE= ${ROOT_DIR}/build/build.sh "$@"
 }
 
 build_kernel "$@"
