@@ -490,7 +490,7 @@ fi
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
-if [ -z "${DO_NOT_STRIP_MODULES}" ]; then
+if [ ${DO_NOT_STRIP_MODULES} -ne 1 ]; then
     MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
 fi
 
@@ -607,7 +607,7 @@ if [ -n "${MODULES}" ]; then
           find extra -type f -name "*.ko" | sort >> modules.order)
     fi
 
-    if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
+    if [ ${DO_NOT_STRIP_MODULES} -eq 1 ]; then
       # strip debug symbols off initramfs modules
       find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" \
         -exec ${OBJCOPY:${CROSS_COMPILE}strip} --strip-debug {} \;
