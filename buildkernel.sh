@@ -383,7 +383,7 @@ if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_BINS} ]; then
 fi
 
 #use kernel source for building
-if [ ! -z ${HEADERS_INSTALL} ]; then
+if [ "${HEADERS_INSTALL}" -ne "0" ]; then
 	make_defconfig
 	headers_install
 else
