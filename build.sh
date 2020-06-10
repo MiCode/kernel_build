@@ -145,6 +145,9 @@
 #     - PAGE_SIZE=<flash page size>
 #     If the BOOT_IMAGE_HEADER_VERSION is 3, a vendor_boot image will be built unless
 #     SKIP_VENDOR_BOOT is defined.
+#     - MODULES_LIST=<file to list of modules> list of modules to use for
+#       modules.load. If this property is not set, then the default modules.load
+#       is used.
 #
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
@@ -201,6 +204,84 @@ function rel_path() {
 		path=${path}../
 	done
 	echo ${path}${to#$stem}
+}
+
+function run_depmod() {
+	(
+		local ramdisk_dir=$1
+		local DEPMOD_OUTPUT
+
+		cd ${ramdisk_dir}
+		if ! DEPMOD_OUTPUT="$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
+			echo "$DEPMOD_OUTPUT" >&2
+			exit 1
+		fi
+		echo "$DEPMOD_OUTPUT"
+		if { echo "$DEPMOD_OUTPUT" | grep -q "needs unknown symbol"; }; then
+			echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
+			exit 1
+		fi
+	)
+}
+
+# $1 MODULES_LIST, <File contains the list of modules that should go in the ramdisk>
+# $2 MODULES_STAGING_DIR    <The directory to look for all the compiled modules>
+# $3 INITRAMFS_STAGING_DIR  <The destination directory in which MODULES_LIST is
+#                            expected, and it's corresponding modules.* files>
+function create_reduced_modules_order() {
+	echo "========================================================"
+	echo " Creating reduced modules.order"
+	local modules_list_file=$1
+	local src_dir=$2/lib/modules/*
+	local dest_dir=$3/lib/modules/0.0
+	local staging_dir=$2/intermediate_ramdisk_staging
+	local modules_staging_dir=${staging_dir}/lib/modules/0.0
+
+	rm -rf ${staging_dir}/
+	mkdir -p ${modules_staging_dir}
+
+	# Need to make sure we can find modules_list_file from the staging dir
+	if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
+		modules_list_file="${ROOT_DIR}/${modules_list_file}"
+	elif [[ "${modules_list_file}" != /* ]]; then
+		echo "modules_list_file must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
+		exit 1
+	elif [[ ! -f "${modules_list_file}" ]]; then
+		echo "Failed to find modules_list_file: ${modules_list_file}"
+		exit 1
+	fi
+
+	(
+		cd ${src_dir}
+		touch ${modules_staging_dir}/modules.order
+
+		while read ko; do
+			# Ignore comment lines starting with # sign
+			[[ "${ko}" = \#* ]] && continue
+			if grep -q $(basename ${ko}) ${modules_list_file}; then
+				mkdir -p ${modules_staging_dir}/$(dirname ${ko})
+				cp -p ${ko} ${modules_staging_dir}/${ko}
+				echo ${ko} >> ${modules_staging_dir}/modules.order
+			fi
+		done < modules.order
+
+		# External modules
+		mkdir -p ${modules_staging_dir}/extra
+		[ -d extra/. ] && for ko in $(find extra/. -name "*.ko"); do
+			if grep -q $(basename ${ko}) ${modules_list_file}; then
+				mkdir -p ${modules_staging_dir}/extra
+				cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
+				echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
+			fi
+		done
+	)
+
+	cp ${src_dir}/modules.builtin* ${modules_staging_dir}/.
+	run_depmod ${staging_dir}
+	cp ${modules_staging_dir}/modules.* ${dest_dir}/.
+
+	# Clean up
+	rm -rf ${staging_dir}
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -508,7 +589,6 @@ if [ -n "${MODULES}" ]; then
   if [ -n "${BUILD_INITRAMFS}" ]; then
     echo "========================================================"
     echo " Creating initramfs"
-    set -x
     rm -rf ${INITRAMFS_STAGING_DIR}
     # Depmod requires a version number; use 0.0 instead of determining the
     # actual kernel version since it is not necessary and will be removed for
@@ -531,25 +611,15 @@ if [ -n "${MODULES}" ]; then
         -exec ${OBJCOPY:${CROSS_COMPILE}strip} --strip-debug {} \;
     fi
 
-    # Re-run depmod to detect any dependencies between in-kernel and external
-    # modules. Then, create modules.load based on all the modules compiled.
-    (
-      set +x
-      set +e # disable exiting of error so we can add extra comments
-      cd ${INITRAMFS_STAGING_DIR}
-      DEPMOD_OUTPUT=$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)
-      if [[ "$?" -ne 0 ]]; then
-        echo "$DEPMOD_OUTPUT"
-        exit 1;
-      fi
-      echo "$DEPMOD_OUTPUT"
-      if [[ -n $(echo $DEPMOD_OUTPUT | grep "needs unknown symbol") ]]; then
-        echo "ERROR: out-of-tree kernel module(s) need unknown symbol(s)"
-        exit 1
-      fi
-      set -e
-      set -x
-    )
+		# Re-run depmod to detect any dependencies between in-kernel and external
+		# modules. Then, create modules.order based on all the modules compiled.
+		if [[ -n "${MODULES_LIST}" ]]; then
+			create_reduced_modules_order ${MODULES_LIST} ${MODULES_STAGING_DIR} \
+					${INITRAMFS_STAGING_DIR}
+		else
+			run_depmod ${INITRAMFS_STAGING_DIR}
+		fi
+
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.load
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.options
@@ -563,10 +633,9 @@ if [ -n "${MODULES}" ]; then
       fi
     fi
 
-    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
     gzip -fc ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.gz
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
-    set +x
   fi
 fi
 
@@ -635,7 +704,6 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
 	fi
 
-	set -x
 	MKBOOTIMG_RAMDISKS=()
 	for ramdisk in ${VENDOR_RAMDISK_BINARY} \
 		       "${MODULES_STAGING_DIR}/initramfs.cpio"; do
@@ -661,7 +729,6 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
 		exit 1
 	fi
-	set -x
 
 	if [ -z "${MKBOOTIMG_PATH}" ]; then
 		MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
@@ -692,13 +759,15 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.gz")
 	fi
 
-	set -x
 	python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
 		--header_version "${BOOT_IMAGE_HEADER_VERSION}" \
 		"${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
-	set +x
 
-	echo "boot image created at ${DIST_DIR}/boot.img"
+	[ -f "${DIST_DIR}/boot.img" ] && echo "boot image created at ${DIST_DIR}/boot.img"
+	[ -z "${SKIP_VENDOR_BOOT}" ] \
+	  && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
+		&& [ -f "${DIST_DIR}/vendor_boot.img" ] \
+		&& echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
 fi
 
 
