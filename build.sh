@@ -266,14 +266,16 @@ function create_reduced_modules_order() {
 		done < modules.order
 
 		# External modules
-		mkdir -p ${modules_staging_dir}/extra
-		[ -d extra/. ] && for ko in $(find extra/. -name "*.ko"); do
-			if grep -q $(basename ${ko}) ${modules_list_file}; then
-				mkdir -p ${modules_staging_dir}/extra
-				cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
-				echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
-			fi
-		done
+		if [ -d "./extra" ]; then
+			mkdir -p ${modules_staging_dir}/extra
+			for ko in $(find extra/. -name "*.ko"); do
+				if grep -q $(basename ${ko}) ${modules_list_file}; then
+					mkdir -p ${modules_staging_dir}/extra
+					cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
+					echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
+				fi
+			done
+		fi
 	)
 
 	cp ${src_dir}/modules.builtin* ${modules_staging_dir}/.
