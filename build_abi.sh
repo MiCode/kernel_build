@@ -231,7 +231,9 @@ if [ -n "$ABI_DEFINITION" ]; then
         rc=$?
         set -e
         echo "========================================================"
-        echo " ABI report has been created at ${abi_report}"
+        echo " A brief ABI report has been created at ${abi_report}.short"
+        echo
+        echo " The detailed report is available in the same directory."
 
         if [ $rc -ne 0 ]; then
             echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"
