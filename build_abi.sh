@@ -212,8 +212,7 @@ id=${ABI_OUT_TAG:-$(git -C $KERNEL_DIR describe --dirty --always)}
 abi_out_file=abi-${id}.xml
 ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree ${DIST_DIR}                  \
-    --out-file ${DIST_DIR}/${abi_out_file}    \
-    $KMI_WHITELIST_FLAG
+    --out-file ${DIST_DIR}/${abi_out_file}
 
 # sanitize the abi.xml by removing any occurences of the kernel path
 effective_kernel_dir=$(readlink -f ${ROOT_DIR}/${KERNEL_DIR})
