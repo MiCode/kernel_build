@@ -60,8 +60,9 @@ class Libabigail(AbiTool):
                                                                 new_dump,
                                                                 diff_report))
         diff_abi_cmd = ['abidiff',
-                        '--impacted-interfaces',
                         '--leaf-changes-only',
+                        '--flag-indirect',
+                        '--impacted-interfaces',
                         '--dump-diff-tree',
                         old_dump,
                         new_dump]

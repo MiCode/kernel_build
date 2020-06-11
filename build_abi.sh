@@ -43,9 +43,9 @@ export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 function show_help {
     echo "USAGE: $0 [-u|--update] [-n|--nodiff]"
     echo
-    echo "  -u | --update         Update the abi.xml in the source directory"
-    echo "  -n | --nodiff         Do not generate a ABI report with abidiff"
-    echo "  -r | --print-report   Print ABI report in case of differences"
+    echo "  -u | --update         Update ABI representation and main whitelist in the source directory"
+    echo "  -n | --nodiff         Do not generate an ABI report with diff_abi"
+    echo "  -r | --print-report   Print ABI short report in case of any differences"
 }
 
 UPDATE=0
@@ -139,24 +139,49 @@ if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
     exit 1
 fi
 
-# delegate the actual build to build.sh.
-# suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
-# the generated abi.xml to be copied to <DIST_DIR>/abi.out.
-ABI_DEFINITION= ${ROOT_DIR}/build/build.sh $*
+function build_kernel() {
+  # delegate the actual build to build.sh.
+  # suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
+  # the generated abi.xml to be copied to <DIST_DIR>/abi.out.
+  # similarly, disable the KMI strict mode check, as the whitelist may be
+  # out of date.
+  ABI_DEFINITION= KMI_WHITELIST_STRICT_MODE= ${ROOT_DIR}/build/build.sh "$@"
+}
+
+build_kernel "$@"
 
 # define a common KMI whitelist flag for the abi tools
 KMI_WHITELIST_FLAG=
+
+# We want to track whether the main whitelist (i.e. KMI_WHITELIST) actually got
+# updated. If so we need to rerun the kernel build.
+WHITELIST_GOT_UPDATE=0
 if [ -n "$KMI_WHITELIST" ]; then
 
     if [ $UPDATE -eq 1 ]; then
         echo "========================================================"
         echo " Updating the ABI whitelist"
+        WL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_WHITELIST 2>&1)
         ${ROOT_DIR}/build/abi/extract_symbols       \
             --whitelist $KERNEL_DIR/$KMI_WHITELIST  \
             ${DIST_DIR}
+        WL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_WHITELIST 2>&1)
+
+        if [ "$WL_SHA1_BEFORE" != "$WL_SHA1_AFTER" ]; then
+            WHITELIST_GOT_UPDATE=1
+        fi
     fi
 
     KMI_WHITELIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_whitelist"
+fi
+
+# Rerun the kernel build as the main whitelist changed. That influences the
+# combined whitelist as well as the list of exported symbols in the kernel
+# binary. Possibly more.
+if [ $WHITELIST_GOT_UPDATE -eq 1 ]; then
+  echo "========================================================"
+  echo " Whitelist got updated, rerunning the build"
+  SKIP_MRPROPER=1 build_kernel "$@"
 fi
 
 echo "========================================================"
@@ -206,7 +231,9 @@ if [ -n "$ABI_DEFINITION" ]; then
         rc=$?
         set -e
         echo "========================================================"
-        echo " ABI report has been created at ${abi_report}"
+        echo " A brief ABI report has been created at ${abi_report}.short"
+        echo
+        echo " The detailed report is available in the same directory."
 
         if [ $rc -ne 0 ]; then
             echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"

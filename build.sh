@@ -69,6 +69,11 @@
 #     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
 #     appended to the main one before proceeding to the distribution creation.
 #
+#   KMI_ENFORCED
+#     This is an indicative option to signal that KMI is enforced in this build
+#     config. If set, downstream KMI checking tools might respect it and react
+#     to it by failing if KMI differences are detected.
+#
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
@@ -140,6 +145,9 @@
 #     - PAGE_SIZE=<flash page size>
 #     If the BOOT_IMAGE_HEADER_VERSION is 3, a vendor_boot image will be built unless
 #     SKIP_VENDOR_BOOT is defined.
+#     - MODULES_LIST=<file to list of modules> list of modules to use for
+#       modules.load. If this property is not set, then the default modules.load
+#       is used.
 #
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
@@ -153,6 +161,14 @@
 #     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
 #     to un-export from the build any un-used and non-whitelisted (as per
 #     KMI_WHITELIST) symbol.
+#
+#   KMI_WHITELIST_STRICT_MODE
+#     if defined, add a build-time check between the KMI_WHITELIST and the
+#     KMI resulting from the build, to ensure they match 1-1.
+#
+#   KMI_STRICT_MODE_OBJECTS
+#     optional list of objects to consider for the KMI_WHITELIST_STRICT_MODE
+#     check. Defaults to 'vmlinux'.
 #
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
@@ -190,6 +206,86 @@ function rel_path() {
 	echo ${path}${to#$stem}
 }
 
+function run_depmod() {
+	(
+		local ramdisk_dir=$1
+		local DEPMOD_OUTPUT
+
+		cd ${ramdisk_dir}
+		if ! DEPMOD_OUTPUT="$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
+			echo "$DEPMOD_OUTPUT" >&2
+			exit 1
+		fi
+		echo "$DEPMOD_OUTPUT"
+		if { echo "$DEPMOD_OUTPUT" | grep -q "needs unknown symbol"; }; then
+			echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
+			exit 1
+		fi
+	)
+}
+
+# $1 MODULES_LIST, <File contains the list of modules that should go in the ramdisk>
+# $2 MODULES_STAGING_DIR    <The directory to look for all the compiled modules>
+# $3 INITRAMFS_STAGING_DIR  <The destination directory in which MODULES_LIST is
+#                            expected, and it's corresponding modules.* files>
+function create_reduced_modules_order() {
+	echo "========================================================"
+	echo " Creating reduced modules.order"
+	local modules_list_file=$1
+	local src_dir=$2/lib/modules/*
+	local dest_dir=$3/lib/modules/0.0
+	local staging_dir=$2/intermediate_ramdisk_staging
+	local modules_staging_dir=${staging_dir}/lib/modules/0.0
+
+	rm -rf ${staging_dir}/
+	mkdir -p ${modules_staging_dir}
+
+	# Need to make sure we can find modules_list_file from the staging dir
+	if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
+		modules_list_file="${ROOT_DIR}/${modules_list_file}"
+	elif [[ "${modules_list_file}" != /* ]]; then
+		echo "modules_list_file must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
+		exit 1
+	elif [[ ! -f "${modules_list_file}" ]]; then
+		echo "Failed to find modules_list_file: ${modules_list_file}"
+		exit 1
+	fi
+
+	(
+		cd ${src_dir}
+		touch ${modules_staging_dir}/modules.order
+
+		while read ko; do
+			# Ignore comment lines starting with # sign
+			[[ "${ko}" = \#* ]] && continue
+			if grep -q $(basename ${ko}) ${modules_list_file}; then
+				mkdir -p ${modules_staging_dir}/$(dirname ${ko})
+				cp -p ${ko} ${modules_staging_dir}/${ko}
+				echo ${ko} >> ${modules_staging_dir}/modules.order
+			fi
+		done < modules.order
+
+		# External modules
+		if [ -d "./extra" ]; then
+			mkdir -p ${modules_staging_dir}/extra
+			for ko in $(find extra/. -name "*.ko"); do
+				if grep -q $(basename ${ko}) ${modules_list_file}; then
+					mkdir -p ${modules_staging_dir}/extra
+					cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
+					echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
+				fi
+			done
+		fi
+	)
+
+	cp ${src_dir}/modules.builtin* ${modules_staging_dir}/.
+	run_depmod ${staging_dir}
+	cp ${modules_staging_dir}/modules.* ${dest_dir}/.
+
+	# Clean up
+	rm -rf ${staging_dir}
+}
+
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
 # For module file Signing with the kernel (if needed)
@@ -216,7 +312,7 @@ BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 
 cd ${ROOT_DIR}
 
-export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
+export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
 
 # Restore the previously saved CC argument that might have been overridden by
 # the BUILD_CONFIG.
@@ -290,33 +386,54 @@ if [ -n "${TAGS_CONFIG}" ]; then
   exit 0
 fi
 
+# Truncate abi.prop file
+ABI_PROP=${DIST_DIR}/abi.prop
+: > ${ABI_PROP}
+
+if [ -n "${ABI_DEFINITION}" ]; then
+
+  ABI_XML=${DIST_DIR}/abi.xml
+
+  echo "KMI_DEFINITION=abi.xml" >> ${ABI_PROP}
+  echo "KMI_MONITORED=1"        >> ${ABI_PROP}
+
+  if [ -n "${KMI_ENFORCED}" ]; then
+    echo "KMI_ENFORCED=1" >> ${ABI_PROP}
+  fi
+fi
+
+if [ -n "${KMI_WHITELIST}" ]; then
+  ABI_WL=${DIST_DIR}/abi_whitelist
+  echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
+fi
+
 # Copy the abi_${arch}.xml file from the sources into the dist dir
 if [ -n "${ABI_DEFINITION}" ]; then
   echo "========================================================"
-  echo " Copying abi definition to ${DIST_DIR}/abi.xml"
+  echo " Copying abi definition to ${ABI_XML}"
   pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${ABI_DEFINITION}" ${DIST_DIR}/abi.xml
+    cp "${ABI_DEFINITION}" ${ABI_XML}
   popd
 fi
 
 # Copy the abi whitelist file from the sources into the dist dir
 if [ -n "${KMI_WHITELIST}" ]; then
   echo "========================================================"
-  echo " Generating abi whitelist definition to ${DIST_DIR}/abi_whitelist"
+  echo " Generating abi whitelist definition to ${ABI_WL}"
   pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${KMI_WHITELIST}" ${DIST_DIR}/abi_whitelist
+    cp "${KMI_WHITELIST}" ${ABI_WL}
 
     # If there are additional whitelists specified, append them
     if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
       for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
-          echo >> ${DIST_DIR}/abi_whitelist
-          cat "${whitelist}" >> ${DIST_DIR}/abi_whitelist
+          echo >> ${ABI_WL}
+          cat "${whitelist}" >> ${ABI_WL}
       done
     fi
 
     if [ -n "${TRIM_NONLISTED_KMI}" ]; then
         # Create the raw whitelist
-        cat ${DIST_DIR}/abi_whitelist | \
+        cat ${ABI_WL} | \
                 ${ROOT_DIR}/build/abi/flatten_whitelist > \
                 ${OUT_DIR}/abi_whitelist.raw
 
@@ -326,10 +443,23 @@ if [ -n "${KMI_WHITELIST}" ]; then
                 --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
         (cd ${OUT_DIR} && \
                 make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+        # Make sure the config is applied
+        grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
+          echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
+          echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
+          exit 1
+        }
+
+    elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+      echo "ERROR: KMI_WHITELIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
+      exit 1
     fi
   popd # $ROOT_DIR/$KERNEL_DIR
 elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
   echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_WHITELIST" >&2
+  exit 1
+elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+  echo "ERROR: KMI_WHITELIST_STRICT_MODE requires a KMI_WHITELIST" >&2
   exit 1
 fi
 
@@ -348,10 +478,19 @@ if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
   set +x
 fi
 
+if [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+  echo "========================================================"
+  echo " Comparing the KMI and the whitelists:"
+  set -x
+  ${ROOT_DIR}/build/abi/compare_to_wl "${OUT_DIR}/Module.symvers" \
+                                      "${OUT_DIR}/abi_whitelist.raw"
+  set +x
+fi
+
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
-if [ -z "${DO_NOT_STRIP_MODULES}" ]; then
+if [ ${DO_NOT_STRIP_MODULES} -ne 1 ]; then
     MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
 fi
 
@@ -452,7 +591,6 @@ if [ -n "${MODULES}" ]; then
   if [ -n "${BUILD_INITRAMFS}" ]; then
     echo "========================================================"
     echo " Creating initramfs"
-    set -x
     rm -rf ${INITRAMFS_STAGING_DIR}
     # Depmod requires a version number; use 0.0 instead of determining the
     # actual kernel version since it is not necessary and will be removed for
@@ -469,31 +607,21 @@ if [ -n "${MODULES}" ]; then
           find extra -type f -name "*.ko" | sort >> modules.order)
     fi
 
-    if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
+    if [ ${DO_NOT_STRIP_MODULES} -eq 1 ]; then
       # strip debug symbols off initramfs modules
       find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" \
         -exec ${OBJCOPY:${CROSS_COMPILE}strip} --strip-debug {} \;
     fi
 
-    # Re-run depmod to detect any dependencies between in-kernel and external
-    # modules. Then, create modules.load based on all the modules compiled.
-    (
-      set +x
-      set +e # disable exiting of error so we can add extra comments
-      cd ${INITRAMFS_STAGING_DIR}
-      DEPMOD_OUTPUT=$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)
-      if [[ "$?" -ne 0 ]]; then
-        echo "$DEPMOD_OUTPUT"
-        exit 1;
-      fi
-      echo "$DEPMOD_OUTPUT"
-      if [[ -n $(echo $DEPMOD_OUTPUT | grep "needs unknown symbol") ]]; then
-        echo "ERROR: out-of-tree kernel module(s) need unknown symbol(s)"
-        exit 1
-      fi
-      set -e
-      set -x
-    )
+		# Re-run depmod to detect any dependencies between in-kernel and external
+		# modules. Then, create modules.order based on all the modules compiled.
+		if [[ -n "${MODULES_LIST}" ]]; then
+			create_reduced_modules_order ${MODULES_LIST} ${MODULES_STAGING_DIR} \
+					${INITRAMFS_STAGING_DIR}
+		else
+			run_depmod ${INITRAMFS_STAGING_DIR}
+		fi
+
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.load
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.options
@@ -507,10 +635,9 @@ if [ -n "${MODULES}" ]; then
       fi
     fi
 
-    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
     gzip -fc ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.gz
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
-    set +x
   fi
 fi
 
@@ -579,7 +706,6 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
 	fi
 
-	set -x
 	MKBOOTIMG_RAMDISKS=()
 	for ramdisk in ${VENDOR_RAMDISK_BINARY} \
 		       "${MODULES_STAGING_DIR}/initramfs.cpio"; do
@@ -605,7 +731,6 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
 		exit 1
 	fi
-	set -x
 
 	if [ -z "${MKBOOTIMG_PATH}" ]; then
 		MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
@@ -636,13 +761,15 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.gz")
 	fi
 
-	set -x
 	python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
 		--header_version "${BOOT_IMAGE_HEADER_VERSION}" \
 		"${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
-	set +x
 
-	echo "boot image created at ${DIST_DIR}/boot.img"
+	[ -f "${DIST_DIR}/boot.img" ] && echo "boot image created at ${DIST_DIR}/boot.img"
+	[ -z "${SKIP_VENDOR_BOOT}" ] \
+	  && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
+		&& [ -f "${DIST_DIR}/vendor_boot.img" ] \
+		&& echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
 fi
 
 

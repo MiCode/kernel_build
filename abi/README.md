@@ -355,9 +355,10 @@ You can reproduce the KernelABI test locally by running the following command
 with the same arguments that you would have run `build/build.sh` with.
 
 Example command for the GKI kernels:
-<pre>
+
+```
   $ BUILD_CONFIG=common/build.config.gki.aarch64 build/<b>build_abi.sh</b>
-</pre>
+```
 
 ### Updating the Kernel ABI
 
@@ -365,9 +366,9 @@ If you need to update the kernel ABI, then you must update the corresponding
 `abi.xml` file in the kernel source tree. This is most conveniently done by
 using `build/build_abi.sh` like so:
 
-<pre>
+```
   $ build/<b>build_abi.sh</b> --update --print-report
-</pre>
+```
 
 with the same arguments that you would have run `build/build.sh` with. This
 updates the correct `abi.xml` in the source tree and prints the detected
