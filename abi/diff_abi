@@ -48,8 +48,7 @@ def main():
                            args.report,
                            args.short_report,
                            args.kmi_whitelist)
-    if abi_changed:
-        return 8
+    return abi_changed
 
 if __name__ == "__main__":
     sys.exit(main())
