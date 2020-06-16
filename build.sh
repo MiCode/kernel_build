@@ -345,8 +345,6 @@ fi
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
 
-LZ4_ARGS="-c -l -12 --favor-decSpeed"
-
 mkdir -p ${OUT_DIR} ${DIST_DIR}
 
 echo "========================================================"
@@ -638,8 +636,8 @@ if [ -n "${MODULES}" ]; then
     fi
 
     (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
-    lz4 ${LZ4_ARGS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.lz4
-    mv ${MODULES_STAGING_DIR}/initramfs.cpio.lz4 ${DIST_DIR}/initramfs.img
+    gzip -fc ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.gz
+    mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
   fi
 fi
 
@@ -721,14 +719,14 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	done
 	for ((i=0; i<"${#MKBOOTIMG_RAMDISKS[@]}"; i++)); do
 		CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
-		if lz4 -cdl "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
+		if gzip -cd "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
 			MKBOOTIMG_RAMDISKS[$i]=${CPIO_NAME}
 		else
 			rm -f ${CPIO_NAME}
 		fi
 	done
 	if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
-		cat ${MKBOOTIMG_VENDOR_RAMDISKS[*]} | lz4 ${LZ4_ARGS} - > ${DIST_DIR}/ramdisk.lz4
+		cat ${MKBOOTIMG_RAMDISKS[*]} | gzip - > ${DIST_DIR}/ramdisk.gz
 	elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
 		echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
 		exit 1
@@ -754,13 +752,13 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 
 		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
 			MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img" \
-				"--vendor_ramdisk" "${DIST_DIR}/ramdisk.lz4")
+				"--vendor_ramdisk" "${DIST_DIR}/ramdisk.gz")
 			if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
 				MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
 			fi
 		fi
 	else
-		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.lz4")
+		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.gz")
 	fi
 
 	python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
