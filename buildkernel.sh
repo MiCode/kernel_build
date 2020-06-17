@@ -1,6 +1,6 @@
 #!/bin/bash -xE
 
-# Copyright (c) 2019 The Linux Foundation. All rights reserved.
+# Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
 # Not a Contribution.
 #
 # Copyright (C) 2019 The Android Open Source Project
@@ -48,6 +48,25 @@ System.map
 "
 PRIMARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/primary_kernel
 SECONDARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/secondary_kernel
+
+debugfs_disable()
+{
+	if [ ${TARGET_BUILD_VARIANT} == "user" ] && [ ${ARCH} == "arm64" ]; then
+		echo "combining fragments for user build"
+		(cd ${KERNEL_DIR} && \
+		ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} \
+		./scripts/kconfig/merge_config.sh ./arch/${ARCH}/configs/$DEFCONFIG ./arch/$ARCH/configs/vendor/debugfs.config
+		${MAKE_PATH}make ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} savedefconfig
+		mv defconfig ./arch/${ARCH}/configs/$DEFCONFIG
+		${MAKE_PATH}make mrproper)
+	else
+		if [[ ${DEFCONFIG} == *"perf_defconfig" ]] && [ ${ARCH} == "arm64" ]; then
+		echo "resetting perf defconfig"
+		(cd ${KERNEL_DIR} && \
+		git checkout arch/$ARCH/configs/$DEFCONFIG)
+		fi
+	fi
+}
 
 #defconfig
 make_defconfig()
@@ -286,6 +305,7 @@ else
 	KERNEL_BINS=${PRIMARY_KERN_BINS}
 fi
 
+debugfs_disable
 #use prebuilts if we want to use them, and they are available
 if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_BINS} ]; then
 	make_defconfig
