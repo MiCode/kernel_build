@@ -43,13 +43,6 @@ export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 
-if which repo > /dev/null; then
-  # extract the repo branch name (e.g. common-android-mainline)
-  repo_branch=$(repo --color=never info -o | grep -E "Manifest merge branch" |
-                                             sed "s|.*refs/heads/\(.*\)|\1|")
-  export KBUILD_BUILD_VERSION="1 repo:$repo_branch"
-fi
-
 echo "========================================================"
 echo "= build config: ${ROOT_DIR}/${BUILD_CONFIG}"
 cat ${ROOT_DIR}/${BUILD_CONFIG}
