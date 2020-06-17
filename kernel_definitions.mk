@@ -115,7 +115,7 @@ $(error Kernel configuration not defined, cannot build kernel)
 else
 
 ifeq ($(GKI_KERNEL),1)
-GKI_PLATFORM_NAME := $(shell echo $(KERNEL_DEFCONFIG) | sed -r "s/(-gki_defconfig|-qgki_defconfig|-qgki-debug_defconfig)$///")
+GKI_PLATFORM_NAME := $(shell echo $(KERNEL_DEFCONFIG) | sed -r "s/(-gki_defconfig|-qgki_defconfig|-qgki-consolidate_defconfig|-qgki-debug_defconfig)$///")
 GKI_PLATFORM_NAME := $(shell echo $(GKI_PLATFORM_NAME) | sed "s/vendor\///g")
 TARGET_USES_UNCOMPRESSED_KERNEL := $(shell grep "CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL=y" $(TARGET_KERNEL_SOURCE)/arch/arm64/configs/vendor/$(GKI_PLATFORM_NAME)_GKI.config)
 KERNEL_GENERATE_DEFCONFIG := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/configs/$(KERNEL_DEFCONFIG)
