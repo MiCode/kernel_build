@@ -157,6 +157,10 @@
 #     the contents of this variable, lines should be of the form: options
 #     <modulename> <param1>=<val> <param2>=<val> ...
 #
+#   LZ4_RAMDISK
+#     if defined, any ramdisks generated will be lz4 compressed instead of
+#     gzip compressed.
+#
 #   TRIM_NONLISTED_KMI
 #     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
 #     to un-export from the build any un-used and non-whitelisted (as per
@@ -344,6 +348,16 @@ fi
 # Allow hooks that refer to $CC_LD_ARG to keep working until they can be
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
+
+if [ -z "${LZ4_RAMDISK}" ] ; then
+  RAMDISK_COMPRESS="gzip -c -f"
+  RAMDISK_DECOMPRESS="gzip -c -d"
+  RAMDISK_EXT="gz"
+else
+  RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
+  RAMDISK_DECOMPRESS="lz4 -c -d -l"
+  RAMDISK_EXT="lz4"
+fi
 
 mkdir -p ${OUT_DIR} ${DIST_DIR}
 
@@ -636,8 +650,8 @@ if [ -n "${MODULES}" ]; then
     fi
 
     (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
-    gzip -fc ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.gz
-    mv ${MODULES_STAGING_DIR}/initramfs.cpio.gz ${DIST_DIR}/initramfs.img
+    ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
+    mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
   fi
 fi
 
@@ -719,14 +733,14 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	done
 	for ((i=0; i<"${#MKBOOTIMG_RAMDISKS[@]}"; i++)); do
 		CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
-		if gzip -cd "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
+		if ${RAMDISK_DECOMPRESS} "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
 			MKBOOTIMG_RAMDISKS[$i]=${CPIO_NAME}
 		else
 			rm -f ${CPIO_NAME}
 		fi
 	done
 	if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
-		cat ${MKBOOTIMG_RAMDISKS[*]} | gzip - > ${DIST_DIR}/ramdisk.gz
+		cat ${MKBOOTIMG_RAMDISKS[*]} | ${RAMDISK_COMPRESS} - > ${DIST_DIR}/ramdisk.${RAMDISK_EXT}
 	elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
 		echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
 		exit 1
@@ -752,13 +766,13 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 
 		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
 			MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img" \
-				"--vendor_ramdisk" "${DIST_DIR}/ramdisk.gz")
+				"--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
 			if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
 				MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
 			fi
 		fi
 	else
-		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.gz")
+		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
 	fi
 
 	python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
