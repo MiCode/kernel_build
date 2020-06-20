@@ -341,6 +341,10 @@ if [ -n "${OBJCOPY}" ]; then
   TOOL_ARGS+=("OBJCOPY=${OBJCOPY}")
 fi
 
+if [ -n "${DEPMOD}" ]; then
+  TOOL_ARGS+=("DEPMOD=${DEPMOD}")
+fi
+
 # Allow hooks that refer to $CC_LD_ARG to keep working until they can be
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
