@@ -1,7 +1,11 @@
 # Android Kernel compilation/common definitions
 
 ifeq ($(KERNEL_DEFCONFIG),)
+ifneq ($(TARGET_BOARD_AUTO),true)
      KERNEL_DEFCONFIG := vendor/$(TARGET_BOARD_PLATFORM)-qgki-debug_defconfig
+else
+     KERNEL_DEFCONFIG := vendor/gen3auto-qgki-debug_defconfig
+endif
 endif
 
 TARGET_KERNEL := msm-$(TARGET_KERNEL_VERSION)
