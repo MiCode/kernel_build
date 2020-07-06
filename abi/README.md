@@ -27,7 +27,7 @@ automated:
  3. Build the kernel and its ABI representation
  4. Analyze ABI differences between the build and a reference
  5. Update the ABI representation (if required)
- 6. Working with symbol whitelists
+ 6. Working with symbol lists
 
 
 The following instructions work for any kernel that can be built using a
@@ -155,11 +155,11 @@ build.config. It might also be useful to invoke the script with `--print-report`
 to print the differences the update fixes. The report is useful to include in
 the commit message when updating the abi.xml.
 
-### 6. Working with symbol whitelists
+### 6. Working with symbol lists
 
 `build_abi.sh` can be parameterized to filter symbols during extraction and
-comparison with KMI (Kernel Module Interface) whitelists. These are simple
-plain text files that list relevant ABI kernel symbols. E.g. a whitelist file
+comparison with KMI (Kernel Module Interface) symbol lists. These are simple
+plain text files that list relevant ABI kernel symbols. E.g. a symbol list file
 with the following content would limit ABI analysis to the ELF symbols with the
 names `symbol1` and `symbol2`:
 
@@ -171,19 +171,19 @@ names `symbol1` and `symbol2`:
 
 **NOTE**: Please refer to the [libabigail
 documentation](https://sourceware.org/libabigail/manual/kmidiff.html#environment)
-for details about the KMI whitelist file format.
+for details about the KMI symbol list file format.
 
 Changes to other ELF symbols would not be considered any longer unless they are
-indirectly affecting symbols that are whitelisted. A whitelist file can be
+indirectly affecting symbols that are part of the KMI. A symbol list file can be
 specified -- similar to the abi baseline file via `ABI_DEFINITION=` -- in the
 corresponding `build.config` configuration file with `KMI_WHITELIST=` as a file
 relative to the kernel source directory (`$KERNEL_DIR`). In order to allow a
-certain level of organization, additional whitelist files can be specified by
+certain level of organization, additional symbol list files can be specified by
 using `ADDITIONAL_KMI_WHITELISTS=` in the `build.config`. Similarly, it refers
-to whitelists in the `$KERNEL_DIR` and multiple files need to be separated by
+to symbol lists in the `$KERNEL_DIR` and multiple files need to be separated by
 whitespaces.
 
-In order to **create an initial whitelist or to update an existing one**, the
+In order to **create an initial symbol list or to update an existing one**, the
 script `extract_symbols` is provided. When run pointing at a `DIST_DIR` of an
 Android Kernel build, it will extract the symbols that are exported from
 vmlinux _and_ are required by any module in the tree.
@@ -207,24 +207,24 @@ following symbols (i.e. `undefined` entries in the symbol table):
 
 From an ABI stability point of view we need to keep `func1` and `func2` stable
 as these are used by an external module. On the contrary, while `func3` is
-exported it is not actively used (i.e. required) by any module. The whitelist
+exported it is not actively used (i.e. required) by any module. The symbol list
 would therefore contain `func1` and `func2` only.
 
-`extract_symbols` offers a flag to update an existing or create a new whitelist
-based on the above analysis: `--whitelist <path/to/abi_whitelist>`.
+`extract_symbols` offers a flag to update an existing or create a new symbol list
+based on the above analysis: `--whitelist <path/to/abi_symbol_list>`.
 
-In order to update an existing whitelist based on a built Kernel tree, run
+In order to update an existing symbol list based on a built Kernel tree, run
 `extract_symbols` as follows. The example uses the *common-android-mainline*
 branch of the Android Common Kernels following the official [build
 documentation](https://source.android.com/setup/build/building-kernels) and
-updates the whitelist for the GKI aarch64 Kernel.
+updates the symbol lists for the GKI aarch64 Kernel.
 
 ```
   (build the kernel)
   $ BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 
-  (update/create the whitelist)
-  $ build/abi/extract_symbols out/android-mainline/dist --whitelist common/abi_gki_aarch64_whitelist
+  (update/create the symbol list)
+  $ build/abi/extract_symbols out/android-mainline/dist --whitelist common/android/abi_gki_aarch64
 ```
 
 **NOTE**: Be aware that `extract_symbols` recursively discovers Kernel modules
@@ -274,14 +274,14 @@ and `new` are ABI representations collected with `dump_abi`. `diff_abi`
 propagates the exit code of the underlying tool and therefore returns a
 non-zero value in case the ABIs compared are incompatible.
 
-### Using KMI whitelists
+### Using KMI symbol lists
 
 To filter dumps created with `dump_abi` or filter symbols compared with
 `diff_abi`, each of those tools provides a parameter `--kmi-whitelist` that
-takes a path to a KMI whitelist file:
+takes a path to a KMI symbol list file:
 
 ```
-  $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-whitelist /path/to/whitelist
+  $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-whitelist /path/to/symbol_list
 ```
 
 ### Comparing Kernel Binaries against the GKI reference KMI
@@ -297,8 +297,8 @@ compare the local binaries' representation to e.g. the 5.4 representation:
 ```
 
 `gki_check` uses parameter names consistent with `dump_abi` and `diff_abi`.
-Hence, `--kmi-whitelist path/to/kmi_whitelist` can be used to limit that
-comparison to whitelisted symbols by passing a KMI whitelist.
+Hence, `--kmi-whitelist path/to/kmi_symbol_list` can be used to limit that
+comparison to allowed symbols by passing a KMI symbol list.
 
 **NOTE:** When comparing the ABI representations between the GKI Kernel and the
 locally built kernel, there might be cases that ABI changes are reported that
