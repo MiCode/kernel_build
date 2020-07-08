@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (C) 2020 The Android Open Source Project
 #
@@ -20,22 +20,35 @@ BRANCH=$1
 
 pushd $BASE > /dev/null
 
-  if [ ! -d common-${BRANCH} ]; then
-    echo "usage: $0 <branch>\n"
+  if [[ ! ( -d common-${BRANCH} || -d common${BRANCH} ) || ${BRANCH} == "" ]]; then
+    echo "usage: $0 <branch>"
+    echo
     echo "Branches available: "
     ls -d common-* | sed 's/common-/\t/g'
+    ls -d common1?-* | sed 's/common/\t/g'
     exit 1
   fi
 
   echo "Switching to $BRANCH"
 
+  if [[ ${BRANCH} == "11-5.4" ]]; then
+    alt_name="5.4-stable"
+  fi
+
+  if [[ ${BRANCH} == "12-5.4" ]]; then
+    alt_name="5.4"
+  fi
+
   for dir in common cuttlefish-modules goldfish-modules; do
-      if [ -L ${dir} ]; then
-          rm ${dir}
+    if [ -L ${dir} ]; then
+      rm ${dir}
+    fi
+
+    for candidate in ${dir}-${BRANCH} ${dir}-${alt_name} ${dir}${BRANCH}; do
+      if [ -d ${candidate} ]; then
+          ln -vs ${candidate} ${dir}
       fi
-      if [ -d ${dir}-${BRANCH} ]; then
-          ln -vs ${dir}-${BRANCH} ${dir}
-      fi
+    done
   done
 
 popd > /dev/null
