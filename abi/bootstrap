@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ELFUTILS_VERSION=elfutils-0.179
+ELFUTILS_VERSION=elfutils-0.180
 ABIGAIL_VERSION=16555aa4
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
