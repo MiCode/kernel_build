@@ -102,6 +102,12 @@ def extract_exported_symbols(binary):
 
   return symbol_sort(symbols)
 
+def extract_generic_exports(vmlinux, modules):
+  """Extract the ksymtab exported symbols from vmlinux and a set of modules"""
+  symbols = extract_exported_symbols(vmlinux)
+  for module in modules:
+    symbols.extend(extract_exported_symbols(module))
+  return symbols
 
 def extract_exported_in_modules(modules):
   """Extract the ksymtab exported symbols for a list of kernel modules."""
@@ -216,6 +222,11 @@ def main():
       help="Only process modules matching the filter. Can be passed multiple times."
   )
 
+  parser.add_argument(
+      "--gki-modules",
+      default=None,
+      help="List of GKI modules which must be provided when the search directory contains both vendor and GKI modules")
+
   args = parser.parse_args()
 
   if not os.path.isdir(args.directory):
@@ -239,6 +250,15 @@ def main():
             [re.search(f, os.path.basename(mod)) for f in args.module_filters])
     ]
 
+  # Partition vendor and GKI modules in two lists
+  gki_modules = []
+  if args.gki_modules is not None:
+    with open(args.gki_modules) as f:
+      gki_modules = [ os.path.basename(mod) for mod in f.read().splitlines() ]
+    gki_modules = [ mod for mod in modules if os.path.basename(mod) in gki_modules ]
+    modules = [ mod for mod in modules if mod not in gki_modules ]
+
+
   if vmlinux is None or not os.path.isfile(vmlinux):
     print("Could not find a suitable vmlinux file.")
     return 1
@@ -247,13 +267,13 @@ def main():
   undefined_symbols = extract_undefined_symbols(modules)
 
   # Get the actually defined and exported symbols
-  exported_in_vmlinux = extract_exported_symbols(vmlinux)
-  exported_in_modules = extract_exported_in_modules(modules)
+  generic_exports = extract_generic_exports(vmlinux, gki_modules)
+  local_exports = extract_exported_in_modules(modules)
 
-  # Build the list of all exported symbols (vmlinux + modules)
+  # Build the list of all exported symbols (generic and local)
   all_exported = list(
-      itertools.chain.from_iterable(exported_in_modules.values()))
-  all_exported.extend(exported_in_vmlinux)
+      itertools.chain.from_iterable(local_exports.values()))
+  all_exported.extend(generic_exports)
   all_exported = set(all_exported)
 
   # For sanity, check for inconsistencies between required and exported symbols
@@ -266,7 +286,7 @@ def main():
   if args.whitelist:
     create_whitelist(
         args.whitelist, undefined_symbols,
-        all_exported if args.include_module_exports else exported_in_vmlinux,
+        all_exported if args.include_module_exports else generic_exports,
         args.emit_module_whitelists,
         args.module_grouping)
 
