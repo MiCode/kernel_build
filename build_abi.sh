@@ -162,8 +162,15 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         echo "========================================================"
         echo " Updating the ABI symbol list"
         SL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
+
+        # Exclude GKI modules from non-GKI builds
+        if [ -n "${GKI_MODULES_LIST}" ]; then
+            GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
+        fi
+
         ${ROOT_DIR}/build/abi/extract_symbols       \
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
+            ${GKI_MOD_FLAG}                         \
             ${DIST_DIR}
         SL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
 
