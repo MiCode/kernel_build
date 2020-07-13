@@ -725,24 +725,25 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 	fi
 
 	MKBOOTIMG_RAMDISKS=()
-	for ramdisk in ${VENDOR_RAMDISK_BINARY} \
-		       "${MODULES_STAGING_DIR}/initramfs.cpio"; do
-		if [ -f "${DIST_DIR}/${ramdisk}" ]; then
-			MKBOOTIMG_RAMDISKS+=("${DIST_DIR}/${ramdisk}")
-		else
-			if [ -f "${ramdisk}" ]; then
-				MKBOOTIMG_RAMDISKS+=("${ramdisk}")
-			fi
+
+	if [ -n "${VENDOR_RAMDISK_BINARY}" ]; then
+		if ! [ -f "${VENDOR_RAMDISK_BINARY}" ]; then
+			echo "Unable to locate vendor ramdisk ${VENDOR_RAMDISK_BINARY}."
+			exit 1
 		fi
-	done
-	for ((i=0; i<"${#MKBOOTIMG_RAMDISKS[@]}"; i++)); do
 		CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
-		if ${RAMDISK_DECOMPRESS} "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
-			MKBOOTIMG_RAMDISKS[$i]=${CPIO_NAME}
+		if ${RAMDISK_DECOMPRESS} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > ${CPIO_NAME}; then
+			MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
 		else
+			MKBOOTIMG_RAMDISKS+=("${VENDOR_RAMDISK_BINARY}")
 			rm -f ${CPIO_NAME}
 		fi
-	done
+	fi
+
+	if [ -f "${MODULES_STAGING_DIR}/initramfs.cpio" ]; then
+		MKBOOTIMG_RAMDISKS+=("${MODULES_STAGING_DIR}/initramfs.cpio")
+	fi
+
 	if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
 		cat ${MKBOOTIMG_RAMDISKS[*]} | ${RAMDISK_COMPRESS} - > ${DIST_DIR}/ramdisk.${RAMDISK_EXT}
 	elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
