@@ -353,13 +353,15 @@ fi
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
 
+DECOMPRESS_GZIP="gzip -c -d"
+DECOMPRESS_LZ4="lz4 -c -d -l"
 if [ -z "${LZ4_RAMDISK}" ] ; then
   RAMDISK_COMPRESS="gzip -c -f"
-  RAMDISK_DECOMPRESS="gzip -c -d"
+  RAMDISK_DECOMPRESS="${DECOMPRESS_GZIP}"
   RAMDISK_EXT="gz"
 else
   RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
-  RAMDISK_DECOMPRESS="lz4 -c -d -l"
+  RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
   RAMDISK_EXT="lz4"
 fi
 
@@ -732,11 +734,20 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 			exit 1
 		fi
 		CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
-		if ${RAMDISK_DECOMPRESS} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > ${CPIO_NAME}; then
+		if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
+			echo "${VENDOR_RAMDISK_BINARY} is GZIP compressed"
 			MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
-		else
+		elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
+			echo "${VENDOR_RAMDISK_BINARY} is LZ4 compressed"
+			MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
+		elif cpio -t < "${VENDOR_RAMDISK_BINARY}" &>/dev/null; then
+			echo "${VENDOR_RAMDISK_BINARY} is plain CPIO archive"
+			rm -f "${CPIO_NAME}"
 			MKBOOTIMG_RAMDISKS+=("${VENDOR_RAMDISK_BINARY}")
-			rm -f ${CPIO_NAME}
+		else
+			echo "Unable to identify type of vendor ramdisk ${VENDOR_RAMDISK_BINARY}"
+			rm -f "${CPIO_NAME}"
+			exit 1
 		fi
 	fi
 
