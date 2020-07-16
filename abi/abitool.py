@@ -58,17 +58,22 @@ class Libabigail(AbiTool):
 
         subprocess.check_call(dump_abi_cmd)
 
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report,
+                 symbol_list, full_report):
         log.info('libabigail diffing: {} and {} at {}'.format(old_dump,
                                                                 new_dump,
                                                                 diff_report))
         diff_abi_cmd = ['abidiff',
-                        '--leaf-changes-only',
                         '--flag-indirect',
-                        '--impacted-interfaces',
                         '--dump-diff-tree',
                         old_dump,
                         new_dump]
+
+        if not full_report:
+            diff_abi_cmd.extend([
+                '--leaf-changes-only',
+                '--impacted-interfaces',
+            ])
 
         if symbol_list is not None:
             diff_abi_cmd.extend(['--kmi-whitelist', symbol_list])

@@ -71,12 +71,14 @@ function show_help {
     echo "  -s | --update-symbol-list    Update main symbol list in the source directory"
     echo "  -n | --nodiff                Do not generate an ABI report with diff_abi"
     echo "  -r | --print-report          Print ABI short report in case of any differences"
+    echo "  -a | --full-report           Create a detailed ABI report"
 }
 
 UPDATE=0
 UPDATE_SYMBOL_LIST=0
 DIFF=1
 PRINT_REPORT=0
+FULL_REPORT=0
 
 if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
@@ -106,6 +108,10 @@ case $i in
     ;;
     -r|--print-report)
     PRINT_REPORT=1
+    shift # past argument=value
+    ;;
+    -a|--full-report)
+    FULL_REPORT=1
     shift # past argument=value
     ;;
     -h|--help)
@@ -299,11 +305,18 @@ if [ -n "$ABI_DEFINITION" ]; then
         echo "========================================================"
         echo " Comparing ABI against expected definition ($ABI_DEFINITION)"
         abi_report=${DIST_DIR}/abi.report
+
+        FULL_REPORT_FLAG=
+        if [ $FULL_REPORT -eq 1 ]; then
+            FULL_REPORT_FLAG="--full-report"
+        fi
+
         set +e
         ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
                                        --new      ${DIST_DIR}/${abi_out_file} \
                                        --report   ${abi_report}               \
                                        --short-report ${abi_report}.short     \
+                                       $FULL_REPORT_FLAG                      \
                                        $KMI_SYMBOL_LIST_FLAG
         rc=$?
         set -e
