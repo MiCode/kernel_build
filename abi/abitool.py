@@ -44,6 +44,9 @@ class Libabigail(AbiTool):
                         # omit various sources of indeterministic abidw output
                         '--no-corpus-path',
                         '--no-comp-dir-path',
+                        # use (more) stable type ids
+                        '--type-id-style',
+                        'hash',
                         # the path containing vmlinux and *.ko
                         '--linux-tree',
                         linux_tree,
@@ -62,7 +65,6 @@ class Libabigail(AbiTool):
         diff_abi_cmd = ['abidiff',
                         '--leaf-changes-only',
                         '--flag-indirect',
-                        '--harmless',
                         '--impacted-interfaces',
                         '--dump-diff-tree',
                         old_dump,

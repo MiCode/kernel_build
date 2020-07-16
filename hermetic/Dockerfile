@@ -8,8 +8,6 @@ RUN apt-get -y update                            \
     # see  b/152339525
     cpio                                         \
     gcc                                          \
-    # for /sbin/depmod
-    kmod                                         \
     libssl-dev                                   \
     rsync                                        \
 && apt-get clean                                 \

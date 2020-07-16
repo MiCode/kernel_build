@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ELFUTILS_VERSION=elfutils-0.179
-ABIGAIL_VERSION=67d4c4cf
+ELFUTILS_VERSION=elfutils-0.180
+ABIGAIL_VERSION=90464fcd
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
 ABIGAIL_DIR=${ABIGAIL_DIR:-$(readlink -f $(dirname $0))}

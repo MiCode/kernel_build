@@ -32,7 +32,7 @@ export KERNEL_DIR=$(readlink -m ${KERNEL_DIR})
 CHECKPATCH_PL_PATH="${KERNEL_DIR}/scripts/checkpatch.pl"
 GIT_SHA1="HEAD"
 PATCH_DIR="${OUT_DIR}/checkpatch/patches"
-BLACKLIST_FILE="${STATIC_ANALYSIS_SRC_DIR}/checkpatch_blacklist"
+IGNORELIST_FILE="${STATIC_ANALYSIS_SRC_DIR}/checkpatch_ignorelist"
 RESULTS_PATH=${DIST_DIR}/checkpatch.log
 RETURN_CODE=0
 
@@ -49,8 +49,8 @@ while [[ $# -gt 0 ]]; do
     GIT_SHA1="$2"
     shift
     ;;
-  --blacklisted_checks)
-    BLACKLIST_FILE="$2"
+  --ignored_checks)
+    IGNORELIST_FILE="$2"
     shift
     ;;
   --help)
@@ -59,7 +59,7 @@ while [[ $# -gt 0 ]]; do
     echo ""
     echo "Usage: $0"
     echo "  <--git_sha1 nnn> (Defaults to HEAD)"
-    echo "  <--blacklisted_checks path_to_file> (Defaults to checkpatch_blacklist)"
+    echo "  <--ignored_checks path_to_file> (Defaults to checkpatch_ignorelist)"
     echo "  <args for checkpatch.pl>"
     exit 0
     ;;
@@ -77,9 +77,9 @@ if [[ -d "${PATCH_DIR}" ]]; then
 fi
 mkdir -p "${PATCH_DIR}"
 
-# Update blacklist.
-if [[ -f "${BLACKLIST_FILE}" ]]; then
-  IGNORED_ERRORS=$(grep -v '^#' ${BLACKLIST_FILE} | paste -s -d,)
+# Update ignorelist.
+if [[ -f "${IGNORELIST_FILE}" ]]; then
+  IGNORED_ERRORS=$(grep -v '^#' ${IGNORELIST_FILE} | paste -s -d,)
   if [[ -n "${IGNORED_ERRORS}" ]]; then
     CHECKPATCH_ARGS+=(--ignore)
     CHECKPATCH_ARGS+=("${IGNORED_ERRORS}")
@@ -100,11 +100,11 @@ PATCH_FILE="${PATCH_DIR}/*.patch"
 # Delay exit on non-zero checkpatch.pl return code so we can finish logging.
 
 # Note, it's tricky to ignore this exit code completely and instead return only
-# based on the log values. For example, if the log is not empty, but contains no
-# ERRORS, how do we reliabliy distinguish WARNINGS that were not blacklisted
-# (or other conditions we want to ignore), from legitimate errors running the
+# based on the log values. For example, if the log is not empty, but contains
+# no ERRORS, how do we reliabliy distinguish WARNINGS that were not ignored (or
+# other conditions we want to ignore), from legitimate errors running the
 # script itself (e.g. bad flags)? checkpatch.pl will return 1 in both cases.
-# For now, include all known warnings in the blacklist, and forward this code
+# For now, include all known warnings in the ignorelist, and forward this code
 # unconditionally.
 
 set +e
