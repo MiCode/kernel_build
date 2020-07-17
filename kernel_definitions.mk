@@ -51,6 +51,10 @@ KERNEL_CONFIG_OVERRIDE := CONFIG_ANDROID_BINDER_IPC_32BIT=y
 endif
 endif
 
+ifeq ($(FACTORY_BUILD),1)
+KERNEL_CONFIG_OVERRIDE_FACTORY := CONFIG_FACTORY_BUILD=y
+endif
+
 TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(strip $(TARGET_KERNEL_CROSS_COMPILE_PREFIX))
 ifeq ($(TARGET_KERNEL_CROSS_COMPILE_PREFIX),)
 KERNEL_CROSS_COMPILE := arm-eabi-
@@ -149,11 +153,29 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(DTC) $(UFDT_APPLY_OVERLAY)
 	TARGET_PREBUILT_INT_KERNEL=$(TARGET_PREBUILT_INT_KERNEL) \
 	TARGET_INCLUDES=$(TARGET_KERNEL_MAKE_CFLAGS) \
 	TARGET_LINCLUDES=$(TARGET_KERNEL_MAKE_LDFLAGS) \
+	KERNEL_CONFIG_OVERRIDE_FACTORY=$(KERNEL_CONFIG_OVERRIDE_FACTORY) \
+	KERNEL_CONFIG_OVERRIDE_DEVMEM=$(KERNEL_CONFIG_OVERRIDE_DEVMEM) \
 	device/qcom/kernelscripts/buildkernel.sh \
 	$(real_cc) \
 	$(TARGET_KERNEL_MAKE_ENV)
 
-$(KERNEL_OUT):
+KERNEL_EXTLINK_FILES := $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm \
+			$(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h \
+			$(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace \
+			$(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h
+
+link_ext:
+	echo "Creating kernel symbol link to miui/kernel."
+	rm -rf $(KERNEL_EXTLINK_FILES)
+	if [ -f "$(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h)" ]; then \
+		ln -s -f $(abspath miui/kernel/memory/rtmm) $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm; \
+		ln -s -f $(abspath miui/kernel/trace/ktrace) $(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace; \
+		ln -s -f $(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h) $(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h; \
+		ln -s -f $(abspath miui/kernel/trace/ktrace/include/linux/ktrace.h) $(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h;  fi
+
+.PHONY:link_ext
+
+$(KERNEL_OUT): link_ext
 	mkdir -p $(KERNEL_OUT)
 
 $(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
@@ -171,6 +193,8 @@ $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 	TARGET_PREBUILT_INT_KERNEL=$(TARGET_PREBUILT_INT_KERNEL) \
 	TARGET_INCLUDES=$(TARGET_KERNEL_MAKE_CFLAGS) \
 	TARGET_LINCLUDES=$(TARGET_KERNEL_MAKE_LDFLAGS) \
+	KERNEL_CONFIG_OVERRIDE_FACTORY=$(KERNEL_CONFIG_OVERRIDE_FACTORY) \
+	KERNEL_CONFIG_OVERRIDE_DEVMEM=$(KERNEL_CONFIG_OVERRIDE_DEVMEM) \
 	device/qcom/kernelscripts/buildkernel.sh \
 	$(real_cc) \
 	$(TARGET_KERNEL_MAKE_ENV)
