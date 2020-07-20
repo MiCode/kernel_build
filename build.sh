@@ -163,6 +163,12 @@
 #     expected to be built for the current configuration, in the modules.order
 #     format, relative to the kernel source tree.
 #
+#   GKI_MODULES_LIST
+#     location of an optional file containing the list of GKI modules, relative
+#     to the kernel source tree. This should be set in downstream builds to
+#     ensure the ABI tooling correctly differentiates vendor/OEM modules and GKI
+#     modules. This should not be set in the upstream GKI build.config.
+#
 #   LZ4_RAMDISK
 #     if defined, any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
@@ -723,6 +729,8 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
               --null -T -
   popd
 fi
+
+[ -n "${GKI_MODULES_LIST}" ] && cp ${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
 
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
