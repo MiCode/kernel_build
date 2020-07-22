@@ -437,7 +437,7 @@ fi
 # Copy the abi whitelist file from the sources into the dist dir
 if [ -n "${KMI_WHITELIST}" ]; then
   echo "========================================================"
-  echo " Generating abi whitelist definition to ${ABI_WL}"
+  echo " Generating abi symbol list definition to ${ABI_WL}"
   pushd $ROOT_DIR/$KERNEL_DIR
     cp "${KMI_WHITELIST}" ${ABI_WL}
 
@@ -498,10 +498,10 @@ fi
 
 if [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
   echo "========================================================"
-  echo " Comparing the KMI and the whitelists:"
+  echo " Comparing the KMI and the symbol lists:"
   set -x
-  ${ROOT_DIR}/build/abi/compare_to_wl "${OUT_DIR}/Module.symvers" \
-                                      "${OUT_DIR}/abi_whitelist.raw"
+  ${ROOT_DIR}/build/abi/compare_to_symbol_list "${OUT_DIR}/Module.symvers" \
+                                               "${OUT_DIR}/abi_whitelist.raw"
   set +x
 fi
 

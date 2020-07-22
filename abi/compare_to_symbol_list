@@ -16,12 +16,12 @@
 
 if [ "$#" -ne 2 ]; then
 	echo "ERROR: illegal number of parameters" >&2
-	echo "Usage: compare_to_wl <path/to/Module.symvers> <path/to/whitelist>" >&2
+	echo "Usage: compare_to_wl <path/to/Module.symvers> <path/to/symbol-list>" >&2
 	exit 1
 fi
 
 ksymtab=$(mktemp)
-whitelist=$(mktemp)
+symbollist=$(mktemp)
 
 # List of objects, typically vmlinux + GKI modules
 objects="${KMI_STRICT_MODE_OBJECTS:-vmlinux}"
@@ -38,15 +38,15 @@ cut -d$'\t' -f2- $1 | while read line; do
 	echo "${ksym[0]}"
 done | sort -u > $ksymtab
 
-sort -u "$2" > $whitelist
+sort -u "$2" > $symbollist
 
-delta=$(diff -u $ksymtab $whitelist | grep -v ' ')
-rm $ksymtab $whitelist
+delta=$(diff -u $ksymtab $symbollist | grep -v ' ')
+rm $ksymtab $symbollist
 if [ -n "$delta" ]; then
-	echo "ERROR: Differences between ksymtab and whitelist detected!" >&2
+	echo "ERROR: Differences between ksymtab and symbol list detected!" >&2
 	echo "Symbols missing from ksymtab:" >&2
 	echo "$delta" | sed -n -e 's/^+/ - /p' >&2
-	echo "Symbols missing from whitelist:" >&2
+	echo "Symbols missing from symbol list:" >&2
 	echo "$delta" | sed -n -e 's/^-/ - /p' >&2
 	exit 1
 fi
