@@ -36,7 +36,7 @@ export PATH="${OUT_DIR}/bin:${PATH}"
 export LD_LIBRARY_PATH="${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:${LD_LIBRARY_PATH}"
 
 # Check output dir.
-if [ -e "${OUT_DIR}" ]; then
+if [ -e "${OUT_DIR}/bin/abidw" ]; then
   echo "WARN: ${OUT_DIR} exists so bootstrap has already been run."
   echo "If you just wanted the build script environment:"
   show_exports
