@@ -1,6 +1,6 @@
 #!/bin/bash -xE
 
-# Copyright (c) 2019 The Linux Foundation. All rights reserved.
+# Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
 # Not a Contribution.
 #
 # Copyright (C) 2019 The Android Open Source Project
@@ -128,14 +128,14 @@ archive_kernel_modules()
 	echo "Archiving vendor kernel modules: "
 	echo ${VENDOR_KERNEL_MODULES}
 
-	# Also package the modules.blacklist file
+	# Also package the modules.blocklist file
 	set -x
-	BLACKLIST_FILE=""
-	if [ -f "modules.blacklist" ]; then
-		BLACKLIST_FILE="modules.blacklist"
+	BLOCKLIST_FILE=""
+	if [ -f "modules.blocklist" ]; then
+		BLOCKLIST_FILE="modules.blocklist"
 	fi
 
-	zip -rq ${VENDOR_KERNEL_MODULES_ARCHIVE} ${VENDOR_KERNEL_MODULES} ${BLACKLIST_FILE}
+	zip -rq ${VENDOR_KERNEL_MODULES_ARCHIVE} ${VENDOR_KERNEL_MODULES} ${BLOCKLIST_FILE}
 	set +x
 
 	popd
@@ -172,11 +172,12 @@ copy_modules_to_prebuilt()
 	fi
 	cp -p ${OUT_DIR}/certs/*.*  ${PREBUILT_OUT}/certs/
 
-	# Copy the modules.blacklist file
+	# Copy the modules.blocklist file
 	set -x
-	BLACKLIST_FILE=${PWD}/device/qcom/kernelscripts/modules_blacklist/modules.blacklist.${TARGET_PRODUCT}
-	if [ -f "${BLACKLIST_FILE}" ]; then
-		cp ${BLACKLIST_FILE} ${KERNEL_MODULES_OUT}/modules.blacklist
+	BLOCKLIST_FILE=${PWD}/device/qcom/kernelscripts/modules_blocklist/modules.blocklist.${TARGET_PRODUCT}
+	if [ -f "${BLOCKLIST_FILE}" ]; then
+		cp ${BLOCKLIST_FILE} ${KERNEL_MODULES_OUT}/modules.blocklist
+		sed -i -e '/blocklist/ s/-/_/g' ${KERNEL_MODULES_OUT}/modules.blocklist
 	fi
 	set +x
 }
@@ -383,7 +384,7 @@ if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_BINS} ]; then
 fi
 
 #use kernel source for building
-if [ ! -z ${HEADERS_INSTALL} ]; then
+if [ "${HEADERS_INSTALL}" -ne "0" ]; then
 	make_defconfig
 	headers_install
 else
