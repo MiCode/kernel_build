@@ -15,7 +15,7 @@
 # limitations under the License.
 
 ELFUTILS_VERSION=elfutils-0.180
-ABIGAIL_VERSION=90464fcd
+ABIGAIL_VERSION=ae350b3d
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
 ABIGAIL_DIR=${ABIGAIL_DIR:-$(readlink -f $(dirname $0))}
@@ -36,7 +36,7 @@ export PATH="${OUT_DIR}/bin:${PATH}"
 export LD_LIBRARY_PATH="${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:${LD_LIBRARY_PATH}"
 
 # Check output dir.
-if [ -e "${OUT_DIR}" ]; then
+if [ -e "${OUT_DIR}/bin/abidw" ]; then
   echo "WARN: ${OUT_DIR} exists so bootstrap has already been run."
   echo "If you just wanted the build script environment:"
   show_exports
