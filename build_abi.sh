@@ -31,11 +31,11 @@
 #     diff_abi and optionally (-r) print a report.
 #     ABI_DEFINITION is supposed to be defined relative to $KERNEL_DIR/
 #
-#   KMI_WHITELIST
-#     Define a Kernel Module Interface white list description. If defined, it
+#   KMI_SYMBOL_LIST
+#     Define a Kernel Module Interface symbol list description. If defined, it
 #     will be taken into account when extracting Kernel ABI information from
 #     vmlinux and kernel modules.
-#     KMI_WHITELIST is supposed to be defined relative to $KERNEL_DIR/
+#     KMI_SYMBOL_LIST is supposed to be defined relative to $KERNEL_DIR/
 #
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -43,7 +43,7 @@ export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 function show_help {
     echo "USAGE: $0 [-u|--update] [-n|--nodiff]"
     echo
-    echo "  -u | --update         Update ABI representation and main whitelist in the source directory"
+    echo "  -u | --update         Update ABI representation and main symbol list in the source directory"
     echo "  -n | --nodiff         Do not generate an ABI report with diff_abi"
     echo "  -r | --print-report   Print ABI short report in case of any differences"
 }
@@ -143,42 +143,42 @@ function build_kernel() {
   # delegate the actual build to build.sh.
   # suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
   # the generated abi.xml to be copied to <DIST_DIR>/abi.out.
-  # similarly, disable the KMI trimming, as the whitelist may be out of date.
-  ABI_DEFINITION= TRIM_NONLISTED_KMI= KMI_WHITELIST_STRICT_MODE= \
+  # similarly, disable the KMI trimming, as the symbol list may be out of date.
+  ABI_DEFINITION= TRIM_NONLISTED_KMI= KMI_SYMBOL_LIST_STRICT_MODE= \
 	  ${ROOT_DIR}/build/build.sh "$@"
 }
 
 build_kernel "$@"
 
-# define a common KMI whitelist flag for the abi tools
-KMI_WHITELIST_FLAG=
+# define a common KMI symbol list flag for the abi tools
+KMI_SYMBOL_LIST_FLAG=
 
-# We want to track whether the main whitelist (i.e. KMI_WHITELIST) actually got
-# updated. If so we need to rerun the kernel build.
-WHITELIST_GOT_UPDATE=0
-if [ -n "$KMI_WHITELIST" ]; then
+# We want to track whether the main symbol list (i.e. KMI_SYMBOL_LIST) actually
+# got updated. If so we need to rerun the kernel build.
+SYMBOL_LIST_GOT_UPDATE=0
+if [ -n "$KMI_SYMBOL_LIST" ]; then
 
     if [ $UPDATE -eq 1 ]; then
         echo "========================================================"
-        echo " Updating the ABI whitelist"
-        WL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_WHITELIST 2>&1)
+        echo " Updating the ABI symbol list"
+        WL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
         ${ROOT_DIR}/build/abi/extract_symbols       \
-            --whitelist $KERNEL_DIR/$KMI_WHITELIST  \
+            --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
             ${DIST_DIR}
-        WL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_WHITELIST 2>&1)
+        WL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
 
         if [ "$WL_SHA1_BEFORE" != "$WL_SHA1_AFTER" ]; then
-            WHITELIST_GOT_UPDATE=1
+            SYMBOL_LIST_GOT_UPDATE=1
         fi
     fi
 
-    KMI_WHITELIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_whitelist"
+    KMI_SYMBOL_LIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_symbollist"
 fi
 
-# Rerun the kernel build as the main whitelist changed. That influences the
-# combined whitelist as well as the list of exported symbols in the kernel
+# Rerun the kernel build as the main symbol list changed. That influences the
+# combined symbol list as well as the list of exported symbols in the kernel
 # binary. Possibly more.
-if [ $WHITELIST_GOT_UPDATE -eq 1 ]; then
+if [ $SYMBOL_LIST_GOT_UPDATE -eq 1 ]; then
   echo "========================================================"
   echo " Whitelist got updated, rerunning the build"
   SKIP_MRPROPER=1 build_kernel "$@"
@@ -194,7 +194,7 @@ abi_out_file=abi-${id}.xml
 ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree ${DIST_DIR}                  \
     --out-file ${DIST_DIR}/${abi_out_file}    \
-    $KMI_WHITELIST_FLAG
+    $KMI_SYMBOL_LIST_FLAG
 
 # sanitize the abi.xml by removing any occurences of the kernel path
 effective_kernel_dir=$(readlink -f ${ROOT_DIR}/${KERNEL_DIR})
@@ -227,7 +227,7 @@ if [ -n "$ABI_DEFINITION" ]; then
                                        --new      ${DIST_DIR}/${abi_out_file} \
                                        --report   ${abi_report}               \
                                        --short-report ${abi_report}.short     \
-                                       $KMI_WHITELIST_FLAG
+                                       $KMI_SYMBOL_LIST_FLAG
         rc=$?
         set -e
         echo "========================================================"

@@ -19,18 +19,18 @@ import configparser
 import sys
 
 def main():
-    """Convert a kmi-whitelist in libabigail format to a raw list."""
+    """Convert a kmi-symbol_list in libabigail format to a raw list."""
     if sys.stdin.isatty():
-        print("ERROR: missing kmi-whitelist on the standard input")
+        print("ERROR: missing kmi-symbol_list on the standard input")
         return 1
 
-    wl = configparser.ConfigParser(allow_no_value=True, strict=False)
-    wl.optionxform = str
-    wl.read_file(sys.stdin)
+    sl = configparser.ConfigParser(allow_no_value=True, strict=False)
+    sl.optionxform = str
+    sl.read_file(sys.stdin)
 
     ksyms = set()
-    for section in (s for s in wl.sections() if s.endswith('whitelist')):
-        ksyms.update(wl[section])
+    for section in (s for s in sl.sections() if s.endswith('whitelist')):
+        ksyms.update(sl[section])
     print('\n'.join(sorted(ksyms)))
 
 if __name__ == "__main__":

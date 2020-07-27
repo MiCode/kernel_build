@@ -176,10 +176,10 @@ for details about the KMI symbol list file format.
 Changes to other ELF symbols would not be considered any longer unless they are
 indirectly affecting symbols that are part of the KMI. A symbol list file can be
 specified -- similar to the abi baseline file via `ABI_DEFINITION=` -- in the
-corresponding `build.config` configuration file with `KMI_WHITELIST=` as a file
+corresponding `build.config` configuration file with `KMI_SYMBOL_LIST=` as a file
 relative to the kernel source directory (`$KERNEL_DIR`). In order to allow a
 certain level of organization, additional symbol list files can be specified by
-using `ADDITIONAL_KMI_WHITELISTS=` in the `build.config`. Similarly, it refers
+using `ADDITIONAL_KMI_SYMBOL_LISTS=` in the `build.config`. Similarly, it refers
 to symbol lists in the `$KERNEL_DIR` and multiple files need to be separated by
 whitespaces.
 

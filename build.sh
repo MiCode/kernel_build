@@ -59,14 +59,15 @@
 #     If defined (usually in build.config), also copy that abi definition to
 #     <OUT_DIR>/dist/abi.xml when creating the distribution.
 #
-#   KMI_WHITELIST
-#     Location of the main KMI whitelist file relative to <REPO_ROOT>/KERNEL_DIR
-#     If defined (usually in build.config), also copy that whitelist definition
-#     to <OUT_DIR>/dist/abi_whitelist when creating the distribution.
+#   KMI_SYMBOL_LIST
+#     Location of the main KMI symbol list file relative to
+#     <REPO_ROOT>/KERNEL_DIR If defined (usually in build.config), also copy
+#     that symbol list definition to <OUT_DIR>/dist/abi_symbollist when
+#     creating the distribution.
 #
-#   ADDITIONAL_KMI_WHITELISTS
-#     Location of secondary KMI whitelist files relative to
-#     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
+#   ADDITIONAL_KMI_SYMBOL_LISTS
+#     Location of secondary KMI symbol list files relative to
+#     <REPO_ROOT>/KERNEL_DIR. If defined, these additional symbol lists will be
 #     appended to the main one before proceeding to the distribution creation.
 #
 #   KMI_ENFORCED
@@ -163,15 +164,15 @@
 #
 #   TRIM_NONLISTED_KMI
 #     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
-#     to un-export from the build any un-used and non-whitelisted (as per
-#     KMI_WHITELIST) symbol.
+#     to un-export from the build any un-used and non-symbol-listed (as per
+#     KMI_SYMBOL_LIST) symbol.
 #
-#   KMI_WHITELIST_STRICT_MODE
-#     if defined, add a build-time check between the KMI_WHITELIST and the
+#   KMI_SYMBOL_LIST_STRICT_MODE
+#     if defined, add a build-time check between the KMI_SYMBOL_LIST and the
 #     KMI resulting from the build, to ensure they match 1-1.
 #
 #   KMI_STRICT_MODE_OBJECTS
-#     optional list of objects to consider for the KMI_WHITELIST_STRICT_MODE
+#     optional list of objects to consider for the KMI_SYMBOL_LIST_STRICT_MODE
 #     check. Defaults to 'vmlinux'.
 #
 # Note: For historic reasons, internally, OUT_DIR will be copied into
@@ -422,9 +423,9 @@ if [ -n "${ABI_DEFINITION}" ]; then
   fi
 fi
 
-if [ -n "${KMI_WHITELIST}" ]; then
-  ABI_WL=${DIST_DIR}/abi_whitelist
-  echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
+if [ -n "${KMI_SYMBOL_LIST}" ]; then
+  ABI_WL=${DIST_DIR}/abi_symbollist
+  echo "KMI_SYMBOL_LIST=abi_symbollist" >> ${ABI_PROP}
 fi
 
 # Copy the abi_${arch}.xml file from the sources into the dist dir
@@ -436,50 +437,50 @@ if [ -n "${ABI_DEFINITION}" ]; then
   popd
 fi
 
-# Copy the abi whitelist file from the sources into the dist dir
-if [ -n "${KMI_WHITELIST}" ]; then
+# Copy the abi symbol list file from the sources into the dist dir
+if [ -n "${KMI_SYMBOL_LIST}" ]; then
   echo "========================================================"
   echo " Generating abi symbol list definition to ${ABI_WL}"
   pushd $ROOT_DIR/$KERNEL_DIR
-  cp "${KMI_WHITELIST}" ${ABI_WL}
+  cp "${KMI_SYMBOL_LIST}" ${ABI_WL}
 
-  # If there are additional whitelists specified, append them
-  if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
-    for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
-      echo >> ${ABI_WL}
-      cat "${whitelist}" >> ${ABI_WL}
+  # If there are additional symbol lists specified, append them
+  if [ -n "${ADDITIONAL_KMI_SYMBOL_LISTS}" ]; then
+    for symbol_list in ${ADDITIONAL_KMI_SYMBOL_LISTS}; do
+        echo >> ${ABI_WL}
+        cat "${symbol_list}" >> ${ABI_WL}
     done
   fi
 
   if [ -n "${TRIM_NONLISTED_KMI}" ]; then
-    # Create the raw whitelist
-    cat ${ABI_WL} | \
-      ${ROOT_DIR}/build/abi/flatten_whitelist > \
-      ${OUT_DIR}/abi_whitelist.raw
+      # Create the raw symbol list 
+      cat ${ABI_WL} | \
+              ${ROOT_DIR}/build/abi/flatten_symbol_list > \
+              ${OUT_DIR}/abi_symbollist.raw
 
-    # Update the kernel configuration
-    ./scripts/config --file ${OUT_DIR}/.config \
-      -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
-      --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
-    (cd ${OUT_DIR} && \
-      make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
-    # Make sure the config is applied
-    grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
-      echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
-      echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
-      exit 1
-    }
+      # Update the kernel configuration
+      ./scripts/config --file ${OUT_DIR}/.config \
+              -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
+              --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
+      (cd ${OUT_DIR} && \
+              make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+      # Make sure the config is applied
+      grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
+        echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
+        echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
+        exit 1
+      }
 
-  elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
-    echo "ERROR: KMI_WHITELIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
+    elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+      echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
     exit 1
   fi
   popd # $ROOT_DIR/$KERNEL_DIR
 elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
-  echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_WHITELIST" >&2
+  echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_SYMBOL_LIST" >&2
   exit 1
-elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
-  echo "ERROR: KMI_WHITELIST_STRICT_MODE requires a KMI_WHITELIST" >&2
+elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+  echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
 fi
 
@@ -498,12 +499,12 @@ if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
   set +x
 fi
 
-if [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+if [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
   echo "========================================================"
   echo " Comparing the KMI and the symbol lists:"
   set -x
   ${ROOT_DIR}/build/abi/compare_to_symbol_list "${OUT_DIR}/Module.symvers" \
-                                               "${OUT_DIR}/abi_whitelist.raw"
+                                               "${OUT_DIR}/abi_symbollist.raw"
   set +x
 fi
 
