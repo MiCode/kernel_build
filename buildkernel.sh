@@ -146,7 +146,8 @@ copy_modules_to_prebuilt()
 	PREBUILT_OUT=$1
 
 	# Clean the DLKM directory to remove stale modules
-	rm -rf ${KERNEL_MODULES_OUT}
+	rm -rf ${KERNEL_MODULES_OUT}/*.ko
+	rm -rf ${KERNEL_MODULES_OUT}/*.zip
 
 	mkdir -p ${KERNEL_MODULES_OUT}
 

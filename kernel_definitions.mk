@@ -122,7 +122,9 @@ ifeq ($(GKI_KERNEL),1)
 GKI_PLATFORM_NAME := $(shell echo $(KERNEL_DEFCONFIG) | sed -r "s/(-gki_defconfig|-qgki_defconfig|-qgki-consolidate_defconfig|-qgki-debug_defconfig)$///")
 GKI_PLATFORM_NAME := $(shell echo $(GKI_PLATFORM_NAME) | sed "s/vendor\///g")
 TARGET_USES_UNCOMPRESSED_KERNEL := $(shell grep "CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL=y" $(TARGET_KERNEL_SOURCE)/arch/arm64/configs/vendor/$(GKI_PLATFORM_NAME)_GKI.config)
-KERNEL_GENERATE_DEFCONFIG := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/configs/$(KERNEL_DEFCONFIG)
+
+# Generate the defconfig file from the fragments
+_x := $(shell ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) KERN_OUT=$(KERNEL_OUT) $(TARGET_KERNEL_MAKE_ENV) MAKE_PATH=$(MAKE_PATH) $(TARGET_KERNEL_SOURCE)/scripts/gki/generate_defconfig.sh $(KERNEL_DEFCONFIG))
 else
 TARGET_USES_UNCOMPRESSED_KERNEL := $(shell grep "CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL=y" $(TARGET_KERNEL_SOURCE)/arch/arm64/configs/$(KERNEL_DEFCONFIG))
 endif
@@ -172,6 +174,9 @@ ifeq ($(GKI_KERNEL),1)
 
     BOARD_KERNEL_MODULE_DIRS := $(GKI_TARGET_MODULES_DIR)
     BOARD_KERNEL-GKI_BOOTIMAGE_PARTITION_SIZE := 0x06000000
+
+    # Generate the GKI defconfig
+    _x := $(shell ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) KERN_OUT=$(KERNEL_OUT) $(TARGET_KERNEL_MAKE_ENV) MAKE_PATH=$(MAKE_PATH) $(TARGET_KERNEL_SOURCE)/scripts/gki/generate_defconfig.sh $(GKI_KERNEL_DEFCONFIG))
   endif
 endif
 
@@ -221,19 +226,6 @@ MAKE_PATH := $(SOURCE_ROOT)/prebuilts/build-tools/linux-x86/bin/
 
 # Helper functions
 
-ifeq ($(GKI_KERNEL),1)
-# Generate the defconfig file from fragments
-# $(1): The defconfig to generate. For example, vendor/lahaina-qgki_defconfig
-define generate-defconfig
-	set -x; \
-	ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) KERN_OUT=$(KERNEL_OUT) $(TARGET_KERNEL_MAKE_ENV) MAKE_PATH=$(MAKE_PATH) $(TARGET_KERNEL_SOURCE)/scripts/gki/generate_defconfig.sh $(1); \
-	set +x
-endef
-else
-define generate-defconfig
-endef
-endif
-
 # Build the kernel
 # $(1): KERNEL_DEFCONFIG to build for
 # $(2): KERNEL_OUT directory
@@ -266,7 +258,6 @@ endef
 # Android Kernel make rules
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(DTC) $(UFDT_APPLY_OVERLAY)
-	$(call generate-defconfig,$(KERNEL_DEFCONFIG)); \
 	$(call build-kernel,$(KERNEL_DEFCONFIG),$(KERNEL_OUT),$(KERNEL_MODULES_OUT),$(KERNEL_HEADERS_INSTALL),1,$(TARGET_PREBUILT_INT_KERNEL))
 
 $(KERNEL_OUT):
@@ -278,15 +269,10 @@ $(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
 
 $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 	echo "Building the requested kernel.."; \
-	$(call generate-defconfig,$(KERNEL_DEFCONFIG)); \
 	$(call build-kernel,$(KERNEL_DEFCONFIG),$(KERNEL_OUT),$(KERNEL_MODULES_OUT),$(KERNEL_HEADERS_INSTALL),0,$(TARGET_PREBUILT_INT_KERNEL))
 
-# Make GKI_TARGET_PREBUILT_KERNEL dependent on TARGET_PREBUILT_KERNEL just so
-# that the builds are serialzed. This is just to avoid hogging CPU resoruces
-# and to avoid any potential race-conditions.
-$(GKI_TARGET_PREBUILT_KERNEL): $(DTC) $(TARGET_PREBUILT_KERNEL)
+$(GKI_TARGET_PREBUILT_KERNEL): $(DTC)
 	echo "Building GKI kernel.."; \
-	$(call generate-defconfig,$(GKI_KERNEL_DEFCONFIG)); \
 	$(call build-kernel,$(GKI_KERNEL_DEFCONFIG),$(GKI_KERNEL_OUT),$(GKI_KERNEL_MODULES_OUT),$(GKI_KERNEL_HEADERS_INSTALL),0,$(GKI_TARGET_PREBUILT_INT_KERNEL))
 
 $(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL) $(GKI_TARGET_PREBUILT_KERNEL)
