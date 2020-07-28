@@ -161,13 +161,13 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
     if [ $UPDATE -eq 1 ]; then
         echo "========================================================"
         echo " Updating the ABI symbol list"
-        WL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
+        SL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
         ${ROOT_DIR}/build/abi/extract_symbols       \
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
             ${DIST_DIR}
-        WL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
+        SL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
 
-        if [ "$WL_SHA1_BEFORE" != "$WL_SHA1_AFTER" ]; then
+        if [ "$SL_SHA1_BEFORE" != "$SL_SHA1_AFTER" ]; then
             SYMBOL_LIST_GOT_UPDATE=1
         fi
     fi

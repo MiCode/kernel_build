@@ -424,7 +424,7 @@ if [ -n "${ABI_DEFINITION}" ]; then
 fi
 
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
-  ABI_WL=${DIST_DIR}/abi_symbollist
+  ABI_SL=${DIST_DIR}/abi_symbollist
   echo "KMI_SYMBOL_LIST=abi_symbollist" >> ${ABI_PROP}
 fi
 
@@ -440,21 +440,21 @@ fi
 # Copy the abi symbol list file from the sources into the dist dir
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
   echo "========================================================"
-  echo " Generating abi symbol list definition to ${ABI_WL}"
+  echo " Generating abi symbol list definition to ${ABI_SL}"
   pushd $ROOT_DIR/$KERNEL_DIR
-  cp "${KMI_SYMBOL_LIST}" ${ABI_WL}
+  cp "${KMI_SYMBOL_LIST}" ${ABI_SL}
 
   # If there are additional symbol lists specified, append them
   if [ -n "${ADDITIONAL_KMI_SYMBOL_LISTS}" ]; then
     for symbol_list in ${ADDITIONAL_KMI_SYMBOL_LISTS}; do
-        echo >> ${ABI_WL}
-        cat "${symbol_list}" >> ${ABI_WL}
+        echo >> ${ABI_SL}
+        cat "${symbol_list}" >> ${ABI_SL}
     done
   fi
 
   if [ -n "${TRIM_NONLISTED_KMI}" ]; then
       # Create the raw symbol list 
-      cat ${ABI_WL} | \
+      cat ${ABI_SL} | \
               ${ROOT_DIR}/build/abi/flatten_symbol_list > \
               ${OUT_DIR}/abi_symbollist.raw
 
