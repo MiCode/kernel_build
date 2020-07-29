@@ -108,6 +108,11 @@ def get_kernel_version(data):
       raise Exception("Could not determine kernel version in branch " + branch)
     return result.group(1)
 
+def write_prebuilt_info(output_dir):
+  with open(os.path.join(output_dir, "prebuilt-info.txt"), "w") as prebuilt_info:
+    json.dump({"kernel-build-id": args.build_id}, prebuilt_info, indent=4)
+    prebuilt_info.write("\n")
+
 def update_prebuilts(data, files, url_base, pool):
   version = get_kernel_version(data)
   print("Kernel version in build is " + version)
@@ -136,6 +141,8 @@ def update_prebuilts(data, files, url_base, pool):
   else:
     subprocess.check_output(["mv", output_dir + "/bzImage",
                                    output_dir + "/kernel-" + version])
+
+  write_prebuilt_info(output_dir)
 
   commit_message = ("Update kernel to builds {}\n"
                     "\n"
