@@ -95,6 +95,10 @@ function do_list_variants() (
 		variants=()
 		create_variants_array variants "${target}"
 
+		if [ "${#variants[@]}" -eq 0 ]; then
+			echo "BUILD_CONFIG=${target} BRANCH=`get_branch`"
+		fi
+
 		for variant in "${variants[@]}"
 		do
 			echo "BUILD_CONFIG=${target} VARIANT=${variant} BRANCH=`get_branch`"
