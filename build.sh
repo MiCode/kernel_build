@@ -330,8 +330,15 @@ export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH 
 
 TOOL_ARGS=()
 
+if [ -n "${HOSTCC}" ]; then
+  TOOL_ARGS+=("HOSTCC=${HOSTCC}")
+fi
+
 if [ -n "${CC}" ]; then
-  TOOL_ARGS+=("CC=${CC}" "HOSTCC=${CC}")
+  TOOL_ARGS+=("CC=${CC}")
+  if [ -z "${HOSTCC}" ]; then
+    TOOL_ARGS+=("HOSTCC=${CC}")
+  fi
 fi
 
 if [ -n "${LD}" ]; then
