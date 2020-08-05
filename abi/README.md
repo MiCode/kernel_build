@@ -491,8 +491,9 @@ For example, to check the CRC value for the `module_layout` symbol,
 If you get a CRC mismatch when loading the module, here is how to you fix it:
 
 1. Build the GKI and your kernels, but add the `KBUILD_SYMTYPES=1` in front of
-   the command you use to build the kernel. This will generate a `.symtypes`
-   files for each `.o` file. For example:
+   the command you use to build the kernel, if needed. Note that `build_abi.sh`
+   does this already. This will generate a `.symtypes` files for each `.o` file.
+   For example:
 
     ```
       $ KBUILD_SYMTYPES=1 \

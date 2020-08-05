@@ -140,12 +140,16 @@ if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
 fi
 
 function build_kernel() {
-  # delegate the actual build to build.sh.
-  # suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
+  # Delegate the actual build to build.sh.
+  # Suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
   # the generated abi.xml to be copied to <DIST_DIR>/abi.out.
-  # similarly, disable the KMI trimming, as the symbol list may be out of date.
-  ABI_DEFINITION= TRIM_NONLISTED_KMI= KMI_SYMBOL_LIST_STRICT_MODE= \
-	  ${ROOT_DIR}/build/build.sh "$@"
+  # Similarly, disable the KMI trimming, as the symbol list may be out of date.
+  # Turn on symtypes generation to assist in the diagnosis of CRC differences.
+  ABI_DEFINITION= \
+    TRIM_NONLISTED_KMI= \
+    KMI_SYMBOL_LIST_STRICT_MODE= \
+    KBUILD_SYMTYPES=1 \
+    ${ROOT_DIR}/build/build.sh "$@"
 }
 
 build_kernel "$@"
