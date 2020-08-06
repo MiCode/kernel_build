@@ -368,6 +368,10 @@ if [ -n "${DEPMOD}" ]; then
   TOOL_ARGS+=("DEPMOD=${DEPMOD}")
 fi
 
+if [ -n "${DTC}" ]; then
+  TOOL_ARGS+=("DTC=${DTC}")
+fi
+
 # Allow hooks that refer to $CC_LD_ARG to keep working until they can be
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
