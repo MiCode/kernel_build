@@ -43,12 +43,14 @@ export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 function show_help {
     echo "USAGE: $0 [-u|--update] [-n|--nodiff]"
     echo
-    echo "  -u | --update         Update ABI representation and main symbol list in the source directory"
-    echo "  -n | --nodiff         Do not generate an ABI report with diff_abi"
-    echo "  -r | --print-report   Print ABI short report in case of any differences"
+    echo "  -u | --update                Update ABI representation and main symbol list in the source directory"
+    echo "  -s | --update-symbol-list    Update main symbol list in the source directory"
+    echo "  -n | --nodiff                Do not generate an ABI report with diff_abi"
+    echo "  -r | --print-report          Print ABI short report in case of any differences"
 }
 
 UPDATE=0
+UPDATE_SYMBOL_LIST=0
 DIFF=1
 PRINT_REPORT=0
 
@@ -57,7 +59,12 @@ for i in "$@"
 do
 case $i in
     -u|--update)
+    UPDATE_SYMBOL_LIST=1
     UPDATE=1
+    shift # past argument=value
+    ;;
+    -s|--update-symbol-list)
+    UPDATE_SYMBOL_LIST=1
     shift # past argument=value
     ;;
     -n|--nodiff)
@@ -162,7 +169,7 @@ KMI_SYMBOL_LIST_FLAG=
 SYMBOL_LIST_GOT_UPDATE=0
 if [ -n "$KMI_SYMBOL_LIST" ]; then
 
-    if [ $UPDATE -eq 1 ]; then
+    if [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
         echo "========================================================"
         echo " Updating the ABI symbol list"
         SL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
@@ -176,6 +183,10 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
             ${GKI_MOD_FLAG}                         \
             ${DIST_DIR}
+
+        # In case of a simple --update-symbol-list call we can bail out early
+        [ $UPDATE -eq 0 ] && exit 0
+
         SL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
 
         if [ "$SL_SHA1_BEFORE" != "$SL_SHA1_AFTER" ]; then
@@ -184,6 +195,9 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
     fi
 
     KMI_SYMBOL_LIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_symbollist"
+elif [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
+    echo "ERROR: --update* requires a KMI_SYMBOL_LIST" >&2
+    exit 1
 fi
 
 # Rerun the kernel build as the main symbol list changed. That influences the
