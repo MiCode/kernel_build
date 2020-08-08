@@ -1,7 +1,26 @@
 # Android Kernel compilation/common definitions
 
-ifeq ($(KERNEL_DEFCONFIG),)
-     KERNEL_DEFCONFIG := vendor/$(TARGET_PRODUCT)_defconfig
+
+ifeq ($(TARGET_PRODUCT),lmiin)
+    TARGET_PREFIX := lmi
+else
+    TARGET_PREFIX := $(TARGET_PRODUCT)
+endif
+
+ifeq ($(TARGET_PRODUCT),kona)
+    KERNEL_DEFCONFIG := vendor/$(TARGET_PRODUCT)_defconfig
+else
+    ifeq ($(KERNEL_DEFCONFIG),)
+        ifeq ($(TARGET_BUILD_VARIANT),eng)
+             KERNEL_DEFCONFIG := $(TARGET_PREFIX)_debug_defconfig
+        else
+             ifeq (true,$(ENABLE_SYSTEM_MTBF))
+                  KERNEL_DEFCONFIG := $(TARGET_PREFIX)_stability_defconfig
+             else
+                  KERNEL_DEFCONFIG := $(TARGET_PREFIX)_user_defconfig
+             endif
+        endif
+    endif
 endif
 
 TARGET_KERNEL := msm-$(TARGET_KERNEL_VERSION)
@@ -51,6 +70,10 @@ ifeq ($(KERNEL_ARCH),arm64)
 ifeq ($(TARGET_ARCH),arm)
 KERNEL_CONFIG_OVERRIDE := CONFIG_ANDROID_BINDER_IPC_32BIT=y
 endif
+endif
+
+ifeq ($(FACTORY_BUILD),1)
+KERNEL_CONFIG_OVERRIDE_FACTORY := CONFIG_FACTORY_BUILD=y
 endif
 
 TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(strip $(TARGET_KERNEL_CROSS_COMPILE_PREFIX))
@@ -151,11 +174,41 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(DTC) $(UFDT_APPLY_OVERLAY)
 	TARGET_PREBUILT_INT_KERNEL=$(TARGET_PREBUILT_INT_KERNEL) \
 	TARGET_INCLUDES=$(TARGET_KERNEL_MAKE_CFLAGS) \
 	TARGET_LINCLUDES=$(TARGET_KERNEL_MAKE_LDFLAGS) \
+	KERNEL_CONFIG_OVERRIDE_FACTORY=$(KERNEL_CONFIG_OVERRIDE_FACTORY) \
+	KERNEL_CONFIG_OVERRIDE_DEVMEM=$(KERNEL_CONFIG_OVERRIDE_DEVMEM) \
 	device/qcom/kernelscripts/buildkernel.sh \
 	$(real_cc) \
 	$(TARGET_KERNEL_MAKE_ENV)
 
-$(KERNEL_OUT):
+KERNEL_EXTLINK_FILES := $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm \
+			$(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h \
+			$(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace \
+			$(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h \
+			$(TARGET_KERNEL_SOURCE)/drivers/staging/misysinfofreader \
+			$(TARGET_KERNEL_SOURCE)/include/linux/misysinfofreader.h \
+			$(TARGET_KERNEL_SOURCE)/drivers/staging/kperfevents \
+			$(TARGET_KERNEL_SOURCE)/include/linux/kperfevents.h
+
+link_ext:
+	echo "Creating kernel symbol link to miui/kernel."
+	rm -rf $(KERNEL_EXTLINK_FILES)
+	if [ -f "$(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h)" ]; then \
+		ln -s -f $(abspath miui/kernel/memory/rtmm) $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm; \
+		ln -s -f $(abspath miui/kernel/trace/ktrace) $(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace; \
+		ln -s -f $(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h) $(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h; \
+		ln -s -f $(abspath miui/kernel/trace/ktrace/include/linux/ktrace.h) $(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h;  fi
+
+	if [ -f "$(abspath miui/kernel/perfsupervisor/misysinfofreader/include/linux/misysinfofreader.h)" ]; then \
+		ln -s -f $(abspath miui/kernel/perfsupervisor/misysinfofreader) $(TARGET_KERNEL_SOURCE)/drivers/staging/misysinfofreader;  \
+		ln -s -f $(abspath miui/kernel/perfsupervisor/misysinfofreader/include/linux/misysinfofreader.h) $(TARGET_KERNEL_SOURCE)/include/linux/misysinfofreader.h; fi
+
+	if [ -f "$(abspath miui/kernel/perfsupervisor/kperfevents/include/linux/kperfevents.h)" ]; then \
+		ln -s -f $(abspath miui/kernel/perfsupervisor/kperfevents) $(TARGET_KERNEL_SOURCE)/drivers/staging/kperfevents; \
+		ln -s -f $(abspath miui/kernel/perfsupervisor/kperfevents/include/linux/kperfevents.h) $(TARGET_KERNEL_SOURCE)/include/linux/kperfevents.h; fi
+
+.PHONY:link_ext
+
+$(KERNEL_OUT): link_ext
 	mkdir -p $(KERNEL_OUT)
 
 $(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
@@ -173,6 +226,8 @@ $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 	TARGET_PREBUILT_INT_KERNEL=$(TARGET_PREBUILT_INT_KERNEL) \
 	TARGET_INCLUDES=$(TARGET_KERNEL_MAKE_CFLAGS) \
 	TARGET_LINCLUDES=$(TARGET_KERNEL_MAKE_LDFLAGS) \
+	KERNEL_CONFIG_OVERRIDE_FACTORY=$(KERNEL_CONFIG_OVERRIDE_FACTORY) \
+	KERNEL_CONFIG_OVERRIDE_DEVMEM=$(KERNEL_CONFIG_OVERRIDE_DEVMEM) \
 	device/qcom/kernelscripts/buildkernel.sh \
 	$(real_cc) \
 	$(TARGET_KERNEL_MAKE_ENV)
