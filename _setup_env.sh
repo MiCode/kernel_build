@@ -35,9 +35,28 @@ function append_cmd() {
   fi
 }
 
+export KERNEL_DIR
+# for case that KERNEL_DIR is not specified in environment
+if [ -z "${KERNEL_DIR}" ]; then
+    # for the case that KERNEL_DIR is not specified in the BUILD_CONFIG file
+    # use the directory of the build config file as KERNEL_DIR
+    # for the case that KERNEL_DIR is specified in the BUILD_CONFIG file,
+    # or via the config files sourced, the value of KERNEL_DIR
+    # set here would be overwritten, and the specified value would be used.
+    build_config_path=$(realpath ${ROOT_DIR}/${BUILD_CONFIG})
+    build_config_dir=$(dirname ${build_config_path})
+    build_config_dir=${build_config_dir##${ROOT_DIR}/}
+    KERNEL_DIR="${build_config_dir}"
+    echo "= Set default KERNEL_DIR: ${KERNEL_DIR}"
+else
+    echo "= User environment KERNEL_DIR: ${KERNEL_DIR}"
+fi
+
 set -a
 . ${ROOT_DIR}/${BUILD_CONFIG}
 set +a
+
+echo "= The final value for KERNEL_DIR: ${KERNEL_DIR}"
 
 export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
