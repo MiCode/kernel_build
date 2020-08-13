@@ -15,7 +15,7 @@
 # limitations under the License.
 
 ELFUTILS_VERSION=elfutils-0.180
-ABIGAIL_VERSION=189f8bff
+ABIGAIL_VERSION=f6134e12
 
 NUM_CORES=$(cat /proc/cpuinfo | grep -c proc)
 BASE_DIR=$(readlink -f $(dirname $0))
