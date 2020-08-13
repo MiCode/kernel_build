@@ -37,6 +37,12 @@
 #     vmlinux and kernel modules.
 #     KMI_SYMBOL_LIST is supposed to be defined relative to $KERNEL_DIR/
 #
+#   KMI_SYMBOL_LIST_MODULE_GROUPING
+#     If set to 1, then the symbol list will group symbols based on the kernel
+#     modules that reference the symbol. Otherwise the symbol list will simply
+#     be a sorted list of symbols used by all the kernel modules. This property
+#     is enabled by default.
+#
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
@@ -53,6 +59,10 @@ UPDATE=0
 UPDATE_SYMBOL_LIST=0
 DIFF=1
 PRINT_REPORT=0
+
+if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
+  KMI_SYMBOL_LIST_MODULE_GROUPING=1
+fi
 
 ARGS=()
 for i in "$@"
@@ -179,9 +189,14 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
         fi
 
-        ${ROOT_DIR}/build/abi/extract_symbols       \
+        if [ "${KMI_SYMBOL_LIST_MODULE_GROUPING}" -eq "0" ]; then
+          SKIP_MODULE_GROUPING="--skip-module-grouping"
+        fi
+
+        ${ROOT_DIR}/build/abi/extract_symbols         \
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
-            ${GKI_MOD_FLAG}                         \
+            ${SKIP_MODULE_GROUPING}                   \
+            ${GKI_MOD_FLAG}                           \
             ${DIST_DIR}
 
         # In case of a simple --update-symbol-list call we can bail out early
