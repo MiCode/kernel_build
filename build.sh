@@ -747,6 +747,9 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   if [ -n  "${PAGE_SIZE}" ]; then
     MKBOOTIMG_ARGS+=("--pagesize" "${PAGE_SIZE}")
   fi
+  if [ -n "${KERNEL_VENDOR_CMDLINE}" -a "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
+    KERNEL_CMDLINE+=" ${KERNEL_VENDOR_CMDLINE}"
+  fi
   if [ -n "${KERNEL_CMDLINE}" ]; then
     MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
   fi
