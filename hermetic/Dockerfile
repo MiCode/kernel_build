@@ -5,7 +5,7 @@ RUN apt-get -y update                            \
 # Those are likely essential
     git                                          \
 # To be removed
-    # see  b/152339525
+    # see  b/164026334
     cpio                                         \
     gcc                                          \
     libssl-dev                                   \
@@ -15,7 +15,7 @@ RUN apt-get -y update                            \
 
 # Whitelist some host binaries for now
 RUN mkdir -p /l/bin
-RUN ln -s $(which cpio) /l/bin/      # b/152339525
+RUN ln -s $(which cpio) /l/bin/      # b/164026334
 RUN ln -s $(which gcc) /l/bin/
 RUN ln -s $(which ld) /l/bin/
 RUN ln -s $(which perl) /l/bin/
