@@ -21,7 +21,7 @@ RUN ln -s $(which ld) /l/bin/
 RUN ln -s $(which perl) /l/bin/
 RUN ln -s $(which rsync) /l/bin/
 RUN ln -s $(which sh) /l/bin/
-RUN ln -s $(which tar) /l/bin/       # b/152244851
+RUN ln -s $(which tar) /l/bin/       # b/164013907
 
 # Copy the build runner
 COPY build /l/build
