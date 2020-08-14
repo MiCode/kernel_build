@@ -59,14 +59,15 @@
 #     If defined (usually in build.config), also copy that abi definition to
 #     <OUT_DIR>/dist/abi.xml when creating the distribution.
 #
-#   KMI_WHITELIST
-#     Location of the main KMI whitelist file relative to <REPO_ROOT>/KERNEL_DIR
-#     If defined (usually in build.config), also copy that whitelist definition
-#     to <OUT_DIR>/dist/abi_whitelist when creating the distribution.
+#   KMI_SYMBOL_LIST
+#     Location of the main KMI symbol list file relative to
+#     <REPO_ROOT>/KERNEL_DIR If defined (usually in build.config), also copy
+#     that symbol list definition to <OUT_DIR>/dist/abi_symbollist when
+#     creating the distribution.
 #
-#   ADDITIONAL_KMI_WHITELISTS
-#     Location of secondary KMI whitelist files relative to
-#     <REPO_ROOT>/KERNEL_DIR. If defined, these additional whitelists will be
+#   ADDITIONAL_KMI_SYMBOL_LISTS
+#     Location of secondary KMI symbol list files relative to
+#     <REPO_ROOT>/KERNEL_DIR. If defined, these additional symbol lists will be
 #     appended to the main one before proceeding to the distribution creation.
 #
 #   KMI_ENFORCED
@@ -157,21 +158,32 @@
 #     the contents of this variable, lines should be of the form: options
 #     <modulename> <param1>=<val> <param2>=<val> ...
 #
+#   MODULES_ORDER
+#     location of an optional file containing the list of modules that are
+#     expected to be built for the current configuration, in the modules.order
+#     format, relative to the kernel source tree.
+#
+#   GKI_MODULES_LIST
+#     location of an optional file containing the list of GKI modules, relative
+#     to the kernel source tree. This should be set in downstream builds to
+#     ensure the ABI tooling correctly differentiates vendor/OEM modules and GKI
+#     modules. This should not be set in the upstream GKI build.config.
+#
 #   LZ4_RAMDISK
 #     if defined, any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
 #
 #   TRIM_NONLISTED_KMI
 #     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
-#     to un-export from the build any un-used and non-whitelisted (as per
-#     KMI_WHITELIST) symbol.
+#     to un-export from the build any un-used and non-symbol-listed (as per
+#     KMI_SYMBOL_LIST) symbol.
 #
-#   KMI_WHITELIST_STRICT_MODE
-#     if defined, add a build-time check between the KMI_WHITELIST and the
+#   KMI_SYMBOL_LIST_STRICT_MODE
+#     if defined, add a build-time check between the KMI_SYMBOL_LIST and the
 #     KMI resulting from the build, to ensure they match 1-1.
 #
 #   KMI_STRICT_MODE_OBJECTS
-#     optional list of objects to consider for the KMI_WHITELIST_STRICT_MODE
+#     optional list of objects to consider for the KMI_SYMBOL_LIST_STRICT_MODE
 #     check. Defaults to 'vmlinux'.
 #
 # Note: For historic reasons, internally, OUT_DIR will be copied into
@@ -189,43 +201,43 @@ set -e
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
-	local to=$1
-	local from=$2
-	local path=
-	local stem=
-	local prevstem=
-	[ -n "$to" ] || return 1
-	[ -n "$from" ] || return 1
-	to=$(readlink -e "$to")
-	from=$(readlink -e "$from")
-	[ -n "$to" ] || return 1
-	[ -n "$from" ] || return 1
-	stem=${from}/
-	while [ "${to#$stem}" == "${to}" -a "${stem}" != "${prevstem}" ]; do
-		prevstem=$stem
-		stem=$(readlink -e "${stem}/..")
-		[ "${stem%/}" == "${stem}" ] && stem=${stem}/
-		path=${path}../
-	done
-	echo ${path}${to#$stem}
+  local to=$1
+  local from=$2
+  local path=
+  local stem=
+  local prevstem=
+  [ -n "$to" ] || return 1
+  [ -n "$from" ] || return 1
+  to=$(readlink -e "$to")
+  from=$(readlink -e "$from")
+  [ -n "$to" ] || return 1
+  [ -n "$from" ] || return 1
+  stem=${from}/
+  while [ "${to#$stem}" == "${to}" -a "${stem}" != "${prevstem}" ]; do
+    prevstem=$stem
+    stem=$(readlink -e "${stem}/..")
+    [ "${stem%/}" == "${stem}" ] && stem=${stem}/
+    path=${path}../
+  done
+  echo ${path}${to#$stem}
 }
 
 function run_depmod() {
-	(
-		local ramdisk_dir=$1
-		local DEPMOD_OUTPUT
+  (
+    local ramdisk_dir=$1
+    local DEPMOD_OUTPUT
 
-		cd ${ramdisk_dir}
-		if ! DEPMOD_OUTPUT="$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
-			echo "$DEPMOD_OUTPUT" >&2
-			exit 1
-		fi
-		echo "$DEPMOD_OUTPUT"
-		if { echo "$DEPMOD_OUTPUT" | grep -q "needs unknown symbol"; }; then
-			echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
-			exit 1
-		fi
-	)
+    cd ${ramdisk_dir}
+    if ! DEPMOD_OUTPUT="$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
+      echo "$DEPMOD_OUTPUT" >&2
+      exit 1
+    fi
+    echo "$DEPMOD_OUTPUT"
+    if { echo "$DEPMOD_OUTPUT" | grep -q "needs unknown symbol"; }; then
+      echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
+      exit 1
+    fi
+  )
 }
 
 # $1 MODULES_LIST, <File contains the list of modules that should go in the ramdisk>
@@ -233,61 +245,61 @@ function run_depmod() {
 # $3 INITRAMFS_STAGING_DIR  <The destination directory in which MODULES_LIST is
 #                            expected, and it's corresponding modules.* files>
 function create_reduced_modules_order() {
-	echo "========================================================"
-	echo " Creating reduced modules.order"
-	local modules_list_file=$1
-	local src_dir=$2/lib/modules/*
-	local dest_dir=$3/lib/modules/0.0
-	local staging_dir=$2/intermediate_ramdisk_staging
-	local modules_staging_dir=${staging_dir}/lib/modules/0.0
+  echo "========================================================"
+  echo " Creating reduced modules.order"
+  local modules_list_file=$1
+  local src_dir=$2/lib/modules/*
+  local dest_dir=$3/lib/modules/0.0
+  local staging_dir=$2/intermediate_ramdisk_staging
+  local modules_staging_dir=${staging_dir}/lib/modules/0.0
 
-	rm -rf ${staging_dir}/
-	mkdir -p ${modules_staging_dir}
+  rm -rf ${staging_dir}/
+  mkdir -p ${modules_staging_dir}
 
-	# Need to make sure we can find modules_list_file from the staging dir
-	if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
-		modules_list_file="${ROOT_DIR}/${modules_list_file}"
-	elif [[ "${modules_list_file}" != /* ]]; then
-		echo "modules_list_file must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
-		exit 1
-	elif [[ ! -f "${modules_list_file}" ]]; then
-		echo "Failed to find modules_list_file: ${modules_list_file}"
-		exit 1
-	fi
+  # Need to make sure we can find modules_list_file from the staging dir
+  if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
+    modules_list_file="${ROOT_DIR}/${modules_list_file}"
+  elif [[ "${modules_list_file}" != /* ]]; then
+    echo "modules_list_file must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
+    exit 1
+  elif [[ ! -f "${modules_list_file}" ]]; then
+    echo "Failed to find modules_list_file: ${modules_list_file}"
+    exit 1
+  fi
 
-	(
-		cd ${src_dir}
-		touch ${modules_staging_dir}/modules.order
+  (
+    cd ${src_dir}
+    touch ${modules_staging_dir}/modules.order
 
-		while read ko; do
-			# Ignore comment lines starting with # sign
-			[[ "${ko}" = \#* ]] && continue
-			if grep -q $(basename ${ko}) ${modules_list_file}; then
-				mkdir -p ${modules_staging_dir}/$(dirname ${ko})
-				cp -p ${ko} ${modules_staging_dir}/${ko}
-				echo ${ko} >> ${modules_staging_dir}/modules.order
-			fi
-		done < modules.order
+    while read ko; do
+      # Ignore comment lines starting with # sign
+      [[ "${ko}" = \#* ]] && continue
+      if grep -q $(basename ${ko}) ${modules_list_file}; then
+        mkdir -p ${modules_staging_dir}/$(dirname ${ko})
+        cp -p ${ko} ${modules_staging_dir}/${ko}
+        echo ${ko} >> ${modules_staging_dir}/modules.order
+      fi
+    done < modules.order
 
-		# External modules
-		if [ -d "./extra" ]; then
-			mkdir -p ${modules_staging_dir}/extra
-			for ko in $(find extra/. -name "*.ko"); do
-				if grep -q $(basename ${ko}) ${modules_list_file}; then
-					mkdir -p ${modules_staging_dir}/extra
-					cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
-					echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
-				fi
-			done
-		fi
-	)
+    # External modules
+    if [ -d "./extra" ]; then
+      mkdir -p ${modules_staging_dir}/extra
+      for ko in $(find extra/. -name "*.ko"); do
+        if grep -q $(basename ${ko}) ${modules_list_file}; then
+          mkdir -p ${modules_staging_dir}/extra
+          cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
+          echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
+        fi
+      done
+    fi
+  )
 
-	cp ${src_dir}/modules.builtin* ${modules_staging_dir}/.
-	run_depmod ${staging_dir}
-	cp ${modules_staging_dir}/modules.* ${dest_dir}/.
+  cp ${src_dir}/modules.builtin* ${modules_staging_dir}/.
+  run_depmod ${staging_dir}
+  cp ${modules_staging_dir}/modules.* ${dest_dir}/.
 
-	# Clean up
-	rm -rf ${staging_dir}
+  # Clean up
+  rm -rf ${staging_dir}
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -329,8 +341,15 @@ export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH 
 
 TOOL_ARGS=()
 
+if [ -n "${HOSTCC}" ]; then
+  TOOL_ARGS+=("HOSTCC=${HOSTCC}")
+fi
+
 if [ -n "${CC}" ]; then
-  TOOL_ARGS+=("CC=${CC}" "HOSTCC=${CC}")
+  TOOL_ARGS+=("CC=${CC}")
+  if [ -z "${HOSTCC}" ]; then
+    TOOL_ARGS+=("HOSTCC=${CC}")
+  fi
 fi
 
 if [ -n "${LD}" ]; then
@@ -349,17 +368,23 @@ if [ -n "${DEPMOD}" ]; then
   TOOL_ARGS+=("DEPMOD=${DEPMOD}")
 fi
 
+if [ -n "${DTC}" ]; then
+  TOOL_ARGS+=("DTC=${DTC}")
+fi
+
 # Allow hooks that refer to $CC_LD_ARG to keep working until they can be
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
 
+DECOMPRESS_GZIP="gzip -c -d"
+DECOMPRESS_LZ4="lz4 -c -d -l"
 if [ -z "${LZ4_RAMDISK}" ] ; then
   RAMDISK_COMPRESS="gzip -c -f"
-  RAMDISK_DECOMPRESS="gzip -c -d"
+  RAMDISK_DECOMPRESS="${DECOMPRESS_GZIP}"
   RAMDISK_EXT="gz"
 else
   RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
-  RAMDISK_DECOMPRESS="lz4 -c -d -l"
+  RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
   RAMDISK_EXT="lz4"
 fi
 
@@ -382,17 +407,17 @@ if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
 fi
 
 if [ -z "${SKIP_DEFCONFIG}" ] ; then
-set -x
-(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
-set +x
-
-if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
-  echo "========================================================"
-  echo " Running pre-make command(s):"
   set -x
-  eval ${POST_DEFCONFIG_CMDS}
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
   set +x
-fi
+
+  if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
+    echo "========================================================"
+    echo " Running pre-make command(s):"
+    set -x
+    eval ${POST_DEFCONFIG_CMDS}
+    set +x
+  fi
 fi
 
 if [ -n "${TAGS_CONFIG}" ]; then
@@ -420,9 +445,9 @@ if [ -n "${ABI_DEFINITION}" ]; then
   fi
 fi
 
-if [ -n "${KMI_WHITELIST}" ]; then
-  ABI_WL=${DIST_DIR}/abi_whitelist
-  echo "KMI_WHITELIST=abi_whitelist" >> ${ABI_PROP}
+if [ -n "${KMI_SYMBOL_LIST}" ]; then
+  ABI_SL=${DIST_DIR}/abi_symbollist
+  echo "KMI_SYMBOL_LIST=abi_symbollist" >> ${ABI_PROP}
 fi
 
 # Copy the abi_${arch}.xml file from the sources into the dist dir
@@ -434,50 +459,50 @@ if [ -n "${ABI_DEFINITION}" ]; then
   popd
 fi
 
-# Copy the abi whitelist file from the sources into the dist dir
-if [ -n "${KMI_WHITELIST}" ]; then
+# Copy the abi symbol list file from the sources into the dist dir
+if [ -n "${KMI_SYMBOL_LIST}" ]; then
   echo "========================================================"
-  echo " Generating abi whitelist definition to ${ABI_WL}"
+  echo " Generating abi symbol list definition to ${ABI_SL}"
   pushd $ROOT_DIR/$KERNEL_DIR
-    cp "${KMI_WHITELIST}" ${ABI_WL}
+  cp "${KMI_SYMBOL_LIST}" ${ABI_SL}
 
-    # If there are additional whitelists specified, append them
-    if [ -n "${ADDITIONAL_KMI_WHITELISTS}" ]; then
-      for whitelist in ${ADDITIONAL_KMI_WHITELISTS}; do
-          echo >> ${ABI_WL}
-          cat "${whitelist}" >> ${ABI_WL}
-      done
-    fi
+  # If there are additional symbol lists specified, append them
+  if [ -n "${ADDITIONAL_KMI_SYMBOL_LISTS}" ]; then
+    for symbol_list in ${ADDITIONAL_KMI_SYMBOL_LISTS}; do
+        echo >> ${ABI_SL}
+        cat "${symbol_list}" >> ${ABI_SL}
+    done
+  fi
 
-    if [ -n "${TRIM_NONLISTED_KMI}" ]; then
-        # Create the raw whitelist
-        cat ${ABI_WL} | \
-                ${ROOT_DIR}/build/abi/flatten_whitelist > \
-                ${OUT_DIR}/abi_whitelist.raw
+  if [ -n "${TRIM_NONLISTED_KMI}" ]; then
+      # Create the raw symbol list 
+      cat ${ABI_SL} | \
+              ${ROOT_DIR}/build/abi/flatten_symbol_list > \
+              ${OUT_DIR}/abi_symbollist.raw
 
-        # Update the kernel configuration
-        ./scripts/config --file ${OUT_DIR}/.config \
-                -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
-                --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_whitelist.raw
-        (cd ${OUT_DIR} && \
-                make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
-        # Make sure the config is applied
-        grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
-          echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
-          echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
-          exit 1
-        }
+      # Update the kernel configuration
+      ./scripts/config --file ${OUT_DIR}/.config \
+              -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
+              --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
+      (cd ${OUT_DIR} && \
+              make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+      # Make sure the config is applied
+      grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
+        echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
+        echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
+        exit 1
+      }
 
-    elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
-      echo "ERROR: KMI_WHITELIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
-      exit 1
-    fi
+    elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+      echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
+    exit 1
+  fi
   popd # $ROOT_DIR/$KERNEL_DIR
 elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
-  echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_WHITELIST" >&2
+  echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_SYMBOL_LIST" >&2
   exit 1
-elif [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
-  echo "ERROR: KMI_WHITELIST_STRICT_MODE requires a KMI_WHITELIST" >&2
+elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+  echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
 fi
 
@@ -496,12 +521,23 @@ if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
   set +x
 fi
 
-if [ -n "${KMI_WHITELIST_STRICT_MODE}" ]; then
+if [ -n "${MODULES_ORDER}" ]; then
   echo "========================================================"
-  echo " Comparing the KMI and the whitelists:"
+  echo " Checking the list of modules:"
+  if ! diff -u "${KERNEL_DIR}/${MODULES_ORDER}" "${OUT_DIR}/modules.order"; then
+    echo "ERROR: modules list out of date" >&2
+    echo "Update it with:" >&2
+    echo "cp ${OUT_DIR}/modules.order ${KERNEL_DIR}/${MODULES_ORDER}" >&2
+    exit 1
+  fi
+fi
+
+if [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+  echo "========================================================"
+  echo " Comparing the KMI and the symbol lists:"
   set -x
-  ${ROOT_DIR}/build/abi/compare_to_wl "${OUT_DIR}/Module.symvers" \
-                                      "${OUT_DIR}/abi_whitelist.raw"
+  ${ROOT_DIR}/build/abi/compare_to_symbol_list "${OUT_DIR}/Module.symvers" \
+                                               "${OUT_DIR}/abi_symbollist.raw"
   set +x
 fi
 
@@ -509,7 +545,7 @@ rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
 if [ -z "${DO_NOT_STRIP_MODULES}" ]; then
-    MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
+  MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
 fi
 
 if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
@@ -622,7 +658,7 @@ if [ -n "${MODULES}" ]; then
       mkdir -p ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
       cp -r ${MODULES_STAGING_DIR}/lib/modules/*/extra/* ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/extra/
       (cd ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/ && \
-          find extra -type f -name "*.ko" | sort >> modules.order)
+        find extra -type f -name "*.ko" | sort >> modules.order)
     fi
 
     if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
@@ -631,14 +667,14 @@ if [ -n "${MODULES}" ]; then
         -exec ${OBJCOPY:${CROSS_COMPILE}strip} --strip-debug {} \;
     fi
 
-		# Re-run depmod to detect any dependencies between in-kernel and external
-		# modules. Then, create modules.order based on all the modules compiled.
-		if [[ -n "${MODULES_LIST}" ]]; then
-			create_reduced_modules_order ${MODULES_LIST} ${MODULES_STAGING_DIR} \
-					${INITRAMFS_STAGING_DIR}
-		else
-			run_depmod ${INITRAMFS_STAGING_DIR}
-		fi
+    # Re-run depmod to detect any dependencies between in-kernel and external
+    # modules. Then, create modules.order based on all the modules compiled.
+    if [[ -n "${MODULES_LIST}" ]]; then
+      create_reduced_modules_order ${MODULES_LIST} ${MODULES_STAGING_DIR} \
+        ${INITRAMFS_STAGING_DIR}
+    else
+      run_depmod ${INITRAMFS_STAGING_DIR}
+    fi
 
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.load
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${DIST_DIR}/modules.load
@@ -698,96 +734,112 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
   popd
 fi
 
+[ -n "${GKI_MODULES_LIST}" ] && cp ${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
+
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
 if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
-	MKBOOTIMG_ARGS=()
-	if [ -n  "${BASE_ADDRESS}" ]; then
-		MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
-	fi
-	if [ -n  "${PAGE_SIZE}" ]; then
-		MKBOOTIMG_ARGS+=("--pagesize" "${PAGE_SIZE}")
-	fi
-	if [ -n "${KERNEL_CMDLINE}" ]; then
-		MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
-	fi
+  MKBOOTIMG_ARGS=()
+  if [ -n  "${BASE_ADDRESS}" ]; then
+    MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
+  fi
+  if [ -n  "${PAGE_SIZE}" ]; then
+    MKBOOTIMG_ARGS+=("--pagesize" "${PAGE_SIZE}")
+  fi
+  if [ -n "${KERNEL_VENDOR_CMDLINE}" -a "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
+    KERNEL_CMDLINE+=" ${KERNEL_VENDOR_CMDLINE}"
+  fi
+  if [ -n "${KERNEL_CMDLINE}" ]; then
+    MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
+  fi
 
-	DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
-	if [ -z "${DTB_FILE_LIST}" ]; then
-		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
-			echo "No *.dtb files found in ${DIST_DIR}"
-			exit 1
-		fi
-	else
-		cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
-		MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
-	fi
+  DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb")
+  if [ -z "${DTB_FILE_LIST}" ]; then
+    if [ -z "${SKIP_VENDOR_BOOT}" ]; then
+      echo "No *.dtb files found in ${DIST_DIR}"
+      exit 1
+    fi
+  else
+    cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
+    MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
+  fi
 
-	MKBOOTIMG_RAMDISKS=()
-	for ramdisk in ${VENDOR_RAMDISK_BINARY} \
-		       "${MODULES_STAGING_DIR}/initramfs.cpio"; do
-		if [ -f "${DIST_DIR}/${ramdisk}" ]; then
-			MKBOOTIMG_RAMDISKS+=("${DIST_DIR}/${ramdisk}")
-		else
-			if [ -f "${ramdisk}" ]; then
-				MKBOOTIMG_RAMDISKS+=("${ramdisk}")
-			fi
-		fi
-	done
-	for ((i=0; i<"${#MKBOOTIMG_RAMDISKS[@]}"; i++)); do
-		CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
-		if ${RAMDISK_DECOMPRESS} "${MKBOOTIMG_RAMDISKS[$i]}" 2>/dev/null > ${CPIO_NAME}; then
-			MKBOOTIMG_RAMDISKS[$i]=${CPIO_NAME}
-		else
-			rm -f ${CPIO_NAME}
-		fi
-	done
-	if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
-		cat ${MKBOOTIMG_RAMDISKS[*]} | ${RAMDISK_COMPRESS} - > ${DIST_DIR}/ramdisk.${RAMDISK_EXT}
-	elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
-		echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
-		exit 1
-	fi
+  MKBOOTIMG_RAMDISKS=()
 
-	if [ -z "${MKBOOTIMG_PATH}" ]; then
-		MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
-	fi
-	if [ ! -f "$MKBOOTIMG_PATH" ]; then
-		echo "mkbootimg.py script not found. MKBOOTIMG_PATH = $MKBOOTIMG_PATH"
-		exit 1
-	fi
+  CPIO_NAME=""
+  if [ -n "${VENDOR_RAMDISK_BINARY}" ]; then
+    if ! [ -f "${VENDOR_RAMDISK_BINARY}" ]; then
+      echo "Unable to locate vendor ramdisk ${VENDOR_RAMDISK_BINARY}."
+      exit 1
+    fi
+    CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
+    if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
+      echo "${VENDOR_RAMDISK_BINARY} is GZIP compressed"
+      MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
+    elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
+      echo "${VENDOR_RAMDISK_BINARY} is LZ4 compressed"
+      MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
+    elif cpio -t < "${VENDOR_RAMDISK_BINARY}" &>/dev/null; then
+      echo "${VENDOR_RAMDISK_BINARY} is plain CPIO archive"
+      MKBOOTIMG_RAMDISKS+=("${VENDOR_RAMDISK_BINARY}")
+    else
+      echo "Unable to identify type of vendor ramdisk ${VENDOR_RAMDISK_BINARY}"
+      rm -f "${CPIO_NAME}"
+      exit 1
+    fi
+  fi
 
-	if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
-		echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
-		exit 1
-	fi
+  if [ -f "${MODULES_STAGING_DIR}/initramfs.cpio" ]; then
+    MKBOOTIMG_RAMDISKS+=("${MODULES_STAGING_DIR}/initramfs.cpio")
+  fi
 
-	if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
-		if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
-			MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
-		fi
+  if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
+    cat ${MKBOOTIMG_RAMDISKS[*]} | ${RAMDISK_COMPRESS} - > ${DIST_DIR}/ramdisk.${RAMDISK_EXT}
+    [ -n "${CPIO_NAME}" ] && rm -f "${CPIO_NAME}"
+  elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
+    echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
+    exit 1
+  fi
 
-		if [ -z "${SKIP_VENDOR_BOOT}" ]; then
-			MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img" \
-				"--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
-			if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
-				MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
-			fi
-		fi
-	else
-		MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
-	fi
+  if [ -z "${MKBOOTIMG_PATH}" ]; then
+    MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
+  fi
+  if [ ! -f "$MKBOOTIMG_PATH" ]; then
+    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = $MKBOOTIMG_PATH"
+    exit 1
+  fi
 
-	python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
-		--header_version "${BOOT_IMAGE_HEADER_VERSION}" \
-		"${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
+  if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
+    echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
+    exit 1
+  fi
 
-	[ -f "${DIST_DIR}/boot.img" ] && echo "boot image created at ${DIST_DIR}/boot.img"
-	[ -z "${SKIP_VENDOR_BOOT}" ] \
-	  && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
-		&& [ -f "${DIST_DIR}/vendor_boot.img" ] \
-		&& echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+    if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
+      MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+    fi
+
+    if [ -z "${SKIP_VENDOR_BOOT}" ]; then
+      MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img" \
+        "--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+      if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
+        MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
+      fi
+    fi
+  else
+    MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+  fi
+
+  python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
+    --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
+    "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
+
+  [ -f "${DIST_DIR}/boot.img" ] && echo "boot image created at ${DIST_DIR}/boot.img"
+  [ -z "${SKIP_VENDOR_BOOT}" ] \
+    && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
+    && [ -f "${DIST_DIR}/vendor_boot.img" ] \
+    && echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
 fi
 
 

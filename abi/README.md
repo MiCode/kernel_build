@@ -176,17 +176,19 @@ for details about the KMI symbol list file format.
 Changes to other ELF symbols would not be considered any longer unless they are
 indirectly affecting symbols that are part of the KMI. A symbol list file can be
 specified -- similar to the abi baseline file via `ABI_DEFINITION=` -- in the
-corresponding `build.config` configuration file with `KMI_WHITELIST=` as a file
+corresponding `build.config` configuration file with `KMI_SYMBOL_LIST=` as a file
 relative to the kernel source directory (`$KERNEL_DIR`). In order to allow a
 certain level of organization, additional symbol list files can be specified by
-using `ADDITIONAL_KMI_WHITELISTS=` in the `build.config`. Similarly, it refers
+using `ADDITIONAL_KMI_SYMBOL_LISTS=` in the `build.config`. Similarly, it refers
 to symbol lists in the `$KERNEL_DIR` and multiple files need to be separated by
 whitespaces.
 
 In order to **create an initial symbol list or to update an existing one**, the
-script `extract_symbols` is provided. When run pointing at a `DIST_DIR` of an
-Android Kernel build, it will extract the symbols that are exported from
-vmlinux _and_ are required by any module in the tree.
+`build_abi.sh` script must be used with the `--update-symbol-list` parameter.
+
+When run with an appropriate configuration, it will build the kernel and extract
+the symbols that are exported from vmlinux and GKI modules _and_ are required by
+any other module in the tree.
 
 Consider `vmlinux` exporting the following symbols (usually done via the
 EXPORT_SYMBOL* macros):
@@ -197,8 +199,8 @@ EXPORT_SYMBOL* macros):
   func3
 ```
 
-Also, consider there are two modules `modA.ko` and `modB.ko` which require the
-following symbols (i.e. `undefined` entries in the symbol table):
+Also, consider there are two vendor modules `modA.ko` and `modB.ko` which
+require the following symbols (i.e. `undefined` entries in the symbol table):
 
 ```
   modA.ko:    func1 func2
@@ -210,29 +212,24 @@ as these are used by an external module. On the contrary, while `func3` is
 exported it is not actively used (i.e. required) by any module. The symbol list
 would therefore contain `func1` and `func2` only.
 
-`extract_symbols` offers a flag to update an existing or create a new symbol list
-based on the above analysis: `--whitelist <path/to/abi_symbol_list>`.
-
-In order to update an existing symbol list based on a built Kernel tree, run
-`extract_symbols` as follows. The example uses the *common-android-mainline*
-branch of the Android Common Kernels following the official [build
-documentation](https://source.android.com/setup/build/building-kernels) and
-updates the symbol lists for the GKI aarch64 Kernel.
+In order to create or update an existing symbol list, `build_abi.sh` must be
+run as follows:
 
 ```
-  (build the kernel)
-  $ BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
-
-  (update/create the symbol list)
-  $ build/abi/extract_symbols out/android-mainline/dist --whitelist common/android/abi_gki_aarch64
+  $ BUILD_CONFIG=path/to/build.config.device build/build_abi.sh --update-symbol-list
 ```
 
-**NOTE**: Be aware that `extract_symbols` recursively discovers Kernel modules
-by extension (*.ko) and considers all found ones. Orphan Kernel modules from
-prior runs might lead to incorrect results. Hence, make sure the directory you
-pass on to `extract_symbols` contains only the vmlinux and the modules you want
-it to consider.
+In this example, `build.config.device` must include several configuration options:
+ - `vmlinux` must be in the `FILES` list;
+ - `KMI_SYMBOL_LIST` must be set and pointing at the KMI symbol list to update;
+ - `GKI_MODULES_LIST` should be set and pointing at the list of GKI modules. This
+   path is usually `android/gki_aarch64_modules`.
 
+**NOTE**: the `GKI_MODULES_LIST` option must be set in all vendor/OEM
+`build.config` configurations downstream, but *not* in the upstream GKI
+`build.config.gki.*`. `GKI_MODULES_LIST` is used in downstream builds to
+differentiate vendor/OEM modules from GKI modules, which is not necessary
+in upstream GKI builds where all modules are GKI modules.
 
 Working with the lower level ABI tooling
 ----------------------------------------
@@ -491,8 +488,9 @@ For example, to check the CRC value for the `module_layout` symbol,
 If you get a CRC mismatch when loading the module, here is how to you fix it:
 
 1. Build the GKI and your kernels, but add the `KBUILD_SYMTYPES=1` in front of
-   the command you use to build the kernel. This will generate a `.symtypes`
-   files for each `.o` file. For example:
+   the command you use to build the kernel, if needed. Note that `build_abi.sh`
+   does this already. This will generate a `.symtypes` files for each `.o` file.
+   For example:
 
     ```
       $ KBUILD_SYMTYPES=1 \

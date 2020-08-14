@@ -20,22 +20,30 @@ import functools
 import json
 import multiprocessing
 import os
+import re
+import subprocess
 import sys
 import urllib.request
 
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 
-
-def download(url_base, filename):
+def download(url_base, dest_dir, filename, dest_filename = None):
+  if not dest_filename:
+    dest_filename = filename
+  if dest_dir:
+    dest_dir += "/"
   if not os.path.exists(filename):
     print("Downloading %s" % filename)
     try:
-      urllib.request.urlretrieve(os.path.join(url_base, filename), filename)
+      urllib.request.urlretrieve(os.path.join(url_base, filename), dest_dir + dest_filename)
     except urllib.error.HTTPError as e:
       print("Could not download %s: %s" % (filename, e))
 
+def parse_args():
+  global args
+  global build_is_arm64
+  global build_is_x86_64
 
-def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
       "build_id",
@@ -45,27 +53,120 @@ def main():
       "build_target",
       type=str,
       help='the build target to download, e.g. "kernel_aarch64"')
+  parser.add_argument(
+      "-u",
+      action="store_true",
+      default=False,
+      help="update kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
+      "-b",
+      type=int,
+      default=0,
+      help="bug number for kernel prebuilt update commit")
 
   args = parser.parse_args()
 
-  url_base = BASE_URL.format(build_id=args.build_id, target=args.build_target)
+  if args.u:
+    if not os.environ["ANDROID_BUILD_TOP"]:
+      raise Exception("$ANDROID_BUILD_TOP must be set to update kernel prebuilts")
+    if not args.b:
+      raise Exception("A bug number must be provided when updating kernel prebuilts")
+    build_is_arm64 = args.build_target in ["kernel_aarch64", "kernel_debug_aarch64"]
+    build_is_x86_64 = args.build_target in ["kernel_x86_64", "kernel_debug_x86_64"]
+    if not build_is_arm64 and not build_is_x86_64:
+      raise Exception("Unsupported build target for kernel update")
 
+  return args
+
+def list_artifacts(url_base):
   # Download BUILD_INFO to get the file list
   url = os.path.join(url_base, "BUILD_INFO")
   response = urllib.request.urlopen(url)
   data = response.read().decode("utf-8")
-  files = json.loads(data)["target"]["dir_list"]
+  return json.loads(data)["target"]["dir_list"]
 
+# Download multiple files in url_base using a multiprocessing pool.
+def download_files(url_base, files, pool):
   for f in files:
     dirname = os.path.dirname(f)
     if dirname and not os.path.isdir(dirname):
       os.makedirs(dirname)
 
-  pool = multiprocessing.Pool(10)
-  func = functools.partial(download, url_base)
-
+  func = functools.partial(download, url_base, "")
   pool.map(func, files)
 
+# Given a build's BUILD_INFO in json format, return the
+# kernel version as a string.
+def get_kernel_version(data):
+  branch = json.loads(data)["branch"]
+  if branch == "aosp_kernel-common-android-mainline":
+    return "mainline"
+  else:
+    pattern = "android\d\d-(\d+.\d+)$"
+    result = re.search(pattern, branch)
+    if not result:
+      raise Exception("Could not determine kernel version in branch " + branch)
+    return result.group(1)
+
+def write_prebuilt_info(output_dir):
+  with open(os.path.join(output_dir, "prebuilt-info.txt"), "w") as prebuilt_info:
+    json.dump({"kernel-build-id": args.build_id}, prebuilt_info, indent=4)
+    prebuilt_info.write("\n")
+
+def update_prebuilts(data, files, url_base, pool):
+  version = get_kernel_version(data)
+  print("Kernel version in build is " + version)
+  output_dir = os.environ["ANDROID_BUILD_TOP"] + "/kernel/prebuilts/" + version
+
+  if build_is_arm64:
+    output_dir += "/arm64"
+    update_files = ["Image"]
+  else:
+    output_dir += "/x86_64"
+    update_files = ["bzImage"]
+  print("Output dir is " + output_dir)
+
+  update_files += [x for x in files if re.search(".+\.ko$", x)] + ["System.map"]
+  func = functools.partial(download, url_base, output_dir)
+  pool.map(func, update_files)
+
+  if build_is_arm64:
+    subprocess.check_output(["mv", output_dir + "/Image",
+                                   output_dir + "/kernel-" + version])
+    os.system("gzip -c " + output_dir + "/kernel-" + version + " > " +
+              output_dir + "/kernel-" + version + "-gz")
+    subprocess.check_output(["lz4", "-f", "-l", "-12", "--favor-decSpeed",
+                             output_dir + "/kernel-" + version,
+                             output_dir + "/kernel-" + version + "-lz4"])
+  else:
+    subprocess.check_output(["mv", output_dir + "/bzImage",
+                                   output_dir + "/kernel-" + version])
+
+  write_prebuilt_info(output_dir)
+
+  commit_message = ("Update kernel to builds {}\n"
+                    "\n"
+                    "Test: treehugger\n"
+                    "Bug: {}\n").format(args.build_id, args.b)
+  subprocess.check_output(["git", "add", "."], cwd=output_dir)
+  subprocess.check_call(["git", "commit", "-a", "-m", commit_message], cwd=output_dir)
+
+def main():
+  parse_args()
+
+  pool = multiprocessing.Pool(10)
+
+  url_base = BASE_URL.format(build_id=args.build_id, target=args.build_target)
+
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  files = json.loads(data)["target"]["dir_list"]
+
+  if args.u:
+    update_prebuilts(data, files, url_base, pool)
+  else:
+    download_files(url_base, files, pool)
 
 if __name__ == "__main__":
   sys.exit(main())
