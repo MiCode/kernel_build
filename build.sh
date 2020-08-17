@@ -137,7 +137,8 @@
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #       (defaults to 3)
 #     - KERNEL_CMDLINE=<string of kernel parameters for boot>
-#     - KERNEL_VENDOR_CMDLINE=<string of kernel parameters for vendor_boot>
+#     - KERNEL_VENDOR_CMDLINE=<string of kernel parameters for vendor boot image,
+#       vendor_boot when BOOT_IMAGE_HEADER_VERSION >= 3; boot otherwise>
 #     - VENDOR_FSTAB=<Path to the vendor fstab to be included in the vendor
 #       ramdisk>
 #     If the BOOT_IMAGE_HEADER_VERSION is less than 3, two additional variables must
