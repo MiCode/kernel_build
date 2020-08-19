@@ -63,7 +63,6 @@ def parse_args():
       help="the build id to download the build for, e.g. 6148204")
   parser.add_argument(
       "build_target",
-      choices=(ARM64_TARGETS + X86_64_TARGETS),
       nargs="?",
       type=str,
       help='the build target to download, e.g. "kernel_aarch64"')
@@ -86,6 +85,9 @@ def parse_args():
       help="bug number for kernel prebuilt update commit")
 
   _args = parser.parse_args()
+
+  if _args.update_gki and _args.build_target not in (ARM64_TARGETS + X86_64_TARGETS):
+    raise Exception("build_target must be one of the following options: {}".format(",".join(ARM64_TARGETS + X86_64_TARGETS)))
 
   if not _args.update_cuttlefish and not _args.build_target:
     raise Exception("A build target must be specified")
