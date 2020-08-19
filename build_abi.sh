@@ -69,7 +69,6 @@ for i in "$@"
 do
 case $i in
     -u|--update)
-    UPDATE_SYMBOL_LIST=1
     UPDATE=1
     shift # past argument=value
     ;;
@@ -109,6 +108,15 @@ if [[ -z "$OUT_DIR" ]]; then
 fi
 
 source "${ROOT_DIR}/build/_setup_env.sh"
+
+if [ -z "${KMI_SYMBOL_LIST}" ]; then
+    if [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
+        echo "ERROR: --update-symbol-list requires a KMI_SYMBOL_LIST" >&2
+        exit 1
+    fi
+elif [ $UPDATE -eq 1 ]; then
+    UPDATE_SYMBOL_LIST=1
+fi
 
 # Now actually do the wipe out as above.
 if [[ $wipe_out_dir -eq 1 ]]; then
@@ -210,9 +218,6 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
     fi
 
     KMI_SYMBOL_LIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_symbollist"
-elif [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
-    echo "ERROR: --update* requires a KMI_SYMBOL_LIST" >&2
-    exit 1
 fi
 
 # Rerun the kernel build as the main symbol list changed. That influences the
