@@ -192,6 +192,12 @@ def main():
       help="Include inter-module symbols")
 
   parser.add_argument(
+      "--full-gki-abi",
+      action="store_true",
+      default=False,
+      help="Assume all vmlinux and GKI module symbols are part of the ABI")
+
+  parser.add_argument(
       "--whitelist",
       default=None,
       help="The whitelist to create")
@@ -285,7 +291,8 @@ def main():
   # If specified, create the whitelist
   if args.whitelist:
     create_whitelist(
-        args.whitelist, undefined_symbols,
+        args.whitelist,
+        { "full-gki-abi": generic_exports } if args.full_gki_abi else undefined_symbols,
         all_exported if args.include_module_exports else generic_exports,
         args.emit_module_whitelists,
         args.module_grouping)

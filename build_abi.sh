@@ -43,6 +43,17 @@
 #     be a sorted list of symbols used by all the kernel modules. This property
 #     is enabled by default.
 #
+#   GKI_MODULES_LIST
+#     If set to a file name, then this file will be read to determine the list
+#     of GKI modules (those subject to ABI monitoring) and, by elimination, the
+#     list of vendor modules (those which can rely on a stable ABI). Only vendor
+#     modules' undefined symbols are considered when updating the symbol list.
+#     GKI_MODULES_LIST is supposed to be defined relative to $KERNEL_DIR/
+#
+#   FULL_GKI_ABI
+#     If this is set to 1 then, when updating the symbol list, use all defined
+#     symbols from vmlinux and GKI modules, instead of the undefined symbols
+#     from vendor modules. This property is disabled by default.
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
@@ -196,6 +207,10 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         if [ -n "${GKI_MODULES_LIST}" ]; then
             GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
         fi
+        # Specify a full GKI ABI if requested
+        if [ -n "${FULL_GKI_ABI}" ]; then
+            FULL_ABI_FLAG="--full-gki-abi"
+        fi
 
         if [ "${KMI_SYMBOL_LIST_MODULE_GROUPING}" -eq "0" ]; then
           SKIP_MODULE_GROUPING="--skip-module-grouping"
@@ -205,6 +220,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
             ${SKIP_MODULE_GROUPING}                   \
             ${GKI_MOD_FLAG}                           \
+            ${FULL_ABI_FLAG}                          \
             ${DIST_DIR}
 
         # In case of a simple --update-symbol-list call we can bail out early
