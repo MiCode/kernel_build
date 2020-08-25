@@ -123,12 +123,27 @@ def report_missing(module_symbols, exported):
             symbol, module))
 
 
+def read_whitelist(whitelist):
+  """Reads a previously created libabigail symbol whitelist."""
+  symbols = []
+  with open(whitelist) as wl:
+    for line in [l.strip() for l in wl]:
+      if not line or line.startswith("#") or line == "[abi_whitelist]":
+        continue
+      symbols.append(line)
+  return symbols
+
+
 def create_whitelist(whitelist, undefined_symbols, exported,
-                     emit_module_whitelists, module_grouping):
+                     emit_module_whitelists, module_grouping,
+                     additions_only):
   """Creates a symbol whitelist for libabigail."""
+  precious_symbols = set()
+  if additions_only:
+    precious_symbols.update(read_whitelist(whitelist))
+
   symbol_counter = collections.Counter(
       itertools.chain.from_iterable(undefined_symbols.values()))
-
 
   with open(whitelist, "w") as wl:
 
@@ -144,6 +159,7 @@ def create_whitelist(whitelist, undefined_symbols, exported,
     wl.write("  ")
     wl.write("\n  ".join(common_wl_section))
     wl.write("\n")
+    precious_symbols.difference_update(common_wl_section)
 
     for module, symbols in undefined_symbols.items():
 
@@ -165,6 +181,12 @@ def create_whitelist(whitelist, undefined_symbols, exported,
 
       wl.write("\n# required by {}\n  ".format(module))
       wl.write("\n  ".join(new_wl_section))
+      wl.write("\n")
+      precious_symbols.difference_update(new_wl_section)
+
+    if precious_symbols:
+      wl.write("\n# preserved by --additions-only\n  ")
+      wl.write("\n  ".join(symbol_sort(precious_symbols)))
       wl.write("\n")
 
 
@@ -197,6 +219,11 @@ def main():
   parser.add_argument(
       "--whitelist",
       help="The whitelist to create")
+
+  parser.add_argument(
+      "--additions-only",
+      action="store_true",
+      help="Read the existing whitelist and ensure no symbols get removed")
 
   parser.add_argument(
       "--print-modules",
@@ -287,7 +314,8 @@ def main():
         { "full-gki-abi": generic_exports } if args.full_gki_abi else undefined_symbols,
         all_exported if args.include_module_exports else generic_exports,
         args.emit_module_whitelists,
-        args.module_grouping)
+        args.module_grouping,
+        args.additions_only)
 
   if args.print_modules:
     print("These modules have been considered when creating the whitelist:")

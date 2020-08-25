@@ -43,6 +43,13 @@
 #     be a sorted list of symbols used by all the kernel modules. This property
 #     is enabled by default.
 #
+#   KMI_SYMBOL_LIST_ADD_ONLY
+#     If set to 1, then any symbols in the symbol list that would have been
+#     removed are preserved (at the end of the file). Symbol list update will
+#     fail if there is no pre-existing symbol list file to read from. This
+#     property is intended to prevent unintentional shrinkage of a stable ABI.
+#     It is disabled by default.
+#
 #   GKI_MODULES_LIST
 #     If set to a file name, then this file will be read to determine the list
 #     of GKI modules (those subject to ABI monitoring) and, by elimination, the
@@ -73,6 +80,9 @@ PRINT_REPORT=0
 
 if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
+fi
+if [[ -z "$KMI_SYMBOL_LIST_ADD_ONLY" ]]; then
+  KMI_SYMBOL_LIST_ADD_ONLY=0
 fi
 if [[ -z "$FULL_GKI_ABI" ]]; then
   FULL_GKI_ABI=0
@@ -210,6 +220,9 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         if [ -n "${GKI_MODULES_LIST}" ]; then
             GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
         fi
+        if [ "$KMI_SYMBOL_LIST_ADD_ONLY" -eq 1 ]; then
+            ADD_ONLY_FLAG="--additions-only"
+        fi
         # Specify a full GKI ABI if requested
         if [ "$FULL_GKI_ABI" -eq 1 ]; then
             FULL_ABI_FLAG="--full-gki-abi"
@@ -222,6 +235,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         ${ROOT_DIR}/build/abi/extract_symbols         \
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
             ${SKIP_MODULE_GROUPING}                   \
+            ${ADD_ONLY_FLAG}                          \
             ${GKI_MOD_FLAG}                           \
             ${FULL_ABI_FLAG}                          \
             ${DIST_DIR}
