@@ -74,6 +74,9 @@ PRINT_REPORT=0
 if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
 fi
+if [[ -z "$FULL_GKI_ABI" ]]; then
+  FULL_GKI_ABI=0
+fi
 
 ARGS=()
 for i in "$@"
@@ -208,7 +211,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
         fi
         # Specify a full GKI ABI if requested
-        if [ -n "${FULL_GKI_ABI}" ]; then
+        if [ "$FULL_GKI_ABI" -eq 1 ]; then
             FULL_ABI_FLAG="--full-gki-abi"
         fi
 
