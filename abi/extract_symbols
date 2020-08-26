@@ -35,7 +35,7 @@ def symbol_sort(symbols):
   # yeah, that is a bit brute force, but it gets the job done
 
   def __key(a):
-    """Create a key for comparison of symbols."""
+    """Creates a key for comparison of symbols."""
     # We want to sort underscore prefixed symbols along with those without, but
     # before them. Hence add a trailing underscore for every missing leading
     # one and strip all others.
@@ -59,7 +59,7 @@ def symbol_sort(symbols):
 
 
 def find_binaries(directory):
-  """Locate vmlinux and kernel modules (*.ko)."""
+  """Locates vmlinux and kernel modules (*.ko)."""
   vmlinux = None
   modules = []
   for root, dirs, files in os.walk(directory):
@@ -73,7 +73,7 @@ def find_binaries(directory):
 
 
 def extract_undefined_symbols(modules):
-  """Extract undefined symbols from a list of module files."""
+  """Extracts undefined symbols from a list of module files."""
 
   # yes, we could pass all of them to nm, but I want to avoid hitting shell
   # limits with long lists of modules
@@ -91,7 +91,7 @@ def extract_undefined_symbols(modules):
 
 
 def extract_exported_symbols(binary):
-  """Extract the ksymtab exported symbols from a kernel binary."""
+  """Extracts the ksymtab exported symbols from a kernel binary."""
   symbols = []
   out = subprocess.check_output(["nm", "--defined-only", binary],
                                 stderr=subprocess.DEVNULL).decode("ascii")
@@ -103,19 +103,19 @@ def extract_exported_symbols(binary):
   return symbol_sort(symbols)
 
 def extract_generic_exports(vmlinux, modules):
-  """Extract the ksymtab exported symbols from vmlinux and a set of modules"""
+  """Extracts the ksymtab exported symbols from vmlinux and a set of modules."""
   symbols = extract_exported_symbols(vmlinux)
   for module in modules:
     symbols.extend(extract_exported_symbols(module))
   return symbols
 
 def extract_exported_in_modules(modules):
-  """Extract the ksymtab exported symbols for a list of kernel modules."""
+  """Extracts the ksymtab exported symbols for a list of kernel modules."""
   return {module: extract_exported_symbols(module) for module in modules}
 
 
 def report_missing(module_symbols, exported):
-  """Report missing symbols that are undefined, but not know in any binary."""
+  """Reports missing symbols that are undefined, but not known in any binary."""
   for module, symbols in module_symbols.items():
     for symbol in symbols:
       if symbol not in exported:
@@ -125,7 +125,7 @@ def report_missing(module_symbols, exported):
 
 def create_whitelist(whitelist, undefined_symbols, exported,
                      emit_module_whitelists, module_grouping):
-  """Create a symbol whitelist for libabigail."""
+  """Creates a symbol whitelist for libabigail."""
   symbol_counter = collections.Counter(
       itertools.chain.from_iterable(undefined_symbols.values()))
 
@@ -169,7 +169,7 @@ def create_whitelist(whitelist, undefined_symbols, exported,
 
 
 def main():
-  """Extract the required symbols for a directory full of kernel modules."""
+  """Extracts the required symbols for a directory full of kernel modules."""
   parser = argparse.ArgumentParser()
   parser.add_argument(
       "directory",
