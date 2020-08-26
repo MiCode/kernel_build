@@ -42,14 +42,11 @@ _args = None
 _pool = None
 
 def download(url_base, dest_dir, filename, dest_filename = None):
-  if not dest_filename:
-    dest_filename = filename
-  if dest_dir:
-    dest_dir += "/"
-  if not os.path.exists(filename):
+  dest_filename = os.path.join(dest_dir, dest_filename or filename)
+  if not os.path.exists(dest_filename):
     print("Downloading %s" % filename)
     try:
-      urllib.request.urlretrieve(os.path.join(url_base, filename), dest_dir + dest_filename)
+      urllib.request.urlretrieve(os.path.join(url_base, filename), dest_filename)
     except urllib.error.HTTPError as e:
       print("Could not download %s: %s" % (filename, e))
 
