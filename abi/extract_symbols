@@ -53,7 +53,7 @@ def symbol_sort(symbols):
     for idx, c in enumerate(tmp):
       if c != "_":
         break
-    return tmp.replace("_", "") + (5 - idx) * "_"
+    return (tmp.replace("_", "") + (5 - idx) * "_", a)
 
   return sorted(set(symbols), key=__key)
 
