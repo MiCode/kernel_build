@@ -181,44 +181,37 @@ def main():
       "--skip-report-missing",
       action="store_false",
       dest="report_missing",
-      default=True,
       help="Do not report symbols required by modules, but missing from vmlinux"
   )
 
   parser.add_argument(
       "--include-module-exports",
       action="store_true",
-      default=False,
       help="Include inter-module symbols")
 
   parser.add_argument(
       "--full-gki-abi",
       action="store_true",
-      default=False,
       help="Assume all vmlinux and GKI module symbols are part of the ABI")
 
   parser.add_argument(
       "--whitelist",
-      default=None,
       help="The whitelist to create")
 
   parser.add_argument(
       "--print-modules",
       action="store_true",
-      default=False,
       help="Emit the names of the processed modules")
 
   parser.add_argument(
       "--emit-module-whitelists",
       action="store_true",
-      default=False,
       help="Emit a separate whitelist for each module")
 
   parser.add_argument(
       "--skip-module-grouping",
       action="store_false",
       dest="module_grouping",
-      default=True,
       help="Do not group symbols by module.")
 
   parser.add_argument(
@@ -230,7 +223,6 @@ def main():
 
   parser.add_argument(
       "--gki-modules",
-      default=None,
       help="List of GKI modules which must be provided when the search directory contains both vendor and GKI modules")
 
   args = parser.parse_args()
