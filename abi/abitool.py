@@ -23,10 +23,10 @@ log = logging.getLogger(__name__)
 
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
-    def dump_kernel_abi(self, linux_tree, dump_path, whitelist):
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list):
         raise NotImplementedError()
 
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report, whitelist):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
         raise NotImplementedError()
 
     def name(self):
@@ -39,7 +39,7 @@ ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 
 class Libabigail(AbiTool):
     """" Concrete AbiTool implementation for libabigail """
-    def dump_kernel_abi(self, linux_tree, dump_path, whitelist):
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list):
         dump_abi_cmd = ['abidw',
                         # omit various sources of indeterministic abidw output
                         '--no-corpus-path',
@@ -53,12 +53,12 @@ class Libabigail(AbiTool):
                         '--out-file',
                         dump_path]
 
-        if whitelist is not None:
-            dump_abi_cmd.extend(['--kmi-whitelist', whitelist])
+        if symbol_list is not None:
+            dump_abi_cmd.extend(['--kmi-whitelist', symbol_list])
 
         subprocess.check_call(dump_abi_cmd)
 
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report, whitelist):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
         log.info('libabigail diffing: {} and {} at {}'.format(old_dump,
                                                                 new_dump,
                                                                 diff_report))
@@ -70,8 +70,8 @@ class Libabigail(AbiTool):
                         old_dump,
                         new_dump]
 
-        if whitelist is not None:
-            diff_abi_cmd.extend(['--kmi-whitelist', whitelist])
+        if symbol_list is not None:
+            diff_abi_cmd.extend(['--kmi-whitelist', symbol_list])
 
         abi_changed = False
 

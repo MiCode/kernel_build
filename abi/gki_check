@@ -54,7 +54,9 @@ def main():
       help='tool to monitor the ABI')
 
   parser.add_argument(
-      '--kmi-whitelist', default=None, help='KMI whitelist to filter for')
+      '--kmi-symbol-list', '--kmi-whitelist',
+      default=None,
+      help='KMI symbol list to filter for')
 
   args = parser.parse_args()
 
@@ -100,11 +102,11 @@ def main():
       reference_xml.write(base64.b64decode(data))
 
   logger.info('Extracting ABI information from your local build ...')
-  abi_tool.dump_kernel_abi(args.linux_tree, local_xml, args.kmi_whitelist)
+  abi_tool.dump_kernel_abi(args.linux_tree, local_xml, args.kmi_symbol_list)
 
   logger.info('Comparing ABI information to reference ...')
   abi_tool.diff_abi(local_xml, upstream_xml, abi_report, abi_report_short,
-                    args.kmi_whitelist)
+                    args.kmi_symbol_list)
 
   logger.info('ABI Analysis complete, please find the result below')
   with open(abi_report_short) as short_report:

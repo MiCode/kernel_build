@@ -181,7 +181,7 @@ relative to the kernel source directory (`$KERNEL_DIR`). In order to allow a
 certain level of organization, additional symbol list files can be specified by
 using `ADDITIONAL_KMI_SYMBOL_LISTS=` in the `build.config`. Similarly, it refers
 to symbol lists in the `$KERNEL_DIR` and multiple files need to be separated by
-whitespaces.
+whitespace.
 
 In order to **create an initial symbol list or to update an existing one**, the
 `build_abi.sh` script must be used with the `--update-symbol-list` parameter.
@@ -274,11 +274,11 @@ non-zero value in case the ABIs compared are incompatible.
 ### Using KMI symbol lists
 
 To filter dumps created with `dump_abi` or filter symbols compared with
-`diff_abi`, each of those tools provides a parameter `--kmi-whitelist` that
+`diff_abi`, each of those tools provides a parameter `--kmi-symbol-list` that
 takes a path to a KMI symbol list file:
 
 ```
-  $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-whitelist /path/to/symbol_list
+  $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-symbol-list /path/to/symbol_list
 ```
 
 ### Comparing Kernel Binaries against the GKI reference KMI
@@ -294,7 +294,7 @@ compare the local binaries' representation to e.g. the 5.4 representation:
 ```
 
 `gki_check` uses parameter names consistent with `dump_abi` and `diff_abi`.
-Hence, `--kmi-whitelist path/to/kmi_symbol_list` can be used to limit that
+Hence, `--kmi-symbol-list path/to/kmi_symbol_list` can be used to limit that
 comparison to allowed symbols by passing a KMI symbol list.
 
 **NOTE:** When comparing the ABI representations between the GKI Kernel and the
