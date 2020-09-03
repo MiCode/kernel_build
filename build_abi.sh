@@ -43,6 +43,24 @@
 #     be a sorted list of symbols used by all the kernel modules. This property
 #     is enabled by default.
 #
+#   KMI_SYMBOL_LIST_ADD_ONLY
+#     If set to 1, then any symbols in the symbol list that would have been
+#     removed are preserved (at the end of the file). Symbol list update will
+#     fail if there is no pre-existing symbol list file to read from. This
+#     property is intended to prevent unintentional shrinkage of a stable ABI.
+#     It is disabled by default.
+#
+#   GKI_MODULES_LIST
+#     If set to a file name, then this file will be read to determine the list
+#     of GKI modules (those subject to ABI monitoring) and, by elimination, the
+#     list of vendor modules (those which can rely on a stable ABI). Only vendor
+#     modules' undefined symbols are considered when updating the symbol list.
+#     GKI_MODULES_LIST is supposed to be defined relative to $KERNEL_DIR/
+#
+#   FULL_GKI_ABI
+#     If this is set to 1 then, when updating the symbol list, use all defined
+#     symbols from vmlinux and GKI modules, instead of the undefined symbols
+#     from vendor modules. This property is disabled by default.
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
@@ -63,13 +81,18 @@ PRINT_REPORT=0
 if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
 fi
+if [[ -z "$KMI_SYMBOL_LIST_ADD_ONLY" ]]; then
+  KMI_SYMBOL_LIST_ADD_ONLY=0
+fi
+if [[ -z "$FULL_GKI_ABI" ]]; then
+  FULL_GKI_ABI=0
+fi
 
 ARGS=()
 for i in "$@"
 do
 case $i in
     -u|--update)
-    UPDATE_SYMBOL_LIST=1
     UPDATE=1
     shift # past argument=value
     ;;
@@ -151,6 +174,15 @@ fi
 
 source "${ROOT_DIR}/build/_setup_env.sh"
 
+if [ -z "${KMI_SYMBOL_LIST}" ]; then
+    if [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
+        echo "ERROR: --update-symbol-list requires a KMI_SYMBOL_LIST" >&2
+        exit 1
+    fi
+elif [ $UPDATE -eq 1 ]; then
+    UPDATE_SYMBOL_LIST=1
+fi
+
 # Now actually do the wipe out as above.
 if [[ $wipe_out_dir -eq 1 ]]; then
     rm -rf "${COMMON_OUT_DIR}"
@@ -207,6 +239,13 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         if [ -n "${GKI_MODULES_LIST}" ]; then
             GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
         fi
+        if [ "$KMI_SYMBOL_LIST_ADD_ONLY" -eq 1 ]; then
+            ADD_ONLY_FLAG="--additions-only"
+        fi
+        # Specify a full GKI ABI if requested
+        if [ "$FULL_GKI_ABI" -eq 1 ]; then
+            FULL_ABI_FLAG="--full-gki-abi"
+        fi
 
         if [ "${KMI_SYMBOL_LIST_MODULE_GROUPING}" -eq "0" ]; then
           SKIP_MODULE_GROUPING="--skip-module-grouping"
@@ -215,7 +254,9 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         ${ROOT_DIR}/build/abi/extract_symbols         \
             --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
             ${SKIP_MODULE_GROUPING}                   \
+            ${ADD_ONLY_FLAG}                          \
             ${GKI_MOD_FLAG}                           \
+            ${FULL_ABI_FLAG}                          \
             ${DIST_DIR}
 
         # In case of a simple --update-symbol-list call we can bail out early
@@ -229,9 +270,6 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
     fi
 
     KMI_SYMBOL_LIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_symbollist"
-elif [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
-    echo "ERROR: --update* requires a KMI_SYMBOL_LIST" >&2
-    exit 1
 fi
 
 # Rerun the kernel build as the main symbol list changed. That influences the

@@ -1,6 +1,6 @@
 ARCH=um
 SUBARCH=x86_64
-CC=clang
+CC=${CC:-clang}
 CLANG_TRIPLE=x86_64-linux-gnu-
 CROSS_COMPILE=x86_64-linux-androidkernel-
 EXTRA_CMDS=''
