@@ -629,9 +629,43 @@ for FILE in ${OVERLAYS_OUT}; do
   cp ${FILE} ${OVERLAY_DIST_DIR}/
 done
 
+if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
+  echo "========================================================"
+  echo " Installing UAPI kernel headers:"
+  mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
+  make -C ${OUT_DIR} O=${OUT_DIR} "${TOOL_ARGS[@]}"                           \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" ${MAKE_ARGS}      \
+          headers_install
+  # The kernel makefiles create files named ..install.cmd and .install which
+  # are only side products. We don't want those. Let's delete them.
+  find ${KERNEL_UAPI_HEADERS_DIR} \( -name ..install.cmd -o -name .install \) -exec rm '{}' +
+  KERNEL_UAPI_HEADERS_TAR=${DIST_DIR}/kernel-uapi-headers.tar.gz
+  echo " Copying kernel UAPI headers to ${KERNEL_UAPI_HEADERS_TAR}"
+  tar -czf ${KERNEL_UAPI_HEADERS_TAR} --directory=${KERNEL_UAPI_HEADERS_DIR} usr/
+fi
+
+if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
+  echo "========================================================"
+  KERNEL_HEADERS_TAR=${DIST_DIR}/kernel-headers.tar.gz
+  echo " Copying kernel headers to ${KERNEL_HEADERS_TAR}"
+  pushd $ROOT_DIR/$KERNEL_DIR
+    find arch include $OUT_DIR -name *.h -print0               \
+            | tar -czf $KERNEL_HEADERS_TAR                     \
+              --absolute-names                                 \
+              --dereference                                    \
+              --transform "s,.*$OUT_DIR,,"                     \
+              --transform "s,^,kernel-headers/,"               \
+              --null -T -
+  popd
+fi
+
 if [ -n "${DIST_CMDS}" ]; then
   echo "========================================================"
   echo " Running extra dist command(s):"
+  # if DIST_CMDS requires UAPI headers, make sure a warning appears!
+  if [ ! -d "${KERNEL_UAPI_HEADERS_DIR}/usr" ]; then
+    echo "WARN: running without UAPI headers"
+  fi
   set -x
   eval ${DIST_CMDS}
   set +x
@@ -707,36 +741,6 @@ if [ -n "${UNSTRIPPED_MODULES}" ]; then
   for MODULE in ${UNSTRIPPED_MODULES}; do
     find ${MODULES_PRIVATE_DIR} -name ${MODULE} -exec cp {} ${UNSTRIPPED_DIR} \;
   done
-fi
-
-if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
-  echo "========================================================"
-  echo " Installing UAPI kernel headers:"
-  mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} "${TOOL_ARGS[@]}"                           \
-          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" ${MAKE_ARGS}      \
-          headers_install
-  # The kernel makefiles create files named ..install.cmd and .install which
-  # are only side products. We don't want those. Let's delete them.
-  find ${KERNEL_UAPI_HEADERS_DIR} \( -name ..install.cmd -o -name .install \) -exec rm '{}' +
-  KERNEL_UAPI_HEADERS_TAR=${DIST_DIR}/kernel-uapi-headers.tar.gz
-  echo " Copying kernel UAPI headers to ${KERNEL_UAPI_HEADERS_TAR}"
-  tar -czf ${KERNEL_UAPI_HEADERS_TAR} --directory=${KERNEL_UAPI_HEADERS_DIR} usr/
-fi
-
-if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
-  echo "========================================================"
-  KERNEL_HEADERS_TAR=${DIST_DIR}/kernel-headers.tar.gz
-  echo " Copying kernel headers to ${KERNEL_HEADERS_TAR}"
-  pushd $ROOT_DIR/$KERNEL_DIR
-    find arch include $OUT_DIR -name *.h -print0               \
-            | tar -czf $KERNEL_HEADERS_TAR                     \
-              --absolute-names                                 \
-              --dereference                                    \
-              --transform "s,.*$OUT_DIR,,"                     \
-              --transform "s,^,kernel-headers/,"               \
-              --null -T -
-  popd
 fi
 
 [ -n "${GKI_MODULES_LIST}" ] && cp ${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
