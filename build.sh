@@ -247,60 +247,36 @@ function run_depmod() {
 #                            expected, and it's corresponding modules.* files>
 function create_reduced_modules_order() {
   echo "========================================================"
-  echo " Creating reduced modules.order"
+  echo " Reducing modules.order to:"
   local modules_list_file=$1
   local src_dir=$2/lib/modules/*
   local dest_dir=$3/lib/modules/0.0
-  local staging_dir=$2/intermediate_ramdisk_staging
-  local modules_staging_dir=${staging_dir}/lib/modules/0.0
 
-  rm -rf ${staging_dir}/
-  mkdir -p ${modules_staging_dir}
-
-  # Need to make sure we can find modules_list_file from the staging dir
-  if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
-    modules_list_file="${ROOT_DIR}/${modules_list_file}"
-  elif [[ "${modules_list_file}" != /* ]]; then
-    echo "modules_list_file must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
-    exit 1
-  elif [[ ! -f "${modules_list_file}" ]]; then
-    echo "Failed to find modules_list_file: ${modules_list_file}"
-    exit 1
-  fi
-
-  (
-    cd ${src_dir}
-    touch ${modules_staging_dir}/modules.order
-
-    while read ko; do
-      # Ignore comment lines starting with # sign
-      [[ "${ko}" = \#* ]] && continue
-      if grep -q $(basename ${ko}) ${modules_list_file}; then
-        mkdir -p ${modules_staging_dir}/$(dirname ${ko})
-        cp -p ${ko} ${modules_staging_dir}/${ko}
-        echo ${ko} >> ${modules_staging_dir}/modules.order
-      fi
-    done < modules.order
-
-    # External modules
-    if [ -d "./extra" ]; then
-      mkdir -p ${modules_staging_dir}/extra
-      for ko in $(find extra/. -name "*.ko"); do
-        if grep -q $(basename ${ko}) ${modules_list_file}; then
-          mkdir -p ${modules_staging_dir}/extra
-          cp -p ${ko} ${modules_staging_dir}/extra/$(basename ${ko})
-          echo "extra/$(basename ${ko})" >> ${modules_staging_dir}/modules.order
-        fi
-      done
+  if [ -n "${modules_list_file}" ]; then
+    # Need to make sure we can find modules_list_file from the staging dir
+    if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
+      modules_list_file="${ROOT_DIR}/${modules_list_file}"
+    elif [[ "${modules_list_file}" != /* ]]; then
+      echo "modules list must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
+      exit 1
+    elif [[ ! -f "${modules_list_file}" ]]; then
+      echo "Failed to find modules list: ${modules_list_file}"
+      exit 1
     fi
-  )
 
-  cp ${src_dir}/modules.builtin* ${modules_staging_dir}/.
-  run_depmod ${staging_dir}
-  cp ${modules_staging_dir}/modules.* ${dest_dir}/.
+    local modules_list_filter=$(mktemp)
+    local old_modules_list=$(mktemp)
 
-  # Clean up
-  rm -rf ${staging_dir}
+    # Remove all lines starting with "#" (comments)
+    # Exclamation point makes interpreter ignore the exit code under set -e
+    ! grep -v "^\#" ${modules_list_file} > ${modules_list_filter}
+
+    # grep the modules.order for any KOs in the modules list
+    cp ${dest_dir}/modules.order ${old_modules_list}
+    ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
+    rm -f ${modules_list_filter} ${old_modules_list}
+    cat ${dest_dir}/modules.order | sed -e "s/^/  /"
+  fi
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -732,9 +708,8 @@ if [ -n "${MODULES}" ]; then
     if [[ -n "${MODULES_LIST}" ]]; then
       create_reduced_modules_order ${MODULES_LIST} ${MODULES_STAGING_DIR} \
         ${INITRAMFS_STAGING_DIR}
-    else
-      run_depmod ${INITRAMFS_STAGING_DIR}
     fi
+    run_depmod ${INITRAMFS_STAGING_DIR}
 
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.load
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/0.0/modules.order ${DIST_DIR}/modules.load
