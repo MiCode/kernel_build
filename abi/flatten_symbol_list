@@ -29,7 +29,8 @@ def main():
     sl.read_file(sys.stdin)
 
     ksyms = set()
-    for section in (s for s in sl.sections() if s.endswith('whitelist')):
+    for section in (s for s in sl.sections() if s.endswith(('whitelist',
+                                                            'symbol_list'))):
         ksyms.update(sl[section])
     print('\n'.join(sorted(ksyms)))
 

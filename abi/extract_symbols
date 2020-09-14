@@ -28,7 +28,7 @@ _ALWAYS_INCLUDED = [
     "module_layout",  # is exported even if CONFIG_TRIM_UNUSED_KSYMS is enabled
     "__put_task_struct",  # this allows us to keep `struct task_struct` stable
 ]
-_ABIGAIL_HEADER = "[abi_whitelist]"
+_ABIGAIL_HEADER = "[abi_symbol_list]"
 
 def symbol_sort(symbols):
   # use the method that `sort` uses: case insensitive and ignoring
