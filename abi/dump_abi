@@ -21,9 +21,9 @@ import sys
 
 from abitool import get_abi_tool
 
-def dump_abi(abitool, linux_tree, out_file, whitelist):
+def dump_abi(abitool, linux_tree, out_file, symbol_list):
     tool = get_abi_tool(abitool)
-    tool.dump_kernel_abi(linux_tree, out_file, whitelist)
+    tool.dump_kernel_abi(linux_tree, out_file, symbol_list)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,15 +35,15 @@ def main():
                         help='abi tool to be used to monitor abi')
     parser.add_argument('--out-file', default=None,
                         help='where to write the abi dump to')
-    parser.add_argument('--kmi-whitelist', default=None,
-                        help='KMI whitelist to filter for')
+    parser.add_argument('--kmi-symbol-list', '--kmi-whitelist', default=None,
+                        help='KMI symbol list to filter for')
 
     args = parser.parse_args()
 
     dump_abi(args.abi_tool,
              args.linux_tree,
              args.out_file or os.path.join(args.linux_tree, "abi.xml"),
-             args.kmi_whitelist)
+             args.kmi_symbol_list)
 
 if __name__ == "__main__":
     sys.exit(main())
