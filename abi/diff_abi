@@ -21,9 +21,9 @@ import sys
 
 from abitool import get_abi_tool
 
-def diff_abi(abitool, baseline, new, report, short_report, whitelist):
+def diff_abi(abitool, baseline, new, report, short_report, symbol_list):
     tool = get_abi_tool(abitool)
-    return tool.diff_abi(baseline, new, report, short_report, whitelist)
+    return tool.diff_abi(baseline, new, report, short_report, symbol_list)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -37,8 +37,8 @@ def main():
                         required=True)
     parser.add_argument('--short-report', help='where to write a short report to',
                         default=None)
-    parser.add_argument('--kmi-whitelist', default=None,
-                        help='KMI whitelist to filter for')
+    parser.add_argument('--kmi-symbol-list', '--kmi-whitelist', default=None,
+                        help='KMI symbol list to filter for')
 
     args = parser.parse_args()
 
@@ -47,8 +47,9 @@ def main():
                            args.new,
                            args.report,
                            args.short_report,
-                           args.kmi_whitelist)
-    return abi_changed
+                           args.kmi_symbol_list)
+    if abi_changed:
+        return 8
 
 if __name__ == "__main__":
     sys.exit(main())

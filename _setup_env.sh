@@ -66,6 +66,13 @@ echo "========================================================"
 echo "= build config: ${ROOT_DIR}/${BUILD_CONFIG}"
 cat ${ROOT_DIR}/${BUILD_CONFIG}
 
+export TZ=UTC
+export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+export KBUILD_BUILD_TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S' -d @${SOURCE_DATE_EPOCH})"
+export KBUILD_BUILD_HOST=build-host
+export KBUILD_BUILD_USER=build-user
+export KBUILD_BUILD_VERSION=1
+
 # List of prebuilt directories shell variables to incorporate into PATH
 PREBUILTS_PATHS=(
 LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN

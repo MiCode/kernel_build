@@ -251,12 +251,12 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
           SKIP_MODULE_GROUPING="--skip-module-grouping"
         fi
 
-        ${ROOT_DIR}/build/abi/extract_symbols         \
-            --whitelist $KERNEL_DIR/$KMI_SYMBOL_LIST  \
-            ${SKIP_MODULE_GROUPING}                   \
-            ${ADD_ONLY_FLAG}                          \
-            ${GKI_MOD_FLAG}                           \
-            ${FULL_ABI_FLAG}                          \
+        ${ROOT_DIR}/build/abi/extract_symbols          \
+            --symbol-list $KERNEL_DIR/$KMI_SYMBOL_LIST \
+            ${SKIP_MODULE_GROUPING}                    \
+            ${ADD_ONLY_FLAG}                           \
+            ${GKI_MOD_FLAG}                            \
+            ${FULL_ABI_FLAG}                           \
             ${DIST_DIR}
 
         # In case of a simple --update-symbol-list call we can bail out early
@@ -269,7 +269,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         fi
     fi
 
-    KMI_SYMBOL_LIST_FLAG="--kmi-whitelist ${DIST_DIR}/abi_symbollist"
+    KMI_SYMBOL_LIST_FLAG="--kmi-symbol-list ${DIST_DIR}/abi_symbollist"
 fi
 
 # Rerun the kernel build as the main symbol list changed. That influences the
@@ -277,7 +277,7 @@ fi
 # binary. Possibly more.
 if [ $SYMBOL_LIST_GOT_UPDATE -eq 1 ]; then
   echo "========================================================"
-  echo " Whitelist got updated, rerunning the build"
+  echo " Symbol list was updated, rerunning the build"
   SKIP_MRPROPER=1 build_kernel "$@"
 fi
 
