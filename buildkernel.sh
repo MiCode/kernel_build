@@ -51,7 +51,7 @@ SECONDARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/secondary_kernel
 
 debugfs_disable()
 {
-	if [ ${TARGET_BUILD_VARIANT} == "user" ] && [ ${ARCH} == "arm64" ]; then
+	if [ ${TARGET_BUILD_VARIANT} == "user" ]; then
 		echo "combining fragments for user build"
 		(cd ${KERNEL_DIR} && \
 		ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} \
@@ -60,7 +60,7 @@ debugfs_disable()
 		mv defconfig ./arch/${ARCH}/configs/$DEFCONFIG
 		${MAKE_PATH}make mrproper)
 	else
-		if [[ ${DEFCONFIG} == *"perf_defconfig" ]] && [ ${ARCH} == "arm64" ]; then
+		if [[ ${DEFCONFIG} == *"perf_defconfig" ]]; then
 		echo "resetting perf defconfig"
 		(cd ${KERNEL_DIR} && \
 		git checkout arch/$ARCH/configs/$DEFCONFIG)
