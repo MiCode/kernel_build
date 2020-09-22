@@ -129,7 +129,7 @@ def read_symbol_list(symbol_list):
   symbols = []
   with open(symbol_list) as wl:
     for line in [l.strip() for l in wl]:
-      if not line or line.startswith("#") or line == _ABIGAIL_HEADER:
+      if not line or line.startswith("#") or line.startswith("["):
         continue
       symbols.append(line)
   return symbols
