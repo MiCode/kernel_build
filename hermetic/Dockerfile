@@ -8,7 +8,6 @@ RUN apt-get -y update                            \
     # see  b/164026334
     cpio                                         \
     libc6-dev                                    \
-    libgcc-8-dev                                 \
     libssl-dev                                   \
     rsync                                        \
 && apt-get clean                                 \

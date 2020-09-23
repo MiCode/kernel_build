@@ -211,29 +211,25 @@ function build_kernel() {
   # Delegate the actual build to build.sh.
   # Suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
   # the generated abi.xml to be copied to <DIST_DIR>/abi.out.
-  # Similarly, disable the KMI trimming, as the symbol list may be out of date.
   # Turn on symtypes generation to assist in the diagnosis of CRC differences.
   ABI_DEFINITION= \
-    TRIM_NONLISTED_KMI= \
-    KMI_SYMBOL_LIST_STRICT_MODE= \
     KBUILD_SYMTYPES=1 \
     ${ROOT_DIR}/build/build.sh "$@"
 }
-
-build_kernel "$@"
 
 # define a common KMI symbol list flag for the abi tools
 KMI_SYMBOL_LIST_FLAG=
 
 # We want to track whether the main symbol list (i.e. KMI_SYMBOL_LIST) actually
 # got updated. If so we need to rerun the kernel build.
-SYMBOL_LIST_GOT_UPDATE=0
 if [ -n "$KMI_SYMBOL_LIST" ]; then
 
     if [ $UPDATE_SYMBOL_LIST -eq 1 ]; then
+        # Disable KMI trimming as the symbol list may be out of date.
+        TRIM_NONLISTED_KMI= KMI_SYMBOL_LIST_STRICT_MODE= build_kernel "$@"
+
         echo "========================================================"
         echo " Updating the ABI symbol list"
-        SL_SHA1_BEFORE=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
 
         # Exclude GKI modules from non-GKI builds
         if [ -n "${GKI_MODULES_LIST}" ]; then
@@ -262,23 +258,23 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         # In case of a simple --update-symbol-list call we can bail out early
         [ $UPDATE -eq 0 ] && exit 0
 
-        SL_SHA1_AFTER=$(sha1sum $KERNEL_DIR/$KMI_SYMBOL_LIST 2>&1)
-
-        if [ "$SL_SHA1_BEFORE" != "$SL_SHA1_AFTER" ]; then
-            SYMBOL_LIST_GOT_UPDATE=1
+        if [ -n "${TRIM_NONLISTED_KMI}" ]; then
+            # Rerun the kernel build with symbol list trimming enabled, as applicable. That
+            # influences the combined symbol list as well as the list of exported symbols in
+            # the kernel binary. Possibly more.
+            echo "========================================================"
+            echo " Rerunning the build with symbol trimming re-enabled"
+            local SKIP_MRPROPER=1
         fi
     fi
 
     KMI_SYMBOL_LIST_FLAG="--kmi-symbol-list ${DIST_DIR}/abi_symbollist"
+
 fi
 
-# Rerun the kernel build as the main symbol list changed. That influences the
-# combined symbol list as well as the list of exported symbols in the kernel
-# binary. Possibly more.
-if [ $SYMBOL_LIST_GOT_UPDATE -eq 1 ]; then
-  echo "========================================================"
-  echo " Symbol list was updated, rerunning the build"
-  SKIP_MRPROPER=1 build_kernel "$@"
+# Already built the final kernel if updating symbol list and trimming symbol list is disabled
+if ! [ $UPDATE_SYMBOL_LIST -eq 1 -a -z "${TRIM_NONLISTED_KMI}" ]; then
+    SKIP_MRPROPER="${SKIP_MRPROPER}" build_kernel "$@"
 fi
 
 echo "========================================================"
