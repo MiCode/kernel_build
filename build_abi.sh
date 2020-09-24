@@ -245,7 +245,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             # the kernel binary. Possibly more.
             echo "========================================================"
             echo " Rerunning the build with symbol trimming re-enabled"
-            local SKIP_MRPROPER=1
+            SKIP_MRPROPER=1
         fi
     fi
 
