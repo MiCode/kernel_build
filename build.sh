@@ -347,6 +347,20 @@ TOOL_ARGS=()
 # newer kernel versions.
 if [[ -n "${LLVM}" ]]; then
   TOOL_ARGS+=("LLVM=1")
+  # Reset a bunch of variables that the kernel's top level Makefile does, just
+  # in case someone tries to use these binaries in this script such as in
+  # initramfs generation below.
+  HOSTCC=clang
+  HOSTCXX=clang++
+  CC=clang
+  LD=ld.lld
+  AR=llvm-ar
+  NM=llvm-nm
+  OBJCOPY=llvm-objcopy
+  OBJDUMP=llvm-objdump
+  READELF=llvm-readelf
+  OBJSIZE=llvm-size
+  STRIP=llvm-strip
 else
   if [ -n "${HOSTCC}" ]; then
     TOOL_ARGS+=("HOSTCC=${HOSTCC}")
