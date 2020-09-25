@@ -710,7 +710,7 @@ if [ -n "${MODULES}" ]; then
     if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
       # strip debug symbols off initramfs modules
       find ${INITRAMFS_STAGING_DIR} -type f -name "*.ko" \
-        -exec ${OBJCOPY:-${CROSS_COMPILE}strip} --strip-debug {} \;
+        -exec ${OBJCOPY:-${CROSS_COMPILE}objcopy} --strip-debug {} \;
     fi
 
     # Re-run depmod to detect any dependencies between in-kernel and external
