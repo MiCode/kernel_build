@@ -279,6 +279,9 @@ sed -i "s#${ROOT_DIR}/${KERNEL_DIR}/##g" ${DIST_DIR}/${abi_out_file}
 sed -i "s#${ROOT_DIR}/##g" ${DIST_DIR}/${abi_out_file}
 
 # Append debug information to abi file
+if [ -n "${LLVM}" ]; then
+  CC=clang
+fi
 echo "
 <!--
      libabigail: $(abidw --version)
