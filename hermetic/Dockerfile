@@ -5,8 +5,6 @@ RUN apt-get -y update                            \
 # Those are likely essential
     git                                          \
 # To be removed
-    # see  b/164026334
-    cpio                                         \
     libc6-dev                                    \
     libssl-dev                                   \
     rsync                                        \
@@ -15,7 +13,6 @@ RUN apt-get -y update                            \
 
 # Explicitly allow some host binaries for now
 RUN mkdir -p /l/bin
-RUN ln -s $(which cpio) /l/bin/      # b/164026334
 RUN ln -s $(which perl) /l/bin/
 RUN ln -s $(which rsync) /l/bin/
 RUN ln -s $(which sh) /l/bin/
