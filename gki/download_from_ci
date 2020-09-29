@@ -28,7 +28,13 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
+
+from pathlib import Path
+
+sys.path.append(str(Path(os.path.dirname(__file__)) / ".." / "abi"))
+from abitool import get_abi_tool
 
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64"]
@@ -175,6 +181,44 @@ def repackage_kernels(build_is_arm64, output_dir, version, suffix = ""):
   else:
     os.rename(os.path.join(output_dir, "bzImage"), os.path.join(output_dir, "kernel" + suffix))
 
+
+def get_or_update_abi_definition(files, url_base, output_dir):
+  abi_prop = "abi.prop"
+  with tempfile.TemporaryDirectory() as tmp:
+    tmp = Path(tmp)
+
+    props = {}
+    if abi_prop in files:
+      # First, download the abi.prop to see if we can reuse something
+      download(url_base, tmp, abi_prop)
+      with open(tmp / abi_prop) as prop:
+        props.update(line.split("=", 1) for line in prop.read().splitlines())
+
+    # Now see whether there is a symbol list to consider
+    symbol_list = props.get("KMI_SYMBOL_LIST", None)
+    if symbol_list is not None:
+      download(url_base, tmp, symbol_list)
+      shutil.copyfile(tmp / symbol_list, output_dir / "abi_symbol_list")
+
+    # If there is an existing XML representation, we do not generate one, so
+    # let's try that
+    abi_xml = props.get("KMI_DEFINITION", None)
+    if abi_xml is not None:
+      download(url_base, tmp, abi_xml)
+    else:
+      abi_xml = "abi.xml"
+      # So there was none, let's download the binaries then
+      abi_files = [x for x in files if re.search(".+\.ko$|^abi", x)
+                  ] + ["vmlinux"]
+      func = functools.partial(download, url_base, tmp)
+      _pool.map(func, abi_files)
+
+      get_abi_tool().dump_kernel_abi(tmp, tmp / abi_xml,
+                                     tmp / symbol_list if symbol_list else None)
+
+    shutil.copyfile(tmp / abi_xml, output_dir / "abi.xml")
+
+
 def update_prebuilts(data, files, url_base):
   build_is_arm64 = _args.build_target in ARM64_TARGETS
   version = get_build_kernel_version(data)
@@ -199,6 +243,8 @@ def update_prebuilts(data, files, url_base):
   update_files += [x for x in files if re.search(".+\.ko$", x)] + ["System.map"]
   func = functools.partial(download, url_base, output_dir)
   _pool.map(func, update_files)
+
+  get_or_update_abi_definition(files, url_base, Path(output_dir))
 
   repackage_kernels(build_is_arm64, output_dir, version)
   write_prebuilt_info(output_dir)
