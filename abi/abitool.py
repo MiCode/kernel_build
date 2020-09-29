@@ -65,7 +65,6 @@ class Libabigail(AbiTool):
                                                                 diff_report))
         diff_abi_cmd = ['abidiff',
                         '--flag-indirect',
-                        '--dump-diff-tree',
                         old_dump,
                         new_dump]
 
