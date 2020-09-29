@@ -98,7 +98,7 @@ class Libabigail(AbiTool):
 
         return abi_changed
 
-def get_abi_tool(abi_tool):
+def get_abi_tool(abi_tool = "libabigail"):
     if abi_tool == 'libabigail':
         log.info('using libabigail for abi analysis')
         return Libabigail()
