@@ -26,6 +26,7 @@ RUN ln -s $(which git) /l/bin/
 
 # Copy the build runner
 COPY build /l/build
+RUN chmod a+rx /l/build
 
 # Run the build runner if no other command is given
 CMD /l/build
