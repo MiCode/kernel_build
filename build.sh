@@ -78,6 +78,11 @@
 #     config. If set, downstream KMI checking tools might respect it and react
 #     to it by failing if KMI differences are detected.
 #
+#   GENERATE_VMLINUX_BTF
+#     If set, generate a vmlinux.btf that is stripped off any debug symbols,
+#     but contains type and symbol information within a .BTF section. This is
+#     suitable for ABI analysis through BTF.
+#
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
@@ -794,6 +799,19 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
               --transform "s,^,kernel-headers/,"               \
               --null -T -
   popd
+fi
+
+if [ -n "${GENERATE_VMLINUX_BTF}" ]; then
+  echo "========================================================"
+  echo " Generating ${DIST_DIR}/vmlinux.btf"
+
+  (
+    cd ${DIST_DIR}
+    cp -a vmlinux vmlinux.btf
+    pahole -J vmlinux.btf
+    llvm-strip --strip-debug vmlinux.btf
+  )
+
 fi
 
 if [ -n "${DIST_CMDS}" ]; then
