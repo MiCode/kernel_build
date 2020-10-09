@@ -510,7 +510,8 @@ perform_diff() {
   fi
   if [ -s "${output}.dmesg" -a -s "${input}.dmesg" ]; then
     TMP=`mktemp -d`
-    mknod ${TMP}/input p
+    trap "rm -rf ${TMP} ; exit 1" 1 2 3 15
+    mkfifo ${TMP}/input
     sed -n 's@^.*init: Loaded kernel module /lib/modules/@@p' ${input}.dmesg > ${TMP}/input &
     sed -n 's@^.*init: Loaded kernel module /lib/modules/@@p' ${output}.dmesg |
       diff -U1 ${TMP}/input - |
@@ -520,6 +521,7 @@ perform_diff() {
       echo "${BLUE}[     INFO ]${NORMAL} no differences in module load order" >&2
     wait
     rm -rf ${TMP}
+    trap "exit 1" 1 2 3 15
   fi
   if [ -s "${output}.config" -a -s "${input}.config" ]; then
     diff -U1 "${input}.config" "${output}.config" |
@@ -528,6 +530,7 @@ perform_diff() {
   fi
   if [ -s "${output}.getprop" -a -s "${input}.getprop" ]; then
     TMP=`mktemp -d`
+    trap "rm -rf ${TMP} ; exit 1" 1 2 3 15
     sed -n 's/[[]ro[.]boottime[.]\([^]]*\)[]]: [[]\([0-9]*\)[]]$/\1 \2/p' "${input}.getprop" >${TMP}/old.getprop
     sed -n 's/[[]ro[.]boottime[.]\([^]]*\)[]]: [[]\([0-9]*\)[]]$/\2 \1/p' "${output}.getprop" |
       sort -un |
@@ -548,6 +551,7 @@ perform_diff() {
       grep '[0-9][.][0-9]' ||
       echo "${BLUE}[     INFO ]${NORMAL} no differences in boottime" >&2
     rm -rf ${TMP}
+    trap "exit 1" 1 2 3 15
   fi
 }
 
@@ -582,8 +586,10 @@ if [ -z "${filter}" ]; then
       COUNT=`adb devices </dev/null |
                grep -v -e 'List of devices attached' -e '^$' |
                wc -l`
-      echo "${RED}[    ERROR ]${NORMAL} ${COUNT} devices attached" >&2
-      exit 1
+      if [ 1 -ne ${COUNT} ]; then
+        echo "${RED}[    ERROR ]${NORMAL} ${COUNT} devices attached" >&2
+        exit 1
+      fi
     fi
   fi
   counter=0
@@ -617,14 +623,18 @@ else
     #
     DRIVERS=
     FOUND=
+    TMP=`mktemp -d`
+    trap "rm -rf ${TMP} ; exit 1" 1 2 3 15
+    mkfifo ${TMP}/99
     (
-      tee /proc/self/fd/99 |
+      tee ${TMP}/99 |
         sed -n \
             -e 's@/sys/devices/platform/.*/driver$@&@p' \
             -e 's@/sys/bus/\([^/]*\)/drivers/\([^/]*\)$@driver:\1:\2@p' |
         sort -u
         echo DONE
-    ) |
+    ) | (
+      cat ${TMP}/99 &
       while read driver; do
         [ -n "${driver}" ] || continue
         case ${driver} in
@@ -664,6 +674,10 @@ else
             ;;
         esac
       done >"${output}.probed"
+      wait
+    )
+    rm -rf ${TMP}
+    trap 'exit 1' 1 2 3 15
     [ -s "${output}.probed" ] || rm -f "${output}.probed"
     # Generate ${output}.dmesg
     adb_su dmesg </dev/null 2>/dev/null >"${output}.dmesg"
@@ -676,9 +690,7 @@ else
     adb $QD shell su root getprop </dev/null 2>/dev/null |
       sort -u >"${output}.getprop"
     [ -s "${output}.getprop" ] || rm -f "${output}.getprop"
-  else
-    cat - >&99
-  fi 99>&1
+  fi
 fi |
   grep -v '^\(/dev/ashmem\|/dev/block/mapper/by-uuid/\|/dev/fscklogs/log\)' |
   grep -v '^\(/dev/socket/location/\(socket_hal\|cld80211\)\|/sys/class/hwmon/\)' |
@@ -696,7 +708,7 @@ fi |
   grep -v '^/sys/devices/platform/soc/[0-9a-f]*.qcom,icnss/\(net\|firmware\|ieee80211\)' |
   grep -v '^/sys/devices/platform/soc/[0-9a-f]*.*@[0-9][0-9]*-cam_\(vana\|vdig\|vio\|clk\)$' |
   grep -v '^/sys/kernel/wlan/' |
-  grep -v '^/sys/kernel/slab/\(f2fs_fsync_inode_entry\|zs\|:[0-9a-f]\{,7\}\)' |
+  grep -v '^/sys/kernel/slab/\(f2fs_fsync_inode_entry\|zs\|:[0-9a-f]\{0,7\}\)' |
   grep -v '^/sys/devices/system/cpu/cpufreq/policy[0-9]*/schedutil' |
   grep -v '/__trace_printk_fmt$' |
   sed "s@\(/regulator[.]\)[0-9][0-9]*\$@\1${NUM}@
@@ -736,19 +748,27 @@ fi |
     [ -s "${output}" ] || rm -f "${output}"
   else
     TMP=`mktemp -d`
+    trap "rm -rf ${TMP} ; exit 1" 1 2 3 15
     if [ X"${output}" = X"-" ]; then
+      mkfifo ${TMP}/99
       echo "------------------------> cut dump < ------------------------"
       sort -u |
-      tee /proc/self/fd/99 |
-        sed -n 's@/sys/devices/platform/\(.*\)/driver$@\1@p' >${TMP}/probed
+      tee ${TMP}/99 |
+        (
+          cat ${TMP}/99 &
+          sed -n 's@/sys/devices/platform/\(.*\)/driver$@\1@p' >${TMP}/probed
+          wait
+          rm ${TMP}/99
+        )
     else
-      sort -u >&99
-    fi 99>&1
+      sort -u
+    fi
     if [ -s "${TMP}/probed" ]; then
       echo "-----------------------> cut probed <------------------------"
       cat ${TMP}/probed
     fi
     rm -rf ${TMP}
+    trap "exit 1" 1 2 3 15
   fi
 if [ -z "${filter}" -a X"${output}" = X"-" ]; then
   echo "------------------------> cut dmesg <------------------------"
