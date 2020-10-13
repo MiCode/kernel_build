@@ -69,25 +69,7 @@ set -e
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
-	local to=$1
-	local from=$2
-	local path=
-	local stem=
-	local prevstem=
-	[ -n "$to" ] || return 1
-	[ -n "$from" ] || return 1
-	to=$(readlink -e "$to")
-	from=$(readlink -e "$from")
-	[ -n "$to" ] || return 1
-	[ -n "$from" ] || return 1
-	stem=${from}/
-	while [ "${to#$stem}" == "${to}" -a "${stem}" != "${prevstem}" ]; do
-		prevstem=$stem
-		stem=$(readlink -e "${stem}/..")
-		[ "${stem%/}" == "${stem}" ] && stem=${stem}/
-		path=${path}../
-	done
-	echo ${path}${to#$stem}
+  python -c "import os.path; import sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$1" "$2"
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
