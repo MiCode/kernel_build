@@ -122,10 +122,6 @@ fi
 # updated.
 CC_LD_ARG="${TOOL_ARGS[@]}"
 
-MAKE_GOALS="""
-modules
-"""
-
 MODULE_CONFIG=${MODULE_CONFIG:-module.config}
 if [ -e "${ROOT_DIR}/${MODULE_CONFIG}" ]; then
   source "${ROOT_DIR}/${MODULE_CONFIG}"
