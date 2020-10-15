@@ -143,7 +143,7 @@ for EXT_MOD in ${EXT_MODULES}; do
   mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
   set -x
   make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                      O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} ${MAKE_GOALS}
+                      O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
   make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}    \
                       INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
