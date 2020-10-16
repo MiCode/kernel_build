@@ -390,6 +390,12 @@ else
   fi
 fi
 
+if [ -n "${LLVM_IAS}" ]; then
+  TOOL_ARGS+=("LLVM_IAS=${LLVM_IAS}")
+  # Reset $AS for the same reason that we reset $CC etc above.
+  AS=clang
+fi
+
 if [ -n "${DEPMOD}" ]; then
   TOOL_ARGS+=("DEPMOD=${DEPMOD}")
 fi
