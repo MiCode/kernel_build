@@ -180,6 +180,24 @@
 #     ensure the ABI tooling correctly differentiates vendor/OEM modules and GKI
 #     modules. This should not be set in the upstream GKI build.config.
 #
+#   VENDOR_DLKM_MODULES_LIST
+#     location (relative to the repo root directory) of an optional file
+#     containing the list of kernel modules which shall be copied into a
+#     vendor_dlkm partition image.
+#
+#   VENDOR_DLKM_MODULES_BLOCKLIST
+#     location (relative to the repo root directory) of an optional file
+#     containing a list of modules which are blocked from being loaded. This
+#     file is copied directly to the staging directory and should be in the
+#     format: blocklist module_name
+#
+#   VENDOR_DLKM_PROPS
+#     location (relative to the repo root directory) of a text file containing
+#     the properties to be used for creation of a vendor_dlkm image
+#     (filesystem, partition size, etc). If this is not set (and
+#     VENDOR_DLKM_MODULES_LIST is), a default set of properties will be used
+#     which assumes an ext4 filesystem and a dynamic partition.
+#
 #   LZ4_RAMDISK
 #     if defined, any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
@@ -233,13 +251,15 @@ function rel_path() {
   echo ${path}${to#$stem}
 }
 
+# $1 directory of kernel modules ($1/lib/modules/x.y)
+# $2 flags to pass to depmod
 function run_depmod() {
   (
     local ramdisk_dir=$1
     local DEPMOD_OUTPUT
 
     cd ${ramdisk_dir}
-    if ! DEPMOD_OUTPUT="$(depmod -e -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
+    if ! DEPMOD_OUTPUT="$(depmod $2 -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
       echo "$DEPMOD_OUTPUT" >&2
       exit 1
     fi
@@ -253,9 +273,10 @@ function run_depmod() {
 
 # $1 MODULES_LIST, <File contains the list of modules that should go in the ramdisk>
 # $2 MODULES_STAGING_DIR    <The directory to look for all the compiled modules>
-# $3 INITRAMFS_STAGING_DIR  <The destination directory in which MODULES_LIST is
-#                            expected, and it's corresponding modules.* files>
+# $3 IMAGE_STAGING_DIR  <The destination directory in which MODULES_LIST is
+#                        expected, and it's corresponding modules.* files>
 # $4 MODULES_BLOCKLIST, <File contains the list of modules to prevent from loading>
+# $5 flags to pass to depmod
 function create_modules_staging() {
   local modules_list_file=$1
   local src_dir=$2/lib/modules/*
@@ -265,6 +286,7 @@ function create_modules_staging() {
   local dest_dir=$3/lib/modules/0.0
   local dest_stage=$3
   local modules_blocklist_file=$4
+  local depmod_flags=$5
 
   rm -rf ${dest_dir}
   mkdir -p ${dest_dir}/kernel
@@ -347,11 +369,42 @@ function create_modules_staging() {
 
   # Re-run depmod to detect any dependencies between in-kernel and external
   # modules. Then, create modules.order based on all the modules compiled.
-  run_depmod ${dest_stage}
+  run_depmod ${dest_stage} "${depmod_flags}"
   cp ${dest_dir}/modules.order ${dest_dir}/modules.load
 
   mv ${dest_stage}/lib/modules/0.0/* ${dest_stage}/lib/modules/.
   rmdir ${dest_stage}/lib/modules/0.0
+}
+
+function build_vendor_dlkm() {
+  echo "========================================================"
+  echo " Creating vendor_dlkm image"
+
+  create_modules_staging "${VENDOR_DLKM_MODULES_LIST}" "${MODULES_STAGING_DIR}" \
+    "${VENDOR_DLKM_STAGING_DIR}" "${VENDOR_DLKM_MODULES_BLOCKLIST}"
+
+  local vendor_dlkm_props_file
+
+  if [ -z "${VENDOR_DLKM_PROPS}" ]; then
+    vendor_dlkm_props_file="$(mktemp)"
+    echo -e "vendor_dlkm_fs_type=ext4\n" >> ${vendor_dlkm_props_file}
+    echo -e "use_dynamic_partition_size=true\n" >> ${vendor_dlkm_props_file}
+    echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${vendor_dlkm_props_file}
+    echo -e "ext4_share_dup_blocks=true\n" >> ${vendor_dlkm_props_file}
+  else
+    vendor_dlkm_props_file="${VENDOR_DLKM_PROPS}"
+    if [[ -f "${ROOT_DIR}/${vendor_dlkm_props_file}" ]]; then
+      vendor_dlkm_props_file="${ROOT_DIR}/${vendor_dlkm_props_file}"
+    elif [[ "${vendor_dlkm_props_file}" != /* ]]; then
+      echo "VENDOR_DLKM_PROPS must be an absolute path or relative to ${ROOT_DIR}: ${vendor_dlkm_props_file}"
+      exit 1
+    elif [[ ! -f "${vendor_dlkm_props_file}" ]]; then
+      echo "Failed to find VENDOR_DLKM_PROPS: ${vendor_dlkm_props_file}"
+      exit 1
+    fi
+  fi
+  build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" \
+    "${DIST_DIR}/vendor_dlkm.img" /dev/null
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -375,6 +428,7 @@ export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
+export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
 
 BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 
@@ -764,7 +818,7 @@ if [ -n "${MODULES}" ]; then
     echo " Creating initramfs"
     rm -rf ${INITRAMFS_STAGING_DIR}
     create_modules_staging "${MODULES_LIST}" ${MODULES_STAGING_DIR} \
-      ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}"
+      ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e"
 
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
@@ -780,6 +834,10 @@ if [ -n "${MODULES}" ]; then
     ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
   fi
+fi
+
+if [ -n "${VENDOR_DLKM_MODULES_LIST}" ]; then
+  build_vendor_dlkm
 fi
 
 if [ -n "${UNSTRIPPED_MODULES}" ]; then
