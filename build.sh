@@ -150,6 +150,9 @@
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
 #       modules.load. If this property is not set, then the default modules.load
 #       is used.
+#     - TRIM_UNUSED_MODULES. If set, then modules not mentioned in
+#       modules.load are removed from initramfs. If MODULES_LIST is unset, then
+#       having this variable set effectively becomes a no-op.
 #
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
@@ -276,6 +279,16 @@ function create_reduced_modules_order() {
     ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
     rm -f ${modules_list_filter} ${old_modules_list}
     cat ${dest_dir}/modules.order | sed -e "s/^/  /"
+  fi
+
+  if [ -n "${TRIM_UNUSED_MODULES}" ]; then
+    echo "========================================================"
+    echo " Trimming unused modules"
+    # Trim modules from tree that aren't mentioned in modules.order
+    (
+      cd ${dest_dir}
+      find * -type f -name "*.ko" | grep -v -w -f modules.order | xargs -r rm
+    )
   fi
 }
 
