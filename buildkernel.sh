@@ -187,7 +187,9 @@ copy_all_to_prebuilt()
 		mkdir -p ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom
 	fi
 	cp -p -r ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtb ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/
-	cp -p -r ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtbo ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/
+	if [[ -e ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtbo ]]; then
+		cp -p -r ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtbo ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/
+	fi
 
 	#copy arch generated headers
 	echo "============="
@@ -257,7 +259,9 @@ copy_from_prebuilt()
 		mkdir -p ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom
 	fi
 	cp -p -r ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtb ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/
-	cp -p -r ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtbo ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/
+	if [[ -e ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtbo ]]; then
+		cp -p -r ${PREBUILT_OUT}/${IMAGE_FILE_PATH}/dts/vendor/qcom/*.dtbo ${OUT_DIR}/${IMAGE_FILE_PATH}/dts/vendor/qcom/
+	fi
 
 	#copy arch generated headers, and kernel generated headers
 	echo "============"
