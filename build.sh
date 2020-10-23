@@ -345,7 +345,6 @@ export MAKE_ARGS=$*
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
-export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 
@@ -504,6 +503,12 @@ fi
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
   ABI_SL=${DIST_DIR}/abi_symbollist
   echo "KMI_SYMBOL_LIST=abi_symbollist" >> ${ABI_PROP}
+fi
+
+# define the kernel binary and modules archive in the $ABI_PROP
+echo "KERNEL_BINARY=vmlinux" >> ${ABI_PROP}
+if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ]; then
+  echo "MODULES_ARCHIVE=${UNSTRIPPED_MODULES_ARCHIVE}" >> ${ABI_PROP}
 fi
 
 # Copy the abi_${arch}.xml file from the sources into the dist dir
@@ -763,7 +768,7 @@ if [ -n "${UNSTRIPPED_MODULES}" ]; then
     find ${MODULES_PRIVATE_DIR} -name ${MODULE} -exec cp {} ${UNSTRIPPED_DIR} \;
   done
   if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ]; then
-    tar -czf ${DIST_DIR}/unstripped_modules.tar.gz -C $(dirname ${UNSTRIPPED_DIR}) $(basename ${UNSTRIPPED_DIR})
+    tar -czf ${DIST_DIR}/${UNSTRIPPED_MODULES_ARCHIVE} -C $(dirname ${UNSTRIPPED_DIR}) $(basename ${UNSTRIPPED_DIR})
     rm -rf ${UNSTRIPPED_DIR}
   fi
 fi
