@@ -120,3 +120,19 @@ function list_variants() {
 		echo "${variant}"
 	done
 }
+
+################################################################################
+
+function _get_branch() {
+	BUILD_CONFIG=${target:-${BUILD_CONFIG}}
+	VARIANT=${variant:-${VARIANT}}
+
+	source "${ROOT_DIR}/build/_setup_env.sh"
+
+	echo Branch:
+	echo "${BRANCH}"
+}
+
+function get_branch() {
+	_get_branch 2> /dev/null | awk '/Branch:/{p=1}p' | tail -n+2
+}
