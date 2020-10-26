@@ -37,8 +37,10 @@ sys.path.append(str(Path(os.path.dirname(__file__)) / ".." / "abi"))
 from abitool import get_abi_tool
 
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
-ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64"]
-X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64"]
+ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64",
+                 "u-boot_qemu_aarch64"]
+X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64",
+                  "u-boot_crosvm_x86_64", "u-boot_qemu_x86_64"]
 GIT_COMMIT_LOG_LENGTH = 100
 
 # Arguments from argparse.
@@ -75,6 +77,10 @@ def parse_args():
       action="store_true",
       help="update GKI kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
+      "--update-u-boot",
+      action="store_true",
+      help="update U-Boot prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
       "-b",
       "--bug",
       type=int,
@@ -83,13 +89,13 @@ def parse_args():
 
   _args = parser.parse_args()
 
-  if _args.update_gki:
+  if _args.update_gki or _args.update_u_boot:
     if _args.build_target is not None:
-      raise Exception("build_target cannot be specified when updating GKI kernel prebuilts")
+      raise Exception("build_target cannot be specified when updating prebuilts")
     if "ANDROID_BUILD_TOP" not in os.environ:
-      raise Exception("$ANDROID_BUILD_TOP must be set to update GKI kernel prebuilts")
+      raise Exception("$ANDROID_BUILD_TOP must be set to update prebuilts")
     if not _args.bug:
-      raise Exception("A bug number must be provided when updating GKI kernel prebuilts")
+      raise Exception("A bug number must be provided when updating prebuilts")
 
 def list_artifacts(url_base):
   # Download BUILD_INFO to get the file list
@@ -113,6 +119,11 @@ def get_kernel_dir():
   # download_from_ci lives in <ack manifest root>/build/gki
   return pathlib.Path(os.path.abspath(__file__)).parents[2].joinpath('common')
 
+def get_u_boot_dir():
+  """ Return the path of the u-boot source directory in the same repo as this script."""
+  # download_from_ci lives in <ack manifest root>/build/gki
+  return pathlib.Path(os.path.abspath(__file__)).parents[2].joinpath('u-boot')
+
 def get_build_kernel_version(data):
   """Given a build's BUILD_INFO in json format, return the kernel version as a string."""
   branch = json.loads(data)["branch"]
@@ -125,21 +136,21 @@ def get_build_kernel_version(data):
       raise Exception("Could not determine kernel version in branch " + branch)
     return result.group(1)
 
-def get_git_log(old_sha, new_sha):
+def get_git_log(old_sha, new_sha, path=get_kernel_dir()):
   """Return a string containing the git log between two commits."""
   gitlog = "git log --first-parent -{} --oneline --no-decorate {}..{}".format(GIT_COMMIT_LOG_LENGTH,
                                                                               old_sha,new_sha)
   gitlog += ":\n" + subprocess.check_output(shlex.split(gitlog), text=True,
-                                            cwd=get_kernel_dir()) + "\n"
+                                            cwd=path) + "\n"
   return gitlog
 
-def commit_prebuilts(output_dir, gitlog):
-  commit_message = ("Update kernel to builds {}\n"
+def commit_prebuilts(output_dir, gitlog, name="kernel"):
+  commit_message = ("Update {} to builds {}\n"
                     "\n"
                     "{}"
                     "\n"
                     "Test: treehugger\n"
-                    "Bug: {}\n").format(_args.build_id, gitlog, _args.bug)
+                    "Bug: {}\n").format(name, _args.build_id, gitlog, _args.bug)
   subprocess.check_call(["git", "add", "."], cwd=output_dir)
   subprocess.check_call(["git", "commit", "-a", "-m", commit_message], cwd=output_dir)
 
@@ -150,6 +161,16 @@ def get_binary_kernel_version(path):
   result = re.search(pattern, rawdata)
   if not result:
     raise Exception("Could not determine version in kernel binary " + path)
+  return (result.group("version").decode('ascii'),
+          result.group("sha").decode('ascii'))
+
+def get_binary_u_boot_version(path):
+  """Returns a tuple of strings of the YYYY.MM(-rcXX) version and the SHA."""
+  rawdata = subprocess.check_output(["grep", "-a", "U-Boot\s[0-9]*.[0-9]*-.*", path])
+  pattern = b"U-Boot (?P<release>(?P<version>[0-9]+[.][0-9]+)(-rc\d+)?(-\d+)?-g(?P<sha>\w+)(-dirty)?) .*"
+  result = re.search(pattern, rawdata)
+  if not result:
+    raise Exception("Could not determine version in U-Boot binary " + path)
   return (result.group("version").decode('ascii'),
           result.group("sha").decode('ascii'))
 
@@ -364,6 +385,71 @@ def update_gki():
   else:
     update_androidx(output_dir, get_build_kernel_version(data))
 
+def download_u_boot(target, output_dir):
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  build_is_arm64 = target in ARM64_TARGETS
+  files = ["u-boot.bin"] if build_is_arm64 else ["u-boot.rom", "System.map"]
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  func = functools.partial(download, url_base, output_dir)
+  _pool.map(func, files)
+
+def download_u_boot_tools(target, output_dir):
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  files = ["mkenvimage", "mkimage"]
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  func = functools.partial(download, url_base, output_dir)
+  _pool.map(func, files)
+
+  subprocess.check_call(["chmod", "a+x"] + files, cwd=output_dir)
+
+def update_u_boot_mainline(output_dir):
+  cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts")
+  bootloader_dir = os.path.join(cf_dir, "bootloader")
+  crosvm_x86_64_u_boot = os.path.join(bootloader_dir,
+                                      "crosvm_x86_64", "u-boot.rom")
+
+  (old_version, old_sha) = get_binary_u_boot_version(crosvm_x86_64_u_boot)
+
+  crosvm_x86_64_dir = os.path.join(bootloader_dir, "crosvm_x86_64")
+  qemu_aarch64_dir = os.path.join(bootloader_dir, "qemu_aarch64")
+  qemu_x86_64_dir = os.path.join(bootloader_dir, "qemu_x86_64")
+
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
+  download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
+  download_u_boot("u-boot_qemu_aarch64", qemu_aarch64_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_x86_64_dir)
+  download_u_boot("u-boot_qemu_x86_64", qemu_x86_64_dir)
+
+  tools_dir = os.path.join(cf_dir, "uboot_tools")
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
+  download_u_boot_tools("u-boot_tools", tools_dir)
+
+  (new_version, new_sha) = get_binary_u_boot_version(crosvm_x86_64_u_boot)
+  gitlog = get_git_log(old_sha, new_sha, get_u_boot_dir())
+  commit_prebuilts(cf_dir, gitlog, "bootloader, u-boot tools")
+
+def update_u_boot():
+  url_base = BASE_URL.format(build_id=_args.build_id, target="u-boot_crosvm_x86_64")
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  branch = json.loads(data)["branch"]
+
+  output_dir = os.environ["ANDROID_BUILD_TOP"]
+
+  # Right now, we only have the mainline branch
+  if branch == "aosp_u-boot-mainline":
+    update_u_boot_mainline(output_dir)
+  else:
+    print("Unknown u-boot branch %s for build" % branch)
+
 def main():
   global _pool
   _pool = multiprocessing.Pool(10)
@@ -372,6 +458,10 @@ def main():
 
   if _args.update_gki:
     update_gki()
+    return
+
+  if _args.update_u_boot:
+    update_u_boot()
     return
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=_args.build_target)
