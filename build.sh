@@ -156,6 +156,10 @@
 #     - TRIM_UNUSED_MODULES. If set, then modules not mentioned in
 #       modules.load are removed from initramfs. If MODULES_LIST is unset, then
 #       having this variable set effectively becomes a no-op.
+#     - MODULES_BLOCKLIST=<modules.blocklist file> A list of modules which are
+#       blocked from being loaded. This file is copied directly to staging directory,
+#       and should be in the format:
+#       blocklist module_name
 #
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
@@ -251,6 +255,7 @@ function run_depmod() {
 # $2 MODULES_STAGING_DIR    <The directory to look for all the compiled modules>
 # $3 INITRAMFS_STAGING_DIR  <The destination directory in which MODULES_LIST is
 #                            expected, and it's corresponding modules.* files>
+# $4 MODULES_BLOCKLIST, <File contains the list of modules to prevent from loading>
 function create_modules_staging() {
   local modules_list_file=$1
   local src_dir=$2/lib/modules/*
@@ -259,6 +264,7 @@ function create_modules_staging() {
   # the final initramfs image.
   local dest_dir=$3/lib/modules/0.0
   local dest_stage=$3
+  local modules_blocklist_file=$4
 
   rm -rf ${dest_dir}
   mkdir -p ${dest_dir}/kernel
@@ -308,13 +314,34 @@ function create_modules_staging() {
     cat ${dest_dir}/modules.order | sed -e "s/^/  /"
   fi
 
+  if [ -n "${modules_blocklist_file}" ]; then
+    # Need to make sure we can find modules_blocklist_file from the staging dir
+    if [[ -f "${ROOT_DIR}/${modules_blocklist_file}" ]]; then
+      modules_blocklist_file="${ROOT_DIR}/${modules_blocklist_file}"
+    elif [[ "${modules_blocklist_file}" != /* ]]; then
+      echo "modules blocklist must be an absolute path or relative to ${ROOT_DIR}: ${modules_blocklist_file}"
+      exit 1
+    elif [[ ! -f "${modules_blocklist_file}" ]]; then
+      echo "Failed to find modules blocklist: ${modules_blocklist_file}"
+      exit 1
+    fi
+
+    cp ${modules_blocklist_file} ${dest_dir}/modules.blocklist
+  fi
+
   if [ -n "${TRIM_UNUSED_MODULES}" ]; then
     echo "========================================================"
     echo " Trimming unused modules"
+    local used_blocklist_modules=""
+    if [ -f ${dest_dir}/modules.blocklist ]; then
+      # TODO: the modules blocklist could contain module aliases instead of the filename
+      used_blocklist_modules=$(sed -n -E -e 's/blocklist (.+)/\1/p' ${dest_dir}/modules.blocklist)
+    fi
+
     # Trim modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
-      find * -type f -name "*.ko" | grep -v -w -f modules.order | xargs -r rm
+      find * -type f -name "*.ko" | grep -v -w -f modules.order $used_blocklist_modules | xargs -r rm
     )
   fi
 
@@ -737,7 +764,7 @@ if [ -n "${MODULES}" ]; then
     echo " Creating initramfs"
     rm -rf ${INITRAMFS_STAGING_DIR}
     create_modules_staging "${MODULES_LIST}" ${MODULES_STAGING_DIR} \
-      ${INITRAMFS_STAGING_DIR}
+      ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}"
 
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
