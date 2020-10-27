@@ -255,16 +255,18 @@ def download_kernel(target, version, output_dir):
     suffix = ""
   repackage_kernels(build_is_arm64, output_dir, version, suffix)
 
-def download_kernel_modules(target, output_dir):
+def download_kernel_modules(target, output_dir, fetch_initramfs=False):
   if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
   files = list_artifacts(url_base)
-  kernel_modules = (x for x in files if re.search(".+\.ko$", x))
+  files_to_fetch = [x for x in files if re.search(".+\.ko$", x)]
+  if fetch_initramfs:
+    files_to_fetch.append("initramfs.img")
 
   func = functools.partial(download, url_base, output_dir)
-  _pool.map(func, kernel_modules)
+  _pool.map(func, files_to_fetch)
 
 def update_android11_5_4(output_dir):
   output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")
@@ -337,8 +339,8 @@ def update_androidx(output_dir, version):
   subprocess.check_call(["git", "rm", "-rf", arm64_cf_dirname,
                          x86_64_cf_dirname], cwd=cf_dir)
 
-  download_kernel_modules("kernel_cf_aarch64", arm64_cf_dir)
-  download_kernel_modules("kernel_cf_x86_64", x86_64_cf_dir)
+  download_kernel_modules("kernel_cf_aarch64", arm64_cf_dir, fetch_initramfs=True)
+  download_kernel_modules("kernel_cf_x86_64", x86_64_cf_dir, fetch_initramfs=True)
 
   # i686 CF kernel and kernel modules
   i686_cf_dirname = version + "-i686"
