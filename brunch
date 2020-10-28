@@ -116,24 +116,26 @@ function menutargets {
         CHOSEN_CONFIG=$1
     fi
 
-    if [ -z "${CHOSEN_CONFIG}" ] && [ -n "${DIALOG_TOOL}" ]; then
-        local table=""
-        for i in ${!shortnames[@]}; do
-            table="${table} ${shortnames[$i]} ${TARGET_CONFIGS[$i]}"
-        done
-        CHOSEN_CONFIG=$(${DIALOG_TOOL} --title "Available build configs" \
-                        --menu "Please choose a build config" \
-                        0 0 20 ${table} 3>&1 1>&2 2>&3)
-    fi
-    if [ -z "${CHOSEN_CONFIG}" ]; then
-        echo
-        echo "Config choices are:"
-        for i in ${!shortnames[@]}; do
-            printf '\t%d.  %s\n' $i "${shortnames[$i]}"
-        done
+    if [ -t 0 ]; then
+        if [ -z "${CHOSEN_CONFIG}" ] && [ -n "${DIALOG_TOOL}" ]; then
+            local table=""
+            for i in ${!shortnames[@]}; do
+                table="${table} ${shortnames[$i]} ${TARGET_CONFIGS[$i]}"
+            done
+            CHOSEN_CONFIG=$(${DIALOG_TOOL} --title "Available build configs" \
+                            --menu "Please choose a build config" \
+                            0 0 20 ${table} 3>&1 1>&2 2>&3)
+        fi
+        if [ -z "${CHOSEN_CONFIG}" ]; then
+            echo
+            echo "Config choices are:"
+            for i in ${!shortnames[@]}; do
+                printf '\t%d.  %s\n' $i "${shortnames[$i]}"
+            done
 
-        echo -n "Which would you like? [${default_answer}] "
-        read CHOSEN_CONFIG
+            echo -n "Which would you like? [${default_answer}] "
+            read CHOSEN_CONFIG
+        fi
     fi
 
     [ -z "${CHOSEN_CONFIG}" ] && CHOSEN_CONFIG=${default_answer}
@@ -177,26 +179,28 @@ function menuvariants {
 
     CHOSEN_VARIANT=$1
 
-    if [ -z "${CHOSEN_VARIANT}" ] && [ -n "${DIALOG_TOOL}" ]; then
-        local table=""
-        for variant in ${variants[@]}; do
-            table="${table} ${variant} ${variant}"
-        done
-        CHOSEN_VARIANT=$(${DIALOG_TOOL} --notags \
-                        --title "Available build variants" \
-                        --menu "Please choose a build variant" 0 0 20 \
-                        ${table} 3>&1 1>&2 2>&3)
-    fi
+    if [ -t 0 ]; then
+        if [ -z "${CHOSEN_VARIANT}" ] && [ -n "${DIALOG_TOOL}" ]; then
+            local table=""
+            for variant in ${variants[@]}; do
+                table="${table} ${variant} ${variant}"
+            done
+            CHOSEN_VARIANT=$(${DIALOG_TOOL} --notags \
+                            --title "Available build variants" \
+                            --menu "Please choose a build variant" 0 0 20 \
+                            ${table} 3>&1 1>&2 2>&3)
+        fi
 
-    if [ -z "${CHOSEN_VARIANT}" ]; then
-        echo
-        echo "Variant choices are:"
-        for i in ${!variants[@]}; do
-            printf '\t%d.  %s\n' $i "${variants[$i]}"
-        done
+        if [ -z "${CHOSEN_VARIANT}" ]; then
+            echo
+            echo "Variant choices are:"
+            for i in ${!variants[@]}; do
+                printf '\t%d.  %s\n' $i "${variants[$i]}"
+            done
 
-        echo -n "Which would you like? [${default_answer}] "
-        read CHOSEN_VARIANT
+            echo -n "Which would you like? [${default_answer}] "
+            read CHOSEN_VARIANT
+        fi
     fi
 
     [ -z "${CHOSEN_VARIANT}" ] && CHOSEN_VARIANT=${default_answer}
