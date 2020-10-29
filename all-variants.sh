@@ -70,20 +70,6 @@ function do_list_variants() (
 
 	source "${ROOT_DIR}/build/_wrapper_common.sh"
 
-	function _get_branch() {
-		BUILD_CONFIG=${target}
-		VARIANT=${variant}
-
-		source "${ROOT_DIR}/build/_setup_env.sh"
-
-		echo Branch:
-		echo "${BRANCH}"
-	}
-
-	function get_branch() {
-		_get_branch 2> /dev/null | awk '/Branch:/{p=1}p' | tail -n+2
-	}
-
 	if [ -n "${BUILD_CONFIG}" ]; then
 		BUILD_CONFIGS=("${BUILD_CONFIG}")
 	else
