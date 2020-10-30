@@ -57,6 +57,15 @@
 #   LD
 #     Override linker (flags) to be used.
 #
+#   HERMETIC_TOOLCHAIN
+#     When set, the PATH during kernel build will be restricted to a set of
+#     known prebuilt directories and selected host tools that are usually not
+#     provided by prebuilt toolchains.
+#
+#  ADDITIONAL_HOST_TOOLS
+#     A whitespace separated set of tools that will be allowed to be used from
+#     the host when running the build with HERMETIC_TOOLCHAIN=1.
+#
 #   ABI_DEFINITION
 #     Location of the abi definition file relative to <REPO_ROOT>/KERNEL_DIR
 #     If defined (usually in build.config), also copy that abi definition to

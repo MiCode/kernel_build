@@ -88,6 +88,23 @@ LIBUFDT_PREBUILTS_BIN
 BUILDTOOLS_PREBUILT_BIN
 )
 
+if [ -n "${HERMETIC_TOOLCHAIN}" ]; then
+  HOST_TOOLS=${OUT_DIR}/host_tools
+  rm -rf ${HOST_TOOLS}
+  mkdir -p ${HOST_TOOLS}
+  for tool in \
+      git \
+      perl \
+      rsync \
+      sh \
+      tar \
+      ${ADDITIONAL_HOST_TOOLS}
+  do
+      ln -sf $(which $tool) ${HOST_TOOLS}
+  done
+  PATH=${HOST_TOOLS}
+fi
+
 for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
     PREBUILT_BIN=\${${PREBUILT_BIN}}
     eval PREBUILT_BIN="${PREBUILT_BIN}"
