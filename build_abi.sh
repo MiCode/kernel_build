@@ -71,12 +71,14 @@ function show_help {
     echo "  -s | --update-symbol-list    Update main symbol list in the source directory"
     echo "  -n | --nodiff                Do not generate an ABI report with diff_abi"
     echo "  -r | --print-report          Print ABI short report in case of any differences"
+    echo "  -a | --full-report           Create a detailed ABI report"
 }
 
 UPDATE=0
 UPDATE_SYMBOL_LIST=0
 DIFF=1
 PRINT_REPORT=0
+FULL_REPORT=0
 
 if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
@@ -106,6 +108,10 @@ case $i in
     ;;
     -r|--print-report)
     PRINT_REPORT=1
+    shift # past argument=value
+    ;;
+    -a|--full-report)
+    FULL_REPORT=1
     shift # past argument=value
     ;;
     -h|--help)
@@ -264,7 +270,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             # the kernel binary. Possibly more.
             echo "========================================================"
             echo " Rerunning the build with symbol trimming re-enabled"
-            local SKIP_MRPROPER=1
+            SKIP_MRPROPER=1
         fi
     fi
 
@@ -280,12 +286,25 @@ fi
 echo "========================================================"
 echo " Creating ABI dump"
 
+ABI_LINUX_TREE=${DIST_DIR}
+ABI_VMLINUX_PATH=
+DELETE_UNSTRIPPED_MODULES=
+if [ -z "${DO_NOT_STRIP_MODULES}" ] && [ $(echo "${UNSTRIPPED_MODULES}" | tr -d '\n') = "*.ko" ]; then
+  if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ] && [ ! -f "${UNSTRIPPED_DIR}" ]; then
+    tar -xzf ${DIST_DIR}/${UNSTRIPPED_MODULES_ARCHIVE} -C $(dirname ${UNSTRIPPED_DIR})
+    DELETE_UNSTRIPPED_MODULES=1
+  fi
+  ABI_LINUX_TREE=${UNSTRIPPED_DIR}
+  ABI_VMLINUX_PATH="--vmlinux ${DIST_DIR}/vmlinux"
+fi
+
 # create abi dump
 COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
 id=${ABI_OUT_TAG:-$(git -C $KERNEL_DIR describe --dirty --always)}
 abi_out_file=abi-${id}.xml
 ${ROOT_DIR}/build/abi/dump_abi                \
-    --linux-tree ${DIST_DIR}                  \
+    --linux-tree ${ABI_LINUX_TREE}            \
+    ${ABI_VMLINUX_PATH}                       \
     --out-file ${DIST_DIR}/${abi_out_file}    \
     $KMI_SYMBOL_LIST_FLAG
 
@@ -298,6 +317,9 @@ sed -i "s#${ROOT_DIR}/${KERNEL_DIR}/##g" ${DIST_DIR}/${abi_out_file}
 sed -i "s#${ROOT_DIR}/##g" ${DIST_DIR}/${abi_out_file}
 
 # Append debug information to abi file
+if [ -n "${LLVM}" ]; then
+  CC=clang
+fi
 echo "
 <!--
      libabigail: $(abidw --version)
@@ -315,11 +337,18 @@ if [ -n "$ABI_DEFINITION" ]; then
         echo "========================================================"
         echo " Comparing ABI against expected definition ($ABI_DEFINITION)"
         abi_report=${DIST_DIR}/abi.report
+
+        FULL_REPORT_FLAG=
+        if [ $FULL_REPORT -eq 1 ]; then
+            FULL_REPORT_FLAG="--full-report"
+        fi
+
         set +e
         ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
                                        --new      ${DIST_DIR}/${abi_out_file} \
                                        --report   ${abi_report}               \
                                        --short-report ${abi_report}.short     \
+                                       $FULL_REPORT_FLAG                      \
                                        $KMI_SYMBOL_LIST_FLAG
         rc=$?
         set -e
@@ -343,6 +372,8 @@ if [ -n "$ABI_DEFINITION" ]; then
         cp -v ${DIST_DIR}/${abi_out_file} $KERNEL_DIR/$ABI_DEFINITION
     fi
 fi
+
+[ -n "${DELETE_UNSTRIPPED_MODULES}" ] && rm -rf ${UNSTRIPPED_DIR}
 
 exit $rc
 

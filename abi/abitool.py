@@ -23,7 +23,8 @@ log = logging.getLogger(__name__)
 
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
-    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list):
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
+            vmlinux_path=None):
         raise NotImplementedError()
 
     def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
@@ -39,7 +40,8 @@ ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 
 class Libabigail(AbiTool):
     """" Concrete AbiTool implementation for libabigail """
-    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list):
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
+            vmlinux_path=None):
         dump_abi_cmd = ['abidw',
                         # omit various sources of indeterministic abidw output
                         '--no-corpus-path',
@@ -53,22 +55,29 @@ class Libabigail(AbiTool):
                         '--out-file',
                         dump_path]
 
+        if vmlinux_path is not None:
+            dump_abi_cmd.extend(['--vmlinux', vmlinux_path])
+
         if symbol_list is not None:
             dump_abi_cmd.extend(['--kmi-whitelist', symbol_list])
 
         subprocess.check_call(dump_abi_cmd)
 
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report,
+                 symbol_list, full_report):
         log.info('libabigail diffing: {} and {} at {}'.format(old_dump,
                                                                 new_dump,
                                                                 diff_report))
         diff_abi_cmd = ['abidiff',
-                        '--leaf-changes-only',
                         '--flag-indirect',
-                        '--impacted-interfaces',
-                        '--dump-diff-tree',
                         old_dump,
                         new_dump]
+
+        if not full_report:
+            diff_abi_cmd.extend([
+                '--leaf-changes-only',
+                '--impacted-interfaces',
+            ])
 
         if symbol_list is not None:
             diff_abi_cmd.extend(['--kmi-whitelist', symbol_list])
@@ -94,7 +103,7 @@ class Libabigail(AbiTool):
 
         return rc
 
-def get_abi_tool(abi_tool):
+def get_abi_tool(abi_tool = "libabigail"):
     if abi_tool == 'libabigail':
         log.info('using libabigail for abi analysis')
         return Libabigail()
