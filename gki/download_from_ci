@@ -131,11 +131,11 @@ def get_build_kernel_version(data):
   if branch == "aosp_kernel-common-android-mainline":
     return "mainline"
   else:
-    pattern = "android\d\d-(\d+.\d+)$"
+    pattern = "android(\d\d)?-(?P<version>\d+\.\d+|\w\+)(-stable)?$"
     result = re.search(pattern, branch)
     if not result:
       raise Exception("Could not determine kernel version in branch " + branch)
-    return result.group(1)
+    return result.group('version')
 
 def get_git_log(old_sha, new_sha, path=get_kernel_dir()):
   """Return a string containing the git log between two commits."""
@@ -186,7 +186,7 @@ def repackage_kernels(build_is_arm64, output_dir, version, suffix = ""):
   if build_is_arm64:
     os.rename(os.path.join(output_dir, "Image"), uncompressed_kernel)
     # older platform versions did not need compressed kernels
-    if not version in ["4.14", "4.19"]:
+    if not version in ["4.14"]:
       subprocess.check_call(["gzip -c " + uncompressed_kernel + " > " +
                              os.path.join(output_dir, "kernel-" +
                                           version + "-gz" + suffix)],
@@ -271,7 +271,7 @@ def download_kernel_modules(target, output_dir, fetch_initramfs=False):
   func = functools.partial(download, url_base, output_dir)
   _pool.map(func, files_to_fetch)
 
-def update_android_4_1x(output_dir, version):
+def update_android_4_1x_pq(output_dir, version):
   output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")
 
   arm64_dirname = "%s-arm64" % version
@@ -294,10 +294,32 @@ def update_android_4_1x(output_dir, version):
   commit_prebuilts(output_dir, gitlog)
 
 def update_android_4_14_p(output_dir):
-  return update_android_4_1x(output_dir, "4.14")
+  return update_android_4_1x_pq(output_dir, "4.14")
 
 def update_android_4_19_q(output_dir):
-  return update_android_4_1x(output_dir, "4.19")
+  return update_android_4_1x_pq(output_dir, "4.19")
+
+def update_android_4_19_r(output_dir):
+  old_sha = None
+
+  arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", "4.19", "arm64")
+  arm64_kernel = os.path.join(arm64_dir, "kernel-4.19")
+  if os.path.isfile(arm64_kernel):
+      (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  # arm64 GKI kernels and kernel modules
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
+  download_kernel("kernel_debug_aarch64", "4.19" , arm64_dir)
+  download_kernel("kernel_aarch64", "4.19", arm64_dir)
+  download_kernel_modules("kernel_aarch64", arm64_dir)
+  get_or_update_abi_definition("kernel_aarch64", arm64_dir)
+  write_prebuilt_info(arm64_dir)
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+  if old_sha is not None:
+      gitlog = get_git_log(old_sha, new_sha)
+  else:
+      gitlog = "Initial prebuilts at commit {}\n".format(new_sha)
+  commit_prebuilts(arm64_dir, gitlog)
 
 def update_android11_5_4(output_dir):
   output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")
@@ -415,6 +437,8 @@ def update_gki():
     update_android_4_14_p(output_dir)
   elif branch == "aosp_kernel-q-common-android-4.19":
     update_android_4_19_q(output_dir)
+  elif branch == "aosp_kernel-common-android-4.19-stable":
+    update_android_4_19_r(output_dir)
   elif branch == "aosp_kernel-common-android11-5.4":
     update_android11_5_4(output_dir)
   elif branch == "aosp_kernel-common-android-mainline":
