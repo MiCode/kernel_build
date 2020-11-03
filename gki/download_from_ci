@@ -426,7 +426,8 @@ def download_u_boot(target, output_dir):
     os.mkdir(output_dir)
 
   build_is_arm64 = target in ARM64_TARGETS
-  files = ["u-boot.bin"] if build_is_arm64 else ["u-boot.rom", "System.map"]
+  files = ["u-boot.bin"] if build_is_arm64 else ["u-boot.rom"]
+  files.append("System.map")
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
   func = functools.partial(download, url_base, output_dir)
