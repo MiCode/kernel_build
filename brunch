@@ -69,7 +69,7 @@ function menutargets {
     local shortnames
     local duplicates
 
-    create_targets_array TARGET_CONFIGS
+    create_targets_array TARGET_CONFIGS ORIGIN_DIRS
 
     if [ ${#TARGET_CONFIGS[@]} -eq 0 ]; then
         echo "No configs found!"
@@ -110,7 +110,7 @@ function menutargets {
 
     # Now, on to actually figuring out the build.config
 
-    default_answer=${shortnames[0]}
+    default_answer=0
 
     if [ -n "$1" ]; then
         CHOSEN_CONFIG=$1
@@ -143,6 +143,7 @@ function menutargets {
     # If response is a number, then use it as an index into TARGET_CONFIGS
     if (echo -n ${CHOSEN_CONFIG} | grep -q -e "^[0-9][0-9]*$"); then
         if [ ${CHOSEN_CONFIG} -lt "${#TARGET_CONFIGS[@]}" ]; then
+            KERNEL_DIR=${ORIGIN_DIRS[${CHOSEN_CONFIG}]}
             CHOSEN_CONFIG=${TARGET_CONFIGS[${CHOSEN_CONFIG}]}
         fi
     fi
@@ -152,6 +153,7 @@ function menutargets {
     idx=$(catarr shortnames | grep -m 1 -n "${CHOSEN_CONFIG}" | cut -f1 -d:)
     if [ -n "${idx}" ]; then
         ((idx--))
+        KERNEL_DIR=${ORIGIN_DIRS[${idx}]}
         CHOSEN_CONFIG=${TARGET_CONFIGS[${idx}]}
     fi
 
@@ -244,6 +246,7 @@ echo
 echo "Creating ./build.config:"
 echo "======================"
 echo """[ -z "\${VARIANT}"] && VARIANT=${CHOSEN_VARIANT}
+KERNEL_DIR=${KERNEL_DIR}
 . ${CHOSEN_CONFIG}
 """ | tee ./build.config
 echo "======================"
