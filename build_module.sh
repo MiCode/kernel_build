@@ -98,24 +98,66 @@ export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH 
 
 TOOL_ARGS=()
 
-if [ -n "${CC}" ]; then
-  TOOL_ARGS+=("CC=${CC}" "HOSTCC=${CC}")
+# LLVM=1 implies what is otherwise set below; it is a more concise way of
+# specifying CC=clang LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy <etc>, for
+# newer kernel versions.
+if [[ -n "${LLVM}" ]]; then
+  TOOL_ARGS+=("LLVM=1")
+  # Reset a bunch of variables that the kernel's top level Makefile does, just
+  # in case someone tries to use these binaries in this script such as in
+  # initramfs generation below.
+  HOSTCC=clang
+  HOSTCXX=clang++
+  CC=clang
+  LD=ld.lld
+  AR=llvm-ar
+  NM=llvm-nm
+  OBJCOPY=llvm-objcopy
+  OBJDUMP=llvm-objdump
+  READELF=llvm-readelf
+  OBJSIZE=llvm-size
+  STRIP=llvm-strip
+else
+  if [ -n "${HOSTCC}" ]; then
+    TOOL_ARGS+=("HOSTCC=${HOSTCC}")
+  fi
+
+  if [ -n "${CC}" ]; then
+    TOOL_ARGS+=("CC=${CC}")
+    if [ -z "${HOSTCC}" ]; then
+      TOOL_ARGS+=("HOSTCC=${CC}")
+    fi
+  fi
+
+  if [ -n "${LD}" ]; then
+    TOOL_ARGS+=("LD=${LD}" "HOSTLD=${LD}")
+    custom_ld=${LD##*.}
+    if [ -n "${custom_ld}" ]; then
+      TOOL_ARGS+=("HOSTLDFLAGS=-fuse-ld=${custom_ld}")
+    fi
+  fi
+
+  if [ -n "${NM}" ]; then
+    TOOL_ARGS+=("NM=${NM}")
+  fi
+
+  if [ -n "${OBJCOPY}" ]; then
+    TOOL_ARGS+=("OBJCOPY=${OBJCOPY}")
+  fi
 fi
 
-if [ -n "${LD}" ]; then
-  TOOL_ARGS+=("LD=${LD}")
-fi
-
-if [ -n "${NM}" ]; then
-  TOOL_ARGS+=("NM=${NM}")
-fi
-
-if [ -n "${OBJCOPY}" ]; then
-  TOOL_ARGS+=("OBJCOPY=${OBJCOPY}")
+if [ -n "${LLVM_IAS}" ]; then
+  TOOL_ARGS+=("LLVM_IAS=${LLVM_IAS}")
+  # Reset $AS for the same reason that we reset $CC etc above.
+  AS=clang
 fi
 
 if [ -n "${DEPMOD}" ]; then
   TOOL_ARGS+=("DEPMOD=${DEPMOD}")
+fi
+
+if [ -n "${DTC}" ]; then
+  TOOL_ARGS+=("DTC=${DTC}")
 fi
 
 # Allow hooks that refer to $CC_LD_ARG to keep working until they can be
