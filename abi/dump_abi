@@ -21,9 +21,9 @@ import sys
 
 from abitool import get_abi_tool
 
-def dump_abi(abitool, linux_tree, out_file, symbol_list):
+def dump_abi(abitool, linux_tree, out_file, symbol_list, vmlinux_path=None):
     tool = get_abi_tool(abitool)
-    tool.dump_kernel_abi(linux_tree, out_file, symbol_list)
+    tool.dump_kernel_abi(linux_tree, out_file, symbol_list, vmlinux_path)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -31,6 +31,10 @@ def main():
                         help='Path to kernel tree containing '
                              'vmlinux and modules',
                         required=True)
+    parser.add_argument('--vmlinux',
+                        help='Path to the vmlinux binary to consider to '
+                             'emit the ABI of the union of vmlinux and its '
+                             'modules', default=None)
     parser.add_argument('--abi-tool', default='libabigail',
                         help='abi tool to be used to monitor abi')
     parser.add_argument('--out-file', default=None,
@@ -43,7 +47,8 @@ def main():
     dump_abi(args.abi_tool,
              args.linux_tree,
              args.out_file or os.path.join(args.linux_tree, "abi.xml"),
-             args.kmi_symbol_list)
+             args.kmi_symbol_list,
+             args.vmlinux)
 
 if __name__ == "__main__":
     sys.exit(main())
