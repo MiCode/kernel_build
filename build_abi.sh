@@ -254,7 +254,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
 fi
 
 # Already built the final kernel if updating symbol list and trimming symbol list is disabled
-if ! [ $UPDATE_SYMBOL_LIST -eq 1 -a -z "${TRIM_NONLISTED_KMI}" ]; then
+if ! [ $UPDATE_SYMBOL_LIST -eq 1 -a -z "${TRIM_NONLISTED_KMI}" -a "$FULL_GKI_ABI" -eq 0 ]; then
     SKIP_MRPROPER="${SKIP_MRPROPER}" build_kernel "$@"
 fi
 
