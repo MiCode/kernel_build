@@ -400,6 +400,7 @@ else
   RAMDISK_EXT="lz4"
 fi
 
+rm -rf ${DIST_DIR}
 mkdir -p ${OUT_DIR} ${DIST_DIR}
 
 echo "========================================================"
