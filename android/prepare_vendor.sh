@@ -195,6 +195,6 @@ echo "  Merging vendor devicetree overlays"
 
 (
   cd ${ROOT_DIR}
-  PATH=${ROOT_DIR}/external/dtc:${PATH}
+  PATH=${KP_OUT_DIR}/external/dtc:${PATH}
   ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${KP_OUT_DIR}/dist/merged-dtbs
 )
