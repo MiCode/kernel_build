@@ -76,6 +76,8 @@ export KBUILD_BUILD_HOST=build-host
 export KBUILD_BUILD_USER=build-user
 export KBUILD_BUILD_VERSION=1
 
+export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/="
+
 # List of prebuilt directories shell variables to incorporate into PATH
 PREBUILTS_PATHS=(
 LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN
