@@ -112,14 +112,25 @@ KP_OUT_DIR=$(rel_path ${ANDROID_KP_OUT_DIR} ${ROOT_DIR})
 
 echo "  kernel platform output directory: ${ANDROID_KP_OUT_DIR}"
 
+echo """OUT_DIR=${KP_OUT_DIR}
+$(cat ${ROOT_DIR}/build.config)
+""" > ${ROOT_DIR}/build.config
+
+################################################################################
+if [ "${RECOMPILE_KERNEL}" == "1" ]; then
+  echo
+  echo "  Recompiling kernel"
+
+  (
+    cd ${ROOT_DIR}
+    SKIP_MRPROPER=1 ./build/build.sh
+  )
+fi
+
 if [ ! -e "${ANDROID_KP_OUT_DIR}" ]; then
   echo "!! kernel platform output directory doesn't exist. Bad path or output wasn't copied?"
   exit 1
 fi
-
-echo """OUT_DIR=${KP_OUT_DIR}
-$(cat ${ROOT_DIR}/build.config)
-""" > ${ROOT_DIR}/build.config
 
 ################################################################################
 echo
