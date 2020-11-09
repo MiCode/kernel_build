@@ -103,6 +103,11 @@ if [ -n "${HERMETIC_TOOLCHAIN}" ]; then
       ln -sf $(which $tool) ${HOST_TOOLS}
   done
   PATH=${HOST_TOOLS}
+
+  # use relative paths for file name references in the binaries
+  # (e.g. debug info)
+  export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/="
+
 fi
 
 for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
