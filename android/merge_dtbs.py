@@ -73,6 +73,8 @@ def merge_dts(base, techpack, output_folder):
 		techpack_files = techpack.get(key, [])
 		file_out = os.path.join(output_folder, filename)
 		if len(techpack_files) == 0:
+			print("No techpack .dtbos found for {0}. Copying {0} to {1}".format(
+			       filename, file_out))
 			copy(base[key][0], file_out)
 			continue
 
