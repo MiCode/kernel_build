@@ -26,8 +26,7 @@ LIBABIGAIL_SRC="${BASE_DIR}/abigail-src"
 
 function show_exports() {
   echo
-  echo "export PATH=\"${OUT_DIR}/bin:\${PATH}\""
-  echo "export LD_LIBRARY_PATH=\"${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:\${LD_LIBRARY_PATH}\""
+  echo export "PATH=\"$OUT_DIR/bin:\$PATH\"" "LD_LIBRARY_PATH=\"$OUT_DIR/lib:\$LD_LIBRARY_PATH\""
   echo
 }
 
@@ -44,8 +43,8 @@ fi
 rm -rf "${OUT_DIR}"
 
 # Add the future PATHs to the environment for the builds to pick up
-export PATH="${OUT_DIR}/bin:${PATH}"
-export LD_LIBRARY_PATH="${OUT_DIR}/lib:${OUT_DIR}/lib/elfutils:${LD_LIBRARY_PATH}"
+export PATH="$OUT_DIR/bin:$PATH"
+export LD_LIBRARY_PATH="$OUT_DIR/lib:$LD_LIBRARY_PATH"
 
 PACKAGES="autoconf bison flex g++ gawk libtool libxml2-dev make pkg-config python3 zlib1g-dev"
 # Install the dependencies.
