@@ -53,6 +53,11 @@
 #     Space separated list of modules to be copied to <DIST_DIR>/unstripped
 #     for debugging purposes.
 #
+#   MODULE_OUT
+#     Location to place compiled module output. When this option is specified,
+#     Only one EXT_MODULES may be specified. A symlink is created from the
+#     output Kbuild will use to MODULE_OUT.
+#
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
@@ -182,8 +187,15 @@ for EXT_MOD in ${EXT_MODULES}; do
   EXT_MOD_REL=$(rel_path ${ROOT_DIR}/${EXT_MOD} ${KERNEL_DIR})
   # The output directory must exist before we invoke make. Otherwise, the
   # build system behaves horribly wrong.
-  mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
   set -x
+  if [ -n "${MODULE_OUT}" ]; then
+    mkdir -p $(dirname ${OUT_DIR}/${EXT_MOD_REL})
+    mkdir -p ${MODULE_OUT}
+    rm -rf ${OUT_DIR}/${EXT_MOD_REL}
+    ln -srT ${MODULE_OUT} ${OUT_DIR}/${EXT_MOD_REL}
+  else
+    mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
+  fi
   make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
   if [ -n "${INSTALL_MODULE_HEADERS}" ]; then
