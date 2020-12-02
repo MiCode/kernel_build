@@ -33,20 +33,12 @@ pushd $BASE > /dev/null
 
   echo "Switching to $BRANCH"
 
-  if [[ ${BRANCH} == "11-5.4" ]]; then
-    alt_name="5.4-stable"
-  fi
-
-  if [[ ${BRANCH} == "12-5.4" ]]; then
-    alt_name="5.4"
-  fi
-
   for dir in common common-modules/virtual-device; do
     if [ -L ${dir} ]; then
       rm ${dir}
     fi
 
-    for candidate in ${dir}-${BRANCH} ${dir}-${alt_name} ${dir}${BRANCH}; do
+    for candidate in ${dir}-${BRANCH} ${dir}${BRANCH}; do
       if [ -d ${candidate} ]; then
           (
             cd $(dirname $candidate)
