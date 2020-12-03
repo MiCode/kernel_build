@@ -143,13 +143,50 @@ echo "  setting up Android tree for compiling modules"
 # Given that there is no strict control for kernel platform source or output location,
 # there is no consistent place to expect android-dlkm output to live
 rm -f "${ROOT_DIR}/la"
-rm -f "${ANDROID_KERNEL_OUT}"
-set -x
 ln -srT "${ANDROID_BUILD_TOP}" "${ROOT_DIR}/la"
-# Android does not know which target or variant of kernel platform was used
-# it just expects kernel platform build output to be in ${ANDROID_KERNEL_OUT}
-ln -srT "${ANDROID_KP_OUT_DIR}/dist" "${ANDROID_KERNEL_OUT}"
-set +x
+
+################################################################################
+echo
+echo "  Preparing prebuilt folder ${ANDROID_KERNEL_OUT}"
+
+rm -rf "${ANDROID_KERNEL_OUT}"
+mkdir "${ANDROID_KERNEL_OUT}"
+
+first_stage_kos=$(mktemp)
+if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
+  cat ${ANDROID_KP_OUT_DIR}/dist/modules.load | \
+	  xargs -L 1 basename | \
+	  xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${first_stage_kos}
+else
+  find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko > ${first_stage_kos}
+fi
+
+if [ -s "${first_stage_kos}" ]; then
+  cp $(cat ${first_stage_kos}) ${ANDROID_KERNEL_OUT}/
+else
+  echo "  WARNING!! No first stage modules found"
+fi
+
+if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ]; then
+  cp ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ${ANDROID_KERNEL_OUT}/modules.blocklist
+fi
+
+second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos})
+if [ -n "${second_stage_kos}" ]; then
+  mkdir ${ANDROID_KERNEL_OUT}/vendor_dlkm
+  cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
+else
+  echo "  WARNING!! No vendor_dlkm (second stage) modules found"
+fi
+
+if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist ]; then
+  cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist \
+    ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.blocklist
+fi
+
+cp ${ANDROID_KP_OUT_DIR}/dist/Image ${ANDROID_KERNEL_OUT}/
+cp ${ANDROID_KP_OUT_DIR}/dist/vmlinux ${ANDROID_KERNEL_OUT}/
+cp ${ANDROID_KP_OUT_DIR}/dist/System.map ${ANDROID_KERNEL_OUT}/
 
 ################################################################################
 echo
@@ -170,12 +207,10 @@ if [ ! -e ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include ]; then
 fi
 
 set -x
-rm -rf ${ANDROID_KP_OUT_DIR}/dist/kernel-headers
-
 ${ROOT_DIR}/build/android/export_headers.py \
   ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include \
   ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi \
-  ${ANDROID_KP_OUT_DIR}/dist/kernel-headers \
+  ${ANDROID_KERNEL_OUT}/kernel-headers \
   arm64
 set +x
 
@@ -205,8 +240,10 @@ done
 echo
 echo "  Merging vendor devicetree overlays"
 
+mkdir ${ANDROID_KERNEL_OUT}/dtbs
+
 (
   cd ${ROOT_DIR}
   PATH=${KP_OUT_DIR}/external/dtc:${PATH}
-  ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${KP_OUT_DIR}/dist/merged-dtbs
+  ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${ANDROID_KERNEL_OUT}/dtbs
 )
