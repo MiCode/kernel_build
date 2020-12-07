@@ -108,6 +108,18 @@ if [ -n "${HERMETIC_TOOLCHAIN}" ]; then
   # (e.g. debug info)
   export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/="
 
+  # set the common sysroot
+  sysroot_flags+="--sysroot=${ROOT_DIR}/build/build-tools/sysroot "
+
+  # add openssl (via boringssl) and other prebuilts into the lookup path
+  cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
+
+  # add openssl and further prebuilt libraries into the lookup path
+  ldflags+="-Wl,-rpath,${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+  ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+
+  export HOSTCFLAGS="$sysroot_flags $cflags"
+  export HOSTLDFLAGS="$sysroot_flags $ldflags"
 fi
 
 for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
