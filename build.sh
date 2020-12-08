@@ -384,6 +384,12 @@ function build_vendor_dlkm() {
   create_modules_staging "${VENDOR_DLKM_MODULES_LIST}" "${MODULES_STAGING_DIR}" \
     "${VENDOR_DLKM_STAGING_DIR}" "${VENDOR_DLKM_MODULES_BLOCKLIST}"
 
+  cp ${VENDOR_DLKM_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/vendor_dlkm.modules.load
+  if [ -e ${VENDOR_DLKM_STAGING_DIR}/lib/modules/modules.blocklist ]; then
+    cp ${VENDOR_DLKM_STAGING_DIR}/lib/modules/modules.blocklist \
+      ${DIST_DIR}/vendor_dlkm.modules.blocklist
+  fi
+
   local vendor_dlkm_props_file
 
   if [ -z "${VENDOR_DLKM_PROPS}" ]; then
@@ -829,6 +835,9 @@ if [ -n "${MODULES}" ]; then
 
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
+    if [ -e "${INITRAMFS_STAGING_DIR}/lib/modules/modules.blocklist" ]; then
+      cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.blocklist ${DIST_DIR}/modules.blocklist
+    fi
 
     if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
       mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
