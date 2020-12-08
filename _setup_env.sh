@@ -88,7 +88,7 @@ LIBUFDT_PREBUILTS_BIN
 BUILDTOOLS_PREBUILT_BIN
 )
 
-if [ -n "${HERMETIC_TOOLCHAIN}" ]; then
+if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   HOST_TOOLS=${OUT_DIR}/host_tools
   rm -rf ${HOST_TOOLS}
   mkdir -p ${HOST_TOOLS}
