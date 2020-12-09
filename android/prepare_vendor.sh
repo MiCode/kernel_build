@@ -175,7 +175,8 @@ rm -rf ${ANDROID_KP_OUT_DIR}/dist/kernel-headers
 ${ROOT_DIR}/build/android/export_headers.py \
   ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include \
   ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi \
-  ${ANDROID_KP_OUT_DIR}/dist/kernel-headers
+  ${ANDROID_KP_OUT_DIR}/dist/kernel-headers \
+  arm64
 set +x
 
 ################################################################################

@@ -66,15 +66,16 @@ def print_diagnostics(kernel_hdrs, intersection, matches, mismatches, msm_spec_h
 
 def print_usage():
     print "Usage: python export_headers.py <MSM_HDRS_PATH> <BIONIC_HDRS_PATH>" +\
-          " <PATH_TO_EXPORT_MSM_HDRS>"
+          " <PATH_TO_EXPORT_MSM_HDRS> <ARCH>"
 
 """
 This will return the MSM exclusive headers.
 """
 def generate_exports(kernel_hdrs_path, bionic_hdrs_path,\
-                     final_dest):
+                     final_dest, arch):
     kernel_hdrs = generate_hdr_names(kernel_hdrs_path)
     bionic_hdrs = generate_hdr_names(bionic_hdrs_path)
+    bionic_hdrs.update(generate_hdr_names(os.path.join(bionic_hdrs_path, 'asm-' + arch)))
     msm_bionic_intersection = kernel_hdrs.intersection(bionic_hdrs)
     msm_spec_hdrs = kernel_hdrs.difference(bionic_hdrs)
     hdr_matches = set()
@@ -96,13 +97,15 @@ def generate_exports(kernel_hdrs_path, bionic_hdrs_path,\
 #KERNEL_HDRS_PATH = Kernel SI UAPI header path
 #BIONIC_HDRS_PATH = bionic/libc/kernel/uapi/linux
 #FINAL_DEST = Location where the MSM spec headers are to be exported to
-if len(sys.argv) < 3:
+#ARCH = arch for asm headers
+if len(sys.argv) < 4:
     print_usage()
     sys.exit(1)
 else:
     KERNEL_HDRS_PATH = sys.argv[1]
     BIONIC_HDRS_PATH = sys.argv[2]
     FINAL_DEST = sys.argv[3]
+    ARCH = sys.argv[4]
 export_hdrs = generate_exports(KERNEL_HDRS_PATH, BIONIC_HDRS_PATH,\
-                               FINAL_DEST)
+                               FINAL_DEST, ARCH)
 sys.exit(0)
