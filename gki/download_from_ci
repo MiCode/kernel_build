@@ -187,7 +187,7 @@ def repackage_kernels(build_is_arm64, output_dir, version, suffix = ""):
     os.rename(os.path.join(output_dir, "Image"), uncompressed_kernel)
     # older platform versions did not need compressed kernels
     if not version in ["4.14"]:
-      subprocess.check_call(["gzip -c " + uncompressed_kernel + " > " +
+      subprocess.check_call(["gzip -nc " + uncompressed_kernel + " > " +
                              os.path.join(output_dir, "kernel-" +
                                           version + "-gz" + suffix)],
                             shell=True)
