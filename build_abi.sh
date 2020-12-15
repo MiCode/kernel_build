@@ -137,6 +137,8 @@ if [[ -z "$OUT_DIR" ]]; then
     wipe_out_dir=1
 fi
 
+# TODO (b/175681515)
+export HERMETIC_TOOLCHAIN=0
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 if [ -z "${KMI_SYMBOL_LIST}" ]; then
