@@ -33,6 +33,19 @@ import subprocess
 from shutil import copy
 
 """
+This function is used to run subprocesses and handle errors from subprocess
+"""
+def run_command(cmd):
+	returned_output = None
+	print(' '.join(cmd))
+	try:
+		returned_output = subprocess.check_output(cmd)
+	except CalledProcessError as e:
+		print("{} returned error: {}\nOutput: {}".format(e.cmd, e.returncode, e.output))
+	finally:
+		return returned_output.decode("utf-8").strip()
+
+"""
 This function uses fdtget to get the specified property from a compiled devicetree file.
 """
 def fdt_get_prop(filename, node, prop, prop_type):
@@ -88,9 +101,9 @@ def merge_dts(base, techpack, output_folder):
 			cmd.extend(base[key])
 			cmd.extend(techpack_files)
 			cmd.extend(["-o", file_out])
-		print(' '.join(cmd))
 		# returns output as byte string
-		returned_output = subprocess.check_output(cmd)
+		run_command(cmd)
+
 	unmatched = techpack.keys() - base.keys()
 	if len(unmatched) > 0:
 		print('WARNING! Unmatched techpack DTBs!')
