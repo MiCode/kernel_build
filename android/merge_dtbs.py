@@ -73,6 +73,15 @@ def parse_dt_files(dt_folder):
 
 	return dt_dictionary
 
+def generate_final_dtb(filename, techpack_files, file_out):
+	copy(filename, file_out)
+	for techpack_file in techpack_files:
+		cmd = ["ufdt_apply_overlay"]
+		cmd.append(file_out)
+		cmd.append(techpack_file)
+		cmd.append(file_out)
+		run_command(cmd)
+
 """
 This function uses the cached msm-id and board-id for each dt file to figure out the dts to merge
 together. This is done using the pre-compiled ufdt_apply_overlay and fdtoverlaymerge for stitching
@@ -92,17 +101,13 @@ def merge_dts(base, techpack, output_folder):
 			continue
 
 		if filename.split(".")[-1] == "dtb":
-			cmd = ["ufdt_apply_overlay"]
-			cmd.extend(base[key])
-			cmd.extend(techpack_files)
-			cmd.append(file_out)
+			generate_final_dtb(base[key][0], techpack_files, file_out)
 		else:
 			cmd = ["fdtoverlaymerge", "-i"]
 			cmd.extend(base[key])
 			cmd.extend(techpack_files)
 			cmd.extend(["-o", file_out])
-		# returns output as byte string
-		run_command(cmd)
+			run_command(cmd)
 
 	unmatched = techpack.keys() - base.keys()
 	if len(unmatched) > 0:
