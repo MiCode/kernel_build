@@ -5,6 +5,7 @@
 #
 # Copyright (C) 2019 The Android Open Source Project
 #
+# Copyright (C) 2020 XiaoMi, Inc.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -59,6 +60,16 @@ make_defconfig()
 		set -x
 		(cd ${KERNEL_DIR} && \
 		${MAKE_PATH}make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		set +x
+	fi
+
+	if [ ! -z "${KERNEL_CONFIG_OVERRIDE_FACTORY}"  ]; then
+		echo "Rebuilding defconfig"
+		echo "Overriding kernel config with" ${KERNEL_CONFIG_OVERRIDE_FACTORY};
+		echo ${KERNEL_CONFIG_OVERRIDE_FACTORY} >> ${OUT_DIR}/.config;
+		set -x
+		(cd ${KERNEL_DIR} && \
+		make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig)
 		set +x
 	fi
 }
