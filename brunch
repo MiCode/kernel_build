@@ -35,9 +35,8 @@ function show_help {
     echo "Create a simple build.config"
 }
 
-
-if ( which realpath >/dev/null 2>&1 ) && [ "$(realpath ${ROOT_DIR} --relative-to=${PWD})" != "." ]; then
-    echo "brunch must be run in ./$(realpath ${ROOT_DIR} --relative-to=${PWD}) ($(realpath ${ROOT_DIR}))"
+if [ $(realpath "${ROOT_DIR}") != $(realpath "${PWD}") ]; then
+    echo "$0 must be run in $(realpath ${ROOT_DIR})"
     echo
     show_help
     exit -1
