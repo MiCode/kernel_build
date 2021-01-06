@@ -368,6 +368,7 @@ def update_androidx(output_dir, version):
 
   # arm64 GKI kernels and kernel modules
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_dir)
   download_kernel("kernel_debug_aarch64", version, arm64_dir)
   download_kernel("kernel_aarch64", version, arm64_dir)
   download_kernel_modules("kernel_aarch64", arm64_dir)
@@ -379,6 +380,7 @@ def update_androidx(output_dir, version):
 
   # x86_64 GKI kernels and kernel modules
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_dir)
   download_kernel("kernel_debug_x86_64", version, x86_64_dir)
   download_kernel("kernel_x86_64", version, x86_64_dir)
   download_kernel_modules("kernel_x86_64", x86_64_dir)
