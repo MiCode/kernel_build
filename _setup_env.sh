@@ -97,7 +97,11 @@ for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
         PATH=${ROOT_DIR}/${PREBUILT_BIN}:${PATH}
     fi
 done
+PATH=${COMMON_OUT_DIR}/host/bin:${PATH}
+LD_LIBRARY_PATH=${COMMON_OUT_DIR}/host/lib:${LD_LIBRARY_PATH}
+
 export PATH
+export LD_LIBRARY_PATH
 
 echo
 echo "PATH=${PATH}"

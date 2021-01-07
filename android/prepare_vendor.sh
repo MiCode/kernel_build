@@ -244,6 +244,5 @@ mkdir ${ANDROID_KERNEL_OUT}/dtbs
 
 (
   cd ${ROOT_DIR}
-  PATH=${KP_OUT_DIR}/external/dtc:${PATH}
   ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${ANDROID_KERNEL_OUT}/dtbs
 )
