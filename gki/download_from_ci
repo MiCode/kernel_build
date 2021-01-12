@@ -399,8 +399,8 @@ def update_androidx(output_dir, version):
   subprocess.check_call(["git", "rm", "-rf", arm64_cf_dirname,
                          x86_64_cf_dirname], cwd=cf_dir)
 
-  download_kernel_modules("kernel_cf_aarch64", arm64_cf_dir, fetch_initramfs=True)
-  download_kernel_modules("kernel_cf_x86_64", x86_64_cf_dir, fetch_initramfs=True)
+  download_kernel_modules("kernel_virt_aarch64", arm64_cf_dir, fetch_initramfs=True)
+  download_kernel_modules("kernel_virt_x86_64", x86_64_cf_dir, fetch_initramfs=True)
 
   # i686 CF kernel and kernel modules
   i686_cf_dirname = version + "-i686"
@@ -409,8 +409,8 @@ def update_androidx(output_dir, version):
   subprocess.check_call(["git", "rm", "-rf", i686_cf_dirname], cwd=cf_dir)
   os.mkdir(i686_cf_dir)
 
-  download_kernel("kernel_cf_i686", version, i686_cf_dir)
-  download_kernel_modules("kernel_cf_i686", i686_cf_dir)
+  download_kernel("kernel_virt_i686", version, i686_cf_dir)
+  download_kernel_modules("kernel_virt_i686", i686_cf_dir)
 
   commit_prebuilts(cf_dir, gitlog)
 
