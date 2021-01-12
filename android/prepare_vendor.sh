@@ -193,7 +193,8 @@ echo
 echo "  cleaning up kernel_platform tree for Android"
 
 set -x
-find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) -delete
+find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
+     -a -not -path ${ROOT_DIR}/common/Android.bp -delete
 set +x
 
 ################################################################################
