@@ -904,28 +904,28 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 
   MKBOOTIMG_RAMDISKS=()
 
-  CPIO_NAME=""
-  if [ -n "${VENDOR_RAMDISK_BINARY}" ]; then
-    if ! [ -f "${VENDOR_RAMDISK_BINARY}" ]; then
-      echo "Unable to locate vendor ramdisk ${VENDOR_RAMDISK_BINARY}."
+  CPIO_NAME=()
+  for vendor_ramdisk_binary in ${VENDOR_RAMDISK_BINARY}; do
+    if ! [ -f "${vendor_ramdisk_binary}" ]; then
+      echo "Unable to locate vendor ramdisk ${vendor_ramdisk_binary}."
       exit 1
     fi
-    CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
-    if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
-      echo "${VENDOR_RAMDISK_BINARY} is GZIP compressed"
-      MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
-    elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
-      echo "${VENDOR_RAMDISK_BINARY} is LZ4 compressed"
-      MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
-    elif cpio -t < "${VENDOR_RAMDISK_BINARY}" &>/dev/null; then
-      echo "${VENDOR_RAMDISK_BINARY} is plain CPIO archive"
-      MKBOOTIMG_RAMDISKS+=("${VENDOR_RAMDISK_BINARY}")
+    cpio_name="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
+    CPIO_NAME+=("${cpio_name}")
+    if ${DECOMPRESS_GZIP} "${vendor_ramdisk_binary}" 2>/dev/null > "${cpio_name}"; then
+      echo "${vendor_ramdisk_binary} is GZIP compressed"
+    elif ${DECOMPRESS_LZ4} "${vendor_ramdisk_binary}" 2>/dev/null > "${cpio_name}"; then
+      echo "${vendor_ramdisk_binary} is LZ4 compressed"
+    elif cpio -t < "${vendor_ramdisk_binary}" &>/dev/null; then
+      echo "${vendor_ramdisk_binary} is plain CPIO archive"
+      cp "${vendor_ramdisk_binary}" "${cpio_name}"
     else
-      echo "Unable to identify type of vendor ramdisk ${VENDOR_RAMDISK_BINARY}"
-      rm -f "${CPIO_NAME}"
+      echo "Unable to identify type of vendor ramdisk ${vendor_ramdisk_binary}"
+      rm -f "${CPIO_NAME[*]}"
       exit 1
     fi
-  fi
+  done
+  MKBOOTIMG_RAMDISKS+=(${CPIO_NAME[@]})
 
   if [ -f "${MODULES_STAGING_DIR}/initramfs.cpio" ]; then
     MKBOOTIMG_RAMDISKS+=("${MODULES_STAGING_DIR}/initramfs.cpio")
@@ -933,7 +933,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 
   if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
     cat ${MKBOOTIMG_RAMDISKS[*]} | ${RAMDISK_COMPRESS} - > ${DIST_DIR}/ramdisk.${RAMDISK_EXT}
-    [ -n "${CPIO_NAME}" ] && rm -f "${CPIO_NAME}"
+    [ "${#CPIO_NAME[@]}" -ne 0 ] && rm -f ${CPIO_NAME[*]}
   elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
     echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
     exit 1
