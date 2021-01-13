@@ -152,3 +152,4 @@ function check_defconfig() {
     fi
     return ${RES}
 }
+export -f check_defconfig

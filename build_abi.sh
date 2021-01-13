@@ -164,7 +164,6 @@ function update_config_for_abi_dump() {
     (cd ${OUT_DIR} && \
      make O=${OUT_DIR} "${TOOL_ARGS[@]}" $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
-export -f check_defconfig
 export -f update_config_for_abi_dump
 
 function version_greater_than() {
