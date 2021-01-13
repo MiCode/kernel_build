@@ -159,7 +159,6 @@ endif
 ifeq ($(GKI_KERNEL),1)
   ifeq "$(KERNEL_DEFCONFIG)" "vendor/$(TARGET_BOARD_PLATFORM)-qgki_defconfig"
     $(info Additional GKI images will be built)
-    BOARD_KERNEL_BINARIES := kernel kernel-gki
     INSTALLED_KERNEL_TARGET := $(foreach k,$(BOARD_KERNEL_BINARIES), $(PRODUCT_OUT)/$(k))
 
     # Create new definitions for building an additional GKI kernel on the side
