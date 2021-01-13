@@ -93,6 +93,7 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   rm -rf ${HOST_TOOLS}
   mkdir -p ${HOST_TOOLS}
   for tool in \
+      bash \
       git \
       perl \
       rsync \
