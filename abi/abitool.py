@@ -31,6 +31,47 @@ def _collapse_impacted_interfaces(text):
       flags=re.MULTILINE)
 
 
+def _collapse_offset_changes(text):
+  """Replaces "offset changed" lines with a one-line summary."""
+  regex = re.compile(
+      r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
+  items = []
+  indent = ""
+  offset = ""
+  new_text = []
+
+  def emit_pending():
+    if not items:
+      return
+    count = len(items)
+    if count == 1:
+      only = items[0]
+      line = "{}{} offset changed {}\n".format(indent, only, offset)
+    else:
+      first = items[0]
+      last = items[-1]
+      line = "{}{} ({} .. {}) offsets changed {}\n".format(
+          indent, count, first, last, offset)
+    del items[:]
+    new_text.append(line)
+
+  for line in text.splitlines(True):
+    match = regex.match(line)
+    if match:
+      (new_indent, item, new_offset) = match.group(1, 2, 3)
+      if new_indent != indent or new_offset != offset:
+        emit_pending()
+        indent = new_indent
+        offset = new_offset
+      items.append(item)
+    else:
+      emit_pending()
+      new_text.append(line)
+
+  emit_pending()
+  return "".join(new_text)
+
+
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
@@ -107,6 +148,7 @@ class Libabigail(AbiTool):
                 with open(short_report, 'w') as out:
                     text = full_report.read()
                     text = _collapse_impacted_interfaces(text)
+                    text = _collapse_offset_changes(text)
                     out.write(text)
 
         return abi_changed
