@@ -59,52 +59,18 @@ releases. In order to obtain this branch via `repo`, execute
 
 ### 2. Provide any prerequisites
 
-**NOTE**: Googlers might want to follow the steps in
-[go/kernel-abi-monitoring](http://go/kernel-abi-monitoring) to use a prebuilt
-libabigail distribution.
-
 The ABI tooling makes use of [libabigail](https://sourceware.org/libabigail/),
-a library and collection of tools to analyze binaries. In order to use the
-tooling, users are required to provide a functional libabigail installation.
-The released version of your Linux distribution might not be a supported one;
-hence, it is recommended way to use the `bootstrap` script which can be found in
-this directory. The `bootstrap` script automates the process of acquiring and
-building a valid libabigail distribution and needs to be executed without any
-arguments like so:
+a library and collection of tools to analyze binaries. A suitable set of
+prebuilt binaries comes along with the kernel-build-tools and will
+automatically be used when using `build_abi.sh`.
 
-```
-  $ build/abi/bootstrap
-```
+For utilizing the lower level tooling (such as `dump_abi`), please ensure to
+add the kernel-build-tools to the `PATH`.
 
-The script will ensure the following system prerequisites are installed along
-with their dependencies:
-
- - autoconf
- - libtool
- - libxml2-dev
- - pkg-config
- - python3
-
-**NOTE**: At the moment, only apt based package managers are supported, but
-`bootstrap` provides some hints to help users that have other package
-managers.
-
-The script continues with acquiring the sources for the correct versions of
-*elfutils* and *libabigail* and will build the required binaries. At the very
-end the script will print instructions to add the binaries to the local
-`${PATH}`. The output will look similar to:
-
-```
-  NOTE: Export the following environment before running the executables:
-
-  export PATH="/src/kernel/build/abi/abigail-inst/d7ae619f/bin:${PATH}"
-  export LD_LIBRARY_PATH="/src/kernel/build/abi/abigail-inst/d7ae619f/lib:/src/kernel/build/abi/abigail-inst/d7ae619f/lib/elfutils:${LD_LIBRARY_PATH}"
-```
-
-**NOTE**: It is probably a good idea to save these instructions to reuse the
-prebuilt binaries in a later session.
-
-Follow the instructions to enable the prerequisites in your environment.
+**NOTE**: The prior method of building libabigail from sources via the
+`bootstrap` script is no longer required. Leftover directories (such as
+elfutils-src, abigail-src and abigail-insta) can be safely removed, e.g. with
+`git clean -fdx`.
 
 ### 3. Build the kernel and its ABI representation
 

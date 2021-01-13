@@ -62,6 +62,8 @@
 #     symbols from vmlinux and GKI modules, instead of the undefined symbols
 #     from vendor modules. This property is disabled by default.
 
+ABIGAIL_VERSION=2.0.0-1b4e95ec
+
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
 function show_help {
@@ -170,28 +172,12 @@ function version_greater_than() {
     test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
 }
 
-# ensure that abigail is present in path
-if ! ( hash abidiff 2>/dev/null); then
-    echo "ERROR: libabigail is not found in \$PATH at all!"
-    echo "Have you run build/abi/bootstrap and followed the instructions?"
-    exit 1
-fi
-
-# ensure we have a "new enough" version of abigail present before continuing
-if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
-			    "1.6.0" ); then
-    echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
-    echo "Have you run build/abi/bootstrap and followed the instructions?"
-    exit 1
-fi
-
 # For now we require a specific versions of libabigail identified by a commit
-# hash. That is a bit inconvenient, but we do not have another reliable
-# identifier at this time.
-required_abigail_version="1.8.0-$(cat ${ROOT_DIR}/build/abi/bootstrap| grep 'ABIGAIL_VERSION=' | cut -d= -f2)"
+# hash.
+required_abigail_version="$ABIGAIL_VERSION"
 if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
     echo "ERROR: required libabigail version is $required_abigail_version"
-    echo "Have you run build/abi/bootstrap and followed the instructions?"
+    echo "Please run 'repo sync'"
     exit 1
 fi
 
