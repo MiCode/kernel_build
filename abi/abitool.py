@@ -21,6 +21,16 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
+def _collapse_impacted_interfaces(text):
+  """Removes impacted interfaces details, leaving just the summary count."""
+  return re.sub(
+      r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
+      r"\1\2\n",
+      text,
+      flags=re.MULTILINE)
+
+
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
@@ -95,11 +105,9 @@ class Libabigail(AbiTool):
         if short_report is not None:
             with open(diff_report) as full_report:
                 with open(short_report, 'w') as out:
-                    out.write(re.sub(
-                        r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
-                        r"\1\2\n",
-                        full_report.read(),
-                        flags=re.MULTILINE))
+                    text = full_report.read()
+                    text = _collapse_impacted_interfaces(text)
+                    out.write(text)
 
         return abi_changed
 
