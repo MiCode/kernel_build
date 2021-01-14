@@ -31,6 +31,7 @@ import os
 import sys
 import subprocess
 from shutil import copy
+from itertools import product
 
 """
 This function is used to run subprocesses and handle errors from subprocess
@@ -42,6 +43,7 @@ def run_command(cmd):
 		returned_output = subprocess.check_output(cmd)
 	except CalledProcessError as e:
 		print("{} returned error: {}\nOutput: {}".format(e.cmd, e.returncode, e.output))
+		raise e
 	finally:
 		return returned_output.decode("utf-8").strip()
 
@@ -65,22 +67,13 @@ def parse_dt_files(dt_folder):
 			filepath = os.path.join(root, filename)
 			msm_id = fdt_get_prop(filepath, '/', "qcom,msm-id", 'x')
 			board_id = fdt_get_prop(filepath, '/', "qcom,board-id", 'x')
-			key = "{},{}".format(msm_id, board_id)
+			key = (msm_id, board_id)
 			if key in dt_dictionary:
 				dt_dictionary[key].append(filepath)
 			else:
 				dt_dictionary[key] = [filepath]
 
 	return dt_dictionary
-
-def generate_final_dtb(filename, techpack_files, file_out):
-	copy(filename, file_out)
-	for techpack_file in techpack_files:
-		cmd = ["ufdt_apply_overlay"]
-		cmd.append(file_out)
-		cmd.append(techpack_file)
-		cmd.append(file_out)
-		run_command(cmd)
 
 """
 This function uses the cached msm-id and board-id for each dt file to figure out the dts to merge
@@ -89,11 +82,23 @@ the dts.
 """
 def merge_dts(base, techpack, output_folder):
 	print("Merging dts:")
+	final_dtbs = {}
+	final_dtbos = {}
 	for key in base:
 		# each dt file in base dt folder will have a unique msm_id and board_id combo
 		filename = os.path.basename(base[key][0])
 		techpack_files = techpack.get(key, [])
 		file_out = os.path.join(output_folder, filename)
+
+		if filename.split(".")[-1] == "dtb":
+			d = final_dtbs
+		else:
+			d = final_dtbos
+		if key[0] in d.keys():
+			d[key[0]].append(file_out)
+		else:
+			d[key[0]] = [file_out]
+
 		if len(techpack_files) == 0:
 			print("No techpack .dtbos found for {0}. Copying {0} to {1}".format(
 			       filename, file_out))
@@ -101,13 +106,13 @@ def merge_dts(base, techpack, output_folder):
 			continue
 
 		if filename.split(".")[-1] == "dtb":
-			generate_final_dtb(base[key][0], techpack_files, file_out)
+			cmd = ["fdtoverlay"]
 		else:
-			cmd = ["fdtoverlaymerge", "-i"]
-			cmd.extend(base[key])
-			cmd.extend(techpack_files)
-			cmd.extend(["-o", file_out])
-			run_command(cmd)
+			cmd = ["fdtoverlaymerge"]
+		cmd.extend(["-i", base[key][0]])
+		cmd.extend(techpack_files)
+		cmd.extend(["-o", file_out])
+		run_command(cmd)
 
 	unmatched = techpack.keys() - base.keys()
 	if len(unmatched) > 0:
@@ -115,6 +120,11 @@ def merge_dts(base, techpack, output_folder):
 		for key in unmatched:
 			for file in techpack.get(key, []):
 				print(file)
+
+	for key in final_dtbs.keys():
+		for dtb, dtbo in product(final_dtbs[key], final_dtbos[key]):
+			run_command(['ufdt_apply_overlay', dtb, dtbo, '/dev/null'])
+
 
 def main():
 	if len(sys.argv) != 4:
