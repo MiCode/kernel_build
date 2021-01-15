@@ -188,6 +188,10 @@ cp ${ANDROID_KP_OUT_DIR}/dist/Image ${ANDROID_KERNEL_OUT}/
 cp ${ANDROID_KP_OUT_DIR}/dist/vmlinux ${ANDROID_KERNEL_OUT}/
 cp ${ANDROID_KP_OUT_DIR}/dist/System.map ${ANDROID_KERNEL_OUT}/
 
+if [ -e ${ANDROID_KP_OUT_DIR}/debug ]; then
+  cp -r ${ANDROID_KP_OUT_DIR}/debug ${ANDROID_KERNEL_OUT}/
+fi
+
 ################################################################################
 echo
 echo "  cleaning up kernel_platform tree for Android"
