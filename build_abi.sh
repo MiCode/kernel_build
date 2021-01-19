@@ -127,47 +127,6 @@ done
 
 set -- "${ARGS[@]}"
 
-function bootstrap_libabigail() (
-    ABIGAIL_DIR=${ROOT_DIR}/build/abi
-    source ${ABIGAIL_DIR}/bootstrap < /dev/null > /dev/stderr
-    echo "PATH=${PATH}"
-    echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
-)
-
-function have_libabigail() {
-    # ensure that abigail is present in path
-    if ! ( hash abidiff 2>/dev/null); then
-        echo "ERROR: libabigail is not found in \$PATH at all!"
-        echo "Have you run build/abi/bootstrap and followed the instructions?"
-        return 1
-    fi
-
-    # ensure we have a "new enough" version of abigail present before continuing
-    if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
-                    "1.6.0" ); then
-        echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
-        echo "Have you run build/abi/bootstrap and followed the instructions?"
-        return 1
-    fi
-
-    # For now we require a specific versions of libabigail identified by a commit
-    # hash. That is a bit inconvenient, but we do not have another reliable
-    # identifier at this time.
-    local required_abigail_version="1.8.0-$(cat ${ROOT_DIR}/build/abi/bootstrap| grep 'ABIGAIL_VERSION=' | cut -d= -f2)"
-    if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
-        echo "ERROR: required libabigail version is $required_abigail_version"
-        echo "Have you run build/abi/bootstrap and followed the instructions?"
-        return 1
-    fi
-    return 0
-}
-
-if ! ( have_libabigail > /dev/null ); then
-    echo "========================================================"
-    echo " Bootstrapping libabigail from build/abi"
-    source <(bootstrap_libabigail)
-fi
-
 set -e
 set -a
 
@@ -209,7 +168,29 @@ export -f update_config_for_abi_dump
 function version_greater_than() {
     test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
 }
-if ! ( have_libabigail ); then
+
+# ensure that abigail is present in path
+if ! ( hash abidiff 2>/dev/null); then
+    echo "ERROR: libabigail is not found in \$PATH at all!"
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
+    exit 1
+fi
+
+# ensure we have a "new enough" version of abigail present before continuing
+if ! ( version_greater_than "$(abidiff --version | awk '{print $2}')"  \
+			    "1.6.0" ); then
+    echo "ERROR: no suitable libabigail (>= 1.6.0) in \$PATH."
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
+    exit 1
+fi
+
+# For now we require a specific versions of libabigail identified by a commit
+# hash. That is a bit inconvenient, but we do not have another reliable
+# identifier at this time.
+required_abigail_version="1.8.0-$(cat ${ROOT_DIR}/build/abi/bootstrap| grep 'ABIGAIL_VERSION=' | cut -d= -f2)"
+if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
+    echo "ERROR: required libabigail version is $required_abigail_version"
+    echo "Have you run build/abi/bootstrap and followed the instructions?"
     exit 1
 fi
 
