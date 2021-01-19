@@ -81,6 +81,64 @@ def _eliminate_spurious_blank_lines(text):
         flags=re.MULTILINE)
 
 
+def _collapse_CRC_changes(text, limit):
+    """Preserves some CRC-only changes and summarises the rest.
+
+    A CRC-only change is one like the following (indented and with a
+    trailing blank line).
+
+    [C] 'function void* blah(type*)' at core.c:666:1 has some sub-type changes:
+       CRC value (modversions) changed from 0xf0f8820e to 0xe817181d
+
+    Up to the first 'limit' changes will be emitted at the end of the
+    enclosing diff section. Any remaining ones will be summarised with
+    a line like the following.
+
+    ... 17 omitted; 27 symbols have only CRC changes
+
+    Args:
+      text: The report text.
+      limit: The maximum, integral number of CRC-only changes per diff section.
+
+    Returns:
+      Updated report text.
+    """
+    section_regex = re.compile(r"^[^ ]")
+    change_regex = re.compile(r"^  \[C\] .*:$")
+    crc_regex = re.compile(r"^    CRC.*changed from [^ ]* to [^ ]*$")
+    blank_regex = re.compile(r"^$")
+    pending = []
+    new_lines = []
+
+    def emit_pending():
+        if not pending:
+            return
+        for (symbol_details, crc_details) in pending[0:limit]:
+            new_lines.extend([symbol_details, crc_details, "\n"])
+        count = len(pending)
+        if count > limit:
+            new_lines.append("  ... {} omitted; {} symbols have only CRC changes\n\n"
+                             .format(count - limit, count))
+        pending.clear()
+
+    lines = text.splitlines(True)
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if section_regex.match(line):
+            emit_pending()
+        if (index + 2 < len(lines) and change_regex.match(line) and
+            crc_regex.match(lines[index+1]) and blank_regex.match(lines[index+2])):
+                pending.append((line, lines[index+1]))
+                index += 3
+                continue
+        new_lines.append(line)
+        index += 1
+
+    emit_pending()
+    return "".join(new_lines)
+
+
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
@@ -159,6 +217,7 @@ class Libabigail(AbiTool):
                     text = _collapse_impacted_interfaces(text)
                     text = _collapse_offset_changes(text)
                     text = _eliminate_spurious_blank_lines(text)
+                    text = _collapse_CRC_changes(text, 5)
                     out.write(text)
 
         return abi_changed
