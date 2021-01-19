@@ -343,5 +343,9 @@ fi
 
 [ -n "${DELETE_UNSTRIPPED_MODULES}" ] && rm -rf ${UNSTRIPPED_DIR}
 
-exit $rc
+if [ -n "${KMI_ENFORCED}" ]; then
+  exit $rc
+else
+  exit 0
+fi
 
