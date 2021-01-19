@@ -20,33 +20,30 @@ BRANCH=$1
 
 pushd $BASE > /dev/null
 
-  if [[ ! ( -d common-${BRANCH} || -d common${BRANCH} ) || ${BRANCH} == "" ]]; then
+  if [[ ! ( -d common-${BRANCH} || -d common${BRANCH} )  \
+        || ${BRANCH} == ""                               \
+        || ${BRANCH} == "modules" ]]; then
     echo "usage: $0 <branch>"
     echo
     echo "Branches available: "
-    ls -d common-* | sed 's/common-/\t/g'
+    ls -d common-* | sed 's/common-/\t/g' | grep -v modules
     ls -d common1?-* | sed 's/common/\t/g'
     exit 1
   fi
 
   echo "Switching to $BRANCH"
 
-  if [[ ${BRANCH} == "11-5.4" ]]; then
-    alt_name="5.4-stable"
-  fi
-
-  if [[ ${BRANCH} == "12-5.4" ]]; then
-    alt_name="5.4"
-  fi
-
-  for dir in common cuttlefish-modules goldfish-modules; do
+  for dir in common common-modules/virtual-device; do
     if [ -L ${dir} ]; then
       rm ${dir}
     fi
 
-    for candidate in ${dir}-${BRANCH} ${dir}-${alt_name} ${dir}${BRANCH}; do
+    for candidate in ${dir}-${BRANCH} ${dir}${BRANCH}; do
       if [ -d ${candidate} ]; then
-          ln -vs ${candidate} ${dir}
+          (
+            cd $(dirname $candidate)
+            ln -vs $(basename ${candidate}) $(basename ${dir})
+          )
       fi
     done
   done

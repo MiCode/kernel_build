@@ -5,8 +5,6 @@ RUN apt-get -y update                            \
 # Those are likely essential
     git                                          \
 # To be removed
-    libc6-dev                                    \
-    libssl-dev                                   \
     rsync                                        \
 && apt-get clean                                 \
 && rm -rf /var/lib/apt/lists/*

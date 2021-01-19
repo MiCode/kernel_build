@@ -88,6 +88,41 @@ LIBUFDT_PREBUILTS_BIN
 BUILDTOOLS_PREBUILT_BIN
 )
 
+if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
+  HOST_TOOLS=${OUT_DIR}/host_tools
+  rm -rf ${HOST_TOOLS}
+  mkdir -p ${HOST_TOOLS}
+  for tool in \
+      bash \
+      git \
+      perl \
+      rsync \
+      sh \
+      tar \
+      ${ADDITIONAL_HOST_TOOLS}
+  do
+      ln -sf $(which $tool) ${HOST_TOOLS}
+  done
+  PATH=${HOST_TOOLS}
+
+  # use relative paths for file name references in the binaries
+  # (e.g. debug info)
+  export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/="
+
+  # set the common sysroot
+  sysroot_flags+="--sysroot=${ROOT_DIR}/build/build-tools/sysroot "
+
+  # add openssl (via boringssl) and other prebuilts into the lookup path
+  cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
+
+  # add openssl and further prebuilt libraries into the lookup path
+  ldflags+="-Wl,-rpath,${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+  ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+
+  export HOSTCFLAGS="$sysroot_flags $cflags"
+  export HOSTLDFLAGS="$sysroot_flags $ldflags"
+fi
+
 for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
     PREBUILT_BIN=\${${PREBUILT_BIN}}
     eval PREBUILT_BIN="${PREBUILT_BIN}"
@@ -114,10 +149,11 @@ function check_defconfig() {
     [ "$ARCH" = "x86_64" -o "$ARCH" = "i386" ] && local ARCH=x86
     echo Verifying that savedefconfig matches ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
     RES=0
-    diff -u ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} ${OUT_DIR}/defconfig ||
+    diff -u ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} ${OUT_DIR}/defconfig >&2 ||
       RES=$?
     if [ ${RES} -ne 0 ]; then
-        echo ERROR: savedefconfig does not match ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+        echo ERROR: savedefconfig does not match ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} >&2
     fi
     return ${RES}
 }
+export -f check_defconfig
