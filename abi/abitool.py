@@ -72,6 +72,15 @@ def _collapse_offset_changes(text):
   return "".join(new_text)
 
 
+# TODO(b/157510812#comment15): Drop when libabigail fixed.
+def _eliminate_spurious_blank_lines(text):
+    return re.sub(
+        r"^\n(^    CRC.*changed from [^ ]* to [^ ]*$)",
+        r"\1",
+        text,
+        flags=re.MULTILINE)
+
+
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
@@ -149,6 +158,7 @@ class Libabigail(AbiTool):
                     text = full_report.read()
                     text = _collapse_impacted_interfaces(text)
                     text = _collapse_offset_changes(text)
+                    text = _eliminate_spurious_blank_lines(text)
                     out.write(text)
 
         return abi_changed
