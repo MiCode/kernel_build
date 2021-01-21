@@ -103,7 +103,7 @@ def _collapse_CRC_changes(text, limit):
     Returns:
       Updated report text.
     """
-    section_regex = re.compile(r"^[^ ]")
+    section_regex = re.compile(r"^[^ \n]")
     change_regex = re.compile(r"^  \[C\] .*:$")
     crc_regex = re.compile(r"^    CRC.*changed from [^ ]* to [^ ]*$")
     blank_regex = re.compile(r"^$")
