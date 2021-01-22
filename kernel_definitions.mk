@@ -210,6 +210,8 @@ $(BOARD_VENDOR_RAMDISK_KERNEL_MODULES_ARCHIVE_$(GKI_TARGET_MODULES_DIR)): $(GKI_
 endif
 endif
 
+$(BOARD_VENDOR_RAMDISK_KERNEL_MODULES): $(TARGET_PREBUILT_KERNEL)
+
 # Add RTIC DTB to dtb.img if RTIC MPGen is enabled.
 # Note: unfortunately we can't define RTIC DTS + DTB rule here as the
 # following variable/ tools (needed for DTS generation)

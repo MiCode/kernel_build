@@ -74,6 +74,18 @@ headers_install()
 	set +x
 }
 
+# Module preparations before kernel compilation
+make_modules_prepare()
+{
+	echo "======================"
+	echo "Make  modules_prepare for external modules"
+	set -x
+	(cd ${OUT_DIR} && \
+	${MAKE_PATH}make HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} modules_prepare)
+	set +x
+
+}
+
 # Building Kernel
 build_kernel()
 {
@@ -388,9 +400,9 @@ fi
 if [ "${HEADERS_INSTALL}" -ne "0" ]; then
 	make_defconfig
 	headers_install
+# Also prepare for external  module compilation
+	make_modules_prepare
 else
-	make_defconfig
-	headers_install
 	build_kernel
 	modules_install
 	copy_all_to_prebuilt ${KERNEL_BINS}
