@@ -97,6 +97,9 @@ esac
   ./build/brunch ${KERNEL_TARGET} ${KERNEL_VARIANT}
 )
 
+rm -rf "${ANDROID_KERNEL_OUT}"
+mkdir "${ANDROID_KERNEL_OUT}"
+
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
 ANDROID_KP_OUT_DIR="${3:-${OUT_DIR}}"
 if [ -z "${ANDROID_KP_OUT_DIR}" ]; then
@@ -148,9 +151,6 @@ ln -srT "${ANDROID_BUILD_TOP}" "${ROOT_DIR}/la"
 ################################################################################
 echo
 echo "  Preparing prebuilt folder ${ANDROID_KERNEL_OUT}"
-
-rm -rf "${ANDROID_KERNEL_OUT}"
-mkdir "${ANDROID_KERNEL_OUT}"
 
 first_stage_kos=$(mktemp)
 if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
