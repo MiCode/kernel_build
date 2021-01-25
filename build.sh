@@ -184,6 +184,22 @@
 #       and should be in the format:
 #       blocklist module_name
 #
+#   AVB_SIGN_BOOT_IMG
+#     if defined, sign the boot image using the AVB_BOOT_KEY. Refer to
+#     https://android.googlesource.com/platform/external/avb/+/master/README.md
+#     for details on what Android Verified Boot is and how it works. The kernel
+#     prebuilt tool `avbtool` is used for signing.
+#
+#     When AVB_SIGN_BOOT_IMG is defined, the following flags need to be
+#     defined:
+#     - AVB_BOOT_PARTITION_SIZE=<size of the boot partition in bytes>
+#     - AVB_BOOT_KEY=<absolute path to the key used for signing> The Android test
+#       key has been uploaded to the kernel/prebuilts/build-tools project here:
+#       https://android.googlesource.com/kernel/prebuilts/build-tools/+/refs/heads/master/linux-x86/share/avb
+#     - AVB_BOOT_ALGORITHM=<AVB_BOOT_KEY algorithm used> e.g. SHA256_RSA2048. For the
+#       full list of supported algorithms, refer to the enum AvbAlgorithmType in
+#       https://android.googlesource.com/platform/external/avb/+/refs/heads/master/libavb/avb_crypto.h
+#
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
 #
@@ -1014,8 +1030,26 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
     --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
     "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
+  if [ -f "${DIST_DIR}/boot.img" ]; then
+    echo "boot image created at ${DIST_DIR}/boot.img"
 
-  [ -f "${DIST_DIR}/boot.img" ] && echo "boot image created at ${DIST_DIR}/boot.img"
+    if [ -n ${AVB_SIGN_BOOT_IMG} ]; then
+      if [ -n ${AVB_BOOT_PARTITION_SIZE} ] \
+          && [ -n ${AVB_BOOT_KEY} ] \
+          && [ -n ${AVB_BOOT_ALGORITHM} ]; then
+        echo "Signing the boot.img..."
+        avbtool add_hash_footer --partition_name boot \
+            --partition_size ${AVB_BOOT_PARTITION_SIZE} \
+            --image ${DIST_DIR}/boot.img \
+            --algorithm ${AVB_BOOT_ALGORITHM} \
+            --key ${AVB_BOOT_KEY}
+      else
+        echo "Missing the AVB_* flags. Failed to sign the boot image" 1>&2
+        exit 1
+      fi
+    fi
+  fi
+
   [ -z "${SKIP_VENDOR_BOOT}" ] \
     && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
     && [ -f "${DIST_DIR}/vendor_boot.img" ] \
