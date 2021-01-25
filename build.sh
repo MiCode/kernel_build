@@ -221,6 +221,13 @@
 #     VENDOR_DLKM_MODULES_LIST is), a default set of properties will be used
 #     which assumes an ext4 filesystem and a dynamic partition.
 #
+#   SUPER_IMAGE_CONTENTS
+#     A list of images to be added to a kernel/build generated super.img
+#     Partition names are derived from "basename -s .img $image"
+#
+#   SUPER_IMAGE_SIZE
+#     Size, in bytes, of the generated super.img
+#
 #   LZ4_RAMDISK
 #     if defined, any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
@@ -438,6 +445,38 @@ function build_vendor_dlkm() {
   fi
   build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" \
     "${DIST_DIR}/vendor_dlkm.img" /dev/null
+}
+
+function build_super() {
+  echo "========================================================"
+  echo " Creating super.img"
+
+  local super_props_file=$(mktemp)
+  local dynamic_partitions=""
+  # Default to 256 MB
+  local super_image_size="$((${SUPER_IMAGE_SIZE:-268435456}))"
+  local group_size="$((${super_image_size} - 0x400000))"
+  echo -e "lpmake=lpmake" >> ${super_props_file}
+  echo -e "super_metadata_device=super" >> ${super_props_file}
+  echo -e "super_block_devices=super" >> ${super_props_file}
+  echo -e "super_super_device_size=${super_image_size}" >> ${super_props_file}
+  echo -e "super_partition_size=${super_image_size}" >> ${super_props_file}
+  echo -e "super_partition_groups=kb_dynamic_partitions" >> ${super_props_file}
+  echo -e "super_kb_dynamic_partitions_group_size=${group_size}" >> ${super_props_file}
+
+  for image in "${SUPER_IMAGE_CONTENTS}"; do
+    echo "  Adding ${image}"
+    partition_name=$(basename -s .img "${image}")
+    dynamic_partitions="${dynamic_partitions} ${partition_name}"
+    echo -e "${partition_name}_image=${image}" >> ${super_props_file}
+  done
+
+  echo -e "dynamic_partition_list=${dynamic_partitions}" >> ${super_props_file}
+  echo -e "super_kb_dynamic_partitions_partition_list=${dynamic_partitions}" >> ${super_props_file}
+  build_super_image -v ${super_props_file} ${DIST_DIR}/super.img
+  rm ${super_props_file}
+
+  echo "super image created at ${DIST_DIR}/super.img"
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -909,6 +948,10 @@ fi
 
 if [ -n "${VENDOR_DLKM_MODULES_LIST}" ]; then
   build_vendor_dlkm
+fi
+
+if [ -n "${SUPER_IMAGE_CONTENTS}" ]; then
+  build_super
 fi
 
 if [ -n "${UNSTRIPPED_MODULES}" ]; then
