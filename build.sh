@@ -254,6 +254,20 @@
 #     optional list of objects to consider for the KMI_SYMBOL_LIST_STRICT_MODE
 #     check. Defaults to 'vmlinux'.
 #
+#   GKI_DIST_DIR
+#     optional directory from which to copy GKI artifacts into DIST_DIR
+#
+#   GKI_BUILD_CONFIG
+#     If set, builds a second set of kernel images using GKI_BUILD_CONFIG to
+#     perform a "mixed build." Mixed builds creates "GKI kernel" and "vendor
+#     modules" from two different trees. The GKI kernel tree can be the Android
+#     Common Kernel and the vendor modules tree can be a complete vendor kernel
+#     tree. GKI_DIST_DIR (above) is set and the GKI kernel's DIST output is
+#     copied to this DIST output. This allows a vendor tree kernel image to be
+#     effectively discarded and a GKI kernel Image used from an Android Common
+#     Kernel. Any variables prefixed with GKI_ are passed into into the GKI
+#     kernel's build.sh invocation.
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -265,6 +279,10 @@
 # ${EXT_MOD} is the path to the module source code.
 
 set -e
+
+# Save environment for mixed build support.
+OLD_ENVIRONMENT=$(mktemp)
+export -p > ${OLD_ENVIRONMENT}
 
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
@@ -463,6 +481,26 @@ SIGN_ALGO=sha512
 CC_ARG="${CC}"
 
 source "${ROOT_DIR}/build/_setup_env.sh"
+
+if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
+  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
+
+  # Inherit SKIP_MRPROPER unless overridden by GKI_SKIP_MRPROPER
+  GKI_ENVIRON="SKIP_MRPROPER=${SKIP_MRPROPER}"
+  # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
+  # gki build recursively
+  GKI_ENVIRON+=" GKI_BUILD_CONFIG="
+  # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
+  GKI_ENVIRON+=" $(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' ')"
+  GKI_ENVIRON+=" OUT_DIR=${GKI_OUT_DIR}"
+  GKI_ENVIRON+=" DIST_DIR=${GKI_DIST_DIR}"
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON}; ./build/build.sh" )
+else
+  rm -f ${OLD_ENVIRONMENT}
+fi
 
 export MAKE_ARGS=$*
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
@@ -866,6 +904,12 @@ if [ -n "${GENERATE_VMLINUX_BTF}" ]; then
     llvm-strip --strip-debug vmlinux.btf
   )
 
+fi
+
+if [ -n "${GKI_DIST_DIR}" ]; then
+  echo "========================================================"
+  echo " Copying files from GKI kernel"
+  cp -rv ${GKI_DIST_DIR}/* ${DIST_DIR}/
 fi
 
 if [ -n "${DIST_CMDS}" ]; then
