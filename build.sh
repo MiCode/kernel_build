@@ -1033,10 +1033,10 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   if [ -f "${DIST_DIR}/boot.img" ]; then
     echo "boot image created at ${DIST_DIR}/boot.img"
 
-    if [ -n ${AVB_SIGN_BOOT_IMG} ]; then
-      if [ -n ${AVB_BOOT_PARTITION_SIZE} ] \
-          && [ -n ${AVB_BOOT_KEY} ] \
-          && [ -n ${AVB_BOOT_ALGORITHM} ]; then
+    if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
+      if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
+          && [ -n "${AVB_BOOT_KEY}" ] \
+          && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
         echo "Signing the boot.img..."
         avbtool add_hash_footer --partition_name boot \
             --partition_size ${AVB_BOOT_PARTITION_SIZE} \
