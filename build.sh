@@ -105,6 +105,13 @@
 #   SKIP_DEFCONFIG
 #     if defined, skip `make defconfig`
 #
+#   SKIP_IF_VERSION_MATCHES
+#     if defined, skip compiling anything if the kernel version in vmlinux
+#     matches the expected kernel version. This is useful for mixed build, where
+#     GKI kernel does not change frequently and we can simply skip everything
+#     in build.sh. Note: if the expected version string contains "dirty", then
+#     this flag would have not cause build.sh to exit early.
+#
 #   PRE_DEFCONFIG_CMDS
 #     Command evaluated before `make defconfig`
 #
@@ -603,6 +610,20 @@ else
   RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
   RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
   RAMDISK_EXT="lz4"
+fi
+
+if [ -n "${SKIP_IF_VERSION_MATCHES}" ]; then
+  if [ -f "${DIST_DIR}/vmlinux" ]; then
+    kernelversion="$(cd ${KERNEL_DIR} && make -s "${TOOL_ARGS[@]}" O=${OUT_DIR} kernelrelease)"
+    # Split grep into 2 steps. "Linux version" will always be towards top and fast to find. Don't
+    # need to search the entire vmlinux for it
+    if [[ ! "$kernelversion" =~ .*dirty.* ]] && \
+       grep -o -a -m1 "Linux version [^ ]* " ${DIST_DIR}/vmlinux | grep -q " ${kernelversion} " ; then
+      echo "========================================================"
+      echo " Skipping build because kernel version matches ${kernelversion}"
+      exit 0
+    fi
+  fi
 fi
 
 mkdir -p ${OUT_DIR} ${DIST_DIR}
