@@ -217,7 +217,7 @@ class Libabigail(AbiTool):
                     text = _collapse_impacted_interfaces(text)
                     text = _collapse_offset_changes(text)
                     text = _eliminate_spurious_blank_lines(text)
-                    text = _collapse_CRC_changes(text, 5)
+                    text = _collapse_CRC_changes(text, 3)
                     out.write(text)
 
         return abi_changed
