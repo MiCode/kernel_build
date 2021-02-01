@@ -137,8 +137,6 @@ if [[ -z "$OUT_DIR" ]]; then
     wipe_out_dir=1
 fi
 
-# TODO (b/175681515)
-export HERMETIC_TOOLCHAIN=0
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 if [ -z "${KMI_SYMBOL_LIST}" ]; then
@@ -151,8 +149,8 @@ elif [ $UPDATE -eq 1 ]; then
 fi
 
 # Now actually do the wipe out as above.
-if [[ $wipe_out_dir -eq 1 ]]; then
-    rm -rf "${COMMON_OUT_DIR}"
+if [[ $wipe_out_dir -eq 1 && -d ${COMMON_OUT_DIR} ]]; then
+    find "${COMMON_OUT_DIR}" \( -name 'vmlinux' -o -name '*.ko' \) -delete -print
 fi
 
 # inject CONFIG_DEBUG_INFO=y
