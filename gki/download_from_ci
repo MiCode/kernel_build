@@ -87,6 +87,11 @@ def parse_args():
       action="store_true",
       help="update AEMU kernel and module prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
+      "-r",
+      "--repo-branch",
+      action="store_true",
+      help="create branches in Android repo that can be uploaded together (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
       "-b",
       "--bug",
       type=int,
@@ -159,6 +164,12 @@ def commit_prebuilts(output_dir, gitlog, name="kernel"):
                     "Bug: {}\n").format(name, _args.build_id, gitlog, _args.bug)
   subprocess.check_call(["git", "add", "."], cwd=output_dir)
   subprocess.check_call(["git", "commit", "-a", "-m", commit_message], cwd=output_dir)
+  if _args.repo_branch:
+    branch_name = "kernel-update-b{}-{}".format(_args.bug, _args.build_id)
+    subprocess.check_call(["repo", "start", "--head", branch_name], cwd=output_dir)
+    print("Changes committed to local Android branch: {}.".format(branch_name))
+    print("Use the following command from your Android repository to upload your changes:")
+    print(" repo upload -t --br {}".format(branch_name))
 
 def get_binary_kernel_version(path):
   """Returns a tuple of strings of the x.y.z (LTS) version and the SHA."""
