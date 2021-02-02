@@ -53,7 +53,7 @@ _pool = None
 def download(url_base, dest_dir, filename, dest_filename = None):
   dest_filename = os.path.join(dest_dir, dest_filename or filename)
   if not os.path.exists(dest_filename):
-    print("Downloading %s" % filename)
+    print("Downloading %s to %s" % (filename, dest_dir))
     try:
       urllib.request.urlretrieve(os.path.join(url_base, filename), dest_filename)
     except urllib.error.HTTPError as e:
