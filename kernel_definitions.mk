@@ -1,7 +1,21 @@
 # Android Kernel compilation/common definitions
+#ifeq ($(TARGET_BUILD_VARIANT),user)
+#    KERNEL_DEFCONFIG := vendor/$(TARGET_BOARD_PLATFORM)-perf_defconfig
 
-ifeq ($(KERNEL_DEFCONFIG),)
-     KERNEL_DEFCONFIG := vendor/$(TARGET_PRODUCT)_defconfig
+ifeq ($(TARGET_PRODUCT),kona)
+    KERNEL_DEFCONFIG := vendor/$(TARGET_PRODUCT)_defconfig
+else
+    ifeq ($(KERNEL_DEFCONFIG),)
+        ifeq ($(TARGET_BUILD_VARIANT),eng)
+             KERNEL_DEFCONFIG := $(TARGET_PRODUCT)_debug_defconfig
+        else
+             ifeq (true,$(ENABLE_SYSTEM_MTBF))
+                  KERNEL_DEFCONFIG := $(TARGET_PRODUCT)_stability_defconfig
+             else
+                  KERNEL_DEFCONFIG := $(TARGET_PRODUCT)_user_defconfig
+             endif
+        endif
+    endif
 endif
 
 TARGET_KERNEL := msm-$(TARGET_KERNEL_VERSION)
@@ -20,7 +34,7 @@ TARGET_KERNEL_MAKE_ENV += CONFIG_BUILD_ARM64_DT_OVERLAY=y
 TARGET_KERNEL_MAKE_ENV += HOSTCC=$(SOURCE_ROOT)/$(SOONG_LLVM_PREBUILTS_PATH)/clang
 TARGET_KERNEL_MAKE_ENV += HOSTAR=$(SOURCE_ROOT)/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/bin/x86_64-linux-ar
 TARGET_KERNEL_MAKE_ENV += HOSTLD=$(SOURCE_ROOT)/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/bin/x86_64-linux-ld
-TARGET_KERNEL_MAKE_CFLAGS = "-I$(SOURCE_ROOT)/$(TARGET_KERNEL_SOURCE)/include/uapi -I/usr/include -I/usr/include/x86_64-linux-gnu -L/usr/lib -L/usr/lib/x86_64-linux-gnu -fuse-ld=lld"
+TARGET_KERNEL_MAKE_CFLAGS = "-I$(SOURCE_ROOT)/$(TARGET_KERNEL_SOURCE)/include/uapi -I/usr/include -I/usr/include/x86_64-linux-gnu -I$(SOURCE_ROOT)/$(TARGET_KERNEL_SOURCE)/include -L/usr/lib -L/usr/lib/x86_64-linux-gnu -fuse-ld=lld"
 TARGET_KERNEL_MAKE_LDFLAGS = "-L/usr/lib -L/usr/lib/x86_64-linux-gnu -fuse-ld=lld"
 
 KERNEL_LLVM_BIN := $(lastword $(sort $(wildcard $(SOURCE_ROOT)/$(LLVM_PREBUILTS_BASE)/$(BUILD_OS)-x86/clang-4*)))/bin/clang
