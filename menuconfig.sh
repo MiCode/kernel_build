@@ -28,14 +28,4 @@
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
-set -e
-set -a
-
-source "${ROOT_DIR}/build/_setup_env.sh"
-
-POST_DEFCONFIG_CMDS="menuconfig $* && exit 1"
-
-${ROOT_DIR}/build/build.sh
-
-set +e
-set +a
+${ROOT_DIR}/build/config.sh $*
