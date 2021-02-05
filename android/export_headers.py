@@ -56,17 +56,17 @@ def print_diagnostics(kernel_hdrs, intersection, matches, mismatches, msm_spec_h
     for hdr in msm_spec_hdrs: exports_fd.write(hdr + "\n")
     exports_fd.close()
     total_exports = len(msm_spec_hdrs) + len(mismatches)
-    print "====Kernel and Bionic Header Stats===="
-    print "Total headers: %d" % len(kernel_hdrs)
-    print "Kernel & Bionic common headers: %d matches: %d mismatches: %d" %\
-          (len(intersection), len(matches), len(mismatches))
-    print "MSM specific headers: %d" % len(msm_spec_hdrs)
-    print "Exporting: %d header files" % total_exports
-    print "MSM Specific headers written to exports.txt"
+    print("====Kernel and Bionic Header Stats====")
+    print("Total headers: %d" % len(kernel_hdrs))
+    print("Kernel & Bionic common headers: %d matches: %d mismatches: %d" %\
+          (len(intersection), len(matches), len(mismatches)))
+    print("MSM specific headers: %d" % len(msm_spec_hdrs))
+    print("Exporting: %d header files" % total_exports)
+    print("MSM Specific headers written to exports.txt")
 
 def print_usage():
-    print "Usage: python export_headers.py <MSM_HDRS_PATH> <BIONIC_HDRS_PATH>" +\
-          " <PATH_TO_EXPORT_MSM_HDRS> <ARCH>"
+    print("Usage: python export_headers.py <MSM_HDRS_PATH> <BIONIC_HDRS_PATH>" +\
+          " <PATH_TO_EXPORT_MSM_HDRS> <ARCH>")
 
 """
 This will return the MSM exclusive headers.
