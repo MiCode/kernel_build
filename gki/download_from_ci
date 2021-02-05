@@ -39,7 +39,7 @@ from abitool import get_abi_tool
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 ARM_TARGETS = ["u-boot_qemu_arm"]
 ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64",
-                 "u-boot_qemu_aarch64"]
+                 "u-boot_crosvm_aarch64", "u-boot_qemu_aarch64"]
 X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64",
                   "u-boot_crosvm_x86_64", "u-boot_qemu_x86_64"]
 GIT_COMMIT_LOG_LENGTH = 100
@@ -505,16 +505,19 @@ def download_u_boot_tools(target, output_dir):
 def update_u_boot_mainline(output_dir):
   cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts")
   bootloader_dir = os.path.join(cf_dir, "bootloader")
-  crosvm_x86_64_u_boot = os.path.join(bootloader_dir,
-                                      "crosvm_x86_64", "u-boot.rom")
 
-  (old_version, old_sha) = get_binary_u_boot_version(crosvm_x86_64_u_boot)
-
+  crosvm_aarch64_dir = os.path.join(bootloader_dir, "crosvm_aarch64")
   crosvm_x86_64_dir = os.path.join(bootloader_dir, "crosvm_x86_64")
   qemu_aarch64_dir = os.path.join(bootloader_dir, "qemu_aarch64")
   qemu_arm_dir = os.path.join(bootloader_dir, "qemu_arm")
   qemu_x86_64_dir = os.path.join(bootloader_dir, "qemu_x86_64")
 
+  crosvm_aarch64_u_boot = os.path.join(crosvm_aarch64_dir, "u-boot.bin")
+
+  (old_version, old_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
+
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_aarch64_dir)
+  download_u_boot("u-boot_crosvm_aarch64", crosvm_aarch64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
   download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
@@ -528,12 +531,12 @@ def update_u_boot_mainline(output_dir):
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
   download_u_boot_tools("u-boot_tools", tools_dir)
 
-  (new_version, new_sha) = get_binary_u_boot_version(crosvm_x86_64_u_boot)
+  (new_version, new_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
   gitlog = get_git_log(old_sha, new_sha, get_u_boot_dir())
   commit_prebuilts(cf_dir, gitlog, "bootloader, u-boot tools")
 
 def update_u_boot():
-  url_base = BASE_URL.format(build_id=_args.build_id, target="u-boot_crosvm_x86_64")
+  url_base = BASE_URL.format(build_id=_args.build_id, target="u-boot_crosvm_aarch64")
   url = os.path.join(url_base, "BUILD_INFO")
   response = urllib.request.urlopen(url)
   data = response.read().decode("utf-8")
