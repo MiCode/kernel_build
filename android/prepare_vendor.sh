@@ -171,6 +171,10 @@ if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ]; then
   cp ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ${ANDROID_KERNEL_OUT}/modules.blocklist
 fi
 
+if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
+  cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
+fi
+
 second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos})
 if [ -n "${second_stage_kos}" ]; then
   mkdir ${ANDROID_KERNEL_OUT}/vendor_dlkm
@@ -182,6 +186,11 @@ fi
 if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist ]; then
   cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist \
     ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.blocklist
+fi
+
+if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load ]; then
+  cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load \
+    ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.load
 fi
 
 cp ${ANDROID_KP_OUT_DIR}/dist/Image ${ANDROID_KERNEL_OUT}/
