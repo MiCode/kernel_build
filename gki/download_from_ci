@@ -39,7 +39,7 @@ from abitool import get_abi_tool
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 ARM_TARGETS = ["u-boot_qemu_arm"]
 ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64",
-                 "u-boot_qemu_aarch64"]
+                 "u-boot_crosvm_aarch64", "u-boot_qemu_aarch64"]
 X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64",
                   "u-boot_crosvm_x86_64", "u-boot_qemu_x86_64"]
 GIT_COMMIT_LOG_LENGTH = 100
@@ -53,7 +53,7 @@ _pool = None
 def download(url_base, dest_dir, filename, dest_filename = None):
   dest_filename = os.path.join(dest_dir, dest_filename or filename)
   if not os.path.exists(dest_filename):
-    print("Downloading %s" % filename)
+    print("Downloading %s to %s" % (filename, dest_dir))
     try:
       urllib.request.urlretrieve(os.path.join(url_base, filename), dest_filename)
     except urllib.error.HTTPError as e:
@@ -86,6 +86,11 @@ def parse_args():
       "--update-emulator",
       action="store_true",
       help="update AEMU kernel and module prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
+      "-r",
+      "--repo-branch",
+      action="store_true",
+      help="create branches in Android repo that can be uploaded together (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
       "-b",
       "--bug",
@@ -159,6 +164,12 @@ def commit_prebuilts(output_dir, gitlog, name="kernel"):
                     "Bug: {}\n").format(name, _args.build_id, gitlog, _args.bug)
   subprocess.check_call(["git", "add", "."], cwd=output_dir)
   subprocess.check_call(["git", "commit", "-a", "-m", commit_message], cwd=output_dir)
+  if _args.repo_branch:
+    branch_name = "kernel-update-b{}-{}".format(_args.bug, _args.build_id)
+    subprocess.check_call(["repo", "start", "--head", branch_name], cwd=output_dir)
+    print("Changes committed to local Android branch: {}.".format(branch_name))
+    print("Use the following command from your Android repository to upload your changes:")
+    print(" repo upload -t --br {}".format(branch_name))
 
 def get_binary_kernel_version(path):
   """Returns a tuple of strings of the x.y.z (LTS) version and the SHA."""
@@ -359,6 +370,43 @@ def update_android11_5_4(output_dir):
   gitlog = get_git_log(old_sha, new_sha)
   commit_prebuilts(output_dir, gitlog)
 
+def update_androidx_virtual_device_modules(gitlog, output_dir, version):
+  mods_dir = os.path.join(output_dir, "kernel", "prebuilts", "common-modules",
+                          "virtual-device")
+  ver_mods_dir = os.path.join(mods_dir, version)
+  arm64_mods_dir = os.path.join(ver_mods_dir, "arm64")
+  x86_64_mods_dir = os.path.join(ver_mods_dir, "x86-64")
+
+  try:
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_mods_dir)
+  except subprocess.CalledProcessError:
+    pass
+
+  try:
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_mods_dir)
+  except subprocess.CalledProcessError:
+    pass
+
+  download_kernel_modules("kernel_virt_aarch64", arm64_mods_dir, fetch_initramfs=True)
+  download_kernel_modules("kernel_virt_x86_64", x86_64_mods_dir, fetch_initramfs=True)
+
+  commit_prebuilts(arm64_mods_dir, gitlog)
+  commit_prebuilts(x86_64_mods_dir, gitlog)
+
+def update_androidx_cf(gitlog, output_dir, version):
+  i686_cf_dirname = version + "-i686"
+
+  cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts",
+                        "kernel")
+  i686_cf_dir = os.path.join(cf_dir, i686_cf_dirname)
+
+  subprocess.check_call(["git", "rm", "-rf", i686_cf_dirname], cwd=cf_dir)
+
+  download_kernel("kernel_virt_i686", version, i686_cf_dir)
+  download_kernel_modules("kernel_virt_i686", i686_cf_dir)
+
+  commit_prebuilts(cf_dir, gitlog)
+
 def update_androidx(output_dir, version):
   arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", version, "arm64")
   x86_64_dir = os.path.join(output_dir, "kernel", "prebuilts", version,
@@ -388,31 +436,8 @@ def update_androidx(output_dir, version):
   write_prebuilt_info(x86_64_dir)
   commit_prebuilts(x86_64_dir, gitlog)
 
-  # arm64, x86_64 CF kernel modules
-  cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts",
-                        "kernel")
-  arm64_cf_dirname = version + "-arm64"
-  arm64_cf_dir = os.path.join(cf_dir, arm64_cf_dirname)
-  x86_64_cf_dirname = version + "-x86_64"
-  x86_64_cf_dir = os.path.join(cf_dir, x86_64_cf_dirname)
-
-  subprocess.check_call(["git", "rm", "-rf", arm64_cf_dirname,
-                         x86_64_cf_dirname], cwd=cf_dir)
-
-  download_kernel_modules("kernel_virt_aarch64", arm64_cf_dir, fetch_initramfs=True)
-  download_kernel_modules("kernel_virt_x86_64", x86_64_cf_dir, fetch_initramfs=True)
-
-  # i686 CF kernel and kernel modules
-  i686_cf_dirname = version + "-i686"
-  i686_cf_dir = os.path.join(cf_dir, i686_cf_dirname)
-
-  subprocess.check_call(["git", "rm", "-rf", i686_cf_dirname], cwd=cf_dir)
-  os.mkdir(i686_cf_dir)
-
-  download_kernel("kernel_virt_i686", version, i686_cf_dir)
-  download_kernel_modules("kernel_virt_i686", i686_cf_dir)
-
-  commit_prebuilts(cf_dir, gitlog)
+  update_androidx_virtual_device_modules(gitlog, output_dir, version)
+  update_androidx_cf(gitlog, output_dir, version)
 
 def update_android_mainline(output_dir):
   arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", "mainline",
@@ -480,16 +505,19 @@ def download_u_boot_tools(target, output_dir):
 def update_u_boot_mainline(output_dir):
   cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts")
   bootloader_dir = os.path.join(cf_dir, "bootloader")
-  crosvm_x86_64_u_boot = os.path.join(bootloader_dir,
-                                      "crosvm_x86_64", "u-boot.rom")
 
-  (old_version, old_sha) = get_binary_u_boot_version(crosvm_x86_64_u_boot)
-
+  crosvm_aarch64_dir = os.path.join(bootloader_dir, "crosvm_aarch64")
   crosvm_x86_64_dir = os.path.join(bootloader_dir, "crosvm_x86_64")
   qemu_aarch64_dir = os.path.join(bootloader_dir, "qemu_aarch64")
   qemu_arm_dir = os.path.join(bootloader_dir, "qemu_arm")
   qemu_x86_64_dir = os.path.join(bootloader_dir, "qemu_x86_64")
 
+  crosvm_aarch64_u_boot = os.path.join(crosvm_aarch64_dir, "u-boot.bin")
+
+  (old_version, old_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
+
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_aarch64_dir)
+  download_u_boot("u-boot_crosvm_aarch64", crosvm_aarch64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
   download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
@@ -503,12 +531,12 @@ def update_u_boot_mainline(output_dir):
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
   download_u_boot_tools("u-boot_tools", tools_dir)
 
-  (new_version, new_sha) = get_binary_u_boot_version(crosvm_x86_64_u_boot)
+  (new_version, new_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
   gitlog = get_git_log(old_sha, new_sha, get_u_boot_dir())
   commit_prebuilts(cf_dir, gitlog, "bootloader, u-boot tools")
 
 def update_u_boot():
-  url_base = BASE_URL.format(build_id=_args.build_id, target="u-boot_crosvm_x86_64")
+  url_base = BASE_URL.format(build_id=_args.build_id, target="u-boot_crosvm_aarch64")
   url = os.path.join(url_base, "BUILD_INFO")
   response = urllib.request.urlopen(url)
   data = response.read().decode("utf-8")

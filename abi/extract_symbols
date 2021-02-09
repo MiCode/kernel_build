@@ -81,7 +81,7 @@ def extract_undefined_symbols(modules):
   result = {}
   for module in sorted(modules):
     symbols = []
-    out = subprocess.check_output(["nm", "--undefined-only", module],
+    out = subprocess.check_output(["llvm-nm", "--undefined-only", module],
                                   stderr=subprocess.DEVNULL).decode("ascii")
     for line in out.splitlines():
       symbols.append(line.strip().split()[1])
@@ -94,7 +94,7 @@ def extract_undefined_symbols(modules):
 def extract_exported_symbols(binary):
   """Extracts the ksymtab exported symbols from a kernel binary."""
   symbols = []
-  out = subprocess.check_output(["nm", "--defined-only", binary],
+  out = subprocess.check_output(["llvm-nm", "--defined-only", binary],
                                 stderr=subprocess.DEVNULL).decode("ascii")
   for line in out.splitlines():
     pos = line.find(" __ksymtab_")

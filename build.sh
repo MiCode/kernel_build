@@ -105,6 +105,13 @@
 #   SKIP_DEFCONFIG
 #     if defined, skip `make defconfig`
 #
+#   SKIP_IF_VERSION_MATCHES
+#     if defined, skip compiling anything if the kernel version in vmlinux
+#     matches the expected kernel version. This is useful for mixed build, where
+#     GKI kernel does not change frequently and we can simply skip everything
+#     in build.sh. Note: if the expected version string contains "dirty", then
+#     this flag would have not cause build.sh to exit early.
+#
 #   PRE_DEFCONFIG_CMDS
 #     Command evaluated before `make defconfig`
 #
@@ -184,6 +191,22 @@
 #       and should be in the format:
 #       blocklist module_name
 #
+#   AVB_SIGN_BOOT_IMG
+#     if defined, sign the boot image using the AVB_BOOT_KEY. Refer to
+#     https://android.googlesource.com/platform/external/avb/+/master/README.md
+#     for details on what Android Verified Boot is and how it works. The kernel
+#     prebuilt tool `avbtool` is used for signing.
+#
+#     When AVB_SIGN_BOOT_IMG is defined, the following flags need to be
+#     defined:
+#     - AVB_BOOT_PARTITION_SIZE=<size of the boot partition in bytes>
+#     - AVB_BOOT_KEY=<absolute path to the key used for signing> The Android test
+#       key has been uploaded to the kernel/prebuilts/build-tools project here:
+#       https://android.googlesource.com/kernel/prebuilts/build-tools/+/refs/heads/master/linux-x86/share/avb
+#     - AVB_BOOT_ALGORITHM=<AVB_BOOT_KEY algorithm used> e.g. SHA256_RSA2048. For the
+#       full list of supported algorithms, refer to the enum AvbAlgorithmType in
+#       https://android.googlesource.com/platform/external/avb/+/refs/heads/master/libavb/avb_crypto.h
+#
 #   BUILD_INITRAMFS
 #     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
 #
@@ -245,6 +268,20 @@
 #     optional list of objects to consider for the KMI_SYMBOL_LIST_STRICT_MODE
 #     check. Defaults to 'vmlinux'.
 #
+#   GKI_DIST_DIR
+#     optional directory from which to copy GKI artifacts into DIST_DIR
+#
+#   GKI_BUILD_CONFIG
+#     If set, builds a second set of kernel images using GKI_BUILD_CONFIG to
+#     perform a "mixed build." Mixed builds creates "GKI kernel" and "vendor
+#     modules" from two different trees. The GKI kernel tree can be the Android
+#     Common Kernel and the vendor modules tree can be a complete vendor kernel
+#     tree. GKI_DIST_DIR (above) is set and the GKI kernel's DIST output is
+#     copied to this DIST output. This allows a vendor tree kernel image to be
+#     effectively discarded and a GKI kernel Image used from an Android Common
+#     Kernel. Any variables prefixed with GKI_ are passed into into the GKI
+#     kernel's build.sh invocation.
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -256,6 +293,10 @@
 # ${EXT_MOD} is the path to the module source code.
 
 set -e
+
+# Save environment for mixed build support.
+OLD_ENVIRONMENT=$(mktemp)
+export -p > ${OLD_ENVIRONMENT}
 
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
@@ -493,6 +534,26 @@ CC_ARG="${CC}"
 
 source "${ROOT_DIR}/build/_setup_env.sh"
 
+if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
+  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
+
+  # Inherit SKIP_MRPROPER unless overridden by GKI_SKIP_MRPROPER
+  GKI_ENVIRON="SKIP_MRPROPER=${SKIP_MRPROPER}"
+  # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
+  # gki build recursively
+  GKI_ENVIRON+=" GKI_BUILD_CONFIG="
+  # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
+  GKI_ENVIRON+=" $(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' ')"
+  GKI_ENVIRON+=" OUT_DIR=${GKI_OUT_DIR}"
+  GKI_ENVIRON+=" DIST_DIR=${GKI_DIST_DIR}"
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON}; ./build/build.sh" )
+else
+  rm -f ${OLD_ENVIRONMENT}
+fi
+
 export MAKE_ARGS=$*
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
@@ -594,6 +655,20 @@ else
   RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
   RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
   RAMDISK_EXT="lz4"
+fi
+
+if [ -n "${SKIP_IF_VERSION_MATCHES}" ]; then
+  if [ -f "${DIST_DIR}/vmlinux" ]; then
+    kernelversion="$(cd ${KERNEL_DIR} && make -s "${TOOL_ARGS[@]}" O=${OUT_DIR} kernelrelease)"
+    # Split grep into 2 steps. "Linux version" will always be towards top and fast to find. Don't
+    # need to search the entire vmlinux for it
+    if [[ ! "$kernelversion" =~ .*dirty.* ]] && \
+       grep -o -a -m1 "Linux version [^ ]* " ${DIST_DIR}/vmlinux | grep -q " ${kernelversion} " ; then
+      echo "========================================================"
+      echo " Skipping build because kernel version matches ${kernelversion}"
+      exit 0
+    fi
+  fi
 fi
 
 rm -rf ${DIST_DIR}
@@ -898,6 +973,12 @@ if [ -n "${GENERATE_VMLINUX_BTF}" ]; then
 
 fi
 
+if [ -n "${GKI_DIST_DIR}" ]; then
+  echo "========================================================"
+  echo " Copying files from GKI kernel"
+  cp -rv ${GKI_DIST_DIR}/* ${DIST_DIR}/
+fi
+
 if [ -n "${DIST_CMDS}" ]; then
   echo "========================================================"
   echo " Running extra dist command(s):"
@@ -1067,8 +1148,26 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
     --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
     "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
+  if [ -f "${DIST_DIR}/boot.img" ]; then
+    echo "boot image created at ${DIST_DIR}/boot.img"
 
-  [ -f "${DIST_DIR}/boot.img" ] && echo "boot image created at ${DIST_DIR}/boot.img"
+    if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
+      if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
+          && [ -n "${AVB_BOOT_KEY}" ] \
+          && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
+        echo "Signing the boot.img..."
+        avbtool add_hash_footer --partition_name boot \
+            --partition_size ${AVB_BOOT_PARTITION_SIZE} \
+            --image ${DIST_DIR}/boot.img \
+            --algorithm ${AVB_BOOT_ALGORITHM} \
+            --key ${AVB_BOOT_KEY}
+      else
+        echo "Missing the AVB_* flags. Failed to sign the boot image" 1>&2
+        exit 1
+      fi
+    fi
+  fi
+
   [ -z "${SKIP_VENDOR_BOOT}" ] \
     && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
     && [ -f "${DIST_DIR}/vendor_boot.img" ] \
