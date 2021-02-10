@@ -379,11 +379,13 @@ def update_androidx_virtual_device_modules(gitlog, output_dir, version):
 
   try:
     subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_mods_dir)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_mods_dir)
   except subprocess.CalledProcessError:
     pass
 
   try:
     subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_mods_dir)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_mods_dir)
   except subprocess.CalledProcessError:
     pass
 
