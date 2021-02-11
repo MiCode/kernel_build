@@ -174,6 +174,8 @@
 #       vendor_boot when BOOT_IMAGE_HEADER_VERSION >= 3; boot otherwise>
 #     - VENDOR_FSTAB=<Path to the vendor fstab to be included in the vendor
 #       ramdisk>
+#     - TAGS_OFFSET=<physical address for kernel tags>
+#     - RAMDISK_OFFSET=<ramdisk physical load address>
 #     If the BOOT_IMAGE_HEADER_VERSION is less than 3, two additional variables must
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
@@ -1013,6 +1015,12 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   fi
   if [ -n "${KERNEL_CMDLINE}" ]; then
     MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
+  fi
+  if [ -n "${TAGS_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--tags_offset" "${TAGS_OFFSET}")
+  fi
+  if [ -n "${RAMDISK_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--ramdisk_offset" "${RAMDISK_OFFSET}")
   fi
 
   DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb" | sort)
