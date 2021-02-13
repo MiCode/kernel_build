@@ -35,6 +35,9 @@ set -a
 source "${ROOT_DIR}/build/_setup_env.sh"
 set -a
 
+# Disable mixed build
+GKI_BUILD_CONFIG=
+
 function sort_config() {
   # Normal sort won't work because all the "# CONFIG_.. is not set" would come
   # before all the "CONFIG_..=m". Use sed to extract the CONFIG_ option and prefix
