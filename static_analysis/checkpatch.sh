@@ -118,7 +118,7 @@ if [[ $CHECKPATCH_RC -ne 0 ]]; then
   echoerr ""
   echoerr "Summary:"
   echoerr ""
-  { grep -r -h -E -A1 "^ERROR:" "${RESULTS_PATH}" 1>&2; } || true
+  { grep -r -h -E -A1 "^(ERROR|WARNING):" "${RESULTS_PATH}" 1>&2; } || true
   echoerr ""
   echoerr "See $(basename ${RESULTS_PATH}) for complete output."
 fi
