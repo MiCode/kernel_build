@@ -1100,7 +1100,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
   fi
 
-  python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
+  "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
     --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
     "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
   if [ -f "${DIST_DIR}/boot.img" ]; then
