@@ -444,17 +444,15 @@ function create_modules_staging() {
     echo "========================================================"
     echo " Trimming unused modules"
     local used_blocklist_modules=$(mktemp)
-    local blocklist_flag=
     if [ -f ${dest_dir}/modules.blocklist ]; then
       # TODO: the modules blocklist could contain module aliases instead of the filename
       sed -n -E -e 's/blocklist (.+)/\1/p' ${dest_dir}/modules.blocklist > $used_blocklist_modules
-      blocklist_flag="-f $used_blocklist_modules"
     fi
 
     # Trim modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
-      find * -type f -name "*.ko" | grep -v -w -f modules.order $blocklist_flag - | xargs -r rm
+      find * -type f -name "*.ko" | grep -v -w -f modules.order -f $used_blocklist_modules - | xargs -r rm
     )
     rm $used_blocklist_modules
   fi
