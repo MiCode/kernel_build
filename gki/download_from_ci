@@ -526,6 +526,7 @@ def update_u_boot_mainline(output_dir):
 
   tools_dir = os.path.join(cf_dir, "uboot_tools")
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "mkenvimage_mac.sh"], cwd=tools_dir)
   download_u_boot_tools("u-boot_tools", tools_dir)
 
   (new_version, new_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
