@@ -92,12 +92,12 @@ function do_list_variants() (
 	done
 )
 
-if [ -n "$@" ]; then
+if [ -n "$*" ]; then
 	while read variant; do
 		unset do_list_variants
 		echo "${variant}"
 		# Now, export those variables to the requested command
-		${SHELL} -c "set -a; ${variant// /;}; set +a; $@"
+		${SHELL} -c "set -a; ${variant// /;}; set +a; $*"
 	done < <(do_list_variants)
 else
 	do_list_variants
