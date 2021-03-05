@@ -1006,7 +1006,12 @@ if [ -n "${MODULES}" ]; then
       fi
     fi
 
-    (cd ${INITRAMFS_STAGING_DIR} && find * | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    # In toybox cpio, --no-preserve-owner is a valid command line switch for the
+    # create i.e.  copy-out mode. It causes toybox to set uid/gid to 0 for all
+    # directory entries. This is equivalent the command line argument -R +0:+0
+    # in GNU cpio. Keep in mind that, in GNU cpio, --no-preserve-owner means
+    # something else and is only valid in copy-in and copy-pass modes.
+    (cd ${INITRAMFS_STAGING_DIR} && find * | cpio -H newc -o --no-preserve-owner --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
     ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
   fi
