@@ -244,7 +244,7 @@ rm -f build.config
 echo
 echo "Creating ./build.config:"
 echo "======================"
-echo """[ -z "\${VARIANT}"] && VARIANT=${CHOSEN_VARIANT}
+echo """[ -z \"\${VARIANT}\" ] && VARIANT=${CHOSEN_VARIANT}
 KERNEL_DIR=${KERNEL_DIR}
 . ${CHOSEN_CONFIG}
 """ | tee ./build.config
