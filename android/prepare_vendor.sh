@@ -120,7 +120,7 @@ $(cat ${ROOT_DIR}/build.config)
 """ > ${ROOT_DIR}/build.config
 
 ################################################################################
-if [ "${RECOMPILE_KERNEL}" == "1" ]; then
+if [ "${RECOMPILE_KERNEL}" == "1" -o ! -e "${ANDROID_KP_OUT_DIR}/dist/Image"]; then
   echo
   echo "  Recompiling kernel"
 
