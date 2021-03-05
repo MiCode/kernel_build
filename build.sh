@@ -121,10 +121,6 @@
 #   POST_KERNEL_BUILD_CMDS
 #     Command evaluated after `make`.
 #
-#   DISABLE_LTO_CFI_CONFIGS
-#     If defined (usually in build.config), disable LTO and CFI kernel
-#     configurations
-#
 #   TAGS_CONFIG
 #     if defined, calls ./scripts/tags.sh utility with TAGS_CONFIG as argument
 #     and exit once tags have been generated
@@ -658,22 +654,6 @@ if [ -z "${SKIP_DEFCONFIG}" ] ; then
     eval ${POST_DEFCONFIG_CMDS}
     set +x
   fi
-fi
-
-if [ -n "${DISABLE_LTO_CFI_CONFIGS}" ]; then
-  echo "========================================================"
-  echo " Disabling LTO and CFI kernel configurations"
-
-  set -x
-  # The options are derived from https://source.android.com/setup/build/building-kernels#customize-config
-  ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-    -d LTO \
-    -d LTO_CLANG \
-    -d CFI \
-    -d CFI_PERMISSIVE \
-    -d CFI_CLANG
-  (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
-  set +x
 fi
 
 if [ -n "${TAGS_CONFIG}" ]; then
