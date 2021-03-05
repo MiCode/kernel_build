@@ -974,7 +974,7 @@ if [ -n "${MODULES}" ]; then
       fi
     fi
 
-    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    (cd ${INITRAMFS_STAGING_DIR} && find * | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
     ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
   fi
