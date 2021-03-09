@@ -1098,21 +1098,29 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
       echo "Unable to locate vendor ramdisk ${VENDOR_RAMDISK_BINARY}."
       exit 1
     fi
-    CPIO_NAME="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
+    CPIO_NAME="$(mktemp -t build.sh.ramdisk.cpio.XXXXXXXX)"
     if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
       echo "${VENDOR_RAMDISK_BINARY} is GZIP compressed"
-      MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
     elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
       echo "${VENDOR_RAMDISK_BINARY} is LZ4 compressed"
-      MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
     elif cpio -t < "${VENDOR_RAMDISK_BINARY}" &>/dev/null; then
       echo "${VENDOR_RAMDISK_BINARY} is plain CPIO archive"
-      MKBOOTIMG_RAMDISKS+=("${VENDOR_RAMDISK_BINARY}")
+      cp -f "${VENDOR_RAMDISK_BINARY}" "${CPIO_NAME}"
     else
       echo "Unable to identify type of vendor ramdisk ${VENDOR_RAMDISK_BINARY}"
       rm -f "${CPIO_NAME}"
       exit 1
     fi
+    MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
+
+    # Remove lib/modules from the vendor ramdisk binary
+    RAMDISK_TMP_DIR="$(mktemp -d -t build.sh.ramdisk.XXXXXXXX)"
+    (cd "${RAMDISK_TMP_DIR}"
+     cpio -idu --quiet -F "${CPIO_NAME}"
+     rm -rf lib/modules
+     find * | cpio -H newc -o --no-preserve-owner --quiet > "${CPIO_NAME}"
+    )
+    rm -rf "${RAMDISK_TMP_DIR}"
   fi
 
   if [ -f "${MODULES_STAGING_DIR}/initramfs.cpio" ]; then
