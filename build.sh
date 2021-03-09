@@ -1019,8 +1019,8 @@ if [ -n "${MODULES}" ]; then
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
 
     if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
-      mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
       if [ -f "${VENDOR_FSTAB}" ]; then
+        mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
         cp ${VENDOR_FSTAB} ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk/.
       fi
     fi
