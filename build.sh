@@ -121,9 +121,20 @@
 #   POST_KERNEL_BUILD_CMDS
 #     Command evaluated after `make`.
 #
-#   DISABLE_LTO_CFI_CONFIGS
-#     If defined (usually in build.config), disable LTO and CFI kernel
-#     configurations
+#   LTO=[full|thin|none]
+#     If set to "full", force any kernel with LTO_CLANG support to be built
+#     with full LTO, which is the most optimized method. This is the default,
+#     but can result in very slow build times, especially when building
+#     incrementally. (This mode does not require CFI to be disabled.)
+#     If set to "thin", force any kernel with LTO_CLANG support to be built
+#     with ThinLTO, which trades off some optimizations for incremental build
+#     speed. This is nearly always what you want for local development. (This
+#     mode does not require CFI to be disabled.)
+#     If set to "none", force any kernel with LTO_CLANG support to be built
+#     without any LTO (upstream default), which results in no optimizations
+#     and also disables LTO-dependent features like CFI. This mode is not
+#     recommended because CFI will not be able to catch bugs if it is
+#     disabled.
 #
 #   TAGS_CONFIG
 #     if defined, calls ./scripts/tags.sh utility with TAGS_CONFIG as argument
@@ -174,6 +185,8 @@
 #       vendor_boot when BOOT_IMAGE_HEADER_VERSION >= 3; boot otherwise>
 #     - VENDOR_FSTAB=<Path to the vendor fstab to be included in the vendor
 #       ramdisk>
+#     - TAGS_OFFSET=<physical address for kernel tags>
+#     - RAMDISK_OFFSET=<ramdisk physical load address>
 #     If the BOOT_IMAGE_HEADER_VERSION is less than 3, two additional variables must
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
@@ -704,20 +717,41 @@ if [ -z "${SKIP_DEFCONFIG}" ] ; then
   fi
 fi
 
-if [ -n "${DISABLE_LTO_CFI_CONFIGS}" ]; then
+if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
   echo "========================================================"
-  echo " Disabling LTO and CFI kernel configurations"
+  echo " Modifying LTO mode to '${LTO}'"
 
   set -x
-  # The options are derived from https://source.android.com/setup/build/building-kernels#customize-config
-  ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-    -d LTO \
-    -d LTO_CLANG \
-    -d CFI \
-    -d CFI_PERMISSIVE \
-    -d CFI_CLANG
+  if [ "${LTO}" = "none" ]; then
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+      -d LTO_CLANG \
+      -e LTO_NONE \
+      -d LTO_CLANG_THIN \
+      -d LTO_CLANG_FULL \
+      -d THINLTO
+  elif [ "${LTO}" = "thin" ]; then
+    # This is best-effort; some kernels don't support LTO_THIN mode
+    # THINLTO was the old name for LTO_THIN, and it was 'default y'
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+      -e LTO_CLANG \
+      -d LTO_NONE \
+      -e LTO_CLANG_THIN \
+      -d LTO_CLANG_FULL \
+      -e THINLTO
+  elif [ "${LTO}" = "full" ]; then
+    # THINLTO was the old name for LTO_THIN, and it was 'default y'
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+      -e LTO_CLANG \
+      -d LTO_NONE \
+      -d LTO_CLANG_THIN \
+      -e LTO_CLANG_FULL \
+      -d THINLTO
+  fi
   (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
   set +x
+elif [ -n "${LTO}" ]; then
+  echo "LTO= must be one of 'none', 'thin' or 'full'."
+  exit 1
 fi
 
 if [ -n "${TAGS_CONFIG}" ]; then
@@ -1021,7 +1055,12 @@ if [ -n "${MODULES}" ]; then
       fi
     fi
 
-    (cd ${INITRAMFS_STAGING_DIR} && find . | cpio -H newc -o --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    # In toybox cpio, --no-preserve-owner is a valid command line switch for the
+    # create i.e.  copy-out mode. It causes toybox to set uid/gid to 0 for all
+    # directory entries. This is equivalent the command line argument -R +0:+0
+    # in GNU cpio. Keep in mind that, in GNU cpio, --no-preserve-owner means
+    # something else and is only valid in copy-in and copy-pass modes.
+    (cd ${INITRAMFS_STAGING_DIR} && find * | cpio -H newc -o --no-preserve-owner --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
     ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
   fi
@@ -1066,6 +1105,12 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   fi
   if [ -n "${KERNEL_CMDLINE}" ]; then
     MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
+  fi
+  if [ -n "${TAGS_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--tags_offset" "${TAGS_OFFSET}")
+  fi
+  if [ -n "${RAMDISK_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--ramdisk_offset" "${RAMDISK_OFFSET}")
   fi
 
   DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb" | sort)
@@ -1145,7 +1190,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
   fi
 
-  python "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
+  "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
     --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
     "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
   if [ -f "${DIST_DIR}/boot.img" ]; then

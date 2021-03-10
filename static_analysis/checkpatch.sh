@@ -94,8 +94,14 @@ echo "Using --git_sha1: ${GIT_SHA1}"
 
 # Generate patch file from git.
 cd ${KERNEL_DIR}
-git format-patch --quiet -o "${PATCH_DIR}" "${GIT_SHA1}^1..${GIT_SHA1}"
+git format-patch --quiet -o "${PATCH_DIR}" "${GIT_SHA1}^1..${GIT_SHA1}" -- \
+  ':!android/abi*'
 PATCH_FILE="${PATCH_DIR}/*.patch"
+
+if ! `stat -t ${PATCH_FILE} >/dev/null 2>&1`; then
+  echo "Patch empty (probably due to suppressions). Skipping analysis."
+  exit 0
+fi
 
 # Delay exit on non-zero checkpatch.pl return code so we can finish logging.
 
@@ -118,7 +124,7 @@ if [[ $CHECKPATCH_RC -ne 0 ]]; then
   echoerr ""
   echoerr "Summary:"
   echoerr ""
-  { grep -r -h -E -A1 "^ERROR:" "${RESULTS_PATH}" 1>&2; } || true
+  { grep -r -h -E -A1 "^(ERROR|WARNING):" "${RESULTS_PATH}" 1>&2; } || true
   echoerr ""
   echoerr "See $(basename ${RESULTS_PATH}) for complete output."
 fi
