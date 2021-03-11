@@ -641,6 +641,11 @@ fi
 
 mkdir -p ${OUT_DIR} ${DIST_DIR}
 
+# Store a copy of the effective kernel config from a potential previous run. In
+# particular, we are interested in preserving the modification timestamp.
+KERNEL_CONFIG=${OUT_DIR}/.config
+[ -f ${KERNEL_CONFIG} ] && cp -p ${KERNEL_CONFIG} ${KERNEL_CONFIG}.before
+
 echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
@@ -677,7 +682,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
 
   set -x
   if [ "${LTO}" = "none" ]; then
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
       -d LTO_CLANG \
       -e LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -686,7 +691,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
   elif [ "${LTO}" = "thin" ]; then
     # This is best-effort; some kernels don't support LTO_THIN mode
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
       -e LTO_CLANG \
       -d LTO_NONE \
       -e LTO_CLANG_THIN \
@@ -694,7 +699,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e THINLTO
   elif [ "${LTO}" = "full" ]; then
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
       -e LTO_CLANG \
       -d LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -775,13 +780,13 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
               ${OUT_DIR}/abi_symbollist.raw
 
       # Update the kernel configuration
-      ./scripts/config --file ${OUT_DIR}/.config \
+      ./scripts/config --file ${KERNEL_CONFIG} \
               -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
               --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
       (cd ${OUT_DIR} && \
               make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
       # Make sure the config is applied
-      grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
+      grep CONFIG_UNUSED_KSYMS_WHITELIST ${KERNEL_CONFIG} > /dev/null || {
         echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
         echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
         exit 1
@@ -798,6 +803,20 @@ elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
 elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
   echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
+fi
+
+# If all the above configuration steps did not actually change the content of
+# $KERNEL_CONFIG (usually, .config), we restore the previously stored copy
+# along with its previous modification time stamp. That allows the kernel build
+# to skip all rules that directly depend on the config changing. In particular,
+# it might skip linking the kernel again if there haven't been any
+# modifications requiring a relink.
+if [ -f ${KERNEL_CONFIG}.before ]; then
+  if `cmp -s ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}`; then
+    mv ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}  # preserve timestamp
+  else
+    rm ${KERNEL_CONFIG}.before
+  fi
 fi
 
 echo "========================================================"
