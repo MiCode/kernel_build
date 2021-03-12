@@ -33,6 +33,8 @@ import difflib
 import sys
 import copy
 import shutil
+import filecmp
+
 """
 This will generate a set containing all of the UAPI header files under a given
 base path for comparison against another set of UAPI headers under another
@@ -80,13 +82,26 @@ def generate_exports(kernel_hdrs_path, bionic_hdrs_path,\
     msm_spec_hdrs = kernel_hdrs.difference(bionic_hdrs)
     hdr_matches = set()
     hdr_mismatches = set()
-    os.makedirs(final_dest)
+    if not os.path.exists(final_dest):
+        os.makedirs(final_dest)
+    # If the final_dest folder already exists, we want to remove any "orphaned" headers
+    # e.g. existing dest dir had UAPI x/y/z.h, but doesn't exist in new kernel
+    dangling_dest_hdrs = generate_hdr_names(final_dest)
     for hdr in msm_spec_hdrs:
         src_hdr = os.path.join(kernel_hdrs_path, hdr)
         dest_hdr = os.path.join(final_dest, hdr)
+        dangling_dest_hdrs.discard(hdr)
         if not os.path.exists(os.path.dirname(dest_hdr)):
             os.makedirs(os.path.dirname(dest_hdr))
+        # If the file is already in the destination, don't touch it to improve
+        # incremental compilation
+        if os.path.exists(dest_hdr) and filecmp.cmp(src_hdr, dest_hdr, shallow=False):
+            continue
         shutil.copyfile(src_hdr, dest_hdr)
+
+    for hdr in dangling_dest_hdrs:
+        if os.path.exists(os.path.join(final_dest, hdr)):
+            os.remove(os.path.join(final_dest, hdr))
 
     print_diagnostics(kernel_hdrs, msm_bionic_intersection, hdr_matches,\
                       hdr_mismatches, msm_spec_hdrs)
