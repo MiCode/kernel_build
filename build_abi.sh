@@ -62,8 +62,6 @@
 #     symbols from vmlinux and GKI modules, instead of the undefined symbols
 #     from vendor modules. This property is disabled by default.
 
-ABIGAIL_VERSION=2.0.0-1b4e95ec
-
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
 function show_help {
@@ -139,8 +137,6 @@ if [[ -z "$OUT_DIR" ]]; then
     wipe_out_dir=1
 fi
 
-# TODO (b/175681515)
-export HERMETIC_TOOLCHAIN=0
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 if [ -z "${KMI_SYMBOL_LIST}" ]; then
@@ -153,8 +149,8 @@ elif [ $UPDATE -eq 1 ]; then
 fi
 
 # Now actually do the wipe out as above.
-if [[ $wipe_out_dir -eq 1 ]]; then
-    rm -rf "${COMMON_OUT_DIR}"
+if [[ $wipe_out_dir -eq 1 && -d ${COMMON_OUT_DIR} ]]; then
+    find "${COMMON_OUT_DIR}" \( -name 'vmlinux' -o -name '*.ko' \) -delete -print
 fi
 
 # inject CONFIG_DEBUG_INFO=y
@@ -167,19 +163,6 @@ function update_config_for_abi_dump() {
      make O=${OUT_DIR} "${TOOL_ARGS[@]}" $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
 }
 export -f update_config_for_abi_dump
-
-function version_greater_than() {
-    test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
-}
-
-# For now we require a specific versions of libabigail identified by a commit
-# hash.
-required_abigail_version="$ABIGAIL_VERSION"
-if [[ ! $(abidiff --version) =~ $required_abigail_version ]]; then
-    echo "ERROR: required libabigail version is $required_abigail_version"
-    echo "Please run 'repo sync'"
-    exit 1
-fi
 
 function build_kernel() {
   # Delegate the actual build to build.sh.
