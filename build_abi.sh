@@ -324,12 +324,12 @@ if [ -n "$ABI_DEFINITION" ]; then
         echo " The detailed report is available in the same directory."
 
         if [ $rc -ne 0 ]; then
-            echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"
+            echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)" 1>&2
         fi
 
         if [ $PRINT_REPORT -eq 1 ] && [ $rc -ne 0 ] ; then
-            echo "========================================================"
-            cat ${abi_report}.short
+            echo "========================================================" 1>&2
+            cat ${abi_report}.short 1>&2
         fi
     fi
     if [ $UPDATE -eq 1 ] ; then
