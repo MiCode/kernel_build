@@ -204,6 +204,12 @@
 #       and should be in the format:
 #       blocklist module_name
 #
+#   VENDOR_RAMDISK_CMDS
+#     When building vendor boot image, VENDOR_RAMDISK_CMDS enables the build
+#     config file to specify command(s) for further altering the prebuilt vendor
+#     ramdisk binary. For example, the build config file could add firmware files
+#     on the vendor ramdisk (lib/firmware) for testing purposes.
+#
 #   AVB_SIGN_BOOT_IMG
 #     if defined, sign the boot image using the AVB_BOOT_KEY. Refer to
 #     https://android.googlesource.com/platform/external/avb/+/master/README.md
@@ -1114,10 +1120,12 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
 
     # Remove lib/modules from the vendor ramdisk binary
+    # Also execute ${VENDOR_RAMDISK_CMDS} for further modifications
     RAMDISK_TMP_DIR="$(mktemp -d -t build.sh.ramdisk.XXXXXXXX)"
     (cd "${RAMDISK_TMP_DIR}"
      cpio -idu --quiet -F "${CPIO_NAME}"
      rm -rf lib/modules
+     eval ${VENDOR_RAMDISK_CMDS}
      find * | cpio -H newc -o --no-preserve-owner --quiet > "${CPIO_NAME}"
     )
     rm -rf "${RAMDISK_TMP_DIR}"
