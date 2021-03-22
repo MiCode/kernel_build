@@ -97,8 +97,8 @@ esac
   ./build/brunch ${KERNEL_TARGET} ${KERNEL_VARIANT}
 )
 
-rm -rf "${ANDROID_KERNEL_OUT}"
-mkdir "${ANDROID_KERNEL_OUT}"
+rm -f ${ANDROID_KERNEL_OUT}/Image ${ANDROID_KERNEL_OUT}/vmlinux ${ANDROID_KERNEL_OUT}/System.map
+mkdir -p "${ANDROID_KERNEL_OUT}"
 
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
 ANDROID_KP_OUT_DIR="${3:-${OUT_DIR}}"
@@ -120,7 +120,7 @@ $(cat ${ROOT_DIR}/build.config)
 """ > ${ROOT_DIR}/build.config
 
 ################################################################################
-if [ "${RECOMPILE_KERNEL}" == "1" ]; then
+if [ "${RECOMPILE_KERNEL}" == "1" -o ! -e "${ANDROID_KP_OUT_DIR}/dist/Image" ]; then
   echo
   echo "  Recompiling kernel"
 
@@ -161,6 +161,7 @@ else
   find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko > ${first_stage_kos}
 fi
 
+rm -f ${ANDROID_KERNEL_OUT}/*.ko ${ANDROID_KERNEL_OUT}/modules.*
 if [ -s "${first_stage_kos}" ]; then
   cp $(cat ${first_stage_kos}) ${ANDROID_KERNEL_OUT}/
 else
@@ -175,9 +176,10 @@ if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
   cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
 fi
 
+rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
 second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos})
 if [ -n "${second_stage_kos}" ]; then
-  mkdir ${ANDROID_KERNEL_OUT}/vendor_dlkm
+  mkdir -p ${ANDROID_KERNEL_OUT}/vendor_dlkm
   cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
 else
   echo "  WARNING!! No vendor_dlkm (second stage) modules found"
@@ -197,6 +199,7 @@ cp ${ANDROID_KP_OUT_DIR}/dist/Image ${ANDROID_KERNEL_OUT}/
 cp ${ANDROID_KP_OUT_DIR}/dist/vmlinux ${ANDROID_KERNEL_OUT}/
 cp ${ANDROID_KP_OUT_DIR}/dist/System.map ${ANDROID_KERNEL_OUT}/
 
+rm -rf ${ANDROID_KERNEL_OUT}/debug
 if [ -e ${ANDROID_KP_OUT_DIR}/debug ]; then
   cp -r ${ANDROID_KP_OUT_DIR}/debug ${ANDROID_KERNEL_OUT}/
 fi
@@ -254,6 +257,7 @@ done
 echo
 echo "  Merging vendor devicetree overlays"
 
+rm -rf ${ANDROID_KERNEL_OUT}/dtbs
 mkdir ${ANDROID_KERNEL_OUT}/dtbs
 
 (
