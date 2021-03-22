@@ -1,5 +1,6 @@
 | Branch | Device | Android version | Base tag | Link |
 | :-: | :-: | :-: | :-: | :-: |
+| alioth-r-oss | Mi 10S, Redmi K40 | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [alioth-r-oss](https://github.com/MiCode/kernel_build/tree/alioth-r-oss) |
 | apollo-q-oss | Redmi K30S Ultra | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [apollo-q-oss](https://github.com/MiCode/kernel_build/tree/apollo-q-oss) |
 | cas-q-oss | Mi 10 Ultra, Mi 10 Pro, Mi 10, Redmi K30 Pro | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [cas-q-oss](https://github.com/MiCode/kernel_build/tree/cas-q-oss) |
 | gauguin-q-oss | Redmi Note 9 Pro | Android Q | LA.UM.8.13.r1-09200-SAIPAN.0 | [gauguin-q-oss](https://github.com/MiCode/kernel_build/tree/gauguin-q-oss) |
