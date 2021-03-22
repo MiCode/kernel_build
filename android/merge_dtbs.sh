@@ -39,5 +39,6 @@ set -x
 $ROOT_DIR/build/android/merge_dtbs.py $1 $2 $3
 set +x
 
-cat ${3}/*.dtb > ${3}/dtb.img
-mkdtboimg.py create ${3}/dtbo.img --page_size=${PAGE_SIZE} ${3}/*.dtbo
+[[ -n "$(find ${3} -type f -name '*.dtb')" ]] && cat ${3}/*.dtb > ${3}/dtb.img
+[[ -n "$(find ${3} -type f -name '*.dtbo')" ]] && mkdtboimg.py create ${3}/dtbo.img --page_size=${PAGE_SIZE} ${3}/*.dtbo
+exit 0
