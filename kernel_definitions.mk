@@ -111,6 +111,7 @@ BUILD_ROOT_LOC := ../../..
 KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/kernel/$(TARGET_KERNEL)
 KERNEL_SYMLINK := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
 KERNEL_USR := $(KERNEL_SYMLINK)/usr
+KERNEL_USR_TS := $(TARGET_OUT_INTERMEDIATES)/kernelusr.time
 
 KERNEL_CONFIG := $(KERNEL_OUT)/.config
 
@@ -257,9 +258,13 @@ define build-kernel
 endef
 
 # Android Kernel make rules
+# Create kernelusr.time file and use its timestamp later to modify the TS of $(KERNEL_USR). \
+# this will ensure in subsequent builds, i.e. no-op incremental builds, modules depends on $(KERNEL_USR) \
+# will not get recompiled.
 
-$(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(DTC) $(UFDT_APPLY_OVERLAY)
+$(KERNEL_HEADERS_INSTALL): $(DTC) $(UFDT_APPLY_OVERLAY) | $(KERNEL_OUT)
 	$(call build-kernel,$(KERNEL_DEFCONFIG),$(KERNEL_OUT),$(KERNEL_MODULES_OUT),$(KERNEL_HEADERS_INSTALL),1,$(TARGET_PREBUILT_INT_KERNEL))
+	touch $(KERNEL_USR_TS)
 
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
@@ -267,9 +272,11 @@ $(KERNEL_OUT):
 $(GKI_KERNEL_OUT):
 	mkdir -p $(GKI_KERNEL_OUT)
 
-$(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
-	rm -rf $(KERNEL_SYMLINK)
-	ln -s kernel/$(TARGET_KERNEL) $(KERNEL_SYMLINK)
+$(KERNEL_USR): | $(KERNEL_HEADERS_INSTALL)
+	if [ -d "$(KERNEL_SYMLINK)" ] && [ ! -L "$(KERNEL_SYMLINK)" ]; then \
+	rm -rf $(KERNEL_SYMLINK); \
+	ln -s kernel/$(TARGET_KERNEL) $(KERNEL_SYMLINK); \
+	fi
 
 $(TARGET_PREBUILT_KERNEL): $(KERNEL_OUT) $(DTC) $(KERNEL_USR)
 	echo "Building the requested kernel.."; \
@@ -284,6 +291,7 @@ $(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL) $(GKI_TARGET_PREBUILT_KERN
 	if [ ! -z "$(GKI_TARGET_PREBUILT_KERNEL)" ]; then \
 		cp $(GKI_TARGET_PREBUILT_KERNEL) $(PRODUCT_OUT)/kernel-gki; \
 	fi
+	touch $(KERNEL_USR) -r $(KERNEL_USR_TS)
 
 # RTIC DTS to DTB (if MPGen enabled;
 # and make sure we don't break the build if rtic_mp.dts missing)
