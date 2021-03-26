@@ -35,6 +35,12 @@ export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 export UNSTRIPPED_DIR=${ROOT_DIR}/${KERNEL_MODULES_OUT}/unstripped
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
+if [ -z ${TZ} ]
+then
+    TZ=$(cat /etc/timezone)
+fi
+echo "timezone for kernel: ${TZ}"
+
 #Setting up for build
 PREBUILT_KERNEL_IMAGE=$(basename ${TARGET_PREBUILT_INT_KERNEL})
 IMAGE_FILE_PATH=arch/${ARCH}/boot
@@ -58,7 +64,17 @@ make_defconfig()
 		echo "Building defconfig"
 		set -x
 		(cd ${KERNEL_DIR} && \
-		${MAKE_PATH}make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		${MAKE_PATH}make TZ=${TZ} O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		set +x
+	fi
+
+	if [ ! -z "${KERNEL_CONFIG_OVERRIDE_FACTORY}"  ]; then
+		echo "Rebuilding defconfig"
+		echo "Overriding kernel config with" ${KERNEL_CONFIG_OVERRIDE_FACTORY};
+		echo ${KERNEL_CONFIG_OVERRIDE_FACTORY} >> ${OUT_DIR}/.config;
+		set -x
+		(cd ${KERNEL_DIR} && \
+		make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig)
 		set +x
 	fi
 }
@@ -70,7 +86,7 @@ headers_install()
 	echo "Installing kernel headers"
 	set -x
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
+	${MAKE_PATH}make TZ=${TZ} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
 	set +x
 }
 
@@ -81,7 +97,7 @@ build_kernel()
 	echo "Building kernel"
 	set -x
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
+	${MAKE_PATH}make TZ=${TZ} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
 	set +x
 }
 
@@ -94,7 +110,7 @@ modules_install()
 	mkdir -p ${MODULES_STAGING_DIR}
 	set -x
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
+	${MAKE_PATH}make TZ=${TZ} O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 	set +x
 }
 
@@ -342,7 +358,7 @@ save_unstripped_modules()
 	set -x
 
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_PATH=${UNSTRIPPED_DIR} ${MAKE_ARGS} modules_install)
+	${MAKE_PATH}make TZ=${TZ} O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_PATH=${UNSTRIPPED_DIR} ${MAKE_ARGS} modules_install)
 
 	MODULES=$(find ${UNSTRIPPED_DIR} -type f -name "*.ko")
 	for MODULE in ${MODULES}; do
