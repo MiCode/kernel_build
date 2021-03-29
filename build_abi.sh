@@ -165,6 +165,13 @@ function check_config_for_abi_dump() {
 }
 export -f check_config_for_abi_dump
 
+# Disable mixed build when comparing ABI snapshots. Device kernel ABI should compared, even in a
+# mixed build environment.
+GKI_BUILD_CONFIG=
+# Mixed build device kernels would not compile vmlinux. When using build_abi.sh to compile, we
+# do want to compile vmlinux since we are comparing the ABI of the device kernel.
+MAKE_GOALS+=" vmlinux"
+
 function build_kernel() {
   # Delegate the actual build to build.sh.
   # Suppress possible values of ABI_DEFINITION when invoking build.sh to avoid
