@@ -647,11 +647,6 @@ fi
 
 mkdir -p ${OUT_DIR} ${DIST_DIR}
 
-# Store a copy of the effective kernel config from a potential previous run. In
-# particular, we are interested in preserving the modification timestamp.
-KERNEL_CONFIG=${OUT_DIR}/.config
-[ -f ${KERNEL_CONFIG} ] && cp -p ${KERNEL_CONFIG} ${KERNEL_CONFIG}.before
-
 echo "========================================================"
 echo " Setting up for build"
 if [ -z "${SKIP_MRPROPER}" ] ; then
@@ -659,6 +654,11 @@ if [ -z "${SKIP_MRPROPER}" ] ; then
   (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} mrproper)
   set +x
 fi
+
+# Store a copy of the effective kernel config from a potential previous run. In
+# particular, we are interested in preserving the modification timestamp.
+KERNEL_CONFIG=${OUT_DIR}/.config
+[ -f ${KERNEL_CONFIG} ] && cp -p ${KERNEL_CONFIG} ${KERNEL_CONFIG}.before
 
 if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   echo "========================================================"
