@@ -336,13 +336,14 @@ function rel_path() {
 
 # $1 directory of kernel modules ($1/lib/modules/x.y)
 # $2 flags to pass to depmod
+# $3 kernel version
 function run_depmod() {
   (
     local ramdisk_dir=$1
     local DEPMOD_OUTPUT
 
     cd ${ramdisk_dir}
-    if ! DEPMOD_OUTPUT="$(depmod $2 -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
+    if ! DEPMOD_OUTPUT="$(depmod $2 -F ${DIST_DIR}/System.map -b . $3 2>&1)"; then
       echo "$DEPMOD_OUTPUT" >&2
       exit 1
     fi
@@ -362,11 +363,9 @@ function run_depmod() {
 # $5 flags to pass to depmod
 function create_modules_staging() {
   local modules_list_file=$1
-  local src_dir=$2/lib/modules/*
-  # Depmod requires a version number; use 0.0 instead of determining the
-  # actual kernel version since it is not necessary and will be removed for
-  # the final initramfs image.
-  local dest_dir=$3/lib/modules/0.0
+  local src_dir=$(echo $2/lib/modules/*)
+  local version=$(basename "${src_dir}")
+  local dest_dir=$3/lib/modules/${version}
   local dest_stage=$3
   local modules_blocklist_file=$4
   local depmod_flags=$5
@@ -456,11 +455,8 @@ function create_modules_staging() {
 
   # Re-run depmod to detect any dependencies between in-kernel and external
   # modules. Then, create modules.order based on all the modules compiled.
-  run_depmod ${dest_stage} "${depmod_flags}"
+  run_depmod ${dest_stage} "${depmod_flags}" "${version}"
   cp ${dest_dir}/modules.order ${dest_dir}/modules.load
-
-  mv ${dest_stage}/lib/modules/0.0/* ${dest_stage}/lib/modules/.
-  rmdir ${dest_stage}/lib/modules/0.0
 }
 
 function build_vendor_dlkm() {
@@ -1021,8 +1017,9 @@ if [ -n "${MODULES}" ]; then
     create_modules_staging "${MODULES_LIST}" ${MODULES_STAGING_DIR} \
       ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e"
 
-    cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/modules.load
-    echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
+    MODULES_ROOT_DIR=$(echo ${INITRAMFS_STAGING_DIR}/lib/modules/*)
+    cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
+    echo "${MODULES_OPTIONS}" > ${MODULES_ROOT_DIR}/modules.options
 
     if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
       if [ -f "${VENDOR_FSTAB}" ]; then
