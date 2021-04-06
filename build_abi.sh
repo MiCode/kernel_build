@@ -153,16 +153,17 @@ if [[ $wipe_out_dir -eq 1 && -d ${COMMON_OUT_DIR} ]]; then
     find "${COMMON_OUT_DIR}" \( -name 'vmlinux' -o -name '*.ko' \) -delete -print
 fi
 
-# inject CONFIG_DEBUG_INFO=y
-append_cmd POST_DEFCONFIG_CMDS 'update_config_for_abi_dump'
+# assert CONFIG_DEBUG_INFO=y
+append_cmd POST_DEFCONFIG_CMDS 'check_config_for_abi_dump'
 export POST_DEFCONFIG_CMDS
-function update_config_for_abi_dump() {
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-         -e CONFIG_DEBUG_INFO
-    (cd ${OUT_DIR} && \
-     make O=${OUT_DIR} "${TOOL_ARGS[@]}" $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
+function check_config_for_abi_dump() {
+    local debug=$(${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config -s DEBUG_INFO)
+    if [ "$debug" != y ]; then
+        echo "ERROR: DEBUG_INFO is not set in config" >&2
+        exit 1
+    fi
 }
-export -f update_config_for_abi_dump
+export -f check_config_for_abi_dump
 
 function build_kernel() {
   # Delegate the actual build to build.sh.
@@ -324,12 +325,12 @@ if [ -n "$ABI_DEFINITION" ]; then
         echo " The detailed report is available in the same directory."
 
         if [ $rc -ne 0 ]; then
-            echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)"
+            echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)" 1>&2
         fi
 
         if [ $PRINT_REPORT -eq 1 ] && [ $rc -ne 0 ] ; then
-            echo "========================================================"
-            cat ${abi_report}.short
+            echo "========================================================" 1>&2
+            cat ${abi_report}.short 1>&2
         fi
     fi
     if [ $UPDATE -eq 1 ] ; then

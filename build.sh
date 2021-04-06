@@ -35,6 +35,11 @@
 #     is to be defined relative to the repo root directory.
 #     Defaults to 'build.config'.
 #
+#   BUILD_CONFIG_FRAGMENTS
+#     A whitespace-separated list of additional build config fragments to be
+#     sourced after the main build config file. Typically used for sanitizers or
+#     other special builds.
+#
 #   OUT_DIR
 #     Base output directory for the kernel build.
 #     Defaults to <REPO_ROOT>/out/<BRANCH>.
@@ -203,6 +208,12 @@
 #       blocked from being loaded. This file is copied directly to staging directory,
 #       and should be in the format:
 #       blocklist module_name
+#
+#   VENDOR_RAMDISK_CMDS
+#     When building vendor boot image, VENDOR_RAMDISK_CMDS enables the build
+#     config file to specify command(s) for further altering the prebuilt vendor
+#     ramdisk binary. For example, the build config file could add firmware files
+#     on the vendor ramdisk (lib/firmware) for testing purposes.
 #
 #   AVB_SIGN_BOOT_IMG
 #     if defined, sign the boot image using the AVB_BOOT_KEY. Refer to
@@ -695,6 +706,11 @@ if [ -z "${SKIP_MRPROPER}" ] ; then
   set +x
 fi
 
+# Store a copy of the effective kernel config from a potential previous run. In
+# particular, we are interested in preserving the modification timestamp.
+KERNEL_CONFIG=${OUT_DIR}/.config
+[ -f ${KERNEL_CONFIG} ] && cp -p ${KERNEL_CONFIG} ${KERNEL_CONFIG}.before
+
 if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   echo "========================================================"
   echo " Running pre-defconfig command(s):"
@@ -723,7 +739,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
 
   set -x
   if [ "${LTO}" = "none" ]; then
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
       -d LTO_CLANG \
       -e LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -732,7 +748,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
   elif [ "${LTO}" = "thin" ]; then
     # This is best-effort; some kernels don't support LTO_THIN mode
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
       -e LTO_CLANG \
       -d LTO_NONE \
       -e LTO_CLANG_THIN \
@@ -740,7 +756,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e THINLTO
   elif [ "${LTO}" = "full" ]; then
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
       -e LTO_CLANG \
       -d LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -821,13 +837,13 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
               ${OUT_DIR}/abi_symbollist.raw
 
       # Update the kernel configuration
-      ./scripts/config --file ${OUT_DIR}/.config \
+      ./scripts/config --file ${KERNEL_CONFIG} \
               -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
               --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
       (cd ${OUT_DIR} && \
               make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
       # Make sure the config is applied
-      grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
+      grep CONFIG_UNUSED_KSYMS_WHITELIST ${KERNEL_CONFIG} > /dev/null || {
         echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
         echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
         exit 1
@@ -844,6 +860,20 @@ elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
 elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
   echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
+fi
+
+# If all the above configuration steps did not actually change the content of
+# $KERNEL_CONFIG (usually, .config), we restore the previously stored copy
+# along with its previous modification time stamp. That allows the kernel build
+# to skip all rules that directly depend on the config changing. In particular,
+# it might skip linking the kernel again if there haven't been any
+# modifications requiring a relink.
+if [ -f ${KERNEL_CONFIG}.before ]; then
+  if `cmp -s ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}`; then
+    mv ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}  # preserve timestamp
+  else
+    rm ${KERNEL_CONFIG}.before
+  fi
 fi
 
 echo "========================================================"
@@ -1049,18 +1079,26 @@ if [ -n "${MODULES}" ]; then
     fi
 
     if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
-      mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
       if [ -f "${VENDOR_FSTAB}" ]; then
+        mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
         cp ${VENDOR_FSTAB} ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk/.
       fi
     fi
 
-    # In toybox cpio, --no-preserve-owner is a valid command line switch for the
-    # create i.e.  copy-out mode. It causes toybox to set uid/gid to 0 for all
-    # directory entries. This is equivalent the command line argument -R +0:+0
-    # in GNU cpio. Keep in mind that, in GNU cpio, --no-preserve-owner means
-    # something else and is only valid in copy-in and copy-pass modes.
-    (cd ${INITRAMFS_STAGING_DIR} && find * | cpio -H newc -o --no-preserve-owner --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio)
+    (
+      cd ${INITRAMFS_STAGING_DIR}
+      # In toybox cpio, --no-preserve-owner is a valid command line switch for the
+      # create i.e. copy-out mode. It causes toybox to set uid/gid to 0 for all
+      # directory entries. This is equivalent to the command line argument -R +0:+0
+      # in GNU cpio. Keep in mind that, in GNU cpio, --no-preserve-owner means
+      # something else and is only valid in copy-in and copy-pass modes.
+      if cpio --version | grep -q "toybox"; then
+        find * | cpio -H newc -o --no-preserve-owner --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio
+      else
+        echo "WARN: Configuration error: using host cpio!"
+        find * | cpio -H newc -o -R root:root --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio
+      fi
+    )
     ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
     mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
   fi
@@ -1132,7 +1170,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
       echo "Unable to locate vendor ramdisk ${vendor_ramdisk_binary}."
       exit 1
     fi
-    cpio_name="$(mktemp -t build.sh.ramdisk.XXXXXXXX)"
+    cpio_name="$(mktemp -t build.sh.ramdisk.cpio.XXXXXXXX)"
     CPIO_NAME+=("${cpio_name}")
     if ${DECOMPRESS_GZIP} "${vendor_ramdisk_binary}" 2>/dev/null > "${cpio_name}"; then
       echo "${vendor_ramdisk_binary} is GZIP compressed"
@@ -1146,8 +1184,9 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
       rm -f "${CPIO_NAME[*]}"
       exit 1
     fi
+
+    MKBOOTIMG_RAMDISKS+=(${cpio_name})
   done
-  MKBOOTIMG_RAMDISKS+=(${CPIO_NAME[@]})
 
   if [ -f "${MODULES_STAGING_DIR}/initramfs.cpio" ]; then
     MKBOOTIMG_RAMDISKS+=("${MODULES_STAGING_DIR}/initramfs.cpio")

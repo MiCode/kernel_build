@@ -275,7 +275,7 @@ def download_kernel_modules(target, output_dir, fetch_initramfs=False):
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
   files = list_artifacts(url_base)
-  files_to_fetch = [x for x in files if re.search(".+\.ko$", x)]
+  files_to_fetch = [x for x in files if x.endswith((".dtb", ".ko"))]
   if fetch_initramfs:
     files_to_fetch.append("initramfs.img")
 
