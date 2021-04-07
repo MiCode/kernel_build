@@ -517,18 +517,18 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
   GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
 
-  # Inherit SKIP_MRPROPER unless overridden by GKI_SKIP_MRPROPER
-  GKI_ENVIRON="SKIP_MRPROPER=${SKIP_MRPROPER}"
+  # Inherit SKIP_MRPROPER, LTO, SKIP_DEFCONFIG unless overridden by corresponding GKI_* variables
+  GKI_ENVIRON=("SKIP_MRPROPER=${SKIP_MRPROPER}" "LTO=${LTO}" "SKIP_DEFCONFIG=${SKIP_DEFCONFIG}" "SKIP_IF_VERSION_MATCHES=${SKIP_IF_VERSION_MATCHES}")
   # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
   # gki build recursively
-  GKI_ENVIRON+=" GKI_BUILD_CONFIG="
+  GKI_ENVIRON+=("GKI_BUILD_CONFIG=")
   # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
-  GKI_ENVIRON+=" $(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' ')"
-  GKI_ENVIRON+=" OUT_DIR=${GKI_OUT_DIR}"
-  GKI_ENVIRON+=" DIST_DIR=${GKI_DIST_DIR}"
-  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON}; ./build/build.sh" )
+  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
+  GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
+  GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
 else
   rm -f ${OLD_ENVIRONMENT}
 fi
