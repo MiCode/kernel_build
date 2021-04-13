@@ -1027,7 +1027,7 @@ if [ -n "${MODULES}" ]; then
     cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
 
-    if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+    if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
       if [ -f "${VENDOR_FSTAB}" ]; then
         mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
         cp ${VENDOR_FSTAB} ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk/.
@@ -1167,7 +1167,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     exit 1
   fi
 
-  if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
     if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
       MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
     fi
@@ -1207,7 +1207,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   fi
 
   [ -z "${SKIP_VENDOR_BOOT}" ] \
-    && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
+    && [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ] \
     && [ -f "${DIST_DIR}/vendor_boot.img" ] \
     && echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
 fi
