@@ -511,26 +511,6 @@ CC_ARG="${CC}"
 
 source "${ROOT_DIR}/build/_setup_env.sh"
 
-if [ -n "${GKI_BUILD_CONFIG}" ]; then
-  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
-  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
-
-  # Inherit SKIP_MRPROPER unless overridden by GKI_SKIP_MRPROPER
-  GKI_ENVIRON="SKIP_MRPROPER=${SKIP_MRPROPER}"
-  # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
-  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
-  # gki build recursively
-  GKI_ENVIRON+=" GKI_BUILD_CONFIG="
-  # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
-  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
-  GKI_ENVIRON+=" $(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' ')"
-  GKI_ENVIRON+=" OUT_DIR=${GKI_OUT_DIR}"
-  GKI_ENVIRON+=" DIST_DIR=${GKI_DIST_DIR}"
-  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON}; ./build/build.sh" )
-else
-  rm -f ${OLD_ENVIRONMENT}
-fi
-
 MAKE_ARGS=( "$@" )
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
@@ -538,6 +518,34 @@ export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
+
+if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
+  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
+
+  if [[ "${MAKE_GOALS}" =~ image|Image|vmlinux ]]; then
+    echo " Compiling Image and vmlinux in device kernel is not supported in mixed build mode"
+    exit 1
+  fi
+
+  # Inherit SKIP_MRPROPER, LTO, SKIP_DEFCONFIG unless overridden by corresponding GKI_* variables
+  GKI_ENVIRON=("SKIP_MRPROPER=${SKIP_MRPROPER}" "LTO=${LTO}" "SKIP_DEFCONFIG=${SKIP_DEFCONFIG}" "SKIP_IF_VERSION_MATCHES=${SKIP_IF_VERSION_MATCHES}")
+  # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
+  # gki build recursively
+  GKI_ENVIRON+=("GKI_BUILD_CONFIG=")
+  # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
+  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
+  GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
+  GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
+
+  # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_DIST_DIR}")
+else
+  rm -f ${OLD_ENVIRONMENT}
+fi
 
 BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 
