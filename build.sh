@@ -46,7 +46,7 @@
 #     for debugging purposes.
 #
 #   COMPRESS_UNSTRIPPED_MODULES
-#     If set, then compress the unstripped modules into a tarball.
+#     If set to "1", then compress the unstripped modules into a tarball.
 #
 #   CC
 #     Override compiler to be used. (e.g. CC=clang) Specifying CC=gcc
@@ -75,21 +75,21 @@
 #
 #   KMI_ENFORCED
 #     This is an indicative option to signal that KMI is enforced in this build
-#     config. If set, downstream KMI checking tools might respect it and react
-#     to it by failing if KMI differences are detected.
+#     config. If set to "1", downstream KMI checking tools might respect it and
+#     react to it by failing if KMI differences are detected.
 #
 #   GENERATE_VMLINUX_BTF
-#     If set, generate a vmlinux.btf that is stripped off any debug symbols,
-#     but contains type and symbol information within a .BTF section. This is
-#     suitable for ABI analysis through BTF.
+#     If set to "1", generate a vmlinux.btf that is stripped off any debug
+#     symbols, but contains type and symbol information within a .BTF section.
+#     This is suitable for ABI analysis through BTF.
 #
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
-#     if defined, skip `make mrproper`
+#     if set to "1", skip `make mrproper`
 #
 #   SKIP_DEFCONFIG
-#     if defined, skip `make defconfig`
+#     if set to "1", skip `make defconfig`
 #
 #   PRE_DEFCONFIG_CMDS
 #     Command evaluated before `make defconfig`
@@ -111,7 +111,7 @@
 #     if defined, skip building and installing of external modules
 #
 #   DO_NOT_STRIP_MODULES
-#     Keep debug information for distributed modules.
+#     if set to "1", keep debug information for distributed modules.
 #     Note, modules will still be stripped when copied into the ramdisk.
 #
 #   EXTRA_CMDS
@@ -167,7 +167,8 @@
 #       blocklist module_name
 #
 #   BUILD_INITRAMFS
-#     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
+#     if set to "1", build a ramdisk containing all .ko files and resulting
+#     depmod artifacts
 #
 #   MODULES_OPTIONS
 #     A /lib/modules/modules.options file is created on the ramdisk containing
@@ -204,16 +205,16 @@
 #     which assumes an ext4 filesystem and a dynamic partition.
 #
 #   LZ4_RAMDISK
-#     if defined, any ramdisks generated will be lz4 compressed instead of
+#     if set to "1", any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
 #
 #   TRIM_NONLISTED_KMI
-#     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
-#     to un-export from the build any un-used and non-symbol-listed (as per
-#     KMI_SYMBOL_LIST) symbol.
+#     if set to "1", enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config
+#     option to un-export from the build any un-used and non-symbol-listed
+#     (as per KMI_SYMBOL_LIST) symbol.
 #
 #   KMI_SYMBOL_LIST_STRICT_MODE
-#     if defined, add a build-time check between the KMI_SYMBOL_LIST and the
+#     if set to "1", add a build-time check between the KMI_SYMBOL_LIST and the
 #     KMI resulting from the build, to ensure they match 1-1.
 #
 #   KMI_STRICT_MODE_OBJECTS
@@ -307,7 +308,7 @@ function create_modules_staging() {
       find extra -type f -name "*.ko" | sort >> modules.order)
   fi
 
-  if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
+  if [ "${DO_NOT_STRIP_MODULES}" = "1" ]; then
     # strip debug symbols off initramfs modules
     find ${dest_dir} -type f -name "*.ko" \
       -exec ${OBJCOPY:-${CROSS_COMPILE}objcopy} --strip-debug {} \;
@@ -533,7 +534,7 @@ mkdir -p ${OUT_DIR} ${DIST_DIR}
 
 echo "========================================================"
 echo " Setting up for build"
-if [ -z "${SKIP_MRPROPER}" ] ; then
+if [ "${SKIP_MRPROPER}" != "1" ] ; then
   set -x
   (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} mrproper)
   set +x
@@ -547,7 +548,7 @@ if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   set +x
 fi
 
-if [ -z "${SKIP_DEFCONFIG}" ] ; then
+if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
   set -x
   (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
   set +x
@@ -581,7 +582,7 @@ if [ -n "${ABI_DEFINITION}" ]; then
   echo "KMI_DEFINITION=abi.xml" >> ${ABI_PROP}
   echo "KMI_MONITORED=1"        >> ${ABI_PROP}
 
-  if [ -n "${KMI_ENFORCED}" ]; then
+  if [ "${KMI_ENFORCED}" = "1" ]; then
     echo "KMI_ENFORCED=1" >> ${ABI_PROP}
   fi
 fi
@@ -593,7 +594,7 @@ fi
 
 # define the kernel binary and modules archive in the $ABI_PROP
 echo "KERNEL_BINARY=vmlinux" >> ${ABI_PROP}
-if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ]; then
+if [ "${COMPRESS_UNSTRIPPED_MODULES}" = "1" ]; then
   echo "MODULES_ARCHIVE=${UNSTRIPPED_MODULES_ARCHIVE}" >> ${ABI_PROP}
 fi
 
@@ -620,8 +621,7 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
         cat "${symbol_list}" >> ${ABI_SL}
     done
   fi
-
-  if [ -n "${TRIM_NONLISTED_KMI}" ]; then
+  if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
       # Create the raw symbol list 
       cat ${ABI_SL} | \
               ${ROOT_DIR}/build/abi/flatten_symbol_list > \
@@ -640,15 +640,15 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
         exit 1
       }
 
-    elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+    elif [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
       echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
     exit 1
   fi
   popd # $ROOT_DIR/$KERNEL_DIR
-elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
+elif [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
   echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_SYMBOL_LIST" >&2
   exit 1
-elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+elif [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
   echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
 fi
@@ -679,7 +679,7 @@ if [ -n "${MODULES_ORDER}" ]; then
   fi
 fi
 
-if [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+if [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
   echo "========================================================"
   echo " Comparing the KMI and the symbol lists:"
   set -x
@@ -691,11 +691,11 @@ fi
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
-if [ -z "${DO_NOT_STRIP_MODULES}" ]; then
+if [ "${DO_NOT_STRIP_MODULES}" != "1" ]; then
   MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
 fi
 
-if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
+if [ "${BUILD_INITRAMFS}" = "1" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo "========================================================"
   echo " Installing kernel modules into staging directory"
 
@@ -801,7 +801,7 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
   popd
 fi
 
-if [ -n "${GENERATE_VMLINUX_BTF}" ]; then
+if [ "${GENERATE_VMLINUX_BTF}" = "1" ]; then
   echo "========================================================"
   echo " Generating ${DIST_DIR}/vmlinux.btf"
 
@@ -836,7 +836,7 @@ if [ -n "${MODULES}" ]; then
       cp -p ${FILE} ${DIST_DIR}
     done
   fi
-  if [ -n "${BUILD_INITRAMFS}" ]; then
+  if [ "${BUILD_INITRAMFS}" = "1" ]; then
     echo "========================================================"
     echo " Creating initramfs"
     rm -rf ${INITRAMFS_STAGING_DIR}
@@ -870,7 +870,7 @@ if [ -n "${UNSTRIPPED_MODULES}" ]; then
   for MODULE in ${UNSTRIPPED_MODULES}; do
     find ${MODULES_PRIVATE_DIR} -name ${MODULE} -exec cp {} ${UNSTRIPPED_DIR} \;
   done
-  if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ]; then
+  if [ "${COMPRESS_UNSTRIPPED_MODULES}" = "1" ]; then
     tar -czf ${DIST_DIR}/${UNSTRIPPED_MODULES_ARCHIVE} -C $(dirname ${UNSTRIPPED_DIR}) $(basename ${UNSTRIPPED_DIR})
     rm -rf ${UNSTRIPPED_DIR}
   fi
