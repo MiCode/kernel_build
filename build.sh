@@ -48,6 +48,10 @@
 #     Base output directory for the kernel distribution.
 #     Defaults to <OUT_DIR>/dist
 #
+#   MAKE_GOALS
+#     List of targets passed to Make when compiling the kernel.
+#     Typically: Image, modules, and a DTB (if applicable).
+#
 #   EXT_MODULES
 #     Space separated list of external kernel modules to be build.
 #
