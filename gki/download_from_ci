@@ -82,11 +82,6 @@ def parse_args():
       action="store_true",
       help="update U-Boot prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
-      "-e",
-      "--update-emulator",
-      action="store_true",
-      help="update AEMU kernel and module prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
-  parser.add_argument(
       "-r",
       "--repo-branch",
       action="store_true",
@@ -100,7 +95,7 @@ def parse_args():
 
   _args = parser.parse_args()
 
-  if _args.update_gki or _args.update_u_boot or _args.update_emulator:
+  if _args.update_gki or _args.update_u_boot:
     if _args.build_target is not None:
       raise Exception("build_target cannot be specified when updating prebuilts")
     if "ANDROID_BUILD_TOP" not in os.environ:
@@ -280,7 +275,7 @@ def download_kernel_modules(target, output_dir, fetch_initramfs=False):
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
   files = list_artifacts(url_base)
-  files_to_fetch = [x for x in files if re.search(".+\.ko$", x)]
+  files_to_fetch = [x for x in files if x.endswith((".dtb", ".ko"))]
   if fetch_initramfs:
     files_to_fetch.append("initramfs.img")
 
@@ -379,11 +374,13 @@ def update_androidx_virtual_device_modules(gitlog, output_dir, version):
 
   try:
     subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_mods_dir)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_mods_dir)
   except subprocess.CalledProcessError:
     pass
 
   try:
     subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_mods_dir)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_mods_dir)
   except subprocess.CalledProcessError:
     pass
 
@@ -530,6 +527,7 @@ def update_u_boot_mainline(output_dir):
   tools_dir = os.path.join(cf_dir, "uboot_tools")
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
   download_u_boot_tools("u-boot_tools", tools_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "mkenvimage_mac.sh"], cwd=tools_dir)
 
   (new_version, new_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
   gitlog = get_git_log(old_sha, new_sha, get_u_boot_dir())
@@ -550,59 +548,6 @@ def update_u_boot():
   else:
     print("Unknown u-boot branch %s for build" % branch)
 
-def update_emulator():
-  url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_aarch64")
-  url = os.path.join(url_base, "BUILD_INFO")
-  response = urllib.request.urlopen(url)
-  data = response.read().decode("utf-8")
-  branch = json.loads(data)["branch"]
-
-  output_dir = os.environ["ANDROID_BUILD_TOP"]
-
-  version = get_build_kernel_version(data)
-
-  qemu_kernel = os.path.join(output_dir, "prebuilts", "qemu-kernel")
-  arm64_dir = os.path.join(qemu_kernel, "arm64", version)
-  x86_64_dir = os.path.join(qemu_kernel, "x86_64", version)
-  arm64_kernel = os.path.join(arm64_dir, "kernel-qemu2")
-  x86_64_kernel = os.path.join(x86_64_dir, "kernel-qemu2")
-  arm64_ko_dir = os.path.join(arm64_dir, "ko")
-  x86_64_ko_dir = os.path.join(x86_64_dir, "ko")
-
-  # Decompress existing kernel artifact to extract the version
-  with tempfile.TemporaryDirectory() as tmp:
-    uncompressed_kernel = os.path.join(tmp, "kernel-" + version)
-    subprocess.check_call(["gzip -cd " + arm64_kernel + " > " +
-                           uncompressed_kernel],
-                          shell=True)
-    (old_version, old_sha) = get_binary_kernel_version(uncompressed_kernel)
-
-  # Remove the old prebuilts
-  subprocess.check_call(["git", "rm", "-rf", arm64_dir, x86_64_dir],
-                        cwd=qemu_kernel)
-
-  # arm64 GKI kernels and kernel modules
-  os.mkdir(arm64_dir)
-  with tempfile.TemporaryDirectory() as tmp:
-    uncompressed_kernel = os.path.join(tmp, "kernel-" + version)
-
-    # Download artifacts, extract version from uncompressed, copy the .gz version
-    download_kernel("kernel_aarch64", version, tmp)
-    (new_version, new_sha) = get_binary_kernel_version(uncompressed_kernel)
-    shutil.move(uncompressed_kernel + "-gz", arm64_kernel)
-  download_kernel_modules("kernel_aarch64", arm64_ko_dir)
-  download_kernel_modules("kernel_gf_aarch64", arm64_ko_dir)
-
-  # x86_64 GKI kernels and kernel modules
-  download_kernel("kernel_x86_64", version, x86_64_dir)
-  shutil.move(os.path.join(x86_64_dir, "kernel-" + version), x86_64_kernel)
-  download_kernel_modules("kernel_x86_64", x86_64_ko_dir)
-  download_kernel_modules("kernel_gf_x86_64", x86_64_ko_dir)
-  os.unlink(os.path.join(x86_64_dir, "System.map"))
-
-  gitlog = get_git_log(old_sha, new_sha)
-  commit_prebuilts(qemu_kernel, gitlog)
-
 def main():
   global _pool
   _pool = multiprocessing.Pool(10)
@@ -615,10 +560,6 @@ def main():
 
   if _args.update_u_boot:
     update_u_boot()
-    return
-
-  if _args.update_emulator:
-    update_emulator()
     return
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=_args.build_target)

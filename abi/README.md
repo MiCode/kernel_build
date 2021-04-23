@@ -67,11 +67,6 @@ automatically be used when using `build_abi.sh`.
 For utilizing the lower level tooling (such as `dump_abi`), please ensure to
 add the kernel-build-tools to the `PATH`.
 
-**NOTE**: The prior method of building libabigail from sources via the
-`bootstrap` script is no longer required. Leftover directories (such as
-elfutils-src, abigail-src and abigail-insta) can be safely removed, e.g. with
-`git clean -fdx`.
-
 ### 3. Build the kernel and its ABI representation
 
 At this point you are ready to build a kernel with the correct toolchain and to
@@ -357,14 +352,6 @@ comparing with `diff_abi` (s.a.). E.g. to validate a kernel patch in regards to
 any changes to the ABI, create the ABI representation with the patch applied and
 use `diff_abi` to compare it to the expected ABI for that particular source tree
 / configuration.
-
-Caveats and known issues
-------------------------
-
-Version 1.8 of libabigail contains most, but not all currently required patches
-to properly work on clang-built aarch64 Android kernels. Using a recent mm-next
-is a sufficient workaround for that. The `bootstrap` script refers to a
-sufficient commit from upstream.
 
 Enforcing the KMI using module versioning
 -----------------------------------------

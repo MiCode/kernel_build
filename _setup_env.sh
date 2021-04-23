@@ -54,6 +54,9 @@ fi
 
 set -a
 . ${ROOT_DIR}/${BUILD_CONFIG}
+for fragment in ${BUILD_CONFIG_FRAGMENTS}; do
+  . ${ROOT_DIR}/${fragment}
+done
 set +a
 
 echo "= The final value for KERNEL_DIR: ${KERNEL_DIR}"
@@ -107,7 +110,7 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
 
   # use relative paths for file name references in the binaries
   # (e.g. debug info)
-  export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/="
+  export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/${KERNEL_DIR}/= -ffile-prefix-map=${ROOT_DIR}/="
 
   # set the common sysroot
   sysroot_flags+="--sysroot=${ROOT_DIR}/build/build-tools/sysroot "
