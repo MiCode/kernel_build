@@ -537,7 +537,7 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_ENVIRON+=("GKI_BUILD_CONFIG=")
   # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
-  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
+  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.* GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
   GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
   GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
   ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
