@@ -200,8 +200,8 @@
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
-#     If the BOOT_IMAGE_HEADER_VERSION is 3, a vendor_boot image will be built unless
-#     SKIP_VENDOR_BOOT is defined.
+#     If BOOT_IMAGE_HEADER_VERSION >= 3, a vendor_boot image will be built
+#     unless SKIP_VENDOR_BOOT is defined.
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
 #       modules.load. If this property is not set, then the default modules.load
 #       is used.
@@ -212,6 +212,8 @@
 #       blocked from being loaded. This file is copied directly to staging directory,
 #       and should be in the format:
 #       blocklist module_name
+#     If BOOT_IMAGE_HEADER_VERSION >= 4, the following variable can be defined:
+#     - VENDOR_BOOTCONFIG=<string of bootconfig parameters>
 #
 #   VENDOR_RAMDISK_CMDS
 #     When building vendor boot image, VENDOR_RAMDISK_CMDS enables the build
@@ -1155,6 +1157,16 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
     echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
     exit 1
+  fi
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
+    if [ -n "${VENDOR_BOOTCONFIG}" ]; then
+      for PARAM in ${VENDOR_BOOTCONFIG}; do
+        echo "${PARAM}"
+      done >"${DIST_DIR}/vendor-bootconfig.img"
+      MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img")
+      KERNEL_VENDOR_CMDLINE+=" bootconfig"
+    fi
   fi
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
