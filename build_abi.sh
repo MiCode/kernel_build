@@ -322,8 +322,7 @@ if [ -n "$ABI_DEFINITION" ]; then
                                        --new      ${DIST_DIR}/${abi_out_file} \
                                        --report   ${abi_report}               \
                                        --short-report ${abi_report}.short     \
-                                       $FULL_REPORT_FLAG                      \
-                                       $KMI_SYMBOL_LIST_FLAG
+                                       $FULL_REPORT_FLAG
         rc=$?
         set -e
         echo "========================================================"
