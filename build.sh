@@ -212,6 +212,8 @@
 #       blocked from being loaded. This file is copied directly to staging directory,
 #       and should be in the format:
 #       blocklist module_name
+#     - MKBOOTIMG_EXTRA_ARGS=<space-delimited mkbootimg arguments>
+#       Refer to: ./mkbootimg.py --help
 #     If BOOT_IMAGE_HEADER_VERSION >= 4, the following variable can be defined:
 #     - VENDOR_BOOTCONFIG=<string of bootconfig parameters>
 #     - INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME=<name of the ramdisk fragment>
@@ -1053,7 +1055,15 @@ echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
 if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
-  MKBOOTIMG_ARGS=()
+  if [ -z "${MKBOOTIMG_PATH}" ]; then
+    MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
+  fi
+  if [ ! -f "${MKBOOTIMG_PATH}" ]; then
+    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = ${MKBOOTIMG_PATH}"
+    exit 1
+  fi
+
+  MKBOOTIMG_ARGS=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
   if [ -n  "${BASE_ADDRESS}" ]; then
     MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
   fi
@@ -1146,18 +1156,11 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" >"${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
   fi
 
-  if [ -z "${MKBOOTIMG_PATH}" ]; then
-    MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
-  fi
-  if [ ! -f "$MKBOOTIMG_PATH" ]; then
-    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = $MKBOOTIMG_PATH"
-    exit 1
-  fi
-
   if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
     echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
     exit 1
   fi
+  MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
     if [ -n "${VENDOR_BOOTCONFIG}" ]; then
@@ -1198,9 +1201,12 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     fi
   fi
 
-  "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
-    --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
-    "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
+  MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
+    MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
+  done
+  "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
+
   if [ -f "${DIST_DIR}/boot.img" ]; then
     echo "boot image created at ${DIST_DIR}/boot.img"
 
