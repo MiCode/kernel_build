@@ -200,8 +200,8 @@
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
-#     If the BOOT_IMAGE_HEADER_VERSION is 3, a vendor_boot image will be built unless
-#     SKIP_VENDOR_BOOT is defined.
+#     If BOOT_IMAGE_HEADER_VERSION >= 3, a vendor_boot image will be built
+#     unless SKIP_VENDOR_BOOT is defined.
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
 #       modules.load. If this property is not set, then the default modules.load
 #       is used.
@@ -212,6 +212,8 @@
 #       blocked from being loaded. This file is copied directly to staging directory,
 #       and should be in the format:
 #       blocklist module_name
+#     If BOOT_IMAGE_HEADER_VERSION >= 4, the following variable can be defined:
+#     - VENDOR_BOOTCONFIG=<string of bootconfig parameters>
 #
 #   VENDOR_RAMDISK_CMDS
 #     When building vendor boot image, VENDOR_RAMDISK_CMDS enables the build
@@ -583,7 +585,7 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_ENVIRON+=("GKI_BUILD_CONFIG=")
   # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
-  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
+  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.* GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
   GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
   GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
   ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
@@ -714,11 +716,6 @@ if [ "${SKIP_MRPROPER}" != "1" ] ; then
   set +x
 fi
 
-# Store a copy of the effective kernel config from a potential previous run. In
-# particular, we are interested in preserving the modification timestamp.
-KERNEL_CONFIG=${OUT_DIR}/.config
-[ -f ${KERNEL_CONFIG} ] && cp -p ${KERNEL_CONFIG} ${KERNEL_CONFIG}.before
-
 if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   echo "========================================================"
   echo " Running pre-defconfig command(s):"
@@ -747,7 +744,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
 
   set -x
   if [ "${LTO}" = "none" ]; then
-    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
       -d LTO_CLANG \
       -e LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -756,7 +753,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
   elif [ "${LTO}" = "thin" ]; then
     # This is best-effort; some kernels don't support LTO_THIN mode
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
       -e LTO_CLANG \
       -d LTO_NONE \
       -e LTO_CLANG_THIN \
@@ -764,7 +761,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e THINLTO
   elif [ "${LTO}" = "full" ]; then
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
       -e LTO_CLANG \
       -d LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -844,13 +841,13 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
               ${OUT_DIR}/abi_symbollist.raw
 
       # Update the kernel configuration
-      ./scripts/config --file ${KERNEL_CONFIG} \
+      ./scripts/config --file ${OUT_DIR}/.config \
               -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
               --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
       (cd ${OUT_DIR} && \
               make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" olddefconfig)
       # Make sure the config is applied
-      grep CONFIG_UNUSED_KSYMS_WHITELIST ${KERNEL_CONFIG} > /dev/null || {
+      grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
         echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
         echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
         exit 1
@@ -867,20 +864,6 @@ elif [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
 elif [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
   echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
-fi
-
-# If all the above configuration steps did not actually change the content of
-# $KERNEL_CONFIG (usually, .config), we restore the previously stored copy
-# along with its previous modification time stamp. That allows the kernel build
-# to skip all rules that directly depend on the config changing. In particular,
-# it might skip linking the kernel again if there haven't been any
-# modifications requiring a relink.
-if [ -f ${KERNEL_CONFIG}.before ]; then
-  if `cmp -s ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}`; then
-    mv ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}  # preserve timestamp
-  else
-    rm ${KERNEL_CONFIG}.before
-  fi
 fi
 
 echo "========================================================"
@@ -1219,6 +1202,16 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
     echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
     exit 1
+  fi
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
+    if [ -n "${VENDOR_BOOTCONFIG}" ]; then
+      for PARAM in ${VENDOR_BOOTCONFIG}; do
+        echo "${PARAM}"
+      done >"${DIST_DIR}/vendor-bootconfig.img"
+      MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img")
+      KERNEL_VENDOR_CMDLINE+=" bootconfig"
+    fi
   fi
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
