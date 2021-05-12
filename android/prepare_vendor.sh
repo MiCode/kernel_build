@@ -261,6 +261,11 @@ echo "  Merging vendor devicetree overlays"
 rm -rf ${ANDROID_KERNEL_OUT}/dtbs
 mkdir ${ANDROID_KERNEL_OUT}/dtbs
 
+if [ -z "${KERNEL_VARIANT}" ]; then
+  KERNEL_VARIANT=${2}
+  echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
+fi
+
 (
   cd ${ROOT_DIR}
   ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${ANDROID_KERNEL_OUT}/dtbs
