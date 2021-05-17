@@ -93,8 +93,7 @@ BUILDTOOLS_PREBUILT_BIN
 
 if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   HOST_TOOLS=${OUT_DIR}/host_tools
-  rm -rf ${HOST_TOOLS}
-  mkdir -p ${HOST_TOOLS}
+  [ ! -e "${HOST_TOOLS}" ] && mkdir -p ${HOST_TOOLS}
   for tool in \
       bash \
       git \

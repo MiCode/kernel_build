@@ -124,6 +124,26 @@ def report_missing(module_symbols, exported):
             symbol, module))
 
 
+def add_dependent_symbols(module_symbols, exported):
+  """Checks the undefined symbols, and adds more to enforce missing dependencies."""
+  for module, symbols in module_symbols.items():
+    syms = []
+    for symbol in symbols:
+
+      # Tracepoints are exposed in the ABI using their matching struct
+      # tracepoint. Sadly this exposes callback functions as void * pointers,
+      # which make the ABI tooling ineffective to monitor tracepoint changes.
+      # To enable ABI checks covering tracepoint, add the matching __traceiter
+      # symbols to the symbol list as they are defined with full types.
+      if not symbol.startswith('__tracepoint_'):
+        continue
+      cur = symbol.replace('__tracepoint_', '__traceiter_')
+      if (cur not in exported) or (cur in symbols):
+        continue
+      syms.append(cur)
+    module_symbols[module].extend(syms)
+
+
 def read_symbol_list(symbol_list):
   """Reads a previously created libabigail symbol symbol list."""
   symbols = []
@@ -303,6 +323,8 @@ def main():
       itertools.chain.from_iterable(local_exports.values()))
   all_exported.extend(generic_exports)
   all_exported = set(all_exported)
+
+  add_dependent_symbols(undefined_symbols, all_exported)
 
   # For sanity, check for inconsistencies between required and exported symbols
   # Do not do this analysis if module_filters are in place as likely

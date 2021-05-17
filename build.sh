@@ -48,6 +48,10 @@
 #     Base output directory for the kernel distribution.
 #     Defaults to <OUT_DIR>/dist
 #
+#   MAKE_GOALS
+#     List of targets passed to Make when compiling the kernel.
+#     Typically: Image, modules, and a DTB (if applicable).
+#
 #   EXT_MODULES
 #     Space separated list of external kernel modules to be build.
 #
@@ -56,7 +60,7 @@
 #     for debugging purposes.
 #
 #   COMPRESS_UNSTRIPPED_MODULES
-#     If set, then compress the unstripped modules into a tarball.
+#     If set to "1", then compress the unstripped modules into a tarball.
 #
 #   CC
 #     Override compiler to be used. (e.g. CC=clang) Specifying CC=gcc
@@ -94,21 +98,21 @@
 #
 #   KMI_ENFORCED
 #     This is an indicative option to signal that KMI is enforced in this build
-#     config. If set, downstream KMI checking tools might respect it and react
-#     to it by failing if KMI differences are detected.
+#     config. If set to "1", downstream KMI checking tools might respect it and
+#     react to it by failing if KMI differences are detected.
 #
 #   GENERATE_VMLINUX_BTF
-#     If set, generate a vmlinux.btf that is stripped off any debug symbols,
-#     but contains type and symbol information within a .BTF section. This is
-#     suitable for ABI analysis through BTF.
+#     If set to "1", generate a vmlinux.btf that is stripped off any debug
+#     symbols, but contains type and symbol information within a .BTF section.
+#     This is suitable for ABI analysis through BTF.
 #
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
-#     if defined, skip `make mrproper`
+#     if set to "1", skip `make mrproper`
 #
 #   SKIP_DEFCONFIG
-#     if defined, skip `make defconfig`
+#     if set to "1", skip `make defconfig`
 #
 #   SKIP_IF_VERSION_MATCHES
 #     if defined, skip compiling anything if the kernel version in vmlinux
@@ -152,7 +156,7 @@
 #     if defined, skip building and installing of external modules
 #
 #   DO_NOT_STRIP_MODULES
-#     Keep debug information for distributed modules.
+#     if set to "1", keep debug information for distributed modules.
 #     Note, modules will still be stripped when copied into the ramdisk.
 #
 #   EXTRA_CMDS
@@ -196,8 +200,8 @@
 #     be defined:
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
-#     If the BOOT_IMAGE_HEADER_VERSION is 3, a vendor_boot image will be built unless
-#     SKIP_VENDOR_BOOT is defined.
+#     If BOOT_IMAGE_HEADER_VERSION >= 3, a vendor_boot image will be built
+#     unless SKIP_VENDOR_BOOT is defined.
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
 #       modules.load. If this property is not set, then the default modules.load
 #       is used.
@@ -208,6 +212,8 @@
 #       blocked from being loaded. This file is copied directly to staging directory,
 #       and should be in the format:
 #       blocklist module_name
+#     If BOOT_IMAGE_HEADER_VERSION >= 4, the following variable can be defined:
+#     - VENDOR_BOOTCONFIG=<string of bootconfig parameters>
 #
 #   VENDOR_RAMDISK_CMDS
 #     When building vendor boot image, VENDOR_RAMDISK_CMDS enables the build
@@ -232,7 +238,8 @@
 #       https://android.googlesource.com/platform/external/avb/+/refs/heads/master/libavb/avb_crypto.h
 #
 #   BUILD_INITRAMFS
-#     if defined, build a ramdisk containing all .ko files and resulting depmod artifacts
+#     if set to "1", build a ramdisk containing all .ko files and resulting
+#     depmod artifacts
 #
 #   MODULES_OPTIONS
 #     A /lib/modules/modules.options file is created on the ramdisk containing
@@ -276,16 +283,16 @@
 #     Size, in bytes, of the generated super.img
 #
 #   LZ4_RAMDISK
-#     if defined, any ramdisks generated will be lz4 compressed instead of
+#     if set to "1", any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
 #
 #   TRIM_NONLISTED_KMI
-#     if defined, enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config option
-#     to un-export from the build any un-used and non-symbol-listed (as per
-#     KMI_SYMBOL_LIST) symbol.
+#     if set to "1", enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config
+#     option to un-export from the build any un-used and non-symbol-listed
+#     (as per KMI_SYMBOL_LIST) symbol.
 #
 #   KMI_SYMBOL_LIST_STRICT_MODE
-#     if defined, add a build-time check between the KMI_SYMBOL_LIST and the
+#     if set to "1", add a build-time check between the KMI_SYMBOL_LIST and the
 #     KMI resulting from the build, to ensure they match 1-1.
 #
 #   KMI_STRICT_MODE_OBJECTS
@@ -348,13 +355,14 @@ function rel_path() {
 
 # $1 directory of kernel modules ($1/lib/modules/x.y)
 # $2 flags to pass to depmod
+# $3 kernel version
 function run_depmod() {
   (
     local ramdisk_dir=$1
     local DEPMOD_OUTPUT
 
     cd ${ramdisk_dir}
-    if ! DEPMOD_OUTPUT="$(depmod $2 -F ${DIST_DIR}/System.map -b . 0.0 2>&1)"; then
+    if ! DEPMOD_OUTPUT="$(depmod $2 -F ${DIST_DIR}/System.map -b . $3 2>&1)"; then
       echo "$DEPMOD_OUTPUT" >&2
       exit 1
     fi
@@ -374,11 +382,9 @@ function run_depmod() {
 # $5 flags to pass to depmod
 function create_modules_staging() {
   local modules_list_file=$1
-  local src_dir=$2/lib/modules/*
-  # Depmod requires a version number; use 0.0 instead of determining the
-  # actual kernel version since it is not necessary and will be removed for
-  # the final initramfs image.
-  local dest_dir=$3/lib/modules/0.0
+  local src_dir=$(echo $2/lib/modules/*)
+  local version=$(basename "${src_dir}")
+  local dest_dir=$3/lib/modules/${version}
   local dest_stage=$3
   local modules_blocklist_file=$4
   local depmod_flags=$5
@@ -398,7 +404,7 @@ function create_modules_staging() {
       find extra -type f -name "*.ko" | sort >> modules.order)
   fi
 
-  if [ -n "${DO_NOT_STRIP_MODULES}" ]; then
+  if [ "${DO_NOT_STRIP_MODULES}" = "1" ]; then
     # strip debug symbols off initramfs modules
     find ${dest_dir} -type f -name "*.ko" \
       -exec ${OBJCOPY:-${CROSS_COMPILE}objcopy} --strip-debug {} \;
@@ -451,28 +457,23 @@ function create_modules_staging() {
     echo "========================================================"
     echo " Trimming unused modules"
     local used_blocklist_modules=$(mktemp)
-    local blocklist_flag=
     if [ -f ${dest_dir}/modules.blocklist ]; then
       # TODO: the modules blocklist could contain module aliases instead of the filename
       sed -n -E -e 's/blocklist (.+)/\1/p' ${dest_dir}/modules.blocklist > $used_blocklist_modules
-      blocklist_flag="-f $used_blocklist_modules"
     fi
 
     # Trim modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
-      find * -type f -name "*.ko" | grep -v -w -f modules.order $blocklist_flag - | xargs -r rm
+      find * -type f -name "*.ko" | grep -v -w -f modules.order -f $used_blocklist_modules - | xargs -r rm
     )
     rm $used_blocklist_modules
   fi
 
   # Re-run depmod to detect any dependencies between in-kernel and external
   # modules. Then, create modules.order based on all the modules compiled.
-  run_depmod ${dest_stage} "${depmod_flags}"
+  run_depmod ${dest_stage} "${depmod_flags}" "${version}"
   cp ${dest_dir}/modules.order ${dest_dir}/modules.load
-
-  mv ${dest_stage}/lib/modules/0.0/* ${dest_stage}/lib/modules/.
-  rmdir ${dest_stage}/lib/modules/0.0
 }
 
 function build_vendor_dlkm() {
@@ -482,9 +483,10 @@ function build_vendor_dlkm() {
   create_modules_staging "${VENDOR_DLKM_MODULES_LIST}" "${MODULES_STAGING_DIR}" \
     "${VENDOR_DLKM_STAGING_DIR}" "${VENDOR_DLKM_MODULES_BLOCKLIST}"
 
-  cp ${VENDOR_DLKM_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/vendor_dlkm.modules.load
-  if [ -e ${VENDOR_DLKM_STAGING_DIR}/lib/modules/modules.blocklist ]; then
-    cp ${VENDOR_DLKM_STAGING_DIR}/lib/modules/modules.blocklist \
+  VENDOR_DLKM_ROOT_DIR=$(echo ${VENDOR_DLKM_STAGING_DIR}/lib/modules/*)
+  cp ${VENDOR_DLKM_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_dlkm.modules.load
+  if [ -e ${VENDOR_DLKM_ROOT_DIR}/modules.blocklist ]; then
+    cp ${VENDOR_DLKM_ROOT_DIR}/modules.blocklist \
       ${DIST_DIR}/vendor_dlkm.modules.blocklist
   fi
 
@@ -558,33 +560,41 @@ CC_ARG="${CC}"
 
 source "${ROOT_DIR}/build/_setup_env.sh"
 
-if [ -n "${GKI_BUILD_CONFIG}" ]; then
-  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
-  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
-
-  # Inherit SKIP_MRPROPER unless overridden by GKI_SKIP_MRPROPER
-  GKI_ENVIRON="SKIP_MRPROPER=${SKIP_MRPROPER}"
-  # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
-  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
-  # gki build recursively
-  GKI_ENVIRON+=" GKI_BUILD_CONFIG="
-  # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
-  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
-  GKI_ENVIRON+=" $(export -p | sed -n -E -e 's/.*GKI_([^=]+=.*)$/\1/p' | tr '\n' ' ')"
-  GKI_ENVIRON+=" OUT_DIR=${GKI_OUT_DIR}"
-  GKI_ENVIRON+=" DIST_DIR=${GKI_DIST_DIR}"
-  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON}; ./build/build.sh" )
-else
-  rm -f ${OLD_ENVIRONMENT}
-fi
-
-export MAKE_ARGS=$*
+MAKE_ARGS=( "$@" )
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
+
+if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
+  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
+
+  if [[ "${MAKE_GOALS}" =~ image|Image|vmlinux ]]; then
+    echo " Compiling Image and vmlinux in device kernel is not supported in mixed build mode"
+    exit 1
+  fi
+
+  # Inherit SKIP_MRPROPER, LTO, SKIP_DEFCONFIG unless overridden by corresponding GKI_* variables
+  GKI_ENVIRON=("SKIP_MRPROPER=${SKIP_MRPROPER}" "LTO=${LTO}" "SKIP_DEFCONFIG=${SKIP_DEFCONFIG}" "SKIP_IF_VERSION_MATCHES=${SKIP_IF_VERSION_MATCHES}")
+  # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
+  # gki build recursively
+  GKI_ENVIRON+=("GKI_BUILD_CONFIG=")
+  # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
+  # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
+  GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.* GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
+  GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
+  GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
+
+  # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_DIST_DIR}")
+else
+  rm -f ${OLD_ENVIRONMENT}
+fi
 
 BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 
@@ -700,16 +710,11 @@ mkdir -p ${OUT_DIR} ${DIST_DIR}
 
 echo "========================================================"
 echo " Setting up for build"
-if [ -z "${SKIP_MRPROPER}" ] ; then
+if [ "${SKIP_MRPROPER}" != "1" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} mrproper)
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" mrproper)
   set +x
 fi
-
-# Store a copy of the effective kernel config from a potential previous run. In
-# particular, we are interested in preserving the modification timestamp.
-KERNEL_CONFIG=${OUT_DIR}/.config
-[ -f ${KERNEL_CONFIG} ] && cp -p ${KERNEL_CONFIG} ${KERNEL_CONFIG}.before
 
 if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   echo "========================================================"
@@ -719,9 +724,9 @@ if [ -n "${PRE_DEFCONFIG_CMDS}" ]; then
   set +x
 fi
 
-if [ -z "${SKIP_DEFCONFIG}" ] ; then
+if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${DEFCONFIG})
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG})
   set +x
 
   if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
@@ -739,7 +744,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
 
   set -x
   if [ "${LTO}" = "none" ]; then
-    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
       -d LTO_CLANG \
       -e LTO_NONE \
       -d LTO_CLANG_THIN \
@@ -748,7 +753,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
   elif [ "${LTO}" = "thin" ]; then
     # This is best-effort; some kernels don't support LTO_THIN mode
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
       -e LTO_CLANG \
       -d LTO_NONE \
       -e LTO_CLANG_THIN \
@@ -756,14 +761,14 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e THINLTO
   elif [ "${LTO}" = "full" ]; then
     # THINLTO was the old name for LTO_THIN, and it was 'default y'
-    ${KERNEL_DIR}/scripts/config --file ${KERNEL_CONFIG} \
+    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
       -e LTO_CLANG \
       -d LTO_NONE \
       -d LTO_CLANG_THIN \
       -e LTO_CLANG_FULL \
       -d THINLTO
   fi
-  (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
+  (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
   set +x
 elif [ -n "${LTO}" ]; then
   echo "LTO= must be one of 'none', 'thin' or 'full'."
@@ -790,7 +795,7 @@ if [ -n "${ABI_DEFINITION}" ]; then
   echo "KMI_DEFINITION=abi.xml" >> ${ABI_PROP}
   echo "KMI_MONITORED=1"        >> ${ABI_PROP}
 
-  if [ -n "${KMI_ENFORCED}" ]; then
+  if [ "${KMI_ENFORCED}" = "1" ]; then
     echo "KMI_ENFORCED=1" >> ${ABI_PROP}
   fi
 fi
@@ -802,7 +807,7 @@ fi
 
 # define the kernel binary and modules archive in the $ABI_PROP
 echo "KERNEL_BINARY=vmlinux" >> ${ABI_PROP}
-if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ]; then
+if [ "${COMPRESS_UNSTRIPPED_MODULES}" = "1" ]; then
   echo "MODULES_ARCHIVE=${UNSTRIPPED_MODULES_ARCHIVE}" >> ${ABI_PROP}
 fi
 
@@ -829,58 +834,43 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
         cat "${symbol_list}" >> ${ABI_SL}
     done
   fi
-
-  if [ -n "${TRIM_NONLISTED_KMI}" ]; then
+  if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
       # Create the raw symbol list 
       cat ${ABI_SL} | \
               ${ROOT_DIR}/build/abi/flatten_symbol_list > \
               ${OUT_DIR}/abi_symbollist.raw
 
       # Update the kernel configuration
-      ./scripts/config --file ${KERNEL_CONFIG} \
+      ./scripts/config --file ${OUT_DIR}/.config \
               -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
               --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
       (cd ${OUT_DIR} && \
-              make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+              make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" olddefconfig)
       # Make sure the config is applied
-      grep CONFIG_UNUSED_KSYMS_WHITELIST ${KERNEL_CONFIG} > /dev/null || {
+      grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
         echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
         echo "Does your kernel support CONFIG_UNUSED_KSYMS_WHITELIST?" >&2
         exit 1
       }
 
-    elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+    elif [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
       echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires TRIM_NONLISTED_KMI=1" >&2
     exit 1
   fi
   popd # $ROOT_DIR/$KERNEL_DIR
-elif [ -n "${TRIM_NONLISTED_KMI}" ]; then
+elif [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
   echo "ERROR: TRIM_NONLISTED_KMI requires a KMI_SYMBOL_LIST" >&2
   exit 1
-elif [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+elif [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
   echo "ERROR: KMI_SYMBOL_LIST_STRICT_MODE requires a KMI_SYMBOL_LIST" >&2
   exit 1
-fi
-
-# If all the above configuration steps did not actually change the content of
-# $KERNEL_CONFIG (usually, .config), we restore the previously stored copy
-# along with its previous modification time stamp. That allows the kernel build
-# to skip all rules that directly depend on the config changing. In particular,
-# it might skip linking the kernel again if there haven't been any
-# modifications requiring a relink.
-if [ -f ${KERNEL_CONFIG}.before ]; then
-  if `cmp -s ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}`; then
-    mv ${KERNEL_CONFIG}.before ${KERNEL_CONFIG}  # preserve timestamp
-  else
-    rm ${KERNEL_CONFIG}.before
-  fi
 fi
 
 echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS} ${MAKE_GOALS})
+(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" ${MAKE_GOALS})
 set +x
 
 if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
@@ -902,7 +892,7 @@ if [ -n "${MODULES_ORDER}" ]; then
   fi
 fi
 
-if [ -n "${KMI_SYMBOL_LIST_STRICT_MODE}" ]; then
+if [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
   echo "========================================================"
   echo " Comparing the KMI and the symbol lists:"
   set -x
@@ -914,17 +904,17 @@ fi
 rm -rf ${MODULES_STAGING_DIR}
 mkdir -p ${MODULES_STAGING_DIR}
 
-if [ -z "${DO_NOT_STRIP_MODULES}" ]; then
+if [ "${DO_NOT_STRIP_MODULES}" != "1" ]; then
   MODULE_STRIP_FLAG="INSTALL_MOD_STRIP=1"
 fi
 
-if [ -n "${BUILD_INITRAMFS}" -o  -n "${IN_KERNEL_MODULES}" ]; then
+if [ "${BUILD_INITRAMFS}" = "1" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo "========================================================"
   echo " Installing kernel modules into staging directory"
 
   (cd ${OUT_DIR} &&                                                           \
    make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}                   \
-        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
+        INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}" modules_install)
 fi
 
 if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
@@ -944,11 +934,11 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
+                       O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}"
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                        O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}    \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
-                       ${MAKE_ARGS} modules_install
+                       "${MAKE_ARGS[@]}" modules_install
     set +x
   done
 
@@ -970,7 +960,7 @@ for ODM_DIR in ${ODM_DIRS}; do
     OVERLAY_OUT_DIR=${OUT_DIR}/overlays/${ODM_DIR}
     mkdir -p ${OVERLAY_OUT_DIR}
     make -C ${OVERLAY_DIR} DTC=${OUT_DIR}/scripts/dtc/dtc                     \
-                           OUT_DIR=${OVERLAY_OUT_DIR} ${MAKE_ARGS}
+                           OUT_DIR=${OVERLAY_OUT_DIR} "${MAKE_ARGS[@]}"
     OVERLAYS=$(find ${OVERLAY_OUT_DIR} -name "*.dtbo")
     OVERLAYS_OUT="$OVERLAYS_OUT $OVERLAYS"
   fi
@@ -999,7 +989,7 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
   make -C ${OUT_DIR} O=${OUT_DIR} "${TOOL_ARGS[@]}"                           \
-          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" ${MAKE_ARGS}      \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" "${MAKE_ARGS[@]}"      \
           headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
   # are only side products. We don't want those. Let's delete them.
@@ -1024,7 +1014,7 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ] ; then
   popd
 fi
 
-if [ -n "${GENERATE_VMLINUX_BTF}" ]; then
+if [ "${GENERATE_VMLINUX_BTF}" = "1" ]; then
   echo "========================================================"
   echo " Generating ${DIST_DIR}/vmlinux.btf"
 
@@ -1065,20 +1055,21 @@ if [ -n "${MODULES}" ]; then
       cp -p ${FILE} ${DIST_DIR}
     done
   fi
-  if [ -n "${BUILD_INITRAMFS}" ]; then
+  if [ "${BUILD_INITRAMFS}" = "1" ]; then
     echo "========================================================"
     echo " Creating initramfs"
     rm -rf ${INITRAMFS_STAGING_DIR}
     create_modules_staging "${MODULES_LIST}" ${MODULES_STAGING_DIR} \
       ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e"
 
-    cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.load ${DIST_DIR}/modules.load
-    echo "${MODULES_OPTIONS}" > ${INITRAMFS_STAGING_DIR}/lib/modules/modules.options
-    if [ -e "${INITRAMFS_STAGING_DIR}/lib/modules/modules.blocklist" ]; then
-      cp ${INITRAMFS_STAGING_DIR}/lib/modules/modules.blocklist ${DIST_DIR}/modules.blocklist
+    MODULES_ROOT_DIR=$(echo ${INITRAMFS_STAGING_DIR}/lib/modules/*)
+    cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
+    echo "${MODULES_OPTIONS}" > ${MODULES_ROOT_DIR}/modules.options
+    if [ -e "${MODULES_ROOT_DIR}/modules.blocklist" ]; then
+      cp ${MODULES_ROOT_DIR}/modules.blocklist ${DIST_DIR}/modules.blocklist
     fi
 
-    if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+    if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
       if [ -f "${VENDOR_FSTAB}" ]; then
         mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
         cp ${VENDOR_FSTAB} ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk/.
@@ -1119,7 +1110,7 @@ if [ -n "${UNSTRIPPED_MODULES}" ]; then
   for MODULE in ${UNSTRIPPED_MODULES}; do
     find ${MODULES_PRIVATE_DIR} -name ${MODULE} -exec cp {} ${UNSTRIPPED_DIR} \;
   done
-  if [ -n "${COMPRESS_UNSTRIPPED_MODULES}" ]; then
+  if [ "${COMPRESS_UNSTRIPPED_MODULES}" = "1" ]; then
     tar -czf ${DIST_DIR}/${UNSTRIPPED_MODULES_ARCHIVE} -C $(dirname ${UNSTRIPPED_DIR}) $(basename ${UNSTRIPPED_DIR})
     rm -rf ${UNSTRIPPED_DIR}
   fi
@@ -1213,7 +1204,17 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     exit 1
   fi
 
-  if [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ]; then
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
+    if [ -n "${VENDOR_BOOTCONFIG}" ]; then
+      for PARAM in ${VENDOR_BOOTCONFIG}; do
+        echo "${PARAM}"
+      done >"${DIST_DIR}/vendor-bootconfig.img"
+      MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img")
+      KERNEL_VENDOR_CMDLINE+=" bootconfig"
+    fi
+  fi
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
     if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
       MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
     fi
@@ -1253,7 +1254,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   fi
 
   [ -z "${SKIP_VENDOR_BOOT}" ] \
-    && [ "${BOOT_IMAGE_HEADER_VERSION}" -eq "3" ] \
+    && [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ] \
     && [ -f "${DIST_DIR}/vendor_boot.img" ] \
     && echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
 fi

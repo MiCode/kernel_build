@@ -174,6 +174,14 @@ if [ -e "${ROOT_DIR}/${MODULE_CONFIG}" ]; then
   source "${ROOT_DIR}/${MODULE_CONFIG}"
 fi
 
+if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
+  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
+
+  # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
+  MAKE_ARGS+=" KBUILD_MIXED_TREE=${GKI_DIST_DIR}"
+fi
+
 echo "========================================================"
 echo " Building external modules and installing them into staging directory"
 
