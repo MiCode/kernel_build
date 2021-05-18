@@ -478,7 +478,7 @@ function build_vendor_dlkm() {
 
   if [ -z "${VENDOR_DLKM_PROPS}" ]; then
     vendor_dlkm_props_file="$(mktemp)"
-    echo -e "fs_type=ext4\n" >> ${vendor_dlkm_props_file}
+    echo -e "vendor_dlkm_fs_type=ext4\n" >> ${vendor_dlkm_props_file}
     echo -e "use_dynamic_partition_size=true\n" >> ${vendor_dlkm_props_file}
     echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${vendor_dlkm_props_file}
     echo -e "ext4_share_dup_blocks=true\n" >> ${vendor_dlkm_props_file}
