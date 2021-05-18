@@ -212,8 +212,15 @@
 #       blocked from being loaded. This file is copied directly to staging directory,
 #       and should be in the format:
 #       blocklist module_name
+#     - MKBOOTIMG_EXTRA_ARGS=<space-delimited mkbootimg arguments>
+#       Refer to: ./mkbootimg.py --help
 #     If BOOT_IMAGE_HEADER_VERSION >= 4, the following variable can be defined:
 #     - VENDOR_BOOTCONFIG=<string of bootconfig parameters>
+#     - INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME=<name of the ramdisk fragment>
+#       If BUILD_INITRAMFS is specified, then build the .ko and depmod files as
+#       a standalone vendor ramdisk fragment named as the given string.
+#     - INITRAMFS_VENDOR_RAMDISK_FRAGMENT_MKBOOTIMG_ARGS=<mkbootimg arguments>
+#       Refer to: https://source.android.com/devices/bootloader/partitions/vendor-boot-partitions#mkbootimg-arguments
 #
 #   VENDOR_RAMDISK_CMDS
 #     When building vendor boot image, VENDOR_RAMDISK_CMDS enables the build
@@ -521,6 +528,7 @@ export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
+export MKBOOTIMG_STAGING_DIR="${MODULES_STAGING_DIR}/mkbootimg_staging"
 
 if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
@@ -1019,29 +1027,8 @@ if [ -n "${MODULES}" ]; then
     cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
     echo "${MODULES_OPTIONS}" > ${MODULES_ROOT_DIR}/modules.options
 
-    if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
-      if [ -f "${VENDOR_FSTAB}" ]; then
-        mkdir -p ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk
-        cp ${VENDOR_FSTAB} ${INITRAMFS_STAGING_DIR}/first_stage_ramdisk/.
-      fi
-    fi
-
-    (
-      cd ${INITRAMFS_STAGING_DIR}
-      # In toybox cpio, --no-preserve-owner is a valid command line switch for the
-      # create i.e. copy-out mode. It causes toybox to set uid/gid to 0 for all
-      # directory entries. This is equivalent to the command line argument -R +0:+0
-      # in GNU cpio. Keep in mind that, in GNU cpio, --no-preserve-owner means
-      # something else and is only valid in copy-in and copy-pass modes.
-      if cpio --version | grep -q "toybox"; then
-        find * | cpio -H newc -o --no-preserve-owner --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio
-      else
-        echo "WARN: Configuration error: using host cpio!"
-        find * | cpio -H newc -o -R root:root --quiet > ${MODULES_STAGING_DIR}/initramfs.cpio
-      fi
-    )
-    ${RAMDISK_COMPRESS} ${MODULES_STAGING_DIR}/initramfs.cpio > ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT}
-    mv ${MODULES_STAGING_DIR}/initramfs.cpio.${RAMDISK_EXT} ${DIST_DIR}/initramfs.img
+    mkbootfs "${INITRAMFS_STAGING_DIR}" >"${MODULES_STAGING_DIR}/initramfs.cpio"
+    ${RAMDISK_COMPRESS} "${MODULES_STAGING_DIR}/initramfs.cpio" >"${DIST_DIR}/initramfs.img"
   fi
 fi
 
@@ -1068,7 +1055,15 @@ echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
 if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
-  MKBOOTIMG_ARGS=()
+  if [ -z "${MKBOOTIMG_PATH}" ]; then
+    MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
+  fi
+  if [ ! -f "${MKBOOTIMG_PATH}" ]; then
+    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = ${MKBOOTIMG_PATH}"
+    exit 1
+  fi
+
+  MKBOOTIMG_ARGS=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
   if [ -n  "${BASE_ADDRESS}" ]; then
     MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
   fi
@@ -1099,65 +1094,73 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
   fi
 
-  MKBOOTIMG_RAMDISKS=()
+  rm -rf "${MKBOOTIMG_STAGING_DIR}"
+  MKBOOTIMG_RAMDISK_STAGING_DIR="${MKBOOTIMG_STAGING_DIR}/ramdisk_root"
+  mkdir -p "${MKBOOTIMG_RAMDISK_STAGING_DIR}"
 
-  CPIO_NAME=""
   if [ -n "${VENDOR_RAMDISK_BINARY}" ]; then
     if ! [ -f "${VENDOR_RAMDISK_BINARY}" ]; then
       echo "Unable to locate vendor ramdisk ${VENDOR_RAMDISK_BINARY}."
       exit 1
     fi
-    CPIO_NAME="$(mktemp -t build.sh.ramdisk.cpio.XXXXXXXX)"
-    if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
+    VENDOR_RAMDISK_CPIO="${MKBOOTIMG_STAGING_DIR}/vendor_ramdisk_binary.cpio"
+    if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${VENDOR_RAMDISK_CPIO}"; then
       echo "${VENDOR_RAMDISK_BINARY} is GZIP compressed"
-    elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${CPIO_NAME}"; then
+    elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${VENDOR_RAMDISK_CPIO}"; then
       echo "${VENDOR_RAMDISK_BINARY} is LZ4 compressed"
     elif cpio -t < "${VENDOR_RAMDISK_BINARY}" &>/dev/null; then
       echo "${VENDOR_RAMDISK_BINARY} is plain CPIO archive"
-      cp -f "${VENDOR_RAMDISK_BINARY}" "${CPIO_NAME}"
+      cp -f "${VENDOR_RAMDISK_BINARY}" "${VENDOR_RAMDISK_CPIO}"
     else
       echo "Unable to identify type of vendor ramdisk ${VENDOR_RAMDISK_BINARY}"
-      rm -f "${CPIO_NAME}"
+      rm -f "${VENDOR_RAMDISK_CPIO}"
       exit 1
     fi
-    MKBOOTIMG_RAMDISKS+=("${CPIO_NAME}")
 
     # Remove lib/modules from the vendor ramdisk binary
     # Also execute ${VENDOR_RAMDISK_CMDS} for further modifications
-    RAMDISK_TMP_DIR="$(mktemp -d -t build.sh.ramdisk.XXXXXXXX)"
-    (cd "${RAMDISK_TMP_DIR}"
-     cpio -idu --quiet -F "${CPIO_NAME}"
-     rm -rf lib/modules
-     eval ${VENDOR_RAMDISK_CMDS}
-     find * | cpio -H newc -o --no-preserve-owner --quiet > "${CPIO_NAME}"
+    ( cd "${MKBOOTIMG_RAMDISK_STAGING_DIR}"
+      cpio -idu --quiet <"${VENDOR_RAMDISK_CPIO}"
+      rm -rf lib/modules
+      eval ${VENDOR_RAMDISK_CMDS}
     )
-    rm -rf "${RAMDISK_TMP_DIR}"
   fi
 
-  if [ -f "${MODULES_STAGING_DIR}/initramfs.cpio" ]; then
-    MKBOOTIMG_RAMDISKS+=("${MODULES_STAGING_DIR}/initramfs.cpio")
+  if [ -f "${VENDOR_FSTAB}" ]; then
+    mkdir -p "${MKBOOTIMG_RAMDISK_STAGING_DIR}/first_stage_ramdisk"
+    cp "${VENDOR_FSTAB}" "${MKBOOTIMG_RAMDISK_STAGING_DIR}/first_stage_ramdisk/"
   fi
 
-  if [ "${#MKBOOTIMG_RAMDISKS[@]}" -gt 0 ]; then
-    cat ${MKBOOTIMG_RAMDISKS[*]} | ${RAMDISK_COMPRESS} - > ${DIST_DIR}/ramdisk.${RAMDISK_EXT}
-    [ -n "${CPIO_NAME}" ] && rm -f "${CPIO_NAME}"
-  elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
+  HAS_RAMDISK=
+  MKBOOTIMG_RAMDISK_DIRS=()
+  if [ -f "${VENDOR_RAMDISK_BINARY}" ] || [ -f "${VENDOR_FSTAB}" ]; then
+    HAS_RAMDISK="1"
+    MKBOOTIMG_RAMDISK_DIRS+=("${MKBOOTIMG_RAMDISK_STAGING_DIR}")
+  fi
+
+  if [ "${BUILD_INITRAMFS}" = "1" ]; then
+    HAS_RAMDISK="1"
+    if [ -z "${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME}" ]; then
+      MKBOOTIMG_RAMDISK_DIRS+=("${INITRAMFS_STAGING_DIR}")
+    fi
+  fi
+
+  if [ -z "${HAS_RAMDISK}" ] && [ -z "${SKIP_VENDOR_BOOT}" ]; then
     echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
     exit 1
   fi
 
-  if [ -z "${MKBOOTIMG_PATH}" ]; then
-    MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
-  fi
-  if [ ! -f "$MKBOOTIMG_PATH" ]; then
-    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = $MKBOOTIMG_PATH"
-    exit 1
+  if [ "${#MKBOOTIMG_RAMDISK_DIRS[@]}" -gt 0 ]; then
+    MKBOOTIMG_RAMDISK_CPIO="${MKBOOTIMG_STAGING_DIR}/ramdisk.cpio"
+    mkbootfs "${MKBOOTIMG_RAMDISK_DIRS[@]}" >"${MKBOOTIMG_RAMDISK_CPIO}"
+    ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" >"${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
   fi
 
   if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
     echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
     exit 1
   fi
+  MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
     if [ -n "${VENDOR_BOOTCONFIG}" ]; then
@@ -1175,19 +1178,35 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     fi
 
     if [ -z "${SKIP_VENDOR_BOOT}" ]; then
-      MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img" \
-        "--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+      MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img")
       if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
         MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
       fi
+      if [ -f "${DIST_DIR}/ramdisk.${RAMDISK_EXT}" ]; then
+        MKBOOTIMG_ARGS+=("--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+      fi
+      if [ "${BUILD_INITRAMFS}" = "1" ] \
+          && [ -n "${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME}" ]; then
+        MKBOOTIMG_ARGS+=("--ramdisk_type" "DLKM")
+        for MKBOOTIMG_ARG in ${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_MKBOOTIMG_ARGS}; do
+          MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
+        done
+        MKBOOTIMG_ARGS+=("--ramdisk_name" "${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME}")
+        MKBOOTIMG_ARGS+=("--vendor_ramdisk_fragment" "${DIST_DIR}/initramfs.img")
+      fi
     fi
   else
-    MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+    if [ -f "${DIST_DIR}/ramdisk.${RAMDISK_EXT}" ]; then
+      MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+    fi
   fi
 
-  "$MKBOOTIMG_PATH" --kernel "${DIST_DIR}/${KERNEL_BINARY}" \
-    --header_version "${BOOT_IMAGE_HEADER_VERSION}" \
-    "${MKBOOTIMG_ARGS[@]}" -o "${DIST_DIR}/boot.img"
+  MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
+    MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
+  done
+  "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
+
   if [ -f "${DIST_DIR}/boot.img" ]; then
     echo "boot image created at ${DIST_DIR}/boot.img"
 
