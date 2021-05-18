@@ -608,10 +608,6 @@ else
 
   if [ -n "${LD}" ]; then
     TOOL_ARGS+=("LD=${LD}" "HOSTLD=${LD}")
-    custom_ld=${LD##*.}
-    if [ -n "${custom_ld}" ]; then
-      TOOL_ARGS+=("HOSTLDFLAGS=-fuse-ld=${custom_ld}")
-    fi
   fi
 
   if [ -n "${NM}" ]; then
