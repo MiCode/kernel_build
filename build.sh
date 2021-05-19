@@ -183,9 +183,10 @@
 #       (defaults to tools/mkbootimg/mkbootimg.py)
 #     - GKI_RAMDISK_PREBUILT_BINARY=<Name of the GKI ramdisk prebuilt which includes
 #       the generic ramdisk components like init and the non-device-specific rc files>
-#     - VENDOR_RAMDISK_BINARY=<Name of the vendor ramdisk binary which includes the
-#       device-specific components of ramdisk like the fstab file and the
-#       device-specific rc files.>
+#     - VENDOR_RAMDISK_BINARY=<Space separated list of vendor ramdisk binaries
+#        which includes the device-specific components of ramdisk like the fstab
+#        file and the device-specific rc files. If specifying multiple vendor ramdisks
+#        and identical file paths exist in the ramdisks, the file from last ramdisk is used.>
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #       (defaults to 3)
@@ -1095,23 +1096,26 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
   mkdir -p "${MKBOOTIMG_RAMDISK_STAGING_DIR}"
 
   if [ -n "${VENDOR_RAMDISK_BINARY}" ]; then
-    if ! [ -f "${VENDOR_RAMDISK_BINARY}" ]; then
-      echo "Unable to locate vendor ramdisk ${VENDOR_RAMDISK_BINARY}."
-      exit 1
-    fi
     VENDOR_RAMDISK_CPIO="${MKBOOTIMG_STAGING_DIR}/vendor_ramdisk_binary.cpio"
-    if ${DECOMPRESS_GZIP} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${VENDOR_RAMDISK_CPIO}"; then
-      echo "${VENDOR_RAMDISK_BINARY} is GZIP compressed"
-    elif ${DECOMPRESS_LZ4} "${VENDOR_RAMDISK_BINARY}" 2>/dev/null > "${VENDOR_RAMDISK_CPIO}"; then
-      echo "${VENDOR_RAMDISK_BINARY} is LZ4 compressed"
-    elif cpio -t < "${VENDOR_RAMDISK_BINARY}" &>/dev/null; then
-      echo "${VENDOR_RAMDISK_BINARY} is plain CPIO archive"
-      cp -f "${VENDOR_RAMDISK_BINARY}" "${VENDOR_RAMDISK_CPIO}"
-    else
-      echo "Unable to identify type of vendor ramdisk ${VENDOR_RAMDISK_BINARY}"
-      rm -f "${VENDOR_RAMDISK_CPIO}"
-      exit 1
-    fi
+    rm -f "${VENDOR_RAMDISK_CPIO}"
+    for vendor_ramdisk_binary in ${VENDOR_RAMDISK_BINARY}; do
+      if ! [ -f "${vendor_ramdisk_binary}" ]; then
+        echo "Unable to locate vendor ramdisk ${vendor_ramdisk_binary}."
+        exit 1
+      fi
+      if ${DECOMPRESS_GZIP} "${vendor_ramdisk_binary}" 2>/dev/null >> "${VENDOR_RAMDISK_CPIO}"; then
+        echo "${vendor_ramdisk_binary} is GZIP compressed"
+      elif ${DECOMPRESS_LZ4} "${vendor_ramdisk_binary}" 2>/dev/null >> "${VENDOR_RAMDISK_CPIO}"; then
+        echo "${vendor_ramdisk_binary} is LZ4 compressed"
+      elif cpio -t < "${vendor_ramdisk_binary}" &>/dev/null; then
+        echo "${vendor_ramdisk_binary} is plain CPIO archive"
+        cat "${vendor_ramdisk_binary}" >> "${VENDOR_RAMDISK_CPIO}"
+      else
+        echo "Unable to identify type of vendor ramdisk ${vendor_ramdisk_binary}"
+        rm -f "${VENDOR_RAMDISK_CPIO}"
+        exit 1
+      fi
+    done
 
     # Remove lib/modules from the vendor ramdisk binary
     # Also execute ${VENDOR_RAMDISK_CMDS} for further modifications
@@ -1129,7 +1133,7 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
 
   HAS_RAMDISK=
   MKBOOTIMG_RAMDISK_DIRS=()
-  if [ -f "${VENDOR_RAMDISK_BINARY}" ] || [ -f "${VENDOR_FSTAB}" ]; then
+  if [ -n "${VENDOR_RAMDISK_BINARY}" ] || [ -f "${VENDOR_FSTAB}" ]; then
     HAS_RAMDISK="1"
     MKBOOTIMG_RAMDISK_DIRS+=("${MKBOOTIMG_RAMDISK_STAGING_DIR}")
   fi
