@@ -177,7 +177,7 @@ if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
 fi
 
 rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
-second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos})
+second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos} || true)
 if [ -n "${second_stage_kos}" ]; then
   mkdir -p ${ANDROID_KERNEL_OUT}/vendor_dlkm
   cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
