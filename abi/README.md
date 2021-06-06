@@ -234,15 +234,13 @@ non-zero value in case the ABIs compared are incompatible.
 
 ### Using KMI symbol lists
 
-To filter dumps created with `dump_abi` use the parameter `--kmi-symbol-list`
-that takes a path to a KMI symbol list file:
+To filter dumps created with `dump_abi` or filter symbols compared with
+`diff_abi`, each of those tools provides a parameter `--kmi-symbol-list` that
+takes a path to a KMI symbol list file:
 
 ```
   $ dump_abi --linux-tree path/to/out --out-file /path/to/abi.xml --kmi-symbol-list /path/to/symbol_list
 ```
-
-The same parameter can also be used to restrict the symbols that `diff_abi`
-compares.
 
 ### Comparing Kernel Binaries against the GKI reference KMI
 
