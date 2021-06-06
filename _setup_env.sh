@@ -121,6 +121,9 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   ldflags+="-Wl,-rpath,${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
   ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
 
+  # Have host compiler use LLD and compiler-rt.
+  ldflags+="-fuse-ld=lld --rtlib=compiler-rt"
+
   export HOSTCFLAGS="$sysroot_flags $cflags"
   export HOSTLDFLAGS="$sysroot_flags $ldflags"
 fi
