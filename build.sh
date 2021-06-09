@@ -542,6 +542,8 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
 
   # Inherit SKIP_MRPROPER, LTO, SKIP_DEFCONFIG unless overridden by corresponding GKI_* variables
   GKI_ENVIRON=("SKIP_MRPROPER=${SKIP_MRPROPER}" "LTO=${LTO}" "SKIP_DEFCONFIG=${SKIP_DEFCONFIG}" "SKIP_IF_VERSION_MATCHES=${SKIP_IF_VERSION_MATCHES}")
+  # Explicitly unset EXT_MODULES since they should be compiled against the device kernel
+  GKI_ENVIRON+=("EXT_MODULES=")
   # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
   # gki build recursively
