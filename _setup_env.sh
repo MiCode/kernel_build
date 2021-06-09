@@ -105,6 +105,7 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   for tool in \
       bash \
       git \
+      install \
       perl \
       rsync \
       sh \
