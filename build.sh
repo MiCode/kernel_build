@@ -314,6 +314,23 @@
 #     Kernel. Any variables prefixed with GKI_ are passed into into the GKI
 #     kernel's build.sh invocation.
 #
+#     This is incompatible with GKI_PREBUILTS_DIR.
+#
+#   GKI_PREBUILTS_DIR
+#     If set, copies an existing set of GKI kernel binaries to the DIST_DIR to
+#     perform a "mixed build," as with GKI_BUILD_CONFIG. This allows you to
+#     skip the additional compilation, if interested.
+#
+#     This is incompatible with GKI_BUILD_CONFIG.
+#
+#     The following must be present:
+#       vmlinux
+#       System.map
+#       vmlinux.symvers
+#       modules.builtin
+#       modules.builtin.modinfo
+#       Image.lz4
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -532,6 +549,11 @@ export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
 export MKBOOTIMG_STAGING_DIR="${MODULES_STAGING_DIR}/mkbootimg_staging"
 
 if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  if [ -n "${GKI_PREBUILTS_DIR}" ]; then
+      echo "ERROR: GKI_BUILD_CONFIG is incompatible with GKI_PREBUILTS_DIR." >&2
+      exit 1
+  fi
+
   GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
   GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
 
@@ -667,6 +689,23 @@ if [ -n "${SKIP_IF_VERSION_MATCHES}" ]; then
 fi
 
 mkdir -p ${OUT_DIR} ${DIST_DIR}
+
+if [ -n "${GKI_PREBUILTS_DIR}" ]; then
+  echo "========================================================"
+  echo " Copying GKI prebuilts"
+  GKI_PREBUILTS_DIR=$(readlink -m ${GKI_PREBUILTS_DIR})
+  if [ ! -d "${GKI_PREBUILTS_DIR}" ]; then
+    echo "ERROR: ${GKI_PREBULTS_DIR} does not exist." >&2
+    exit 1
+  fi
+  for file in ${GKI_PREBUILTS_DIR}/*; do
+    filename=$(basename ${file})
+    if ! $(cmp -s ${file} ${DIST_DIR}/${filename}); then
+      cp -v ${file} ${DIST_DIR}/${filename}
+    fi
+  done
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_PREBUILTS_DIR}")
+fi
 
 echo "========================================================"
 echo " Setting up for build"
