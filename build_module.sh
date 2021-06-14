@@ -174,13 +174,59 @@ if [ -e "${ROOT_DIR}/${MODULE_CONFIG}" ]; then
   source "${ROOT_DIR}/${MODULE_CONFIG}"
 fi
 
-if [ -n "${GKI_BUILD_CONFIG}" ]; then
-  GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
-  GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
 
-  # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
-  MAKE_ARGS+=" KBUILD_MIXED_TREE=${GKI_DIST_DIR}"
+# KERNEL_KIT should be explicitly defined, but default it to something sensible
+KERNEL_KIT="${KERNEL_KIT:-${COMMON_OUT_DIR}}"
+
+if [ ! -e "${KERNEL_KIT}/.config" ]; then
+  # Try a couple reasonable/reliable fallback locations
+  if [ -e "${KERNEL_KIT}/dist/.config" ]; then
+    KERNEL_KIT="${KERNEL_KIT}/dist"
+  elif [ -e "${KERNEL_KIT}/${KERNEL_DIR}/.config" ]; then
+    KERNEL_KIT="${KERNEL_KIT}/${KERNEL_DIR}"
+  fi
 fi
+if [ ! -e "${KERNEL_KIT}/.config" ]; then
+  echo "ERROR! Could not find prebuilt kernel artifacts in ${KERNEL_KIT}"
+  exit 1
+fi
+
+if [ ! -e "${OUT_DIR}/Makefile" -o -z "${EXT_MODULES}" ]; then
+  echo "========================================================"
+  echo " Prepare to compile modules from ${KERNEL_KIT}"
+
+  set -x
+  mkdir -p ${OUT_DIR}/
+  cp ${KERNEL_KIT}/.config ${KERNEL_KIT}/Module.symvers ${OUT_DIR}/
+
+  if [ -z "${EXT_MODULES}" -a ! ${KERNEL_KIT}/host -ef ${COMMON_OUT_DIR}/host ]; then
+    rm -rf ${COMMON_OUT_DIR}/host
+  fi
+  if [ -e ${KERNEL_KIT}/host -a ! -e ${COMMON_OUT_DIR}/host ]; then
+    cp -r ${KERNEL_KIT}/host ${COMMON_OUT_DIR}
+  fi
+
+  # Install .config from kernel platform
+  (
+    cd "${KERNEL_DIR}"
+    make O="${OUT_DIR}" "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig
+  )
+
+  # To guard against .config silently diverging from the one kernel platform created,
+  # set KCONFIG_NOSILENTUPDATE=1. If doing an incremental build, this also guards against
+  # the kernel platform .config changing since autoconf.h and related files would need an update
+  # in OUT_DIR. To get around this valid change, do "make olddefconfig", copy the .config again,
+  # then do the NOSILENTUPDATE check
+  cp ${KERNEL_KIT}/.config ${OUT_DIR}/
+  (
+    cd "${KERNEL_DIR}"
+    KCONFIG_NOSILENTUPDATE=1 make O="${OUT_DIR}" "${TOOL_ARGS[@]}" ${MAKE_ARGS} modules_prepare
+  )
+  set +x
+fi
+# Set KBUILD_MIXED_TREE in case an out-of-tree Makefile does "make all". This causes
+# kbuild to also want to compile vmlinux
+MAKE_ARGS+=" KBUILD_MIXED_TREE=${KERNEL_KIT}"
 
 echo "========================================================"
 echo " Building external modules and installing them into staging directory"
