@@ -129,22 +129,43 @@ case "${KERNEL_TARGET}" in
     ;;
 esac
 
+################################################################################
+# Create a build config used for this run of prepare_vendor
+# Temporary KP output directory so as to not accidentally touch a prebuilt KP output folder
+export TEMP_KP_OUT_DIR=$(mktemp -d ${ANDROID_PRODUCT_OUT:+-p ${ANDROID_PRODUCT_OUT}})
+trap "rm -rf ${TEMP_KP_OUT_DIR}" exit
 (
   cd ${ROOT_DIR}
-  ./build/brunch ${KERNEL_TARGET} ${KERNEL_VARIANT}
+  OUT_DIR=${TEMP_KP_OUT_DIR} ./build/brunch ${KERNEL_TARGET} ${KERNEL_VARIANT}
 )
 
 rm -f ${ANDROID_KERNEL_OUT}/Image ${ANDROID_KERNEL_OUT}/vmlinux ${ANDROID_KERNEL_OUT}/System.map
 mkdir -p "${ANDROID_KERNEL_OUT}"
 
+################################################################################
+# Determine output folder
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
 ANDROID_KP_OUT_DIR="${3:-${OUT_DIR}}"
 if [ -z "${ANDROID_KP_OUT_DIR}" ]; then
   ANDROID_KP_OUT_DIR=out/$(
     cd ${ROOT_DIR}
+    OUT_DIR=${TEMP_KP_OUT_DIR}
     source build/_wrapper_common.sh
     get_branch
   )
+
+  if [ -n "${ANDROID_BUILD_TOP}" -a -e "${ANDROID_BUILD_TOP}/${ANDROID_KP_OUT_DIR}" ] ; then
+    ANDROID_KP_OUT_DIR="${ANDROID_BUILD_TOP}/${ANDROID_KP_OUT_DIR}"
+  else
+    ANDROID_KP_OUT_DIR="${ROOT_DIR}/${ANDROID_KP_OUT_DIR}"
+  fi
+fi
+
+# Clean up temporary KP output directory
+rm -rf ${TEMP_KP_OUT_DIR}
+trap - EXIT
+echo "  kernel platform output: ${ANDROID_KP_OUT_DIR}"
+
 fi
 
 # KP_OUT_DIR is the output directory from kernel platform directory
@@ -163,7 +184,7 @@ if [ "${RECOMPILE_KERNEL}" == "1" -o ! -e "${ANDROID_KP_OUT_DIR}/dist/Image" ]; 
 
   (
     cd ${ROOT_DIR}
-    SKIP_MRPROPER=1 ./build/build.sh
+    SKIP_MRPROPER=1 OUT_DIR=${ANDROID_KP_OUT_DIR} ./build/build.sh
   )
 fi
 
