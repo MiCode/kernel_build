@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020, The Linux Foundation. All rights reserved.
+# Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -48,6 +48,39 @@
 # Second-stage blocklist listed in $(KP_OUT)/modules.blocklist
 #   - If not present, no modules should be blocked
 # DTBs, DTBOs, dtb.img, and dtbo.img in $(KP_OUT)/merged-dtbs/
+#
+# The following optional arguments can be passed to prepare_vendor.sh:
+#  prepare_vendor.sh [KERNEL_TARGET [KERNEL_VARIANT [OUT_DIR]]]
+#   See below for descriptions of the arguments and default behavior when unspecified.
+#   Note that in order for KERNEL_VARIANT to be defined, KERNEL_TARGET must also be
+#   explicitly mentioned. Similarly, in order for OUT_DIR to be mentioned,
+#   KERNEL_TARGET and KERNEL_VARIANT must also be mentioned.
+#
+# The following environment variables are considered during execution
+#   ANDROID_KERNEL_OUT - The output location to copy artifacts to.
+#                        If unset, then ANDROID_BUILD_TOP and TARGET_BOARD_PLATFORM
+#                        (usually set by Android's "lunch" command)
+#                        are used to figure it out
+#   KERNEL_TARGET      - Kernel target to use. This variable can also be the first argument
+#                        to prepare_vendor.sh [KERNEL_TARGET], or is copied from
+#                        BOARD_TARGET_PRODUCT
+#   KERNEL_VARIANT     - Kernel target variant to use. This variable can also be the second argument
+#                        to prepare_vendor.sh [KERNEL_TARGET] [KERNEL_VARIANT]. If left unset,
+#                        the default kernel variant is used for the kernel target.
+#   OUT_DIR            - Kernel Platform output folder for the KERNEL_TARGET and KERNEL_VARIANT.
+#                        This variable can also be the third argument to
+#                        prepare_vendor.sh [KERNEL_TARGET] [KERNEL_VARIANT] [OUT_DIR].
+#                        If left unset, conventional locations will be checked:
+#                        $ANDROID_BUILD_TOP/out/$BRANCH and $KP_ROOT_DIR/out/$BRANCH
+#   DIST_DIR           - Kernel Platform dist folder for the KERNEL_TARGET and KERNEL_VARIANT
+#   RECOMPILE_KERNEL   - Recompile the kernel platform
+#
+# To compile out-of-tree kernel objects and set up the prebuilt UAPI headers,
+# these environment variables must be set.
+# ${ANDROID_BUILD_TOP}/vendor/**/*-devicetree/
+#   ANDROID_BUILD_TOP   - The root source tree folder
+#   ANDROID_PRODUCT_OUT - The root output folder. Output is placed in ${OUT}/obj/DLKM_OBJ
+# Currently only DTBs are compiled from folders matching this pattern:
 
 set -e
 
@@ -58,28 +91,32 @@ function rel_path() {
 }
 
 ROOT_DIR=$(realpath $(dirname $(readlink -f $0))/../..) # build/android/prepare.sh -> .
+echo "  kernel platform root: $ROOT_DIR"
 
 ################################################################################
-# Discover where kernel_platform source and output is
+# Discover where to put Android output
+if [ -z "${ANDROID_KERNEL_OUT}" ]; then
+  if [ -z "${ANDROID_BUILD_TOP}" ]; then
+    echo "ANDROID_BUILD_TOP is not set. Have you run lunch yet?" 1>&2
+    exit 1
+  fi
 
-if [ -z "${ANDROID_BUILD_TOP}" ]; then
-  echo "ANDROID_BUILD_TOP is not set. Have you run lunch yet?"
-  exit 1
+  if [ -z "${TARGET_BOARD_PLATFORM}" ]; then
+    echo "TARGET_BOARD_PLATFORM is not set. Have you run lunch yet?" 1>&2
+    exit 1
+  fi
+
+  ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/device/qcom/${TARGET_BOARD_PLATFORM}-kernel
+fi
+if [ ! -e ${ANDROID_KERNEL_OUT} ]; then
+  mkdir -p ${ANDROID_KERNEL_OUT}
 fi
 
-if [ -z "${ANDROID_PRODUCT_OUT}" ]; then
-  echo "ANDROID_PRODUCT_OUT is not set. Have you run lunch yet?"
-  exit 1
-fi
-
-ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/device/qcom/${TARGET_PRODUCT}-kernel
-
-ANDROID_TO_KERNEL_PLATFORM=$(rel_path ${ROOT_DIR} ${ANDROID_BUILD_TOP})
-
-echo "  kernel platform root: $ROOT_DIR (${ANDROID_TO_KERNEL_PLATFORM})"
+################################################################################
+# Determine requested kernel target and variant
 
 if [ -z "${KERNEL_TARGET}" ]; then
-  KERNEL_TARGET=${1:-${TARGET_PRODUCT}}
+  KERNEL_TARGET=${1:-${TARGET_BOARD_PLATFORM}}
 fi
 
 if [ -z "${KERNEL_VARIANT}" ]; then
@@ -204,69 +241,78 @@ if [ -e ${ANDROID_KP_OUT_DIR}/debug ]; then
   cp -r ${ANDROID_KP_OUT_DIR}/debug ${ANDROID_KERNEL_OUT}/
 fi
 
-################################################################################
-echo
-echo "  cleaning up kernel_platform tree for Android"
-
-set -x
-find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
-     -a -not -path ${ROOT_DIR}/common/Android.bp -a -not -path ${ROOT_DIR}/msm-kernel/Android.bp \
-     -delete
-set +x
-
-################################################################################
-echo
-echo "  Preparing UAPI headers for Android"
-
-if [ ! -e ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include ]; then
-  echo "!! Did not find exported kernel UAPI headers"
-  echo "!! was kernel platform compiled with SKIP_CP_KERNEL_HDR?"
-  exit 1
-fi
-
-set -x
-${ROOT_DIR}/build/android/export_headers.py \
-  ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include \
-  ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi \
-  ${ANDROID_KERNEL_OUT}/kernel-headers \
-  arm64
-set +x
-
-################################################################################
-echo
-echo "  Compiling vendor devicetree overlays"
-
-for project in $(cd ${ANDROID_BUILD_TOP} && find -L vendor/ -type d -name "*-devicetree")
-do
-  if [ ! -e "${project}/Makefile" ]; then
-    echo "${project} does not have expected build configuration files, skipping..."
-    continue
+if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
+  ANDROID_TO_KP=$(rel_path ${ROOT_DIR} ${ANDROID_BUILD_TOP})
+  if [[ "${ANDROID_TO_KP}" != "kernel_platform" ]] ; then
+    echo "!! Kernel platform source is currently only supported to be in ${ANDROID_BUILD_TOP}/kernel_platform"
+    echo "!! Move kernel platform source or try creating a symlink."
+    exit 1
   fi
 
-  echo "Building ${project}"
+  ################################################################################
+  echo
+  echo "  cleaning up kernel_platform tree for Android"
+
+  set -x
+  find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
+      -a -not -path ${ROOT_DIR}/common/Android.bp -a -not -path ${ROOT_DIR}/msm-kernel/Android.bp \
+      -delete
+  set +x
+
+  ################################################################################
+  echo
+  echo "  Preparing UAPI headers for Android"
+
+  if [ ! -e ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include ]; then
+    echo "!! Did not find exported kernel UAPI headers"
+    echo "!! was kernel platform compiled with SKIP_CP_KERNEL_HDR?"
+    exit 1
+  fi
+
+  set -x
+  ${ROOT_DIR}/build/android/export_headers.py \
+    ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include \
+    ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi \
+    ${ANDROID_KERNEL_OUT}/kernel-headers \
+    arm64
+  set +x
+
+  ################################################################################
+  echo
+  echo "  Compiling vendor devicetree overlays"
+
+  for project in $(cd ${ANDROID_BUILD_TOP} && find -L vendor/ -type d -name "*-devicetree")
+  do
+    if [ ! -e "${project}/Makefile" ]; then
+      echo "${project} does not have expected build configuration files, skipping..."
+      continue
+    fi
+
+    echo "Building ${project}"
+
+    (
+      cd ${ROOT_DIR}
+      set -x
+      EXT_MODULES="la/${project}" \
+      ./build/build_module.sh dtbs
+      set +x
+    )
+  done
+
+  ################################################################################
+  echo
+  echo "  Merging vendor devicetree overlays"
+
+  rm -rf ${ANDROID_KERNEL_OUT}/dtbs
+  mkdir ${ANDROID_KERNEL_OUT}/dtbs
+
+  if [ -z "${KERNEL_VARIANT}" ]; then
+    KERNEL_VARIANT=${2}
+    echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
+  fi
 
   (
     cd ${ROOT_DIR}
-    set -x
-    EXT_MODULES="la/${project}" \
-    ./build/build_module.sh dtbs
-    set +x
+    ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${ANDROID_KERNEL_OUT}/dtbs
   )
-done
-
-################################################################################
-echo
-echo "  Merging vendor devicetree overlays"
-
-rm -rf ${ANDROID_KERNEL_OUT}/dtbs
-mkdir ${ANDROID_KERNEL_OUT}/dtbs
-
-if [ -z "${KERNEL_VARIANT}" ]; then
-  KERNEL_VARIANT=${2}
-  echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
 fi
-
-(
-  cd ${ROOT_DIR}
-  ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${ANDROID_KERNEL_OUT}/dtbs
-)
