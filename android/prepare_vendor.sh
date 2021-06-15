@@ -139,9 +139,6 @@ trap "rm -rf ${TEMP_KP_OUT_DIR}" exit
   OUT_DIR=${TEMP_KP_OUT_DIR} ./build/brunch ${KERNEL_TARGET} ${KERNEL_VARIANT}
 )
 
-rm -f ${ANDROID_KERNEL_OUT}/Image ${ANDROID_KERNEL_OUT}/vmlinux ${ANDROID_KERNEL_OUT}/System.map
-mkdir -p "${ANDROID_KERNEL_OUT}"
-
 ################################################################################
 # Determine output folder
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
@@ -166,19 +163,37 @@ rm -rf ${TEMP_KP_OUT_DIR}
 trap - EXIT
 echo "  kernel platform output: ${ANDROID_KP_OUT_DIR}"
 
-fi
-
-# KP_OUT_DIR is the output directory from kernel platform directory
-KP_OUT_DIR=$(rel_path ${ANDROID_KP_OUT_DIR} ${ROOT_DIR})
-
-echo "  kernel platform output directory: ${ANDROID_KP_OUT_DIR}"
-
-echo """OUT_DIR=${KP_OUT_DIR}
+echo """[ -z \"\${KERNEL_KIT}\" ] && OUT_DIR=${ANDROID_KP_OUT_DIR}
 $(cat ${ROOT_DIR}/build.config)
 """ > ${ROOT_DIR}/build.config
 
 ################################################################################
-if [ "${RECOMPILE_KERNEL}" == "1" -o ! -e "${ANDROID_KP_OUT_DIR}/dist/Image" ]; then
+# Set up recompile and copy variables
+set -x
+if [ ! -e "${ANDROID_KERNEL_OUT}/Image" ]; then
+  COPY_NEEDED=1
+fi
+
+if [ ! -e "${ANDROID_KERNEL_OUT}/build.config" ] || \
+  ! diff -q "${ANDROID_KERNEL_OUT}/build.config" "${ROOT_DIR}/build.config" ; then
+  COPY_NEEDED=1
+fi
+
+if [ ! -e "${ANDROID_KP_OUT_DIR}/dist/Image" -a "${COPY_NEEDED}" == "1" ]; then
+  RECOMPILE_KERNEL=1
+fi
+set +x
+
+cp "${ROOT_DIR}/build.config" "${ANDROID_KERNEL_OUT}/build.config"
+
+# If prepare_vendor.sh fails and nobody checked the error code, make sure the android build fails
+# by removing the kernel Image which is needed to build boot.img
+if [ "${RECOMPILE_KERNEL}" == "1" -o "${COPY_NEEDED}" == "1" ]; then
+  rm -f ${ANDROID_KERNEL_OUT}/Image ${ANDROID_KERNEL_OUT}/vmlinux ${ANDROID_KERNEL_OUT}/System.map
+fi
+
+################################################################################
+if [ "${RECOMPILE_KERNEL}" == "1" ]; then
   echo
   echo "  Recompiling kernel"
 
@@ -186,17 +201,13 @@ if [ "${RECOMPILE_KERNEL}" == "1" -o ! -e "${ANDROID_KP_OUT_DIR}/dist/Image" ]; 
     cd ${ROOT_DIR}
     SKIP_MRPROPER=1 OUT_DIR=${ANDROID_KP_OUT_DIR} ./build/build.sh
   )
-fi
 
-if [ ! -e "${ANDROID_KP_OUT_DIR}" ]; then
-  echo "!! kernel platform output directory doesn't exist. Bad path or output wasn't copied?"
-  exit 1
+  COPY_NEEDED=1
 fi
 
 ################################################################################
 echo
 echo "  setting up Android tree for compiling modules"
-
 # The ROOT_DIR/la symlink exists so that the output folder can be properly controlled
 # kbuild for external modules places the output in the same relative path to kernel
 # that is, if module is at ${KP_SRC_DIR}/common/../../vendor/qcom/opensource/android-dlkm,
@@ -207,63 +218,83 @@ rm -f "${ROOT_DIR}/la"
 ln -srT "${ANDROID_BUILD_TOP}" "${ROOT_DIR}/la"
 
 ################################################################################
-echo
-echo "  Preparing prebuilt folder ${ANDROID_KERNEL_OUT}"
+if [ "${COPY_NEEDED}" == "1" ]; then
+  if [ ! -e "${ANDROID_KP_OUT_DIR}" ]; then
+    echo "!! kernel platform output directory doesn't exist. Bad path or output wasn't copied?"
+    exit 1
+  fi
 
-first_stage_kos=$(mktemp)
-if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
-  cat ${ANDROID_KP_OUT_DIR}/dist/modules.load | \
-	  xargs -L 1 basename | \
-	  xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${first_stage_kos}
-else
-  find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko > ${first_stage_kos}
-fi
+  echo
+  echo "  Preparing prebuilt folder ${ANDROID_KERNEL_OUT}"
 
-rm -f ${ANDROID_KERNEL_OUT}/*.ko ${ANDROID_KERNEL_OUT}/modules.*
-if [ -s "${first_stage_kos}" ]; then
-  cp $(cat ${first_stage_kos}) ${ANDROID_KERNEL_OUT}/
-else
-  echo "  WARNING!! No first stage modules found"
-fi
+  first_stage_kos=$(mktemp)
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
+    cat ${ANDROID_KP_OUT_DIR}/dist/modules.load | \
+      xargs -L 1 basename | \
+      xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${first_stage_kos}
+  else
+    find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko > ${first_stage_kos}
+  fi
 
-if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ]; then
-  cp ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ${ANDROID_KERNEL_OUT}/modules.blocklist
-fi
+  rm -f ${ANDROID_KERNEL_OUT}/*.ko ${ANDROID_KERNEL_OUT}/modules.*
+  if [ -s "${first_stage_kos}" ]; then
+    cp $(cat ${first_stage_kos}) ${ANDROID_KERNEL_OUT}/
+  else
+    echo "  WARNING!! No first stage modules found"
+  fi
 
-if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
-  cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
-fi
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ]; then
+    cp ${ANDROID_KP_OUT_DIR}/dist/modules.blocklist ${ANDROID_KERNEL_OUT}/modules.blocklist
+  fi
 
-rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
-second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos} || true)
-if [ -n "${second_stage_kos}" ]; then
-  mkdir -p ${ANDROID_KERNEL_OUT}/vendor_dlkm
-  cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
-else
-  echo "  WARNING!! No vendor_dlkm (second stage) modules found"
-fi
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
+    cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
+  fi
 
-if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist ]; then
-  cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist \
-    ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.blocklist
-fi
+  rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
+  second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos} || true)
+  if [ -n "${second_stage_kos}" ]; then
+    mkdir -p ${ANDROID_KERNEL_OUT}/vendor_dlkm
+    cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
+  else
+    echo "  WARNING!! No vendor_dlkm (second stage) modules found"
+  fi
 
-if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load ]; then
-  cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load \
-    ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.load
-fi
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist ]; then
+    cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.blocklist \
+      ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.blocklist
+  fi
 
-cp ${ANDROID_KP_OUT_DIR}/dist/Image ${ANDROID_KERNEL_OUT}/
-cp ${ANDROID_KP_OUT_DIR}/dist/vmlinux ${ANDROID_KERNEL_OUT}/
-cp ${ANDROID_KP_OUT_DIR}/dist/System.map ${ANDROID_KERNEL_OUT}/
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load ]; then
+    cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load \
+      ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.load
+  fi
 
-rm -rf ${ANDROID_KERNEL_OUT}/debug
-if [ -e ${ANDROID_KP_OUT_DIR}/debug ]; then
-  cp -r ${ANDROID_KP_OUT_DIR}/debug ${ANDROID_KERNEL_OUT}/
+  for file in Image vmlinux System.map .config Module.symvers ; do
+    cp ${ANDROID_KP_OUT_DIR}/dist/${file} ${ANDROID_KERNEL_OUT}/
+  done
+
+  rm -rf ${ANDROID_KERNEL_OUT}/kp-dtbs
+  mkdir ${ANDROID_KERNEL_OUT}/kp-dtbs
+  cp ${ANDROID_KP_OUT_DIR}/dist/*.dtb* ${ANDROID_KERNEL_OUT}/kp-dtbs/
+
+  rm -rf ${ANDROID_KERNEL_OUT}/host
+  cp -r ${ANDROID_KP_OUT_DIR}/host ${ANDROID_KERNEL_OUT}/
+
+  rm -rf ${ANDROID_KERNEL_OUT}/debug
+  if [ -e ${ANDROID_KP_OUT_DIR}/debug ]; then
+    cp -r ${ANDROID_KP_OUT_DIR}/debug ${ANDROID_KERNEL_OUT}/
+  fi
+
+  if [ -z "${KERNEL_VARIANT}" ]; then
+    KERNEL_VARIANT=${2}
+    echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
+  fi
 fi
 
 if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
   ANDROID_TO_KP=$(rel_path ${ROOT_DIR} ${ANDROID_BUILD_TOP})
+  KP_TO_ANDROID=$(rel_path ${ANDROID_BUILD_TOP} ${ROOT_DIR})
   if [[ "${ANDROID_TO_KP}" != "kernel_platform" ]] ; then
     echo "!! Kernel platform source is currently only supported to be in ${ANDROID_BUILD_TOP}/kernel_platform"
     echo "!! Move kernel platform source or try creating a symlink."
@@ -327,13 +358,11 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
   rm -rf ${ANDROID_KERNEL_OUT}/dtbs
   mkdir ${ANDROID_KERNEL_OUT}/dtbs
 
-  if [ -z "${KERNEL_VARIANT}" ]; then
-    KERNEL_VARIANT=${2}
-    echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
-  fi
-
   (
     cd ${ROOT_DIR}
-    ./build/android/merge_dtbs.sh ${KP_OUT_DIR}/dist ${KP_OUT_DIR}/la ${ANDROID_KERNEL_OUT}/dtbs
+    ./build/android/merge_dtbs.sh \
+      ${ANDROID_KERNEL_OUT}/kp-dtbs \
+      ${KP_OUT_DIR}/la \
+      ${ANDROID_KERNEL_OUT}/dtbs
   )
 fi
