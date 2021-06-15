@@ -208,6 +208,7 @@ fi
 ################################################################################
 echo
 echo "  setting up Android tree for compiling modules"
+# DEPRECATED! To be removed once Android environment switches to KERNEL_KIT-compilation.
 # The ROOT_DIR/la symlink exists so that the output folder can be properly controlled
 # kbuild for external modules places the output in the same relative path to kernel
 # that is, if module is at ${KP_SRC_DIR}/common/../../vendor/qcom/opensource/android-dlkm,
@@ -329,6 +330,24 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
     arm64
   set +x
 
+  # Intentionally aligned with Android's location in order to have a consistent location for output,
+  # This isn't necessary from technical point, but helps to avoid making Android build system
+  # redundantly do the same thing.
+  ANDROID_EXT_MODULES_COMMON_OUT=${ANDROID_PRODUCT_OUT}/obj/DLKM_OBJ
+  ANDROID_EXT_MODULES_OUT=${ANDROID_EXT_MODULES_COMMON_OUT}/kernel_platform
+
+  ################################################################################
+  echo
+  echo "  setting up Android tree for compiling modules"
+  (
+    cd ${ROOT_DIR}
+    set -x
+    OUT_DIR=${ANDROID_EXT_MODULES_OUT} \
+    KERNEL_KIT=${ANDROID_KERNEL_OUT} \
+    ./build/build_module.sh
+    set +x
+  )
+
   ################################################################################
   echo
   echo "  Compiling vendor devicetree overlays"
@@ -345,7 +364,9 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
     (
       cd ${ROOT_DIR}
       set -x
-      EXT_MODULES="la/${project}" \
+      OUT_DIR=${ANDROID_EXT_MODULES_OUT} \
+      EXT_MODULES="${KP_TO_ANDROID}/${project}" \
+      KERNEL_KIT=${ANDROID_KERNEL_OUT} \
       ./build/build_module.sh dtbs
       set +x
     )
@@ -360,9 +381,9 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
 
   (
     cd ${ROOT_DIR}
-    ./build/android/merge_dtbs.sh \
+    OUT_DIR=${ANDROID_EXT_MODULES_OUT} ./build/android/merge_dtbs.sh \
       ${ANDROID_KERNEL_OUT}/kp-dtbs \
-      ${KP_OUT_DIR}/la \
+      ${ANDROID_EXT_MODULES_COMMON_OUT} \
       ${ANDROID_KERNEL_OUT}/dtbs
   )
 fi
