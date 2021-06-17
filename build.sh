@@ -202,7 +202,11 @@
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
 #     If BOOT_IMAGE_HEADER_VERSION >= 3, a vendor_boot image will be built
-#     unless SKIP_VENDOR_BOOT is defined.
+#     unless SKIP_VENDOR_BOOT is defined. A vendor_boot will also be generated if
+#     BUILD_VENDOR_BOOT_IMG is set.
+#
+#     BUILD_VENDOR_BOOT_IMG is incompatible with SKIP_VENDOR_BOOT, and is effectively a
+#     nop if BUILD_BOOT_IMG is set.
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
 #       vendor_boot.modules.load. If this property is not set, then the default
 #       modules.load is used.
@@ -561,6 +565,11 @@ export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_heade
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
 export MKBOOTIMG_STAGING_DIR="${MODULES_STAGING_DIR}/mkbootimg_staging"
+
+if [ -n "${SKIP_VENDOR_BOOT}" -a -n "${BUILD_VENDOR_BOOT_IMG}" ]; then
+  echo "ERROR: SKIP_VENDOR_BOOT is incompatible with BUILD_VENDOR_BOOT_IMG." >&2
+  exit 1
+fi
 
 if [ -n "${GKI_BUILD_CONFIG}" ]; then
   if [ -n "${GKI_PREBUILTS_DIR}" ]; then
@@ -1107,7 +1116,7 @@ fi
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
-if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
+if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
   if [ -z "${MKBOOTIMG_PATH}" ]; then
     MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
   fi
@@ -1257,13 +1266,17 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     fi
   fi
 
-  MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  fi
+
   for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
     MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
   done
+
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
 
-  if [ -f "${DIST_DIR}/boot.img" ]; then
+  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/boot.img" ]; then
     echo "boot image created at ${DIST_DIR}/boot.img"
 
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
