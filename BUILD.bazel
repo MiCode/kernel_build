@@ -1,0 +1,15 @@
+package(default_visibility = ["//visibility:public"])
+
+# Provide access to some host tools for rules wanting to restrict PATH
+genrule(
+    name = "host-tools",
+    outs = [
+        "host-tools/bash",
+        "host-tools/git",
+        "host-tools/perl",
+        "host-tools/rsync",
+        "host-tools/sh",
+        "host-tools/tar",
+    ],
+    cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
+)
