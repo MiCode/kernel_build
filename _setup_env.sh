@@ -44,8 +44,10 @@ if [ -z "${KERNEL_DIR}" ]; then
     # or via the config files sourced, the value of KERNEL_DIR
     # set here would be overwritten, and the specified value would be used.
     build_config_path=$(realpath ${ROOT_DIR}/${BUILD_CONFIG})
+    real_root_dir=${build_config_path%%${BUILD_CONFIG}}
     build_config_dir=$(dirname ${build_config_path})
     build_config_dir=${build_config_dir##${ROOT_DIR}/}
+    build_config_dir=${build_config_dir##${real_root_dir}}
     KERNEL_DIR="${build_config_dir}"
     echo "= Set default KERNEL_DIR: ${KERNEL_DIR}"
 else
