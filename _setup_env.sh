@@ -18,7 +18,7 @@
 # a shell, please let kernel-team@android.com know and we are happy to help
 # with your use case.
 
-[ -n "$_SETUP_ENV_SH_INCLUDED" ] && return || _SETUP_ENV_SH_INCLUDED=1
+[ -n "$_SETUP_ENV_SH_INCLUDED" ] && return || export _SETUP_ENV_SH_INCLUDED=1
 
 # TODO: Use a $(gettop) style method.
 export ROOT_DIR=$(readlink -f $PWD)
