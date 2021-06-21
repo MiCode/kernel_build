@@ -49,9 +49,6 @@ if [ -z "${KERNEL_DIR}" ]; then
     build_config_dir=${build_config_dir##${ROOT_DIR}/}
     build_config_dir=${build_config_dir##${real_root_dir}}
     KERNEL_DIR="${build_config_dir}"
-    echo "= Set default KERNEL_DIR: ${KERNEL_DIR}"
-else
-    echo "= User environment KERNEL_DIR: ${KERNEL_DIR}"
 fi
 
 set -a
@@ -61,17 +58,11 @@ for fragment in ${BUILD_CONFIG_FRAGMENTS}; do
 done
 set +a
 
-echo "= The final value for KERNEL_DIR: ${KERNEL_DIR}"
-
 export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export UNSTRIPPED_MODULES_ARCHIVE=unstripped_modules.tar.gz
-
-echo "========================================================"
-echo "= build config: ${ROOT_DIR}/${BUILD_CONFIG}"
-cat ${ROOT_DIR}/${BUILD_CONFIG}
 
 export TZ=UTC
 export LC_ALL=C
@@ -144,16 +135,11 @@ for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
 done
 export PATH
 
-echo
-echo "PATH=${PATH}"
-echo
-
 # verifies that defconfig matches the DEFCONFIG
 function check_defconfig() {
     (cd ${OUT_DIR} && \
      make "${TOOL_ARGS[@]}" O=${OUT_DIR} savedefconfig)
     [ "$ARCH" = "x86_64" -o "$ARCH" = "i386" ] && local ARCH=x86
-    echo Verifying that savedefconfig matches ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
     RES=0
     diff -u ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} ${OUT_DIR}/defconfig >&2 ||
       RES=$?
