@@ -62,12 +62,6 @@
 #   COMPRESS_UNSTRIPPED_MODULES
 #     If set to "1", then compress the unstripped modules into a tarball.
 #
-#   CC
-#     Override compiler to be used. (e.g. CC=clang) Specifying CC=gcc
-#     effectively unsets CC to fall back to the default gcc detected by kbuild
-#     (including any target triplet). To use a custom 'gcc' from PATH, use an
-#     absolute path, e.g.  CC=/usr/local/bin/gcc
-#
 #   LD
 #     Override linker (flags) to be used.
 #
@@ -545,10 +539,6 @@ function build_vendor_dlkm() {
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
-# Save environment parameters before being overwritten by sourcing
-# BUILD_CONFIG.
-CC_ARG="${CC}"
-
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 MAKE_ARGS=( "$@" )
@@ -605,15 +595,6 @@ BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 cd ${ROOT_DIR}
 
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
-
-# Restore the previously saved CC argument that might have been overridden by
-# the BUILD_CONFIG.
-[ -n "${CC_ARG}" ] && CC="${CC_ARG}"
-
-# CC=gcc is effectively a fallback to the default gcc including any target
-# triplets. An absolute path (e.g., CC=/usr/bin/gcc) must be specified to use a
-# custom compiler.
-[ "${CC}" == "gcc" ] && unset CC && unset CC_ARG
 
 TOOL_ARGS=()
 
