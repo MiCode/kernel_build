@@ -545,12 +545,6 @@ function build_vendor_dlkm() {
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
-# For module file Signing with the kernel (if needed)
-FILE_SIGN_BIN=scripts/sign-file
-SIGN_SEC=certs/signing_key.pem
-SIGN_CERT=certs/signing_key.x509
-SIGN_ALGO=sha512
-
 # Save environment parameters before being overwritten by sourcing
 # BUILD_CONFIG.
 CC_ARG="${CC}"
