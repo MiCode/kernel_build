@@ -1,3 +1,4 @@
 exports_files([
     "environment.bzl",
+    "preserve_env.sh",
 ])
