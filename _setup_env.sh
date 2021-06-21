@@ -75,7 +75,9 @@ cat ${ROOT_DIR}/${BUILD_CONFIG}
 
 export TZ=UTC
 export LC_ALL=C
-export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+if [ -z "${SOURCE_DATE_EPOCH}" ]; then
+  export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+fi
 export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"
 export KBUILD_BUILD_HOST=build-host
 export KBUILD_BUILD_USER=build-user

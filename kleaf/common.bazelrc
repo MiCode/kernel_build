@@ -23,3 +23,6 @@ build --experimental_strict_action_env
 
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
+
+# Pass through any SOURCE_DATE_EPOCH set from outside
+build --action_env=SOURCE_DATE_EPOCH
