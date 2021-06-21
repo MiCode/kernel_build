@@ -18,7 +18,8 @@ def kernel_build(
         build_configs,
         sources,
         outs,
-        toolchain_version = "r416183b"):
+        toolchain_version = "r416183b",
+        **kwargs):
     """Defines a kernel build target with all dependent targets.
 
         It uses a build_config to construct a deterministic build environment
@@ -40,10 +41,10 @@ def kernel_build(
         toolchain_version: the toolchain version to depend on
     """
     env_target = name + "_env"
-    _env(env_target, build_config, build_configs)
-    _kernel_build(name, env_target, sources, outs, toolchain_version)
+    _env(env_target, build_config, build_configs, **kwargs)
+    _kernel_build(name, env_target, sources, outs, toolchain_version, **kwargs)
 
-def _env(name, build_config, build_configs):
+def _env(name, build_config, build_configs, **kwargs):
     """Generates a rule that generates a source-able build environment."""
     native.genrule(
         name = name,
@@ -64,9 +65,10 @@ def _env(name, build_config, build_configs):
             # capture it as a file to be sourced in downstream rules
               $(location //build/kleaf:preserve_env.sh) > $@
             """ % build_config,
+        **kwargs
     )
 
-def _kernel_build(name, env, sources, outs, toolchain_version):
+def _kernel_build(name, env, sources, outs, toolchain_version, **kwargs):
     """Generates a kernel build rule."""
     native.genrule(
         name = name,
@@ -90,4 +92,5 @@ def _kernel_build(name, env, sources, outs, toolchain_version):
             # invoke the actual build redirecting outputs to the output dir
             "\n DIST_DIR=$$PWD/$$(dirname $(location %s/vmlinux)) build/build.sh 2>&1" % name,
         message = "Building kernel",
+        **kwargs
     )
