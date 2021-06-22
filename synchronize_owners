@@ -21,7 +21,7 @@ import pathlib
 import sys
 
 
-def process_owners(main_dir, main_branch, tracking_dir):
+def process_owners(main_dir, main_branch, tracking_dirs):
   # walk the tree ...
   for subdir, _, files in os.walk(main_dir):
     for file in files:
@@ -30,23 +30,24 @@ def process_owners(main_dir, main_branch, tracking_dir):
         rel_dir = pathlib.Path(subdir[len(main_dir.name) + 1:])
         owners = rel_dir / file
 
-        target = tracking_dir / owners
-        comment_line = (f'# include OWNERS from the authoritative '
-                        f'{main_branch} branch\n')
-        include_line = f'include kernel/common:{main_branch}:/{owners}\n'
+        for tracking_dir in tracking_dirs:
+          target = tracking_dir / owners
+          comment_line = (f'# include OWNERS from the authoritative '
+                          f'{main_branch} branch\n')
+          include_line = f'include kernel/common:{main_branch}:/{owners}\n'
 
-        # ... either add a new file with include directive ...
-        if not target.is_file():
-          with open(target, 'w') as file:
-            file.writelines([comment_line, include_line])
-
-        # ... or ensure the include directive is in the file
-        else:
-          with open(target) as file:
-            contents = file.readlines()
-          if include_line not in contents:
+          # ... either add a new file with include directive ...
+          if not target.is_file():
             with open(target, 'w') as file:
-              file.writelines([comment_line, include_line, '\n'] + contents)
+              file.writelines([comment_line, include_line])
+
+          # ... or ensure the include directive is in the file
+          else:
+            with open(target) as file:
+              contents = file.readlines()
+            if include_line not in contents:
+              with open(target, 'w') as file:
+                file.writelines([comment_line, include_line, '\n'] + contents)
 
 
 def is_dir(dirname):
@@ -64,7 +65,7 @@ def main():
       'main_dir', type=is_dir, help='main directory to synchronize from')
   parser.add_argument('main_branch', help='main branch name'),
   parser.add_argument(
-      'tracking_dir', type=is_dir, help='tracking directory to synchronize to')
+      'tracking_dir', type=is_dir, nargs='+', help='tracking directory to synchronize to')
 
   args = parser.parse_args()
 

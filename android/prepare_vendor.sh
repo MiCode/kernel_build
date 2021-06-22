@@ -177,7 +177,7 @@ if [ -e ${ANDROID_KP_OUT_DIR}/dist/modules.load ]; then
 fi
 
 rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
-second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos})
+second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos} || true)
 if [ -n "${second_stage_kos}" ]; then
   mkdir -p ${ANDROID_KERNEL_OUT}/vendor_dlkm
   cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
@@ -260,6 +260,11 @@ echo "  Merging vendor devicetree overlays"
 
 rm -rf ${ANDROID_KERNEL_OUT}/dtbs
 mkdir ${ANDROID_KERNEL_OUT}/dtbs
+
+if [ -z "${KERNEL_VARIANT}" ]; then
+  KERNEL_VARIANT=${2}
+  echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
+fi
 
 (
   cd ${ROOT_DIR}
