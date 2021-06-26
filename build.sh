@@ -594,87 +594,9 @@ BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 
 cd ${ROOT_DIR}
 
-export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
-
-TOOL_ARGS=()
-
-# LLVM=1 implies what is otherwise set below; it is a more concise way of
-# specifying CC=clang LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy <etc>, for
-# newer kernel versions.
-if [[ -n "${LLVM}" ]]; then
-  TOOL_ARGS+=("LLVM=1")
-  # Reset a bunch of variables that the kernel's top level Makefile does, just
-  # in case someone tries to use these binaries in this script such as in
-  # initramfs generation below.
-  HOSTCC=clang
-  HOSTCXX=clang++
-  CC=clang
-  LD=ld.lld
-  AR=llvm-ar
-  NM=llvm-nm
-  OBJCOPY=llvm-objcopy
-  OBJDUMP=llvm-objdump
-  READELF=llvm-readelf
-  OBJSIZE=llvm-size
-  STRIP=llvm-strip
-else
-  if [ -n "${HOSTCC}" ]; then
-    TOOL_ARGS+=("HOSTCC=${HOSTCC}")
-  fi
-
-  if [ -n "${CC}" ]; then
-    TOOL_ARGS+=("CC=${CC}")
-    if [ -z "${HOSTCC}" ]; then
-      TOOL_ARGS+=("HOSTCC=${CC}")
-    fi
-  fi
-
-  if [ -n "${LD}" ]; then
-    TOOL_ARGS+=("LD=${LD}" "HOSTLD=${LD}")
-  fi
-
-  if [ -n "${NM}" ]; then
-    TOOL_ARGS+=("NM=${NM}")
-  fi
-
-  if [ -n "${OBJCOPY}" ]; then
-    TOOL_ARGS+=("OBJCOPY=${OBJCOPY}")
-  fi
-fi
-
-if [ -n "${LLVM_IAS}" ]; then
-  TOOL_ARGS+=("LLVM_IAS=${LLVM_IAS}")
-  # Reset $AS for the same reason that we reset $CC etc above.
-  AS=clang
-fi
-
-if [ -n "${DEPMOD}" ]; then
-  TOOL_ARGS+=("DEPMOD=${DEPMOD}")
-fi
-
-if [ -n "${DTC}" ]; then
-  TOOL_ARGS+=("DTC=${DTC}")
-fi
-
-# Allow hooks that refer to $CC_LD_ARG to keep working until they can be
-# updated.
-CC_LD_ARG="${TOOL_ARGS[@]}"
-
-DECOMPRESS_GZIP="gzip -c -d"
-DECOMPRESS_LZ4="lz4 -c -d -l"
-if [ -z "${LZ4_RAMDISK}" ] ; then
-  RAMDISK_COMPRESS="gzip -c -f"
-  RAMDISK_DECOMPRESS="${DECOMPRESS_GZIP}"
-  RAMDISK_EXT="gz"
-else
-  RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
-  RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
-  RAMDISK_EXT="lz4"
-fi
-
 if [ -n "${SKIP_IF_VERSION_MATCHES}" ]; then
   if [ -f "${DIST_DIR}/vmlinux" ]; then
-    kernelversion="$(cd ${KERNEL_DIR} && make -s "${TOOL_ARGS[@]}" O=${OUT_DIR} kernelrelease)"
+    kernelversion="$(cd ${KERNEL_DIR} && make -s ${TOOL_ARGS} O=${OUT_DIR} kernelrelease)"
     # Split grep into 2 steps. "Linux version" will always be towards top and fast to find. Don't
     # need to search the entire vmlinux for it
     if [[ ! "$kernelversion" =~ .*dirty.* ]] && \
@@ -709,7 +631,7 @@ echo "========================================================"
 echo " Setting up for build"
 if [ "${SKIP_MRPROPER}" != "1" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" mrproper)
+  (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} "${MAKE_ARGS[@]}" mrproper)
   set +x
 fi
 
@@ -723,7 +645,7 @@ fi
 
 if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG})
+  (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG})
   set +x
 
   if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
@@ -765,7 +687,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e LTO_CLANG_FULL \
       -d THINLTO
   fi
-  (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
+  (cd ${OUT_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
   set +x
 elif [ -n "${LTO}" ]; then
   echo "LTO= must be one of 'none', 'thin' or 'full'."
@@ -842,7 +764,7 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
               -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
               --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
       (cd ${OUT_DIR} && \
-              make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" olddefconfig)
+              make O=${OUT_DIR} ${TOOL_ARGS} "${MAKE_ARGS[@]}" olddefconfig)
       # Make sure the config is applied
       grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
         echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
@@ -867,7 +789,7 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" ${MAKE_GOALS})
+(cd ${OUT_DIR} && make O=${OUT_DIR} ${TOOL_ARGS} "${MAKE_ARGS[@]}" ${MAKE_GOALS})
 set +x
 
 if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
@@ -910,7 +832,7 @@ if [ "${BUILD_INITRAMFS}" = "1" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo " Installing kernel modules into staging directory"
 
   (cd ${OUT_DIR} &&                                                           \
-   make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}                   \
+   make O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}                        \
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}" modules_install)
 fi
 
@@ -931,9 +853,9 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}"
+                       O=${OUT_DIR} ${TOOL_ARGS} "${MAKE_ARGS[@]}"
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}    \
+                       O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}         \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
                        "${MAKE_ARGS[@]}" modules_install
     set +x
@@ -985,8 +907,8 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo "========================================================"
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} "${TOOL_ARGS[@]}"                           \
-          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" "${MAKE_ARGS[@]}"      \
+  make -C ${OUT_DIR} O=${OUT_DIR} ${TOOL_ARGS}                                \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" "${MAKE_ARGS[@]}" \
           headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
   # are only side products. We don't want those. Let's delete them.
