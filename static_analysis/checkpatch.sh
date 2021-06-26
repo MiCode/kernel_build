@@ -95,7 +95,7 @@ echo "Using --git_sha1: ${GIT_SHA1}"
 # Generate patch file from git.
 cd ${KERNEL_DIR}
 git format-patch --quiet -o "${PATCH_DIR}" "${GIT_SHA1}^1..${GIT_SHA1}" -- \
-  ':!android/abi*'
+  ':!android/abi*' ':!BUILD.bazel'
 PATCH_FILE="${PATCH_DIR}/*.patch"
 
 if ! `stat -t ${PATCH_FILE} >/dev/null 2>&1`; then
