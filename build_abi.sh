@@ -220,6 +220,11 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             ${FULL_ABI_FLAG}                           \
             ${DIST_DIR}
 
+        # Redo what build.sh has done, with possibly fresher symbol lists.
+        ABI_SL="${DIST_DIR}/abi_symbollist"
+        ${ROOT_DIR}/build/copy_symbols.sh "$ABI_SL" "$ROOT_DIR/$KERNEL_DIR" \
+          "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
+
         # In case of a simple --update-symbol-list call we can bail out early
         [ $UPDATE -eq 0 ] && exit 0
 

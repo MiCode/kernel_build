@@ -844,18 +844,9 @@ fi
 
 # Copy the abi symbol list file from the sources into the dist dir
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
-  echo "========================================================"
-  echo " Generating abi symbol list definition to ${ABI_SL}"
+  ${ROOT_DIR}/build/copy_symbols.sh "$ABI_SL" "$ROOT_DIR/$KERNEL_DIR" \
+    "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
   pushd $ROOT_DIR/$KERNEL_DIR
-  cp "${KMI_SYMBOL_LIST}" ${ABI_SL}
-
-  # If there are additional symbol lists specified, append them
-  if [ -n "${ADDITIONAL_KMI_SYMBOL_LISTS}" ]; then
-    for symbol_list in ${ADDITIONAL_KMI_SYMBOL_LISTS}; do
-        echo >> ${ABI_SL}
-        cat "${symbol_list}" >> ${ABI_SL}
-    done
-  fi
   if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
       # Create the raw symbol list
       cat ${ABI_SL} | \
