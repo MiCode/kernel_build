@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Copyright (C) 2021 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,29 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package(default_visibility = ["//visibility:public"])
+#
+# Script to preserve the environment for later reuse.
+#
+# It assumes that the only non-reusable fragment is the value of $PWD itself.
+# Hence, drop the actual value of $PWD and keep the references to it dynamic.
+#
 
-# Provide access to some host tools for rules wanting to restrict PATH
-genrule(
-    name = "host-tools",
-    outs = [
-        "host-tools/bash",
-        "host-tools/git",
-        "host-tools/perl",
-        "host-tools/rsync",
-        "host-tools/sh",
-        "host-tools/tar",
-    ],
-    cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
-)
+sed=/bin/sed
 
-filegroup(
-    name = "kernel-build-scripts",
-    srcs = [
-        "_setup_env.sh",
-        "build.sh",
-    ] + glob(
-        ["build-tools/**"],
-        allow_empty = False,
-    ),
-)
+( export -p; export -f ) | \
+  # Remove the reference to PWD itself
+  $sed '/^declare -x PWD=/d' | \
+  # Now ensure, new new PWD gets expanded
+  $sed "s|${PWD}|\$PWD|g"
