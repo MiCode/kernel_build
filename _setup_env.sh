@@ -49,9 +49,6 @@ if [ -z "${KERNEL_DIR}" ]; then
     build_config_dir=${build_config_dir##${ROOT_DIR}/}
     build_config_dir=${build_config_dir##${real_root_dir}}
     KERNEL_DIR="${build_config_dir}"
-    echo "= Set default KERNEL_DIR: ${KERNEL_DIR}"
-else
-    echo "= User environment KERNEL_DIR: ${KERNEL_DIR}"
 fi
 
 set -a
@@ -61,21 +58,17 @@ for fragment in ${BUILD_CONFIG_FRAGMENTS}; do
 done
 set +a
 
-echo "= The final value for KERNEL_DIR: ${KERNEL_DIR}"
-
 export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export UNSTRIPPED_MODULES_ARCHIVE=unstripped_modules.tar.gz
 
-echo "========================================================"
-echo "= build config: ${ROOT_DIR}/${BUILD_CONFIG}"
-cat ${ROOT_DIR}/${BUILD_CONFIG}
-
 export TZ=UTC
 export LC_ALL=C
-export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+if [ -z "${SOURCE_DATE_EPOCH}" ]; then
+  export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+fi
 export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"
 export KBUILD_BUILD_HOST=build-host
 export KBUILD_BUILD_USER=build-user
@@ -142,16 +135,91 @@ for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
 done
 export PATH
 
-echo
-echo "PATH=${PATH}"
-echo
+export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
+
+tool_args=()
+
+# LLVM=1 implies what is otherwise set below; it is a more concise way of
+# specifying CC=clang LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy <etc>, for
+# newer kernel versions.
+if [[ -n "${LLVM}" ]]; then
+  tool_args+=("LLVM=1")
+  # Reset a bunch of variables that the kernel's top level Makefile does, just
+  # in case someone tries to use these binaries in this script such as in
+  # initramfs generation below.
+  HOSTCC=clang
+  HOSTCXX=clang++
+  CC=clang
+  LD=ld.lld
+  AR=llvm-ar
+  NM=llvm-nm
+  OBJCOPY=llvm-objcopy
+  OBJDUMP=llvm-objdump
+  READELF=llvm-readelf
+  OBJSIZE=llvm-size
+  STRIP=llvm-strip
+else
+  if [ -n "${HOSTCC}" ]; then
+    tool_args+=("HOSTCC=${HOSTCC}")
+  fi
+
+  if [ -n "${CC}" ]; then
+    tool_args+=("CC=${CC}")
+    if [ -z "${HOSTCC}" ]; then
+      tool_args+=("HOSTCC=${CC}")
+    fi
+  fi
+
+  if [ -n "${LD}" ]; then
+    tool_args+=("LD=${LD}" "HOSTLD=${LD}")
+  fi
+
+  if [ -n "${NM}" ]; then
+    tool_args+=("NM=${NM}")
+  fi
+
+  if [ -n "${OBJCOPY}" ]; then
+    tool_args+=("OBJCOPY=${OBJCOPY}")
+  fi
+fi
+
+if [ -n "${LLVM_IAS}" ]; then
+  tool_args+=("LLVM_IAS=${LLVM_IAS}")
+  # Reset $AS for the same reason that we reset $CC etc above.
+  AS=clang
+fi
+
+if [ -n "${DEPMOD}" ]; then
+  tool_args+=("DEPMOD=${DEPMOD}")
+fi
+
+if [ -n "${DTC}" ]; then
+  tool_args+=("DTC=${DTC}")
+fi
+
+export TOOL_ARGS="${tool_args[@]}"
+
+# Allow hooks that refer to $CC_LD_ARG to keep working until they can be
+# updated.
+CC_LD_ARG="${TOOL_ARGS}"
+
+DECOMPRESS_GZIP="gzip -c -d"
+DECOMPRESS_LZ4="lz4 -c -d -l"
+if [ -z "${LZ4_RAMDISK}" ] ; then
+  RAMDISK_COMPRESS="gzip -c -f"
+  RAMDISK_DECOMPRESS="${DECOMPRESS_GZIP}"
+  RAMDISK_EXT="gz"
+else
+  RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
+  RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
+  RAMDISK_EXT="lz4"
+fi
 
 # verifies that defconfig matches the DEFCONFIG
 function check_defconfig() {
     (cd ${OUT_DIR} && \
-     make "${TOOL_ARGS[@]}" O=${OUT_DIR} savedefconfig)
+     make ${TOOL_ARGS} O=${OUT_DIR} savedefconfig)
     [ "$ARCH" = "x86_64" -o "$ARCH" = "i386" ] && local ARCH=x86
-    echo Verifying that savedefconfig matches ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
     RES=0
     diff -u ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} ${OUT_DIR}/defconfig >&2 ||
       RES=$?
