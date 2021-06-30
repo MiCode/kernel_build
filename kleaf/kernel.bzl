@@ -15,7 +15,6 @@
 def kernel_build(
         name,
         build_config,
-        build_configs,
         sources,
         outs,
         toolchain_version = "r416183b",
@@ -23,34 +22,37 @@ def kernel_build(
     """Defines a kernel build target with all dependent targets.
 
         It uses a build_config to construct a deterministic build environment
-        (e.g. 'common/build.config.gki.aarch64'). The included build_configs
-        needs to be declared via build_configs (e.g. using a filegroup). The
-        kernel sources need to be declared via sources (e.g. using a
-        filegroup). outs declares the output files that are surviving the
-        build. The effective output file names will be $(name)/$(output_file).
-        Any other artifact is not guaranteed to be accessible after the rule
-        has run. The default toolchain_version is defined with a sensible
-        default, but can be overriden.
+        (e.g. 'common/build.config.gki.aarch64'). The kernel sources need to be
+        declared via sources (using a glob). outs declares the output files
+        that are surviving the build. The effective output file names will be
+        $(name)/$(output_file). Any other artifact is not guaranteed to be
+        accessible after the rule has run. The default toolchain_version is
+        defined with a sensible default, but can be overriden.
 
     Args:
         name: the final kernel target name
         build_config: the main build_config file
-        build_configs: dependent build_configs (a target)
-        sources: the kernel sources (a target)
+        sources: the kernel sources (a glob())
         outs: the expected output files
         toolchain_version: the toolchain version to depend on
     """
     env_target = name + "_env"
+
+    build_configs = [
+        s
+        for s in sources
+        if "/build.config" in s or s.startswith("build.config")
+    ]
+    kernel_sources = [s for s in sources if s not in build_configs]
+
     _env(env_target, build_config, build_configs, **kwargs)
-    _kernel_build(name, env_target, sources, outs, toolchain_version, **kwargs)
+    _kernel_build(name, env_target, kernel_sources, outs, toolchain_version, **kwargs)
 
 def _env(name, build_config, build_configs, **kwargs):
     """Generates a rule that generates a source-able build environment."""
     native.genrule(
         name = name,
-        srcs = [
-            build_configs,
-        ],
+        srcs = build_configs,
         tools = [
             "//build:_setup_env.sh",
             "//build/kleaf:preserve_env.sh",
@@ -74,9 +76,7 @@ def _kernel_build(name, env, sources, outs, toolchain_version, **kwargs):
     """Generates a kernel build rule."""
     native.genrule(
         name = name,
-        srcs = [
-            sources,
-        ],
+        srcs = sources,
         tools = [
             env,
             "//build:kernel-build-scripts",
