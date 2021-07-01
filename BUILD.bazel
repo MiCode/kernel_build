@@ -38,3 +38,12 @@ filegroup(
         allow_empty = False,
     ),
 )
+
+filegroup(
+    name = "kernel-abi-scripts",
+    srcs = [
+        "abi/compare_to_symbol_list",
+        "abi/flatten_symbol_list",
+        "copy_symbols.sh",
+    ],
+)
