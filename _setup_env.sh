@@ -199,10 +199,6 @@ fi
 
 export TOOL_ARGS="${tool_args[@]}"
 
-# Allow hooks that refer to $CC_LD_ARG to keep working until they can be
-# updated.
-export CC_LD_ARG="${TOOL_ARGS}"
-
 export DECOMPRESS_GZIP DECOMPRESS_LZ4 RAMDISK_COMPRESS RAMDISK_DECOMPRESS RAMDISK_EXT
 
 DECOMPRESS_GZIP="gzip -c -d"
