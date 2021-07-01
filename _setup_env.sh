@@ -75,7 +75,7 @@ export KBUILD_BUILD_USER=build-user
 export KBUILD_BUILD_VERSION=1
 
 # List of prebuilt directories shell variables to incorporate into PATH
-PREBUILTS_PATHS=(
+prebuilts_paths=(
 LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN
 LINUX_GCC_CROSS_COMPILE_ARM32_PREBUILTS_BIN
 LINUX_GCC_CROSS_COMPILE_COMPAT_PREBUILTS_BIN
@@ -124,18 +124,18 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   export HOSTLDFLAGS="$sysroot_flags $ldflags"
 fi
 
-for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
-    PREBUILT_BIN=\${${PREBUILT_BIN}}
-    eval PREBUILT_BIN="${PREBUILT_BIN}"
-    if [ -n "${PREBUILT_BIN}" ]; then
+for prebuilt_bin in "${prebuilts_paths[@]}"; do
+    prebuilt_bin=\${${prebuilt_bin}}
+    eval prebuilt_bin="${prebuilt_bin}"
+    if [ -n "${prebuilt_bin}" ]; then
         # Mitigate dup paths
-        PATH=${PATH//"${ROOT_DIR}\/${PREBUILT_BIN}:"}
-        PATH=${ROOT_DIR}/${PREBUILT_BIN}:${PATH}
+        PATH=${PATH//"${ROOT_DIR}\/${prebuilt_bin}:"}
+        PATH=${ROOT_DIR}/${prebuilt_bin}:${PATH}
     fi
 done
 export PATH
 
-export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
+export HOSTCC HOSTCXX CC LD AR NM OBJCOPY OBJDUMP OBJSIZE READELF STRIP AS
 
 tool_args=()
 
@@ -155,8 +155,8 @@ if [[ -n "${LLVM}" ]]; then
   NM=llvm-nm
   OBJCOPY=llvm-objcopy
   OBJDUMP=llvm-objdump
-  READELF=llvm-readelf
   OBJSIZE=llvm-size
+  READELF=llvm-readelf
   STRIP=llvm-strip
 else
   if [ -n "${HOSTCC}" ]; then
@@ -201,7 +201,9 @@ export TOOL_ARGS="${tool_args[@]}"
 
 # Allow hooks that refer to $CC_LD_ARG to keep working until they can be
 # updated.
-CC_LD_ARG="${TOOL_ARGS}"
+export CC_LD_ARG="${TOOL_ARGS}"
+
+export DECOMPRESS_GZIP DECOMPRESS_LZ4 RAMDISK_COMPRESS RAMDISK_DECOMPRESS RAMDISK_EXT
 
 DECOMPRESS_GZIP="gzip -c -d"
 DECOMPRESS_LZ4="lz4 -c -d -l"
