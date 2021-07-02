@@ -63,6 +63,8 @@ def _env(name, build_config, build_configs, **kwargs):
               set +u
             # Run Make in silence mode to suppress most of the info output
               export MAKEFLAGS="$${MAKEFLAGS} -s"
+            # Increase parallelism # TODO(b/192655643): do not use -j anymore
+              export MAKEFLAGS="$${MAKEFLAGS} -j$$(nproc)"
             # create a build environment
               export BUILD_CONFIG=%s
               source $(location //build:_setup_env.sh)
