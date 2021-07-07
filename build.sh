@@ -62,6 +62,10 @@
 #   COMPRESS_UNSTRIPPED_MODULES
 #     If set to "1", then compress the unstripped modules into a tarball.
 #
+#   COMPRESS_MODULES
+#     If set to "1", then compress all modules into a tarball. The default
+#     is without defining COMPRESS_MODULES.
+#
 #   LD
 #     Override linker (flags) to be used.
 #
@@ -964,6 +968,10 @@ if [ -n "${MODULES}" ]; then
       echo "  ${FILE#${MODULES_STAGING_DIR}/}"
       cp -p ${FILE} ${DIST_DIR}
     done
+    echo " Archiving modules to ${MODULES_ARCHIVE}"
+    if [ "${COMPRESS_MODULES}" = "1" ]; then
+      tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
+    fi
   fi
   if [ "${BUILD_INITRAMFS}" = "1" ]; then
     echo "========================================================"
