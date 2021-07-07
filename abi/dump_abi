@@ -21,9 +21,10 @@ import sys
 
 from abitool import get_abi_tool
 
-def dump_abi(abitool, linux_tree, out_file, symbol_list, vmlinux_path=None):
+def dump_abi(abitool, linux_tree, out_file, symbol_list, vmlinux_path=None,
+             tidy=False):
     tool = get_abi_tool(abitool)
-    tool.dump_kernel_abi(linux_tree, out_file, symbol_list, vmlinux_path)
+    tool.dump_kernel_abi(linux_tree, out_file, symbol_list, vmlinux_path, tidy)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -38,9 +39,11 @@ def main():
     parser.add_argument('--abi-tool', default='libabigail',
                         help='abi tool to be used to monitor abi')
     parser.add_argument('--out-file', default=None,
-                        help='where to write the abi dump to')
+                        help='where to write the ABI dump to')
     parser.add_argument('--kmi-symbol-list', '--kmi-whitelist', default=None,
                         help='KMI symbol list to filter for')
+    parser.add_argument('--tidy', action='store_true',
+                        help='postprocess ABI dump with abitidy')
 
     args = parser.parse_args()
 
@@ -48,7 +51,8 @@ def main():
              args.linux_tree,
              args.out_file or os.path.join(args.linux_tree, "abi.xml"),
              args.kmi_symbol_list,
-             args.vmlinux)
+             args.vmlinux,
+             args.tidy)
 
 if __name__ == "__main__":
     sys.exit(main())

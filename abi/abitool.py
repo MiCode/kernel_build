@@ -143,7 +143,7 @@ def _collapse_CRC_changes(text, limit):
 class AbiTool(object):
     """ Base class for different kinds of abi analysis tools"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
-            vmlinux_path=None):
+                        vmlinux_path=None, tidy=False):
         raise NotImplementedError()
 
     def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
@@ -160,7 +160,7 @@ ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 class Libabigail(AbiTool):
     """" Concrete AbiTool implementation for libabigail """
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
-            vmlinux_path=None):
+                        vmlinux_path=None, tidy=False):
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_path = temp_file.name
 
@@ -185,12 +185,15 @@ class Libabigail(AbiTool):
 
             subprocess.check_call(dump_abi_cmd)
 
-            tidy_abi_command = ['abitidy',
-                                '--all',
-                                '--input', temp_path,
-                                '--output', dump_path]
+            if tidy:
+              process_abi_command = ['abitidy',
+                                     '--all',
+                                     '--input', temp_path,
+                                     '--output', dump_path]
+            else:
+              process_abi_command = ['cp', '--', temp_path, dump_path]
 
-            subprocess.check_call(tidy_abi_command)
+            subprocess.check_call(process_abi_command)
 
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):
