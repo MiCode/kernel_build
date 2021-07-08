@@ -188,6 +188,7 @@ class Libabigail(AbiTool):
             if tidy:
               process_abi_command = ['abitidy',
                                      '--all',
+                                     '--no-report-untyped',
                                      '--input', temp_path,
                                      '--output', dump_path]
             else:
