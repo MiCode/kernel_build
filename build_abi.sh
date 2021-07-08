@@ -196,7 +196,7 @@ KMI_SYMBOL_LIST_FLAG=
 
 # define a flag control ABI tidying
 TIDY_ABI_FLAG=
-if [ "$TIDY_ABI_FLAG" eq 1 ]; then
+if [ "$TIDY_ABI" -eq 1 ]; then
   TIDY_ABI_FLAG=--tidy
 fi
 
