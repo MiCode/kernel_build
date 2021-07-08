@@ -271,7 +271,7 @@ if [ "${COPY_NEEDED}" == "1" ]; then
       ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.load
   fi
 
-  for file in Image vmlinux System.map .config Module.symvers ; do
+  for file in Image vmlinux System.map .config Module.symvers kernel-uapi-headers.tar.gz ; do
     cp ${ANDROID_KP_OUT_DIR}/dist/${file} ${ANDROID_KERNEL_OUT}/
   done
 
@@ -316,15 +316,20 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
   echo
   echo "  Preparing UAPI headers for Android"
 
-  if [ ! -e ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include ]; then
+  if [ ! -e ${ANDROID_KERNEL_OUT}/kernel-uapi-headers.tar.gz ]; then
     echo "!! Did not find exported kernel UAPI headers"
     echo "!! was kernel platform compiled with SKIP_CP_KERNEL_HDR?"
     exit 1
   fi
 
+  rm -rf ${ANDROID_KERNEL_OUT}/kernel-uapi-headers
+  mkdir ${ANDROID_KERNEL_OUT}/kernel-uapi-headers
+  tar xf ${ANDROID_KERNEL_OUT}/kernel-uapi-headers.tar.gz \
+      -C ${ANDROID_KERNEL_OUT}/kernel-uapi-headers
+
   set -x
   ${ROOT_DIR}/build/android/export_headers.py \
-    ${ANDROID_KP_OUT_DIR}/kernel_uapi_headers/usr/include \
+    ${ANDROID_KERNEL_OUT}/kernel-uapi-headers/usr/include \
     ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi \
     ${ANDROID_KERNEL_OUT}/kernel-headers \
     arm64
