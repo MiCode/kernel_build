@@ -76,25 +76,74 @@ def _env(name, build_config, build_configs, **kwargs):
 
 def _kernel_build(name, env, sources, outs, toolchain_version, **kwargs):
     """Generates a kernel build rule."""
-    native.genrule(
-        name = name,
-        srcs = sources,
-        tools = [
-            env,
-            "//build:kernel-build-scripts",
-            "//build:host-tools",
-            "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
-            "//prebuilts/build-tools:linux-x86",
-            "//prebuilts/kernel-build-tools:linux-x86",
-        ],
-        outs = [name + "/" + file for file in outs],  # e.g. kernel_aarch64/vmlinux
-        cmd =
+    common_tools = [
+        env,
+        "//build:kernel-build-scripts",
+        "//build:host-tools",
+        "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
+        "//prebuilts/build-tools:linux-x86",
+        "//prebuilts/kernel-build-tools:linux-x86",
+    ]
+
+    common_setup = """
+            # do not fail upon unset variables being read
+              set +u
             # source the build environment
-            "   source $(location %s)" % env +
+              source $(location {env})
             # setup the PATH to also include the host tools
-            "\n export PATH=$$PATH:$$PWD/$$(dirname $$( echo $(locations //build:host-tools) | tr ' ' '\n' | head -n 1 ) )" +
-            # invoke the actual build redirecting outputs to the output dir
-            "\n DIST_DIR=$$PWD/$$(dirname $(location %s/vmlinux)) build/build.sh 2>&1" % name,
+              export PATH=$$PATH:$$PWD/$$(dirname $$( echo $(locations //build:host-tools) | tr ' ' '\n' | head -n 1 ) )
+            """.format(env = env)
+
+    native.genrule(
+        name = name + "_config",
+        srcs = [s for s in sources if s.startswith("scripts") or not s.endswith((".c", ".h"))],
+        tools = common_tools,
+        outs = [
+            name + "/.config",
+            name + "/include.tar.gz",
+        ],
+        cmd = common_setup + """
+            # Pre-defconfig commands
+              eval $${{PRE_DEFCONFIG_CMDS}}
+            # Actual defconfig
+              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{DEFCONFIG}}
+            # Post-defconfig commands
+              eval $${{POST_DEFCONFIG_CMDS}}
+            # Grab outputs
+              mv $${{OUT_DIR}}/.config $(location {name}/.config)
+              tar czf $(location {name}/include.tar.gz) -C $${{OUT_DIR}} include/
+            """.format(name = name),
+        message = "Configuring kernel",
+        **kwargs
+    )
+
+    native.genrule(
+        name = name + "_bin",
+        srcs = sources + [
+            name + "/.config",
+            name + "/include.tar.gz",
+        ],
+        tools = common_tools,
+        outs = [name + "/" + file for file in outs],  # e.g. kernel_aarch64/vmlinux
+        cmd = common_setup + """
+            # Restore inputs
+              mkdir -p $${{OUT_DIR}}/include/
+              cp $(location {name}/.config) $${{OUT_DIR}}/.config
+              tar xf $(location {name}/include.tar.gz) -C $${{OUT_DIR}}
+            # Actual kernel build
+              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{MAKE_GOALS}}
+            # Move outputs into place
+              for i in $${{FILES}}; do mv $${{OUT_DIR}}/$$i $$(dirname $(location {name}/vmlinux)); done
+            """.format(name = name),
         message = "Building kernel",
         **kwargs
+    )
+
+    native.filegroup(
+        name = name,
+        srcs = [
+            name + "_env",
+            name + "/.config",
+            name + "_bin",
+        ],
     )
