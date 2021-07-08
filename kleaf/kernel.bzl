@@ -316,3 +316,102 @@ def _kernel_build(
         message = "Building kernel",
         **kwargs
     )
+
+def kernel_module(
+        name,
+        kernel_build,
+        srcs,
+        outs,
+        makefile = "Makefile",
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+        **kwargs):
+    """Defines a kernel module target.
+
+    Args:
+        name: the kernel module name
+        kernel_build: a label referring to a kernel_build target
+        srcs: the sources for building the kernel module
+        outs: the expected output files. For each token {out}, the build rule
+          automatically finds a file named {out} in the legacy kernel modules
+          staging directory. Subdirectories are searched.
+          The file is copied to the output directory of {name},
+          with the label {name}/{out}.
+
+          {out} may contain slashes. In this case, the parent directory name
+          must also match.
+
+          For example:
+            kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+
+          The build system copies
+            <legacy modules staging dir>/<some subdir>/foo/nfc.ko
+          to
+            nfc/foo/nfc.ko
+          `nfc/foo/nfc.ko` is the label to the file.
+          See search_and_mv_output.py for details.
+        makefile: location of the Makefile. This is where "make" is
+          executed on ("make -C $(dirname ${makefile})").
+        toolchain_version: the toolchain version to depend on
+    """
+    env_target_name = kernel_build + "_env"
+    config_target_name = kernel_build + "_config"
+    sources_target_name = kernel_build + "_sources"
+
+    kwargs["tools"] = list(kwargs.get("tools", []))
+    kwargs["tools"] += _kernel_build_tools(env_target_name, toolchain_version)
+    kwargs["tools"] += [
+        "//build/kleaf:search_and_mv_output.py",
+    ]
+
+    additional_srcs = [
+        kernel_build,
+        kernel_build + "/vmlinux",
+        sources_target_name,
+        config_target_name + "/.config",
+        config_target_name + "/include.tar.gz",
+        kernel_build + "/module_staging_dir.tar.gz",
+    ]
+    if makefile not in srcs:
+        additional_srcs.append(makefile)
+
+    genrule_outs = []
+    for out in outs:
+        genrule_outs.append("{name}/{out}".format(name = name, out = out))
+        if "/" in out:
+            base = out[out.rfind("/") + 1:]
+            genrule_outs.append("{name}/{base}".format(name = name, base = base))
+
+    out_cmd = """
+        $(execpath //build/kleaf:search_and_mv_output.py) --srcdir $${{module_staging_dir}}/lib/modules/*/extra --dstdir $(@D)/{name} {outs}
+        """.format(name = name, outs = " ".join(outs))
+
+    native.genrule(
+        name = name,
+        srcs = srcs + additional_srcs,
+        outs = genrule_outs,
+        cmd = _kernel_build_common_setup(env_target_name) +
+              _kernel_setup_config(config_target_name) +
+              _kernel_modules_common_setup(name) +
+              """
+            # Restore inputs from kernel_build.
+            # Use vmlinux as an anchor to find the directory, then copy all
+            # contents of the directory to OUT_DIR
+              mkdir -p $${{OUT_DIR}}
+              cp -R $$(dirname $(location {kernel_build}/vmlinux))/* $${{OUT_DIR}}
+            # Restore module_staging_dir
+              tar xf $(execpath {kernel_build}/module_staging_dir.tar.gz) -C $${{module_staging_dir}}
+
+            # Set variables
+              ext_mod=$$(dirname $(location {makefile}))
+              ext_mod_rel=$$(python3 -c "import os.path; print(os.path.relpath('$${{ROOT_DIR}}/$${{ext_mod}}', '$${{KERNEL_DIR}}'))")
+
+            # Actual kernel module build
+              make -C $${{ext_mod}} $${{TOOL_ARGS}} M=$${{ext_mod_rel}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}}
+            # Install into staging directory
+              make -C $${{ext_mod}} $${{TOOL_ARGS}} M=$${{ext_mod_rel}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}} INSTALL_MOD_PATH=$${{module_staging_dir}} $${{module_strip_flag}} modules_install
+            # Move files into place
+              {out_cmd}
+              """.format(name = name, makefile = makefile, kernel_build = kernel_build, out_cmd = out_cmd),
+        message = "Building external kernel module",
+        **kwargs
+    )
