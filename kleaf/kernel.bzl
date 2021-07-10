@@ -15,7 +15,7 @@
 def kernel_build(
         name,
         build_config,
-        sources,
+        srcs,
         outs,
         toolchain_version = "r416183b",
         **kwargs):
@@ -23,7 +23,7 @@ def kernel_build(
 
         It uses a build_config to construct a deterministic build environment
         (e.g. 'common/build.config.gki.aarch64'). The kernel sources need to be
-        declared via sources (using a glob). outs declares the output files
+        declared via srcs (using a glob). outs declares the output files
         that are surviving the build. The effective output file names will be
         $(name)/$(output_file). Any other artifact is not guaranteed to be
         accessible after the rule has run. The default toolchain_version is
@@ -32,7 +32,7 @@ def kernel_build(
     Args:
         name: the final kernel target name
         build_config: the main build_config file
-        sources: the kernel sources (a glob())
+        srcs: the kernel sources (a glob())
         outs: the expected output files
         toolchain_version: the toolchain version to depend on
     """
@@ -40,23 +40,23 @@ def kernel_build(
 
     build_configs = [
         s
-        for s in sources
+        for s in srcs
         if "/build.config" in s or s.startswith("build.config")
     ]
-    kernel_sources = [s for s in sources if s not in build_configs]
+    kernel_srcs = [s for s in srcs if s not in build_configs]
 
     _env(env_target, build_config, build_configs, **kwargs)
-    _kernel_build(name, env_target, kernel_sources, outs, toolchain_version, **kwargs)
+    _kernel_build(name, env_target, kernel_srcs, outs, toolchain_version, **kwargs)
 
 def _env(name, build_config, build_configs, **kwargs):
     """Generates a rule that generates a source-able build environment."""
+    kwargs["tools"] = [
+        "//build:_setup_env.sh",
+        "//build/kleaf:preserve_env.sh",
+    ]
     native.genrule(
         name = name,
         srcs = build_configs,
-        tools = [
-            "//build:_setup_env.sh",
-            "//build/kleaf:preserve_env.sh",
-        ],
         outs = [name + ".sh"],
         cmd = """
             # do not fail upon unset variables being read
@@ -74,9 +74,9 @@ def _env(name, build_config, build_configs, **kwargs):
         **kwargs
     )
 
-def _kernel_build(name, env, sources, outs, toolchain_version, **kwargs):
+def _kernel_build(name, env, srcs, outs, toolchain_version, **kwargs):
     """Generates a kernel build rule."""
-    common_tools = [
+    kwargs["tools"] = kwargs.get("tools", []) + [
         env,
         "//build:kernel-build-scripts",
         "//build:host-tools",
@@ -96,8 +96,7 @@ def _kernel_build(name, env, sources, outs, toolchain_version, **kwargs):
 
     native.genrule(
         name = name + "_config",
-        srcs = [s for s in sources if s.startswith("scripts") or not s.endswith((".c", ".h"))],
-        tools = common_tools,
+        srcs = [s for s in srcs if s.startswith("scripts") or not s.endswith((".c", ".h"))],
         outs = [
             name + "/.config",
             name + "/include.tar.gz",
@@ -119,11 +118,10 @@ def _kernel_build(name, env, sources, outs, toolchain_version, **kwargs):
 
     native.genrule(
         name = name + "_bin",
-        srcs = sources + [
+        srcs = srcs + [
             name + "/.config",
             name + "/include.tar.gz",
         ],
-        tools = common_tools,
         outs = [name + "/" + file for file in outs],  # e.g. kernel_aarch64/vmlinux
         cmd = common_setup + """
             # Restore inputs
