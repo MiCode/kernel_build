@@ -81,7 +81,7 @@ kernel_build(
     name = "kernel",
     outs = ["vmlinux"],
     build_config = "common/build.config.gki.aarch64",
-    sources = glob(["**"]),
+    srcs = glob(["**"]),
 )
 ```
 
