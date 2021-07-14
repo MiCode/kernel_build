@@ -216,12 +216,12 @@ Example:
         ),
         "setup_env": attr.label(
             allow_single_file = True,
-            default = "//build:_setup_env.sh",
+            default = Label("//build:_setup_env.sh"),
             doc = "label referring to _setup_env.sh",
         ),
         "preserve_env": attr.label(
             allow_single_file = True,
-            default = "//build/kleaf:preserve_env.sh",
+            default = Label("//build/kleaf:preserve_env.sh"),
             doc = "label referring to the script capturing the environment",
         ),
     },
