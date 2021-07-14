@@ -196,30 +196,33 @@ A build environment is defined by a single entry build config file that can
 refer to further build config files.
 
 Example:
-
     kernel_env(
         name = "kernel_aarch64_env,
         build_config = "build.config.gki.aarch64",
         srcs = glob(["build.config.*"]),
     )
-
-Args:
-    name: the name of the resulting environment
-    build_config: a label referring to the main build config
-    srcs: A list of labels. The source files that this build
-      config may refer to, including itself.
-      E.g. ["build.config.gki.aarch64", "build.config.gki"]
 """,
     attrs = {
-        "build_config": attr.label(mandatory = True, allow_single_file = True),
-        "srcs": attr.label_list(mandatory = True, allow_files = True),
+        "build_config": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            doc = "label referring to the main build config",
+        ),
+        "srcs": attr.label_list(
+            mandatory = True,
+            allow_files = True,
+            doc = """labels that this build config may refer to, including itself.
+            E.g. ["build.config.gki.aarch64", "build.config.gki"]""",
+        ),
         "setup_env": attr.label(
             allow_single_file = True,
             default = "//build:_setup_env.sh",
+            doc = "label referring to _setup_env.sh",
         ),
         "preserve_env": attr.label(
             allow_single_file = True,
             default = "//build/kleaf:preserve_env.sh",
+            doc = "label referring to the script capturing the environment",
         ),
     },
 )
