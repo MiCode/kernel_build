@@ -81,8 +81,14 @@ def kernel_build(
     ]
     kernel_srcs = [s for s in srcs if s not in build_config_srcs]
 
-    _env(env_target_name, build_config, build_config_srcs, **kwargs)
     native.filegroup(name = sources_target_name, srcs = kernel_srcs)
+
+    kernel_env(
+        name = env_target_name,
+        build_config = build_config,
+        srcs = build_config_srcs,
+    )
+
     _config(
         config_target_name,
         env_target_name,
@@ -100,45 +106,76 @@ def kernel_build(
         **kwargs
     )
 
-def _env(name, build_config, build_config_srcs, **kwargs):
-    """Generates a rule that generates a source-able build environment. A build
-    environment is defined by a single build config file.
+def _kernel_env_impl(ctx):
+    build_config = ctx.file.build_config
+    setup_env = ctx.file.setup_env
+    preserve_env = ctx.file.preserve_env
+    out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
-    Args:
-        name: the name of the main build config
-        build_config: the path to the build config from the directory containing
-           the WORKSPACE file, e.g. "common/build.config.gki.aarch64"
-        build_config_srcs: A list of labels. The source files that this build
-          config may refer to, including itself.
-          E.g. ["build.config.gki.aarch64", "build.config.gki"]
-    """
-
-    # No tools other than the following should be needed to run the cmd below.
-    # source-ing these scripts should only set up an environment. No other tool
-    # should be actually executed.
-    kwargs["tools"] = [
-        "//build:_setup_env.sh",
-        "//build/kleaf:preserve_env.sh",
-    ]
-    native.genrule(
-        name = name,
-        srcs = build_config_srcs,
-        outs = [name + ".sh"],
-        cmd = """
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs + [
+            setup_env,
+            preserve_env,
+        ],
+        outputs = [out_file],
+        progress_message = "Creating build environment for %s" % ctx.attr.name,
+        command = """
             # do not fail upon unset variables being read
               set +u
             # Run Make in silence mode to suppress most of the info output
-              export MAKEFLAGS="$${MAKEFLAGS} -s"
+              export MAKEFLAGS="${{MAKEFLAGS}} -s"
             # Increase parallelism # TODO(b/192655643): do not use -j anymore
-              export MAKEFLAGS="$${MAKEFLAGS} -j$$(nproc)"
+              export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
             # create a build environment
-              export BUILD_CONFIG=%s
-              source $(location //build:_setup_env.sh)
+              export BUILD_CONFIG={build_config}
+              source {setup_env}
             # capture it as a file to be sourced in downstream rules
-              $(location //build/kleaf:preserve_env.sh) > $@
-            """ % build_config,
-        **kwargs
+              {preserve_env} > {out}
+            """.format(
+            build_config = build_config.path,
+            setup_env = setup_env.path,
+            preserve_env = preserve_env.path,
+            out = out_file.path,
+        ),
     )
+    return [DefaultInfo(files = depset([out_file]))]
+
+kernel_env = rule(
+    implementation = _kernel_env_impl,
+    doc = """
+Generates a rule that generates a source-able build environment.
+
+A build environment is defined by a single entry build config file that can
+refer to further build config files.
+
+Example:
+
+    kernel_env(
+        name = "kernel_aarch64_env,
+        build_config = "build.config.gki.aarch64",
+        srcs = glob(["build.config.*"]),
+    )
+
+Args:
+    name: the name of the resulting environment
+    build_config: a label referring to the main build config
+    srcs: A list of labels. The source files that this build
+      config may refer to, including itself.
+      E.g. ["build.config.gki.aarch64", "build.config.gki"]
+""",
+    attrs = {
+        "build_config": attr.label(mandatory = True, allow_single_file = True),
+        "srcs": attr.label_list(mandatory = True, allow_files = True),
+        "setup_env": attr.label(
+            allow_single_file = True,
+            default = "//build:_setup_env.sh",
+        ),
+        "preserve_env": attr.label(
+            allow_single_file = True,
+            default = "//build/kleaf:preserve_env.sh",
+        ),
+    },
+)
 
 def _config(
         name,
