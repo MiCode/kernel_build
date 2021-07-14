@@ -202,10 +202,14 @@
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
 #     If BOOT_IMAGE_HEADER_VERSION >= 3, a vendor_boot image will be built
-#     unless SKIP_VENDOR_BOOT is defined.
+#     unless SKIP_VENDOR_BOOT is defined. A vendor_boot will also be generated if
+#     BUILD_VENDOR_BOOT_IMG is set.
+#
+#     BUILD_VENDOR_BOOT_IMG is incompatible with SKIP_VENDOR_BOOT, and is effectively a
+#     nop if BUILD_BOOT_IMG is set.
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
-#       modules.load. If this property is not set, then the default modules.load
-#       is used.
+#       vendor_boot.modules.load. If this property is not set, then the default
+#       modules.load is used.
 #     - TRIM_UNUSED_MODULES. If set, then modules not mentioned in
 #       modules.load are removed from initramfs. If MODULES_LIST is unset, then
 #       having this variable set effectively becomes a no-op.
@@ -268,7 +272,9 @@
 #   VENDOR_DLKM_MODULES_LIST
 #     location (relative to the repo root directory) of an optional file
 #     containing the list of kernel modules which shall be copied into a
-#     vendor_dlkm partition image.
+#     vendor_dlkm partition image. Any modules passed into MODULES_LIST which
+#     become part of the vendor_boot.modules.load will be trimmed from the
+#     vendor_dlkm.modules.load.
 #
 #   VENDOR_DLKM_MODULES_BLOCKLIST
 #     location (relative to the repo root directory) of an optional file
@@ -320,6 +326,23 @@
 #     effectively discarded and a GKI kernel Image used from an Android Common
 #     Kernel. Any variables prefixed with GKI_ are passed into into the GKI
 #     kernel's build.sh invocation.
+#
+#     This is incompatible with GKI_PREBUILTS_DIR.
+#
+#   GKI_PREBUILTS_DIR
+#     If set, copies an existing set of GKI kernel binaries to the DIST_DIR to
+#     perform a "mixed build," as with GKI_BUILD_CONFIG. This allows you to
+#     skip the additional compilation, if interested.
+#
+#     This is incompatible with GKI_BUILD_CONFIG.
+#
+#     The following must be present:
+#       vmlinux
+#       System.map
+#       vmlinux.symvers
+#       modules.builtin
+#       modules.builtin.modinfo
+#       Image.lz4
 #
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
@@ -491,10 +514,20 @@ function build_vendor_dlkm() {
   create_modules_staging "${VENDOR_DLKM_MODULES_LIST}" "${MODULES_STAGING_DIR}" \
     "${VENDOR_DLKM_STAGING_DIR}" "${VENDOR_DLKM_MODULES_BLOCKLIST}"
 
-  VENDOR_DLKM_ROOT_DIR=$(echo ${VENDOR_DLKM_STAGING_DIR}/lib/modules/*)
-  cp ${VENDOR_DLKM_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_dlkm.modules.load
-  if [ -e ${VENDOR_DLKM_ROOT_DIR}/modules.blocklist ]; then
-    cp ${VENDOR_DLKM_ROOT_DIR}/modules.blocklist \
+  local vendor_dlkm_modules_root_dir=$(echo ${VENDOR_DLKM_STAGING_DIR}/lib/modules/*)
+  local vendor_dlkm_modules_load=${vendor_dlkm_modules_root_dir}/modules.load
+
+  # Modules loaded in vendor_boot should not be loaded in vendor_dlkm.
+  if [ -f ${DIST_DIR}/vendor_boot.modules.load ]; then
+    local stripped_modules_load="$(mktemp)"
+    ! grep -x -v -F -f ${DIST_DIR}/vendor_boot.modules.load \
+      ${vendor_dlkm_modules_load} > ${stripped_modules_load}
+    mv -f ${stripped_modules_load} ${vendor_dlkm_modules_load}
+  fi
+
+  cp ${vendor_dlkm_modules_load} ${DIST_DIR}/vendor_dlkm.modules.load
+  if [ -e ${vendor_dlkm_modules_root_dir}/modules.blocklist ]; then
+    cp ${vendor_dlkm_modules_root_dir}/modules.blocklist \
       ${DIST_DIR}/vendor_dlkm.modules.blocklist
   fi
 
@@ -577,7 +610,17 @@ export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
 export MKBOOTIMG_STAGING_DIR="${MODULES_STAGING_DIR}/mkbootimg_staging"
 
+if [ -n "${SKIP_VENDOR_BOOT}" -a -n "${BUILD_VENDOR_BOOT_IMG}" ]; then
+  echo "ERROR: SKIP_VENDOR_BOOT is incompatible with BUILD_VENDOR_BOOT_IMG." >&2
+  exit 1
+fi
+
 if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  if [ -n "${GKI_PREBUILTS_DIR}" ]; then
+      echo "ERROR: GKI_BUILD_CONFIG is incompatible with GKI_PREBUILTS_DIR." >&2
+      exit 1
+  fi
+
   GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
   GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
 
@@ -588,6 +631,8 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
 
   # Inherit SKIP_MRPROPER, LTO, SKIP_DEFCONFIG unless overridden by corresponding GKI_* variables
   GKI_ENVIRON=("SKIP_MRPROPER=${SKIP_MRPROPER}" "LTO=${LTO}" "SKIP_DEFCONFIG=${SKIP_DEFCONFIG}" "SKIP_IF_VERSION_MATCHES=${SKIP_IF_VERSION_MATCHES}")
+  # Explicitly unset EXT_MODULES since they should be compiled against the device kernel
+  GKI_ENVIRON+=("EXT_MODULES=")
   # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
   # gki build recursively
@@ -600,7 +645,7 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
 
   # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
-  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_DIST_DIR}")
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=$(readlink -m ${GKI_DIST_DIR})")
 else
   rm -f ${OLD_ENVIRONMENT}
 fi
@@ -712,6 +757,23 @@ fi
 
 rm -rf ${DIST_DIR}
 mkdir -p ${OUT_DIR} ${DIST_DIR}
+
+if [ -n "${GKI_PREBUILTS_DIR}" ]; then
+  echo "========================================================"
+  echo " Copying GKI prebuilts"
+  GKI_PREBUILTS_DIR=$(readlink -m ${GKI_PREBUILTS_DIR})
+  if [ ! -d "${GKI_PREBUILTS_DIR}" ]; then
+    echo "ERROR: ${GKI_PREBULTS_DIR} does not exist." >&2
+    exit 1
+  fi
+  for file in ${GKI_PREBUILTS_DIR}/*; do
+    filename=$(basename ${file})
+    if ! $(cmp -s ${file} ${DIST_DIR}/${filename}); then
+      cp -v ${file} ${DIST_DIR}/${filename}
+    fi
+  done
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_PREBUILTS_DIR}")
+fi
 
 echo "========================================================"
 echo " Setting up for build"
@@ -827,20 +889,11 @@ fi
 
 # Copy the abi symbol list file from the sources into the dist dir
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
-  echo "========================================================"
-  echo " Generating abi symbol list definition to ${ABI_SL}"
+  ${ROOT_DIR}/build/copy_symbols.sh "$ABI_SL" "$ROOT_DIR/$KERNEL_DIR" \
+    "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
   pushd $ROOT_DIR/$KERNEL_DIR
-  cp "${KMI_SYMBOL_LIST}" ${ABI_SL}
-
-  # If there are additional symbol lists specified, append them
-  if [ -n "${ADDITIONAL_KMI_SYMBOL_LISTS}" ]; then
-    for symbol_list in ${ADDITIONAL_KMI_SYMBOL_LISTS}; do
-        echo >> ${ABI_SL}
-        cat "${symbol_list}" >> ${ABI_SL}
-    done
-  fi
   if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
-      # Create the raw symbol list 
+      # Create the raw symbol list
       cat ${ABI_SL} | \
               ${ROOT_DIR}/build/abi/flatten_symbol_list > \
               ${OUT_DIR}/abi_symbollist.raw
@@ -1069,6 +1122,7 @@ if [ -n "${MODULES}" ]; then
 
     MODULES_ROOT_DIR=$(echo ${INITRAMFS_STAGING_DIR}/lib/modules/*)
     cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
+    cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_boot.modules.load
     echo "${MODULES_OPTIONS}" > ${MODULES_ROOT_DIR}/modules.options
     if [ -e "${MODULES_ROOT_DIR}/modules.blocklist" ]; then
       cp ${MODULES_ROOT_DIR}/modules.blocklist ${DIST_DIR}/modules.blocklist
@@ -1105,7 +1159,7 @@ fi
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
-if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
+if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
   if [ -z "${MKBOOTIMG_PATH}" ]; then
     MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
   fi
@@ -1210,11 +1264,13 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" >"${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
   fi
 
-  if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
-    echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
-    exit 1
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
+      echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
+      exit 1
+    fi
+    MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
   fi
-  MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
     if [ -n "${VENDOR_BOOTCONFIG}" ]; then
@@ -1255,13 +1311,17 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     fi
   fi
 
-  MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  fi
+
   for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
     MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
   done
+
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
 
-  if [ -f "${DIST_DIR}/boot.img" ]; then
+  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/boot.img" ]; then
     echo "boot image created at ${DIST_DIR}/boot.img"
 
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then

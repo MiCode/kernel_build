@@ -31,6 +31,12 @@
 #     diff_abi and optionally (-r) print a report.
 #     ABI_DEFINITION is supposed to be defined relative to $KERNEL_DIR/
 #
+#   TIDY_ABI
+#     If set to 1, any ABI dump created will be post-processed by the abitidy
+#     utility. This is done to minimise the XML and XML diffs. The utility
+#     removes unreachable parts of the ABI XML, sorts its elements into a
+#     canonical order and gives anonymous types consistent internal names.
+#
 #   KMI_SYMBOL_LIST
 #     Define a Kernel Module Interface symbol list description. If defined, it
 #     will be taken into account when extracting Kernel ABI information from
@@ -80,7 +86,7 @@ DIFF=1
 PRINT_REPORT=0
 FULL_REPORT=0
 
-if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
+if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUPING}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
 fi
 if [[ -z "$KMI_SYMBOL_LIST_ADD_ONLY" ]]; then
@@ -88,6 +94,9 @@ if [[ -z "$KMI_SYMBOL_LIST_ADD_ONLY" ]]; then
 fi
 if [[ -z "$FULL_GKI_ABI" ]]; then
   FULL_GKI_ABI=0
+fi
+if [[ -z "$TIDY_ABI" ]]; then
+  TIDY_ABI=0
 fi
 
 ARGS=()
@@ -185,6 +194,12 @@ function build_kernel() {
 # define a common KMI symbol list flag for the abi tools
 KMI_SYMBOL_LIST_FLAG=
 
+# define a flag control ABI tidying
+TIDY_ABI_FLAG=
+if [ "$TIDY_ABI" -eq 1 ]; then
+  TIDY_ABI_FLAG=--tidy
+fi
+
 # We want to track whether the main symbol list (i.e. KMI_SYMBOL_LIST) actually
 # got updated. If so we need to rerun the kernel build.
 if [ -n "$KMI_SYMBOL_LIST" ]; then
@@ -219,6 +234,11 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             ${GKI_MOD_FLAG}                            \
             ${FULL_ABI_FLAG}                           \
             ${DIST_DIR}
+
+        # Redo what build.sh has done, with possibly fresher symbol lists.
+        ABI_SL="${DIST_DIR}/abi_symbollist"
+        ${ROOT_DIR}/build/copy_symbols.sh "$ABI_SL" "$ROOT_DIR/$KERNEL_DIR" \
+          "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
 
         # In case of a simple --update-symbol-list call we can bail out early
         [ $UPDATE -eq 0 ] && exit 0
@@ -257,7 +277,7 @@ if [ -z "${DO_NOT_STRIP_MODULES}" ] && [ $(echo "${UNSTRIPPED_MODULES}" | tr -d 
   ABI_VMLINUX_PATH="--vmlinux ${DIST_DIR}/vmlinux"
 fi
 
-# create abi dump
+# create ABI dump
 COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
 id=${ABI_OUT_TAG:-$(git -C $KERNEL_DIR describe --dirty --always)}
 abi_out_file=abi-${id}.xml
@@ -267,12 +287,13 @@ ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree ${ABI_LINUX_TREE}            \
     ${ABI_VMLINUX_PATH}                       \
     --out-file ${DIST_DIR}/${abi_out_file}    \
-    $KMI_SYMBOL_LIST_FLAG &
+    $KMI_SYMBOL_LIST_FLAG $TIDY_ABI_FLAG &
 if [ -n "$KMI_SYMBOL_LIST_FLAG" ]; then
-  ${ROOT_DIR}/build/abi/dump_abi                \
-      --linux-tree ${ABI_LINUX_TREE}            \
-      ${ABI_VMLINUX_PATH}                       \
-      --out-file ${DIST_DIR}/${full_abi_out_file} &
+  ${ROOT_DIR}/build/abi/dump_abi                  \
+      --linux-tree ${ABI_LINUX_TREE}              \
+      ${ABI_VMLINUX_PATH}                         \
+      --out-file ${DIST_DIR}/${full_abi_out_file} \
+      $TIDY_ABI_FLAG &
   wait -n
   wait -n
 else
