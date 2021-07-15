@@ -14,9 +14,28 @@
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r416183b"
 
-def _kernel_build_tools(env, toolchain_version):
+def _sum(iterable, start):
+    ret = start
+    for e in iterable:
+        ret += e
+    return ret
+
+def _invert_dict(d):
+    """Invert a dict. Values become keys and keys become values.
+
+    In the source dict, if two keys have the same value, error.
+    """
+    ret = {value: key for key, value in d.items()}
+    if len(d) != len(ret):
+        fail("dict cannot be inverted: {}".format(d))
+    return ret
+
+def _invert_dict_file(d):
+    """As _invert_dict, except values are transformed to value.files."""
+    return {key: value.files for key, value in _invert_dict(d).items()}
+
+def _kernel_build_tools_starlark(toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     return [
-        env,
         "//build:kernel-build-scripts",
         "//build:host-tools",
         "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
@@ -24,33 +43,61 @@ def _kernel_build_tools(env, toolchain_version):
         "//prebuilts/kernel-build-tools:linux-x86",
     ]
 
-def _kernel_build_common_setup(env):
+def _kernel_build_tools(env, toolchain_version):
+    """Deprecated. Use _kernel_build_tools_starlark instead."""
+    return _kernel_build_tools_starlark(toolchain_version) + [env]
+
+def _kernel_build_common_setup_starlark(env, build_host_tools, D = "$"):
     return """
          # do not fail upon unset variables being read
            set +u
          # source the build environment
-           source $(location {env})
+           source {env}
          # setup the PATH to also include the host tools
-           export PATH=$$PATH:$$PWD/$$(dirname $$( echo $(locations //build:host-tools) | tr ' ' '\n' | head -n 1 ) )
-           """.format(env = env)
+           export PATH={D}PATH:{D}PWD/{D}(dirname {D}( echo {build_host_tools} | tr ' ' '\n' | head -n 1 ) )
+           """.format(D = D, env = env, build_host_tools = build_host_tools)
 
-def _kernel_setup_config(config_target_name):
+def _kernel_build_common_setup(env):
+    """Deprecated. Use _kernel_build_common_setup_starlark instead."""
+    return _kernel_build_common_setup_starlark(
+        env = "$(location {env})".format(env = env),
+        build_host_tools = "$(locations //build:host-tools)",
+        D = "$$",
+    )
+
+def _kernel_setup_config_starlark(config, include_tar_gz, D = "$"):
     return """
          # Restore inputs
-           mkdir -p $${{OUT_DIR}}/include/
-           cp $(location {config_target_name}/.config) $${{OUT_DIR}}/.config
-           tar xf $(location {config_target_name}/include.tar.gz) -C $${{OUT_DIR}}
-           """.format(config_target_name = config_target_name)
+           mkdir -p {D}{{OUT_DIR}}/include/
+           cp {config} {D}{{OUT_DIR}}/.config
+           tar xf {include_tar_gz} -C {D}{{OUT_DIR}}
+           """.format(D = D, config = config, include_tar_gz = include_tar_gz)
 
-def _kernel_modules_common_setup(name):
+def _kernel_setup_config(config_target_name):
+    """Deprecated. Use _kernel_setup_config_starlark instead."""
+    return _kernel_setup_config_starlark(
+        config = "$(location {config_target_name}/.config)".format(config_target_name = config_target_name),
+        include_tar_gz = "$(location {config_target_name}/include.tar.gz)".format(config_target_name = config_target_name),
+        D = "$$",
+    )
+
+def _kernel_modules_common_setup_starlark(outdir, D = "$"):
     return """
          # Set variables
-           if [ "$${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
+           if [ "{D}{{DO_NOT_STRIP_MODULES}}" != "1" ]; then
              module_strip_flag="INSTALL_MOD_STRIP=1"
            fi
-           module_staging_dir=$$(realpath $(@D))/{name}/intermediates/staging
-           mkdir -p $${{module_staging_dir}}
-           """.format(name = name)
+           mkdir -p {outdir}
+           module_staging_dir={D}(realpath {outdir})/intermediates/staging
+           mkdir -p {D}{{module_staging_dir}}
+           """.format(outdir = outdir, D = D)
+
+def _kernel_modules_common_setup(name):
+    """Deprecated. Use _kernel_modules_common_setup_starlark instead."""
+    return _kernel_modules_common_setup_starlark(
+        outdir = "$(@D)/{name}".format(name = name),
+        D = "$$",
+    )
 
 def kernel_build(
         name,
@@ -320,103 +367,154 @@ def _kernel_build(
         **kwargs
     )
 
-def kernel_module(
-        name,
-        kernel_build,
-        srcs,
-        outs,
-        makefile = "Makefile",
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
-        **kwargs):
-    """Defines a kernel module target.
+# TODO: instead of relying on names, kernel_build module should export labels of these modules in the provider it returns
+def _kernel_module_kernel_build_deps(kernel_build):
+    return {
+        kernel_build.relative(kernel_build.name + suffix): suffix
+        for suffix in [
+            "_config/.config",
+            "_config/include.tar.gz",
+            "_env",
+            "_sources",
+            "/vmlinux",
+            "/module_staging_dir.tar.gz",
+        ]
+    }
 
-    Args:
-        name: the kernel module name
-        kernel_build: a label referring to a kernel_build target
-        srcs: the sources for building the kernel module
-        outs: the expected output files. For each token {out}, the build rule
-          automatically finds a file named {out} in the legacy kernel modules
-          staging directory. Subdirectories are searched.
-          The file is copied to the output directory of {name},
-          with the label {name}/{out}.
+def _kernel_module_impl(ctx):
+    name = ctx.label.name
+    kernel_build_deps = _invert_dict_file(ctx.attr._kernel_module_kernel_build_deps)
+    tools = _invert_dict_file(ctx.attr._tools)
 
-          {out} may contain slashes. In this case, the parent directory name
-          must also match.
-
-          For example:
-            kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
-
-          The build system copies
-            <legacy modules staging dir>/<some subdir>/foo/nfc.ko
-          to
-            nfc/foo/nfc.ko
-          `nfc/foo/nfc.ko` is the label to the file.
-          See search_and_mv_output.py for details.
-        makefile: location of the Makefile. This is where "make" is
-          executed on ("make -C $(dirname ${makefile})").
-        toolchain_version: the toolchain version to depend on
-    """
-    env_target_name = kernel_build + "_env"
-    config_target_name = kernel_build + "_config"
-    sources_target_name = kernel_build + "_sources"
-
-    kwargs["tools"] = list(kwargs.get("tools", []))
-    kwargs["tools"] += _kernel_build_tools(env_target_name, toolchain_version)
-    kwargs["tools"] += [
-        "//build/kleaf:search_and_mv_output.py",
+    inputs = []
+    inputs += ctx.files.srcs
+    inputs += _sum([e.to_list() for e in kernel_build_deps.values()], [])
+    inputs += _sum([e.to_list() for e in tools.values()], [])
+    inputs += ctx.files.kernel_build
+    inputs += [
+        ctx.file.makefile,
     ]
 
-    additional_srcs = [
-        kernel_build,
-        kernel_build + "/vmlinux",
-        sources_target_name,
-        config_target_name + "/.config",
-        config_target_name + "/include.tar.gz",
-        kernel_build + "/module_staging_dir.tar.gz",
-    ]
-    if makefile not in srcs:
-        additional_srcs.append(makefile)
+    outputs = []
 
-    genrule_outs = []
-    for out in outs:
-        genrule_outs.append("{name}/{out}".format(name = name, out = out))
+    # outdir is not added to outputs because we don't need to return it.
+    outdir = ctx.actions.declare_directory(ctx.label.name)
+
+    for out in ctx.attr.outs:
+        outputs.append(ctx.actions.declare_file("{name}/{out}".format(name = ctx.label.name, out = out)))
         if "/" in out:
             base = out[out.rfind("/") + 1:]
-            genrule_outs.append("{name}/{base}".format(name = name, base = base))
+            outputs.append(ctx.actions.declare_file("{name}/{base}".format(name = name, base = base)))
 
-    out_cmd = """
-        $(execpath //build/kleaf:search_and_mv_output.py) --srcdir $${{module_staging_dir}}/lib/modules/*/extra --dstdir $(@D)/{name} {outs}
-        """.format(name = name, outs = " ".join(outs))
-
-    native.genrule(
-        name = name,
-        srcs = srcs + additional_srcs,
-        outs = genrule_outs,
-        cmd = _kernel_build_common_setup(env_target_name) +
-              _kernel_setup_config(config_target_name) +
-              _kernel_modules_common_setup(name) +
-              """
-            # Restore inputs from kernel_build.
-            # Use vmlinux as an anchor to find the directory, then copy all
-            # contents of the directory to OUT_DIR
-              mkdir -p $${{OUT_DIR}}
-              cp -R $$(dirname $(location {kernel_build}/vmlinux))/* $${{OUT_DIR}}
-            # Restore module_staging_dir
-              tar xf $(execpath {kernel_build}/module_staging_dir.tar.gz) -C $${{module_staging_dir}}
-
-            # Set variables
-              ext_mod=$$(dirname $(location {makefile}))
-              ext_mod_rel=$$(python3 -c "import os.path; print(os.path.relpath('$${{ROOT_DIR}}/$${{ext_mod}}', '$${{KERNEL_DIR}}'))")
-
-            # Prepare for kernel module build
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}} modules_prepare
-            # Actual kernel module build
-              make -C $${{ext_mod}} $${{TOOL_ARGS}} M=$${{ext_mod_rel}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}}
-            # Install into staging directory
-              make -C $${{ext_mod}} $${{TOOL_ARGS}} M=$${{ext_mod_rel}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}} INSTALL_MOD_PATH=$${{module_staging_dir}} $${{module_strip_flag}} modules_install
-            # Move files into place
-              {out_cmd}
-              """.format(name = name, makefile = makefile, kernel_build = kernel_build, out_cmd = out_cmd),
-        message = "Building external kernel module",
-        **kwargs
+    command = _kernel_build_common_setup_starlark(
+        env = kernel_build_deps["_env"].to_list()[0].path,
+        build_host_tools = " ".join([x.path for x in tools["//build:host-tools"].to_list()]),
     )
+    command += _kernel_setup_config_starlark(
+        config = kernel_build_deps["_config/.config"].to_list()[0].path,
+        include_tar_gz = kernel_build_deps["_config/include.tar.gz"].to_list()[0].path,
+    )
+    command += _kernel_modules_common_setup_starlark(outdir = outdir.path)
+    command += """
+             # Restore inputs from kernel_build.
+             # Use vmlinux as an anchor to find the directory, then copy all
+             # contents of the directory to OUT_DIR
+             # TODO: Ask kernel_build's provider to provide a list of files it creates.
+               mkdir -p ${{OUT_DIR}}
+               cp -R $(dirname {vmlinux})/* ${{OUT_DIR}}
+             # Restore module_staging_dir
+               tar xf {module_staging_dir} -C ${{module_staging_dir}}
+
+             # Set variables
+               ext_mod=$(dirname {makefile})
+               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/${{ext_mod}}', '${{KERNEL_DIR}}'))")
+
+             # Prepare for kernel module build
+               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
+             # Actual kernel module build
+               make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
+             # Install into staging directory
+               make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=${{module_staging_dir}} ${{module_strip_flag}} modules_install
+             # Move files into place
+               {search_and_mv_output} --srcdir ${{module_staging_dir}}/lib/modules/*/extra --dstdir {outdir} {outs}
+             # Delete intermediates to avoid confusion
+               rm -rf ${{module_staging_dir}}
+               """.format(
+        vmlinux = kernel_build_deps["/vmlinux"].to_list()[0].path,
+        module_staging_dir = kernel_build_deps["/module_staging_dir.tar.gz"].to_list()[0].path,
+        makefile = ctx.file.makefile.path,
+        search_and_mv_output = tools["//build/kleaf:search_and_mv_output.py"].to_list()[0].path,
+        outdir = outdir.path,
+        outs = " ".join(ctx.attr.outs),
+    )
+
+    ctx.actions.run_shell(
+        inputs = inputs,
+        # Declare that this command also creates outdir.
+        outputs = [outdir] + outputs,
+        command = command,
+    )
+
+    return [DefaultInfo(files = depset(outputs))]
+
+kernel_module = rule(
+    implementation = _kernel_module_impl,
+    doc = """Generates a rule that builds an external kernel module.
+
+Example:
+    kernel_module(
+        name = "nfc",
+        srcs = glob(["**"])
+        outs = ["nfc.ko"],
+    )
+""",
+    attrs = {
+        "srcs": attr.label_list(
+            mandatory = True,
+            allow_files = True,
+            doc = "source files to build this kernel module",
+        ),
+        # TODO figure out how to specify default :Makefile
+        "makefile": attr.label(
+            allow_single_file = True,
+            doc = """Label referring to the makefile. This is where "make" is executed on ("make -C $(dirname ${makefile})").""",
+        ),
+        "kernel_build": attr.label(
+            mandatory = True,
+            doc = "Label referring to the kernel_build module",
+        ),
+        "_kernel_module_kernel_build_deps": attr.label_keyed_string_dict(
+            default = _kernel_module_kernel_build_deps,
+            allow_files = True,
+        ),
+        # Not output_list because it is not a list of labels. The list of
+        # output labels are inferred from name and outs.
+        "outs": attr.string_list(
+            doc = """the expected output files. For each token {out}, the build rule
+automatically finds a file named {out} in the legacy kernel modules
+staging directory. Subdirectories are searched.
+The file is copied to the output directory of {name},
+with the label {name}/{out}.
+
+{out} may contain slashes. In this case, the parent directory name
+must also match.
+
+For example:
+kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+
+The build system copies
+<legacy modules staging dir>/<some subdir>/foo/nfc.ko
+to
+nfc/foo/nfc.ko
+`nfc/foo/nfc.ko` is the label to the file.
+See search_and_mv_output.py for details.
+            """,
+        ),
+        "_tools": attr.label_keyed_string_dict(
+            allow_files = True,
+            default = {Label(e): e for e in _kernel_build_tools_starlark() + [
+                "//build/kleaf:search_and_mv_output.py",
+            ]},
+        ),
+    },
+)
