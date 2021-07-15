@@ -157,14 +157,14 @@ def _kernel_env_impl(ctx):
     build_config = ctx.file.build_config
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
-    out = ctx.outputs.out
+    out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
             setup_env,
             preserve_env,
         ],
-        outputs = [out],
+        outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
         command = """
             # do not fail upon unset variables being read
@@ -182,9 +182,10 @@ def _kernel_env_impl(ctx):
             build_config = build_config.path,
             setup_env = setup_env.path,
             preserve_env = preserve_env.path,
-            out = out.path,
+            out = out_file.path,
         ),
     )
+    return [DefaultInfo(files = depset([out_file]))]
 
 kernel_env = rule(
     implementation = _kernel_env_impl,
@@ -223,9 +224,6 @@ Example:
             default = Label("//build/kleaf:preserve_env.sh"),
             doc = "label referring to the script capturing the environment",
         ),
-    },
-    outputs = {
-        "out": "%{name}.sh",
     },
 )
 
