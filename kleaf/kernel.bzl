@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r416183b"
+
 def _kernel_build_tools(env, toolchain_version):
     return [
         env,
@@ -45,7 +47,7 @@ def kernel_build(
         build_config,
         srcs,
         outs,
-        toolchain_version = "r416183b",
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
