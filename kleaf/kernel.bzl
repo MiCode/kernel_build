@@ -42,6 +42,16 @@ def _kernel_setup_config(config_target_name):
            tar xf $(location {config_target_name}/include.tar.gz) -C $${{OUT_DIR}}
            """.format(config_target_name = config_target_name)
 
+def _kernel_modules_common_setup(name):
+    return """
+         # Set variables
+           if [ "$${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
+             module_strip_flag="INSTALL_MOD_STRIP=1"
+           fi
+           module_staging_dir=$$(realpath $(@D))/{name}/intermediates/staging
+           mkdir -p $${{module_staging_dir}}
+           """.format(name = name)
+
 def kernel_build(
         name,
         build_config,
@@ -280,10 +290,7 @@ def _kernel_build(
         if "/" in out:
             base = out[out.rfind("/") + 1:]
             genrule_outs.append("{name}/{base}".format(name = name, base = base))
-
-    out_cmd = """
-        $(execpath //build/kleaf:search_and_mv_output.py) --srcdir $${{OUT_DIR}} --dstdir $(@D)/{name} {outs}
-        """.format(name = name, outs = " ".join(outs))
+    genrule_outs.append(name + "/module_staging_dir.tar.gz")
 
     native.genrule(
         name = name,
@@ -295,12 +302,17 @@ def _kernel_build(
         outs = genrule_outs,
         cmd = _kernel_build_common_setup(env_target_name) +
               _kernel_setup_config(config_target_name) +
+              _kernel_modules_common_setup(name) +
               """
             # Actual kernel build
               make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{MAKE_GOALS}}
+            # Install modules
+              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{module_strip_flag}} INSTALL_MOD_PATH=$${{module_staging_dir}} modules_install
             # Grab outputs
-              {out_cmd}
-              """.format(name = name, out_cmd = out_cmd),
+              $(execpath //build/kleaf:search_and_mv_output.py) --srcdir $${{OUT_DIR}} --dstdir $(@D)/{name} {outs}
+            # Grab modules
+              tar czf $(execpath {name}/module_staging_dir.tar.gz) -C $${{module_staging_dir}} .
+              """.format(name = name, outs = " ".join(outs)),
         message = "Building kernel",
         **kwargs
     )
