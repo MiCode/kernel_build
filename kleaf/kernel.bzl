@@ -405,6 +405,8 @@ def kernel_module(
               ext_mod=$$(dirname $(location {makefile}))
               ext_mod_rel=$$(python3 -c "import os.path; print(os.path.relpath('$${{ROOT_DIR}}/$${{ext_mod}}', '$${{KERNEL_DIR}}'))")
 
+            # Prepare for kernel module build
+              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}} modules_prepare
             # Actual kernel module build
               make -C $${{ext_mod}} $${{TOOL_ARGS}} M=$${{ext_mod_rel}} O=$${{OUT_DIR}} KERNEL_SRC=$${{ROOT_DIR}}/$${{KERNEL_DIR}}
             # Install into staging directory
