@@ -454,6 +454,7 @@ def _kernel_module_impl(ctx):
         # Declare that this command also creates outdir.
         outputs = [outdir] + outputs,
         command = command,
+        progress_message = "Building external kernel module {}".format(ctx.label),
     )
 
     return [DefaultInfo(files = depset(outputs))]
@@ -465,8 +466,18 @@ kernel_module = rule(
 Example:
     kernel_module(
         name = "nfc",
-        srcs = glob(["**"])
+        srcs = glob([
+            "**/*.c",
+            "**/*.h",
+
+            # If there are Kbuild files, add them
+            "**/Kbuild",
+            # If there are additional makefiles in subdirectories, add them
+            "**/Makefile",
+        ]),
         outs = ["nfc.ko"],
+        kernel_build = "//common:kernel_aarch64",
+        makefile = ":Makefile",
     )
 """,
     attrs = {
