@@ -92,6 +92,21 @@ invocation (though limited to the currently available features in *Kleaf*):
  $ BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 ```
 
+The `kernel_module()` macro defines a kernel module target. Example:
+
+```
+load("//build/kleaf:kernel.bzl", "kernel_module")
+
+kernel_module(
+    name = "nfc",
+    srcs = glob(["**"]),
+    outs = [
+        "nfc.ko",
+    ],
+    kernel_build = "//common:kernel",
+)
+```
+
 ## Availability
 
 Current plans are to make *Kleaf* available for Android 13 and later kernels. As

@@ -15,4 +15,5 @@
 exports_files([
     "environment.bzl",
     "preserve_env.sh",
+    "search_and_mv_output.py",
 ])
