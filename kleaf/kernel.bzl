@@ -556,21 +556,35 @@ Example:
         "outs": attr.string_list(
             doc = """the expected output files. For each token {out}, the build rule
 automatically finds a file named {out} in the legacy kernel modules
-staging directory. Subdirectories are searched.
+staging directory.
 The file is copied to the output directory of {name},
 with the label {name}/{out}.
 
-{out} may contain slashes. In this case, the parent directory name
-must also match.
+- If {out} doesn't contain a slash, subdirectories are searched.
+
+Example:
+kernel_module(name = "nfc", outs = ["nfc.ko"])
+
+The build system copies
+  <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc/nfc.ko
+to
+  <package output dir>/nfc/nfc.ko
+`nfc/nfc.ko` is the label to the file.
+
+- If {out} contains slashes, its value is used. The file is also copied
+  to the top of package output directory.
 
 For example:
 kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
 
 The build system copies
-<legacy modules staging dir>/<some subdir>/foo/nfc.ko
+  <legacy modules staging dir>/lib/modules/*/extra/nfc/foo/nfc.ko
 to
-nfc/foo/nfc.ko
+  nfc/foo/nfc.ko
 `nfc/foo/nfc.ko` is the label to the file.
+The file is also copied to
+  <package output dir>/nfc/nfc.ko
+`nfc/nfc.ko` is the label to the file.
 See search_and_mv_output.py for details.
             """,
         ),
