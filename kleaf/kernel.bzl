@@ -183,13 +183,12 @@ def kernel_build(
         srcs = build_config_srcs,
     )
 
-    _config(
-        config_target_name,
-        env_target_name,
-        [sources_target_name],
-        toolchain_version,
-        **kwargs
+    kernel_config(
+        name = config_target_name,
+        env = env_target_name,
+        srcs = [sources_target_name],
     )
+
     _kernel_build(
         name,
         env_target_name,
@@ -314,50 +313,54 @@ Example:
     },
 )
 
-def _config(
-        name,
-        env_target_name,
-        srcs,
-        toolchain_version,
-        **kwargs):
-    """Defines a kernel config target.
+def _kernel_config_impl(ctx):
+    srcs = [
+        s
+        for s in ctx.files.srcs
+        if "scripts" in s.path or not s.path.endswith((".h", ".c"))
+    ]
 
-    Args:
-        name: the name of the kernel config
-        env_target_name: A label that names the environment target of a
-          kernel_build module, e.g. "kernel_aarch64_env"
-        srcs: the kernel sources
-        toolchain_version: the toolchain version to depend on
-    """
-    kwargs["tools"] = list(kwargs.get("tools", []))
-    kwargs["tools"] += _kernel_build_tools(
-        env_target_name,
-        toolchain_version,
-    )
+    config = ctx.outputs.config
+    include_tar_gz = ctx.outputs.include_tar_gz
 
-    native.genrule(
-        name = name,
-        srcs = [s for s in srcs if s.startswith("scripts") or
-                                   not s.endswith((".c", ".h"))],
-        # e.g. kernel_aarch64/.config
-        outs = [
-            name + "/.config",
-            name + "/include.tar.gz",
-        ],
-        cmd = _kernel_build_common_setup(env_target_name) + """
+    ctx.actions.run_shell(
+        inputs = srcs,
+        outputs = [config, include_tar_gz],
+        tools = ctx.attr.env[KernelEnvInfo].dependencies,
+        progress_message = "Creating kernel config %s" % ctx.attr.name,
+        command = ctx.attr.env[KernelEnvInfo].setup + """
             # Pre-defconfig commands
-              eval $${{PRE_DEFCONFIG_CMDS}}
+              eval ${{PRE_DEFCONFIG_CMDS}}
             # Actual defconfig
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{DEFCONFIG}}
+              make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
             # Post-defconfig commands
-              eval $${{POST_DEFCONFIG_CMDS}}
+              eval ${{POST_DEFCONFIG_CMDS}}
             # Grab outputs
-              mv $${{OUT_DIR}}/.config $(location {name}/.config)
-              tar czf $(location {name}/include.tar.gz) -C $${{OUT_DIR}} include/
-            """.format(name = name),
-        message = "Configuring kernel",
-        **kwargs
+              mv ${{OUT_DIR}}/.config {config}
+              tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
+            """.format(
+            config = config.path,
+            include_tar_gz = include_tar_gz.path,
+        ),
     )
+    return [DefaultInfo(files = depset([config, include_tar_gz]))]
+
+kernel_config = rule(
+    implementation = _kernel_config_impl,
+    doc = "Defines a kernel config target.",
+    attrs = {
+        "env": attr.label(
+            mandatory = True,
+            providers = [KernelEnvInfo],
+            doc = "environment target that defines the kernel build environment",
+        ),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+    },
+    outputs = {
+        "config": "%{name}/.config",
+        "include_tar_gz": "%{name}/include.tar.gz",
+    },
+)
 
 def _kernel_build(
         name,
