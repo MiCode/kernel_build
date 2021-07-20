@@ -206,6 +206,7 @@ def _kernel_env_impl(ctx):
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
+    dependencies = ctx.files._tools + ctx.files._host_tools
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
@@ -246,8 +247,7 @@ def _kernel_env_impl(ctx):
 
     return [
         KernelEnvInfo(
-            dependencies = ctx.files._tools + ctx.files._host_tools +
-                           [out_file],
+            dependencies = dependencies + [out_file],
             setup = setup,
         ),
         DefaultInfo(files = depset([out_file])),
