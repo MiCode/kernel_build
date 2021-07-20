@@ -104,8 +104,7 @@ def kernel_build(
         build_config,
         srcs,
         outs,
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
-        **kwargs):
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
 
         It uses a build_config to construct a deterministic build environment
