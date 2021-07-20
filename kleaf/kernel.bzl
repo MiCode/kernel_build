@@ -383,20 +383,39 @@ def _kernel_build_impl(ctx):
         short_name = out.short_path[len(outdir.short_path) + 1:]
         outs.append(short_name)
 
+    module_staging_archive = ctx.actions.declare_file(
+        "{name}/module_staging_dir.tar.gz".format(name = ctx.label.name),
+    )
+
     command = ctx.attr.config[KernelEnvInfo].setup + """
          # Actual kernel build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
+         # Set variables and create dirs for modules
+           if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
+             module_strip_flag="INSTALL_MOD_STRIP=1"
+           fi
+           mkdir -p {module_staging_dir}
+         # Install modules
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{module_strip_flag}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) modules_install
          # Grab outputs
            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
+         # Archive module_staging_dir
+           tar czf {module_staging_archive} -C {module_staging_dir} .
+           rm -rf {module_staging_dir}
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
+        module_staging_dir = module_staging_archive.dirname + "/staging",
+        module_staging_archive = module_staging_archive.path,
     )
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps + [ctx.file._search_and_mv_output],
-        outputs = [outdir] + ctx.outputs.outs,
+        outputs = ctx.outputs.outs + [
+            outdir,
+            module_staging_archive,
+        ],
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
         command = command,
