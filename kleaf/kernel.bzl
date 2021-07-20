@@ -465,91 +465,62 @@ _kernel_build = rule(
     },
 )
 
-# TODO: instead of relying on names, kernel_build module should export labels of these modules in the provider it returns
-def _kernel_module_kernel_build_deps(kernel_build):
-    return {
-        kernel_build.relative(kernel_build.name + suffix): suffix
-        for suffix in [
-            "_config/.config",
-            "_config/include.tar.gz",
-            "_env",
-            "_sources",
-            "/vmlinux",
-            "/module_staging_dir.tar.gz",
-        ]
-    }
-
 def _kernel_module_impl(ctx):
     name = ctx.label.name
-    kernel_build_deps = _invert_dict_file(ctx.attr._kernel_module_kernel_build_deps)
-    tools = _invert_dict_file(ctx.attr._tools)
 
     inputs = []
     inputs += ctx.files.srcs
-    inputs += _sum([e.to_list() for e in kernel_build_deps.values()], [])
-    inputs += _sum([e.to_list() for e in tools.values()], [])
-    inputs += ctx.files.kernel_build
+    inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
+    inputs += ctx.attr.kernel_build[KernelBuildInfo].srcs
     inputs += [
+        ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive,
         ctx.file.makefile,
+        ctx.file._search_and_mv_output,
     ]
 
     outputs = []
-
-    # outdir is not added to outputs because we don't need to return it.
-    outdir = ctx.actions.declare_directory(ctx.label.name)
+    module_staging_dir = ctx.actions.declare_directory("{name}/staging".format(name = name))
+    outdir = module_staging_dir.dirname
 
     for out in ctx.attr.outs:
-        outputs.append(ctx.actions.declare_file("{name}/{out}".format(name = ctx.label.name, out = out)))
+        outputs.append(ctx.actions.declare_file("{name}/{out}".format(name = name, out = out)))
         if "/" in out:
             base = out[out.rfind("/") + 1:]
             outputs.append(ctx.actions.declare_file("{name}/{base}".format(name = name, base = base)))
 
-    command = _kernel_build_common_setup_starlark(
-        env = kernel_build_deps["_env"].to_list()[0].path,
-        build_host_tools = " ".join([x.path for x in tools["//build:host-tools"].to_list()]),
-    )
-    command += _kernel_setup_config_starlark(
-        config = kernel_build_deps["_config/.config"].to_list()[0].path,
-        include_tar_gz = kernel_build_deps["_config/include.tar.gz"].to_list()[0].path,
-    )
-    command += _kernel_modules_common_setup_starlark(outdir = outdir.path)
+    command = ctx.attr.kernel_build[KernelEnvInfo].setup
     command += """
-             # Restore inputs from kernel_build.
-             # Use vmlinux as an anchor to find the directory, then copy all
-             # contents of the directory to OUT_DIR
-             # TODO: Ask kernel_build's provider to provide a list of files it creates.
-               mkdir -p ${{OUT_DIR}}
-               cp -R $(dirname {vmlinux})/* ${{OUT_DIR}}
-             # Restore module_staging_dir
-               tar xf {module_staging_dir} -C ${{module_staging_dir}}
-
-             # Set variables
+             # Set variables and create dirs for modules
+               if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
+                 module_strip_flag="INSTALL_MOD_STRIP=1"
+               fi
+               mkdir -p {module_staging_dir}
                ext_mod=$(dirname {makefile})
                ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/${{ext_mod}}', '${{KERNEL_DIR}}'))")
+             # Restore module_staging_dir from kernel_build
+               tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
 
              # Prepare for kernel module build
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
              # Actual kernel module build
                make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
-               make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=${{module_staging_dir}} ${{module_strip_flag}} modules_install
+               make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) ${{module_strip_flag}} modules_install
              # Move files into place
-               {search_and_mv_output} --srcdir ${{module_staging_dir}}/lib/modules/*/extra --dstdir {outdir} {outs}
-             # Delete intermediates to avoid confusion
-               rm -rf ${{module_staging_dir}}
+               {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
                """.format(
-        vmlinux = kernel_build_deps["/vmlinux"].to_list()[0].path,
-        module_staging_dir = kernel_build_deps["/module_staging_dir.tar.gz"].to_list()[0].path,
         makefile = ctx.file.makefile.path,
-        search_and_mv_output = tools["//build/kleaf:search_and_mv_output.py"].to_list()[0].path,
-        outdir = outdir.path,
+        search_and_mv_output = ctx.file._search_and_mv_output.path,
+        kernel_build_module_staging_archive = ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive.path,
+        module_staging_dir = module_staging_dir.path,
+        outdir = outdir,
         outs = " ".join(ctx.attr.outs),
     )
 
     ctx.actions.run_shell(
         inputs = inputs,
-        # Declare that this command also creates outdir.
-        outputs = [outdir] + outputs,
+        # Declare that this command also creates module_staging_dir.
+        outputs = [module_staging_dir] + outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),
     )
@@ -590,11 +561,8 @@ Example:
         ),
         "kernel_build": attr.label(
             mandatory = True,
+            providers = [KernelEnvInfo, KernelBuildInfo],
             doc = "Label referring to the kernel_build module",
-        ),
-        "_kernel_module_kernel_build_deps": attr.label_keyed_string_dict(
-            default = _kernel_module_kernel_build_deps,
-            allow_files = True,
         ),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
@@ -633,11 +601,10 @@ The file is also copied to
 See search_and_mv_output.py for details.
             """,
         ),
-        "_tools": attr.label_keyed_string_dict(
-            allow_files = True,
-            default = {Label(e): e for e in _kernel_build_tools_starlark() + [
-                "//build/kleaf:search_and_mv_output.py",
-            ]},
+        "_search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
+            doc = "label referring to the script to process outputs",
         ),
     },
 )
