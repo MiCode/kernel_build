@@ -1,0 +1,4 @@
+# temporarily disabled
+#filp_open	file operation
+#kernel_read	security hole
+#kernel_write	security hole
