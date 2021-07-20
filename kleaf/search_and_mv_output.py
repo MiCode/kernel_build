@@ -36,9 +36,9 @@ def search_and_mv_output_real(srcdir, dstdir, outputs):
       if f in outputs:
         found[f].append(os.path.join(root, f))
 
-  missing_error = lambda out: f"No files matches {out}, expected 1"
+  missing_error = lambda out: f"In {root}, no files match {out}, expected 1"
   multiple_error = lambda out, matches: \
-    f"Multiple files match '{out}', expected 1:\n  " + ("\n  ".join(matches))
+    f"In {root}, multiple files match '{out}', expected 1:\n  " + ("\n  ".join(matches))
   errors = []
   for out in outputs:
     num_matches = len(found[out])
