@@ -190,13 +190,10 @@ def kernel_build(
     )
 
     _kernel_build(
-        name,
-        env_target_name,
-        config_target_name,
-        [sources_target_name],
-        outs,
-        toolchain_version,
-        **kwargs
+        name = name,
+        config = config_target_name,
+        srcs = [sources_target_name],
+        outs = [name + "/" + out for out in outs],
     )
 
 KernelEnvInfo = provider(fields = {
@@ -377,54 +374,51 @@ kernel_config = rule(
     },
 )
 
-def _kernel_build(
-        name,
-        env_target_name,
-        config_target_name,
-        srcs,
-        outs,
-        toolchain_version,
-        **kwargs):
-    """Generates a kernel build rule."""
+def _kernel_build_impl(ctx):
+    outdir = ctx.actions.declare_directory(ctx.label.name)
 
-    kwargs["tools"] = list(kwargs.get("tools", []))
-    kwargs["tools"] += _kernel_build_tools(env_target_name, toolchain_version)
-    kwargs["tools"] += [
-        "//build/kleaf:search_and_mv_output.py",
-    ]
+    outs = []
+    for out in ctx.outputs.outs:
+        short_name = out.short_path[len(outdir.short_path) + 1:]
+        outs.append(short_name)
 
-    genrule_outs = []
-    for out in outs:
-        genrule_outs.append("{name}/{out}".format(name = name, out = out))
-        if "/" in out:
-            base = out[out.rfind("/") + 1:]
-            genrule_outs.append("{name}/{base}".format(name = name, base = base))
-    genrule_outs.append(name + "/module_staging_dir.tar.gz")
-
-    native.genrule(
-        name = name,
-        srcs = srcs + [
-            config_target_name + "/.config",
-            config_target_name + "/include.tar.gz",
-        ],
-        # e.g. kernel_aarch64/vmlinux
-        outs = genrule_outs,
-        cmd = _kernel_build_common_setup(env_target_name) +
-              _kernel_setup_config(config_target_name) +
-              _kernel_modules_common_setup(name) +
-              """
-            # Actual kernel build
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{MAKE_GOALS}}
-            # Install modules
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{module_strip_flag}} INSTALL_MOD_PATH=$${{module_staging_dir}} modules_install
-            # Grab outputs
-              $(execpath //build/kleaf:search_and_mv_output.py) --srcdir $${{OUT_DIR}} --dstdir $(@D)/{name} {outs}
-            # Grab modules
-              tar czf $(execpath {name}/module_staging_dir.tar.gz) -C $${{module_staging_dir}} .
-              """.format(name = name, outs = " ".join(outs)),
-        message = "Building kernel",
-        **kwargs
+    command = ctx.attr.config[KernelEnvInfo].setup + """
+         # Actual kernel build
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
+         # Grab outputs
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
+         """.format(
+        search_and_mv_output = ctx.file.search_and_mv_output.path,
+        outdir = outdir.path,
+        outs = " ".join(outs),
     )
+
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs + [ctx.file.search_and_mv_output],
+        outputs = [outdir] + ctx.outputs.outs,
+        tools = ctx.attr.config[KernelEnvInfo].dependencies,
+        progress_message = "Building kernel %s" % ctx.attr.name,
+        command = command,
+    )
+
+_kernel_build = rule(
+    implementation = _kernel_build_impl,
+    doc = "Defines a kernel build target.",
+    attrs = {
+        "config": attr.label(
+            mandatory = True,
+            providers = [KernelEnvInfo],
+            doc = "the kernel_config target",
+        ),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "outs": attr.output_list(),
+        "search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
+            doc = "label referring to the script to process outputs",
+        ),
+    },
+)
 
 # TODO: instead of relying on names, kernel_build module should export labels of these modules in the provider it returns
 def _kernel_module_kernel_build_deps(kernel_build):
