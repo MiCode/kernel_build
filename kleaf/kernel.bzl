@@ -343,7 +343,22 @@ def _kernel_config_impl(ctx):
             include_tar_gz = include_tar_gz.path,
         ),
     )
-    return [DefaultInfo(files = depset([config, include_tar_gz]))]
+
+    setup = ctx.attr.env[KernelEnvInfo].setup + """
+         # Restore kernel config inputs
+           mkdir -p ${{OUT_DIR}}/include/
+           cp {config} ${{OUT_DIR}}/.config
+           tar xf {include_tar_gz} -C ${{OUT_DIR}}
+    """.format(config = config.path, include_tar_gz = include_tar_gz.path)
+
+    return [
+        KernelEnvInfo(
+            dependencies = ctx.attr.env[KernelEnvInfo].dependencies +
+                           [config, include_tar_gz],
+            setup = setup,
+        ),
+        DefaultInfo(files = depset([config, include_tar_gz])),
+    ]
 
 kernel_config = rule(
     implementation = _kernel_config_impl,
