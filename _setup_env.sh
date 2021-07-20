@@ -139,6 +139,9 @@ for PREBUILT_BIN in "${PREBUILTS_PATHS[@]}"; do
     fi
 done
 export PATH
+unset PYTHONPATH
+unset PYTHONHOME
+unset PYTHONSTARTUP
 
 echo
 echo "PATH=${PATH}"
