@@ -104,6 +104,7 @@ def kernel_build(
         build_config,
         srcs,
         outs,
+        deps = (),
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
 
@@ -193,6 +194,7 @@ def kernel_build(
         config = config_target_name,
         srcs = [sources_target_name],
         outs = [name + "/" + out for out in outs],
+        deps = deps,
     )
 
 KernelEnvInfo = provider(fields = {
@@ -393,7 +395,7 @@ def _kernel_build_impl(ctx):
     )
 
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs + [ctx.file._search_and_mv_output],
+        inputs = ctx.files.srcs + ctx.files.deps + [ctx.file._search_and_mv_output],
         outputs = [outdir] + ctx.outputs.outs,
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
@@ -415,6 +417,9 @@ _kernel_build = rule(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "label referring to the script to process outputs",
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
         ),
     },
 )
