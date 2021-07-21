@@ -104,8 +104,8 @@ def kernel_build(
         build_config,
         srcs,
         outs,
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
-        **kwargs):
+        deps = (),
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
 
         It uses a build_config to construct a deterministic build environment
@@ -194,6 +194,7 @@ def kernel_build(
         config = config_target_name,
         srcs = [sources_target_name],
         outs = [name + "/" + out for out in outs],
+        deps = deps,
     )
 
 KernelEnvInfo = provider(fields = {
@@ -206,6 +207,7 @@ def _kernel_env_impl(ctx):
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
+    dependencies = ctx.files._tools + ctx.files._host_tools
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
@@ -246,8 +248,7 @@ def _kernel_env_impl(ctx):
 
     return [
         KernelEnvInfo(
-            dependencies = ctx.files._tools + ctx.files._host_tools +
-                           [out_file],
+            dependencies = dependencies + [out_file],
             setup = setup,
         ),
         DefaultInfo(files = depset([out_file])),
@@ -388,13 +389,13 @@ def _kernel_build_impl(ctx):
          # Grab outputs
            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
          """.format(
-        search_and_mv_output = ctx.file.search_and_mv_output.path,
+        search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
     )
 
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs + [ctx.file.search_and_mv_output],
+        inputs = ctx.files.srcs + ctx.files.deps + [ctx.file._search_and_mv_output],
         outputs = [outdir] + ctx.outputs.outs,
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
@@ -412,10 +413,13 @@ _kernel_build = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
         "outs": attr.output_list(),
-        "search_and_mv_output": attr.label(
+        "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "label referring to the script to process outputs",
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
         ),
     },
 )
