@@ -387,13 +387,13 @@ def _kernel_build_impl(ctx):
          # Grab outputs
            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
          """.format(
-        search_and_mv_output = ctx.file.search_and_mv_output.path,
+        search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
     )
 
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs + [ctx.file.search_and_mv_output],
+        inputs = ctx.files.srcs + [ctx.file._search_and_mv_output],
         outputs = [outdir] + ctx.outputs.outs,
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
@@ -411,7 +411,7 @@ _kernel_build = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
         "outs": attr.output_list(),
-        "search_and_mv_output": attr.label(
+        "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "label referring to the script to process outputs",
