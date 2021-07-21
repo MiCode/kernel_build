@@ -183,22 +183,23 @@ def kernel_build(
         srcs = build_config_srcs,
     )
 
-    _config(
-        config_target_name,
-        env_target_name,
-        [sources_target_name],
-        toolchain_version,
-        **kwargs
+    kernel_config(
+        name = config_target_name,
+        env = env_target_name,
+        srcs = [sources_target_name],
     )
+
     _kernel_build(
-        name,
-        env_target_name,
-        config_target_name,
-        [sources_target_name],
-        outs,
-        toolchain_version,
-        **kwargs
+        name = name,
+        config = config_target_name,
+        srcs = [sources_target_name],
+        outs = [name + "/" + out for out in outs],
     )
+
+KernelEnvInfo = provider(fields = {
+    "dependencies": "dependencies that need to provided to use this environment setup",
+    "setup": "the setup script to initialize the environment",
+})
 
 def _kernel_env_impl(ctx):
     build_config = ctx.file.build_config
@@ -232,7 +233,36 @@ def _kernel_env_impl(ctx):
             out = out_file.path,
         ),
     )
-    return [DefaultInfo(files = depset([out_file]))]
+
+    host_tool_path = ctx.files._host_tools[0].dirname
+    setup = """
+         # do not fail upon unset variables being read
+           set +u
+         # source the build environment
+           source {env}
+         # setup the PATH to also include the host tools
+           export PATH=$PATH:$PWD/{host_tool_path}
+           """.format(env = out_file.path, host_tool_path = host_tool_path)
+
+    return [
+        KernelEnvInfo(
+            dependencies = ctx.files._tools + ctx.files._host_tools +
+                           [out_file],
+            setup = setup,
+        ),
+        DefaultInfo(files = depset([out_file])),
+    ]
+
+def _get_tools(toolchain_version):
+    return [
+        Label(e)
+        for e in (
+            "//build:kernel-build-scripts",
+            "//prebuilts/build-tools:linux-x86",
+            "//prebuilts/kernel-build-tools:linux-x86",
+            "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
+        )
+    ]
 
 kernel_env = rule(
     implementation = _kernel_env_impl,
@@ -271,102 +301,124 @@ Example:
             default = Label("//build/kleaf:preserve_env.sh"),
             doc = "label referring to the script capturing the environment",
         ),
+        "toolchain_version": attr.string(
+            default = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+            doc = "the toolchain to use for this environment",
+        ),
+        "_tools": attr.label_list(default = _get_tools),
+        "_host_tools": attr.label(default = "//build:host-tools"),
     },
 )
 
-def _config(
-        name,
-        env_target_name,
-        srcs,
-        toolchain_version,
-        **kwargs):
-    """Defines a kernel config target.
-
-    Args:
-        name: the name of the kernel config
-        env_target_name: A label that names the environment target of a
-          kernel_build module, e.g. "kernel_aarch64_env"
-        srcs: the kernel sources
-        toolchain_version: the toolchain version to depend on
-    """
-    kwargs["tools"] = list(kwargs.get("tools", []))
-    kwargs["tools"] += _kernel_build_tools(
-        env_target_name,
-        toolchain_version,
-    )
-
-    native.genrule(
-        name = name,
-        srcs = [s for s in srcs if s.startswith("scripts") or
-                                   not s.endswith((".c", ".h"))],
-        # e.g. kernel_aarch64/.config
-        outs = [
-            name + "/.config",
-            name + "/include.tar.gz",
-        ],
-        cmd = _kernel_build_common_setup(env_target_name) + """
-            # Pre-defconfig commands
-              eval $${{PRE_DEFCONFIG_CMDS}}
-            # Actual defconfig
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{DEFCONFIG}}
-            # Post-defconfig commands
-              eval $${{POST_DEFCONFIG_CMDS}}
-            # Grab outputs
-              mv $${{OUT_DIR}}/.config $(location {name}/.config)
-              tar czf $(location {name}/include.tar.gz) -C $${{OUT_DIR}} include/
-            """.format(name = name),
-        message = "Configuring kernel",
-        **kwargs
-    )
-
-def _kernel_build(
-        name,
-        env_target_name,
-        config_target_name,
-        srcs,
-        outs,
-        toolchain_version,
-        **kwargs):
-    """Generates a kernel build rule."""
-
-    kwargs["tools"] = list(kwargs.get("tools", []))
-    kwargs["tools"] += _kernel_build_tools(env_target_name, toolchain_version)
-    kwargs["tools"] += [
-        "//build/kleaf:search_and_mv_output.py",
+def _kernel_config_impl(ctx):
+    srcs = [
+        s
+        for s in ctx.files.srcs
+        if "scripts" in s.path or not s.path.endswith((".h", ".c"))
     ]
 
-    genrule_outs = []
-    for out in outs:
-        genrule_outs.append("{name}/{out}".format(name = name, out = out))
-        if "/" in out:
-            base = out[out.rfind("/") + 1:]
-            genrule_outs.append("{name}/{base}".format(name = name, base = base))
-    genrule_outs.append(name + "/module_staging_dir.tar.gz")
+    config = ctx.outputs.config
+    include_tar_gz = ctx.outputs.include_tar_gz
 
-    native.genrule(
-        name = name,
-        srcs = srcs + [
-            config_target_name + "/.config",
-            config_target_name + "/include.tar.gz",
-        ],
-        # e.g. kernel_aarch64/vmlinux
-        outs = genrule_outs,
-        cmd = _kernel_build_common_setup(env_target_name) +
-              _kernel_setup_config(config_target_name) +
-              _kernel_modules_common_setup(name) +
-              """
-            # Actual kernel build
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{MAKE_GOALS}}
-            # Install modules
-              make -C $${{KERNEL_DIR}} $${{TOOL_ARGS}} O=$${{OUT_DIR}} $${{module_strip_flag}} INSTALL_MOD_PATH=$${{module_staging_dir}} modules_install
+    ctx.actions.run_shell(
+        inputs = srcs,
+        outputs = [config, include_tar_gz],
+        tools = ctx.attr.env[KernelEnvInfo].dependencies,
+        progress_message = "Creating kernel config %s" % ctx.attr.name,
+        command = ctx.attr.env[KernelEnvInfo].setup + """
+            # Pre-defconfig commands
+              eval ${{PRE_DEFCONFIG_CMDS}}
+            # Actual defconfig
+              make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
+            # Post-defconfig commands
+              eval ${{POST_DEFCONFIG_CMDS}}
             # Grab outputs
-              $(execpath //build/kleaf:search_and_mv_output.py) --srcdir $${{OUT_DIR}} --dstdir $(@D)/{name} {outs}
-            # Grab modules
-              tar czf $(execpath {name}/module_staging_dir.tar.gz) -C $${{module_staging_dir}} .
-              """.format(name = name, outs = " ".join(outs)),
-        message = "Building kernel",
-        **kwargs
+              mv ${{OUT_DIR}}/.config {config}
+              tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
+            """.format(
+            config = config.path,
+            include_tar_gz = include_tar_gz.path,
+        ),
     )
+
+    setup = ctx.attr.env[KernelEnvInfo].setup + """
+         # Restore kernel config inputs
+           mkdir -p ${{OUT_DIR}}/include/
+           cp {config} ${{OUT_DIR}}/.config
+           tar xf {include_tar_gz} -C ${{OUT_DIR}}
+    """.format(config = config.path, include_tar_gz = include_tar_gz.path)
+
+    return [
+        KernelEnvInfo(
+            dependencies = ctx.attr.env[KernelEnvInfo].dependencies +
+                           [config, include_tar_gz],
+            setup = setup,
+        ),
+        DefaultInfo(files = depset([config, include_tar_gz])),
+    ]
+
+kernel_config = rule(
+    implementation = _kernel_config_impl,
+    doc = "Defines a kernel config target.",
+    attrs = {
+        "env": attr.label(
+            mandatory = True,
+            providers = [KernelEnvInfo],
+            doc = "environment target that defines the kernel build environment",
+        ),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+    },
+    outputs = {
+        "config": "%{name}/.config",
+        "include_tar_gz": "%{name}/include.tar.gz",
+    },
+)
+
+def _kernel_build_impl(ctx):
+    outdir = ctx.actions.declare_directory(ctx.label.name)
+
+    outs = []
+    for out in ctx.outputs.outs:
+        short_name = out.short_path[len(outdir.short_path) + 1:]
+        outs.append(short_name)
+
+    command = ctx.attr.config[KernelEnvInfo].setup + """
+         # Actual kernel build
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
+         # Grab outputs
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
+         """.format(
+        search_and_mv_output = ctx.file.search_and_mv_output.path,
+        outdir = outdir.path,
+        outs = " ".join(outs),
+    )
+
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs + [ctx.file.search_and_mv_output],
+        outputs = [outdir] + ctx.outputs.outs,
+        tools = ctx.attr.config[KernelEnvInfo].dependencies,
+        progress_message = "Building kernel %s" % ctx.attr.name,
+        command = command,
+    )
+
+_kernel_build = rule(
+    implementation = _kernel_build_impl,
+    doc = "Defines a kernel build target.",
+    attrs = {
+        "config": attr.label(
+            mandatory = True,
+            providers = [KernelEnvInfo],
+            doc = "the kernel_config target",
+        ),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "outs": attr.output_list(),
+        "search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
+            doc = "label referring to the script to process outputs",
+        ),
+    },
+)
 
 # TODO: instead of relying on names, kernel_build module should export labels of these modules in the provider it returns
 def _kernel_module_kernel_build_deps(kernel_build):
@@ -504,21 +556,35 @@ Example:
         "outs": attr.string_list(
             doc = """the expected output files. For each token {out}, the build rule
 automatically finds a file named {out} in the legacy kernel modules
-staging directory. Subdirectories are searched.
+staging directory.
 The file is copied to the output directory of {name},
 with the label {name}/{out}.
 
-{out} may contain slashes. In this case, the parent directory name
-must also match.
+- If {out} doesn't contain a slash, subdirectories are searched.
+
+Example:
+kernel_module(name = "nfc", outs = ["nfc.ko"])
+
+The build system copies
+  <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc/nfc.ko
+to
+  <package output dir>/nfc/nfc.ko
+`nfc/nfc.ko` is the label to the file.
+
+- If {out} contains slashes, its value is used. The file is also copied
+  to the top of package output directory.
 
 For example:
 kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
 
 The build system copies
-<legacy modules staging dir>/<some subdir>/foo/nfc.ko
+  <legacy modules staging dir>/lib/modules/*/extra/nfc/foo/nfc.ko
 to
-nfc/foo/nfc.ko
+  nfc/foo/nfc.ko
 `nfc/foo/nfc.ko` is the label to the file.
+The file is also copied to
+  <package output dir>/nfc/nfc.ko
+`nfc/nfc.ko` is the label to the file.
 See search_and_mv_output.py for details.
             """,
         ),
