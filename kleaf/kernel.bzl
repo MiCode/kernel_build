@@ -415,21 +415,20 @@ def _kernel_module_impl(ctx):
                  module_strip_flag="INSTALL_MOD_STRIP=1"
                fi
                mkdir -p {module_staging_dir}
-               ext_mod=$(dirname {makefile})
-               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/${{ext_mod}}', '${{KERNEL_DIR}}'))")
+               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
              # Restore module_staging_dir from kernel_build
                tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
 
              # Prepare for kernel module build
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
              # Actual kernel module build
-               make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
+               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
-               make -C ${{ext_mod}} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) ${{module_strip_flag}} modules_install
+               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) ${{module_strip_flag}} modules_install
              # Move files into place
                {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
                """.format(
-        makefile = ctx.file.makefile.path,
+        ext_mod = ctx.file.makefile.dirname,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         kernel_build_module_staging_archive = ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive.path,
         module_staging_dir = module_staging_dir.path,
