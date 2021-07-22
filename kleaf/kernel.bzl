@@ -92,16 +92,18 @@ def kernel_build(
 
     native.filegroup(name = sources_target_name, srcs = kernel_srcs)
 
-    kernel_env(
+    _kernel_env(
         name = env_target_name,
         build_config = build_config,
         srcs = build_config_srcs,
     )
 
-    kernel_config(
+    _kernel_config(
         name = config_target_name,
         env = env_target_name,
         srcs = [sources_target_name],
+        config = config_target_name + "/.config",
+        include_tar_gz = config_target_name + "/include.tar.gz",
     )
 
     _kernel_build(
@@ -180,7 +182,7 @@ def _get_tools(toolchain_version):
         )
     ]
 
-kernel_env = rule(
+_kernel_env = rule(
     implementation = _kernel_env_impl,
     doc = """
 Generates a rule that generates a source-able build environment.
@@ -273,7 +275,7 @@ def _kernel_config_impl(ctx):
         DefaultInfo(files = depset([config, include_tar_gz])),
     ]
 
-kernel_config = rule(
+_kernel_config = rule(
     implementation = _kernel_config_impl,
     doc = "Defines a kernel config target.",
     attrs = {
@@ -283,10 +285,11 @@ kernel_config = rule(
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
-    },
-    outputs = {
-        "config": "%{name}/.config",
-        "include_tar_gz": "%{name}/include.tar.gz",
+        "config": attr.output(mandatory = True, doc = "the .config file"),
+        "include_tar_gz": attr.output(
+            mandatory = True,
+            doc = "the packaged include/ files",
+        ),
     },
 )
 
