@@ -136,6 +136,10 @@ for prebuilt_bin in "${prebuilts_paths[@]}"; do
 done
 export PATH
 
+unset PYTHONPATH
+unset PYTHONHOME
+unset PYTHONSTARTUP
+
 export HOSTCC HOSTCXX CC LD AR NM OBJCOPY OBJDUMP OBJSIZE READELF STRIP AS
 
 tool_args=()
