@@ -745,7 +745,8 @@ fi
 
 # Copy the abi symbol list file from the sources into the dist dir
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
-  ${ROOT_DIR}/build/copy_symbols.sh "$ABI_SL" "$ROOT_DIR/$KERNEL_DIR" \
+  ${ROOT_DIR}/build/abi/process_symbols --out-dir="$DIST_DIR" --out-file=abi_symbollist \
+    --report-file=abi_symbollist.report --in-dir="$ROOT_DIR/$KERNEL_DIR" \
     "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
   pushd $ROOT_DIR/$KERNEL_DIR
   if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
