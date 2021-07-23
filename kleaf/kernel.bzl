@@ -384,11 +384,26 @@ _kernel_build = rule(
 )
 
 KernelModuleInfo = provider(fields = {
+    "kernel_build": "kernel_build attribute of this module",
     "module_staging_archive": "Archive containing directory for staging kernel modules. Does not contain the lib/modules/* suffix.",
 })
 
 def _kernel_module_impl(ctx):
     name = ctx.label.name
+
+    for kernel_module_dep in ctx.attr.kernel_module_deps:
+        if kernel_module_dep[KernelModuleInfo].kernel_build != \
+           ctx.attr.kernel_build:
+            fail((
+                "{name} refers to kernel_build {kernel_build}, but " +
+                "depended kernel_module {dep} refers to kernel_build " +
+                "{kernel_build}. They must refer to the same kernel_build."
+            ).format(
+                name = ctx.label,
+                kernel_build = ctx.attr.kernel_build.label,
+                dep = kernel_module_dep.label,
+                dep_kernel_build = kernel_module_dep[KernelModuleInfo].kernel_build.label,
+            ))
 
     inputs = []
     inputs += ctx.files.srcs
@@ -505,6 +520,7 @@ def _kernel_module_impl(ctx):
             setup = setup,
         ),
         KernelModuleInfo(
+            kernel_build = ctx.attr.kernel_build,
             module_staging_archive = module_staging_archive,
         ),
     ]
