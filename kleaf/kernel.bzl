@@ -83,6 +83,7 @@ def kernel_build(
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
     config_target_name = name + "_config"
+    modules_prepare_target_name = name + "_modules_prepare"
     build_config_srcs = [
         s
         for s in srcs
@@ -104,6 +105,13 @@ def kernel_build(
         srcs = [sources_target_name],
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
+    )
+
+    _modules_prepare(
+        name = modules_prepare_target_name,
+        config = config_target_name,
+        srcs = [sources_target_name],
+        outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
     )
 
     _kernel_build(
@@ -379,6 +387,49 @@ _kernel_build = rule(
         ),
         "deps": attr.label_list(
             allow_files = True,
+        ),
+    },
+)
+
+def _modules_prepare_impl(ctx):
+    command = ctx.attr.config[KernelEnvInfo].setup + """
+         # Prepare for the module build
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
+         # Package files
+           tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
+    """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
+
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs,
+        outputs = [ctx.outputs.outdir_tar_gz],
+        tools = ctx.attr.config[KernelEnvInfo].dependencies,
+        progress_message = "Preparing for module build %s" % ctx.label,
+        command = command,
+    )
+
+    setup = """
+         # Restore modules_prepare outputs. Assumes env setup.
+           [ -z ${{OUT_DIR}} ] && echo "modules_prepare setup run without OUT_DIR set!" && exit 1
+           tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
+           """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
+
+    return [KernelEnvInfo(
+        dependencies = [ctx.outputs.outdir_tar_gz],
+        setup = setup,
+    )]
+
+_modules_prepare = rule(
+    implementation = _modules_prepare_impl,
+    attrs = {
+        "config": attr.label(
+            mandatory = True,
+            providers = [KernelEnvInfo],
+            doc = "the kernel_config target",
+        ),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "outdir_tar_gz": attr.output(
+            mandatory = True,
+            doc = "the packaged ${OUT_DIR} files",
         ),
     },
 )
