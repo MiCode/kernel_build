@@ -443,6 +443,7 @@ def _kernel_module_impl(ctx):
     """.format(module_staging_dir = module_staging_dir)
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[KernelEnvInfo].setup
+
         # TODO(b/194347374): ensure that output files for different modules don't conflict.
         command += """
             tar xf {module_staging_archive} -C {module_staging_dir}
@@ -486,7 +487,7 @@ def _kernel_module_impl(ctx):
         module_staging_archive = module_staging_archive.path,
         outdir = outdir,
         outs = " ".join([out.name for out in ctx.attr.outs]),
-        comma_separated_outs = "".join([out.name + "," for out in ctx.attr.outs])
+        comma_separated_outs = "".join([out.name + "," for out in ctx.attr.outs]),
     )
 
     ctx.actions.run_shell(
