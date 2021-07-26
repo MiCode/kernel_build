@@ -163,10 +163,6 @@ rm -rf ${TEMP_KP_OUT_DIR}
 trap - EXIT
 echo "  kernel platform output: ${ANDROID_KP_OUT_DIR}"
 
-echo """[ -z \"\${KERNEL_KIT}\" ] && OUT_DIR=${ANDROID_KP_OUT_DIR}
-$(cat ${ROOT_DIR}/build.config)
-""" > ${ROOT_DIR}/build.config
-
 ################################################################################
 # Set up recompile and copy variables
 set -x
@@ -204,19 +200,6 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
 
   COPY_NEEDED=1
 fi
-
-################################################################################
-echo
-echo "  setting up Android tree for compiling modules"
-# DEPRECATED! To be removed once Android environment switches to KERNEL_KIT-compilation.
-# The ROOT_DIR/la symlink exists so that the output folder can be properly controlled
-# kbuild for external modules places the output in the same relative path to kernel
-# that is, if module is at ${KP_SRC_DIR}/common/../../vendor/qcom/opensource/android-dlkm,
-# the output is also at ${KP_OUT_DIR}/common/../../vendor/qcom/opensource/android-dlkm
-# Given that there is no strict control for kernel platform source or output location,
-# there is no consistent place to expect android-dlkm output to live
-rm -f "${ROOT_DIR}/la"
-ln -srT "${ANDROID_BUILD_TOP}" "${ROOT_DIR}/la"
 
 ################################################################################
 if [ "${COPY_NEEDED}" == "1" ]; then
