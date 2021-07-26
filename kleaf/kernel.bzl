@@ -459,6 +459,7 @@ def _kernel_module_impl(ctx):
     inputs = []
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
+    inputs += ctx.attr._modules_prepare[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildInfo].srcs
     inputs += [
         ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive,
@@ -488,6 +489,7 @@ def _kernel_module_impl(ctx):
     ]
 
     command = ctx.attr.kernel_build[KernelEnvInfo].setup
+    command += ctx.attr._modules_prepare[KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {module_staging_dir}
@@ -511,8 +513,6 @@ def _kernel_module_impl(ctx):
              # Restore module_staging_dir from kernel_build
                tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
 
-             # Prepare for kernel module build
-               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
@@ -576,6 +576,9 @@ def _kernel_module_impl(ctx):
             module_staging_archive = module_staging_archive,
         ),
     ]
+
+def _get_modules_prepare(kernel_build):
+    return Label(str(kernel_build) + "_modules_prepare")
 
 kernel_module = rule(
     implementation = _kernel_module_impl,
@@ -659,6 +662,10 @@ See search_and_mv_output.py for details.
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "label referring to the script to process outputs",
+        ),
+        "_modules_prepare": attr.label(
+            default = _get_modules_prepare,
+            providers = [KernelEnvInfo],
         ),
     },
 )
