@@ -142,6 +142,7 @@ def _kernel_env_impl(ctx):
         outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
         command = """
+            export SOURCE_DATE_EPOCH=0  # TODO(b/194772369)
             # do not fail upon unset variables being read
               set +u
             # Run Make in silence mode to suppress most of the info output
