@@ -2,3 +2,5 @@
 #filp_open	file operation
 #kernel_read	security hole
 #kernel_write	security hole
+disable_kprobe		kprobe should not be touched by any driver
+enable_kprobe		kprobe should not be touched by any driver
