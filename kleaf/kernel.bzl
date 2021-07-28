@@ -83,6 +83,7 @@ def kernel_build(
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
     config_target_name = name + "_config"
+    modules_prepare_target_name = name + "_modules_prepare"
     build_config_srcs = [
         s
         for s in srcs
@@ -104,6 +105,13 @@ def kernel_build(
         srcs = [sources_target_name],
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
+    )
+
+    _modules_prepare(
+        name = modules_prepare_target_name,
+        config = config_target_name,
+        srcs = [sources_target_name],
+        outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
     )
 
     _kernel_build(
@@ -134,6 +142,7 @@ def _kernel_env_impl(ctx):
         outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
         command = """
+            export SOURCE_DATE_EPOCH=0  # TODO(b/194772369)
             # do not fail upon unset variables being read
               set +u
             # Run Make in silence mode to suppress most of the info output
@@ -383,6 +392,49 @@ _kernel_build = rule(
     },
 )
 
+def _modules_prepare_impl(ctx):
+    command = ctx.attr.config[KernelEnvInfo].setup + """
+         # Prepare for the module build
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
+         # Package files
+           tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
+    """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
+
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs,
+        outputs = [ctx.outputs.outdir_tar_gz],
+        tools = ctx.attr.config[KernelEnvInfo].dependencies,
+        progress_message = "Preparing for module build %s" % ctx.label,
+        command = command,
+    )
+
+    setup = """
+         # Restore modules_prepare outputs. Assumes env setup.
+           [ -z ${{OUT_DIR}} ] && echo "modules_prepare setup run without OUT_DIR set!" && exit 1
+           tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
+           """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
+
+    return [KernelEnvInfo(
+        dependencies = [ctx.outputs.outdir_tar_gz],
+        setup = setup,
+    )]
+
+_modules_prepare = rule(
+    implementation = _modules_prepare_impl,
+    attrs = {
+        "config": attr.label(
+            mandatory = True,
+            providers = [KernelEnvInfo],
+            doc = "the kernel_config target",
+        ),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "outdir_tar_gz": attr.output(
+            mandatory = True,
+            doc = "the packaged ${OUT_DIR} files",
+        ),
+    },
+)
+
 KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
     "module_staging_archive": "Archive containing directory for staging kernel modules. Does not contain the lib/modules/* suffix.",
@@ -408,6 +460,7 @@ def _kernel_module_impl(ctx):
     inputs = []
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
+    inputs += ctx.attr._modules_prepare[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildInfo].srcs
     inputs += [
         ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive,
@@ -437,6 +490,7 @@ def _kernel_module_impl(ctx):
     ]
 
     command = ctx.attr.kernel_build[KernelEnvInfo].setup
+    command += ctx.attr._modules_prepare[KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {module_staging_dir}
@@ -460,8 +514,6 @@ def _kernel_module_impl(ctx):
              # Restore module_staging_dir from kernel_build
                tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
 
-             # Prepare for kernel module build
-               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
@@ -525,6 +577,9 @@ def _kernel_module_impl(ctx):
             module_staging_archive = module_staging_archive,
         ),
     ]
+
+def _get_modules_prepare(kernel_build):
+    return Label(str(kernel_build) + "_modules_prepare")
 
 kernel_module = rule(
     implementation = _kernel_module_impl,
@@ -608,6 +663,10 @@ See search_and_mv_output.py for details.
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "label referring to the script to process outputs",
+        ),
+        "_modules_prepare": attr.label(
+            default = _get_modules_prepare,
+            providers = [KernelEnvInfo],
         ),
     },
 )
