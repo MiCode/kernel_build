@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//build/kleaf:utils.bzl", "BuildSettingInfo")
+
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r416183b"
+
+def _debug_trap():
+    return """set -x
+              trap '>&2 /bin/date' DEBUG"""
 
 def kernel_build(
         name,
@@ -134,6 +140,30 @@ def _kernel_env_impl(ctx):
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
     dependencies = ctx.files._tools + ctx.files._host_tools
 
+    command = ""
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        command += _debug_trap()
+
+    command += """
+        export SOURCE_DATE_EPOCH=0  # TODO(b/194772369)
+        # do not fail upon unset variables being read
+          set +u
+        # Run Make in silence mode to suppress most of the info output
+          export MAKEFLAGS="${{MAKEFLAGS}} -s"
+        # Increase parallelism # TODO(b/192655643): do not use -j anymore
+          export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
+        # create a build environment
+          export BUILD_CONFIG={build_config}
+          source {setup_env}
+        # capture it as a file to be sourced in downstream rules
+          {preserve_env} > {out}
+        """.format(
+        build_config = build_config.path,
+        setup_env = setup_env.path,
+        preserve_env = preserve_env.path,
+        out = out_file.path,
+    )
+
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
             setup_env,
@@ -141,29 +171,16 @@ def _kernel_env_impl(ctx):
         ],
         outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
-        command = """
-            export SOURCE_DATE_EPOCH=0  # TODO(b/194772369)
-            # do not fail upon unset variables being read
-              set +u
-            # Run Make in silence mode to suppress most of the info output
-              export MAKEFLAGS="${{MAKEFLAGS}} -s"
-            # Increase parallelism # TODO(b/192655643): do not use -j anymore
-              export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
-            # create a build environment
-              export BUILD_CONFIG={build_config}
-              source {setup_env}
-            # capture it as a file to be sourced in downstream rules
-              {preserve_env} > {out}
-            """.format(
-            build_config = build_config.path,
-            setup_env = setup_env.path,
-            preserve_env = preserve_env.path,
-            out = out_file.path,
-        ),
+        command = command,
     )
 
     host_tool_path = ctx.files._host_tools[0].dirname
-    setup = """
+
+    setup = ""
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        setup += _debug_trap()
+
+    setup += """
          # do not fail upon unset variables being read
            set +u
          # source the build environment
@@ -234,6 +251,7 @@ Example:
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
+        "_debug_annotate_scripts": attr.label(default = "//build/kleaf:debug_annotate_scripts"),
     },
 )
 
