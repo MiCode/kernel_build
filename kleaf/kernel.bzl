@@ -270,6 +270,28 @@ def _kernel_config_impl(ctx):
     config = ctx.outputs.config
     include_tar_gz = ctx.outputs.include_tar_gz
 
+    lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
+
+    lto_command = ""
+    if lto_config_flag != "default":
+        # none config
+        lto_config = {
+            "LTO_CLANG": "d",
+            "LTO_NONE": "e",
+            "LTO_CLANG_THIN": "d",
+            "LTO_CLANG_FULL": "d",
+            "THINLTO": "d",
+        }
+        if lto_config_flag == "thin":
+            lto_config.update(LTO_CLANG = "e", LTO_NONE = "d", LTO_CLANG_THIN = "e", THINLTO = "e")
+        elif lto_config_flag == "full":
+            lto_config.update(LTO_CLANG = "e", LTO_NONE = "d", LTO_CLANG_FULL = "e")
+
+        lto_command = """
+            ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config {configs}
+            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+        """.format(configs = " ".join(["-%s %s" % (value, key) for key, value in lto_config.items()]))
+
     command = ctx.attr.env[KernelEnvInfo].setup + """
         # Pre-defconfig commands
           eval ${{PRE_DEFCONFIG_CMDS}}
@@ -277,12 +299,15 @@ def _kernel_config_impl(ctx):
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
         # Post-defconfig commands
           eval ${{POST_DEFCONFIG_CMDS}}
+        # LTO configuration
+        {lto_command}
         # Grab outputs
           mv ${{OUT_DIR}}/.config {config}
           tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
         """.format(
         config = config.path,
         include_tar_gz = include_tar_gz.path,
+        lto_command = lto_command,
     )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
@@ -328,6 +353,7 @@ _kernel_config = rule(
             mandatory = True,
             doc = "the packaged include/ files",
         ),
+        "lto": attr.label(default = "//build/kleaf:lto"),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )

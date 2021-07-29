@@ -12,9 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kleaf:utils.bzl", "bool_flag")
+load("//build/kleaf:utils.bzl", "bool_flag", "string_flag")
 
 package(default_visibility = ["//visibility:public"])
+
+# Build flags
+
+string_flag(
+    name = "lto",
+    build_setting_default = "default",
+    values = [
+        "default",
+        "none",
+        "thin",
+        "full",
+    ],
+)
+
+# Debug options
 
 bool_flag(
     name = "debug_annotate_scripts",
