@@ -21,6 +21,11 @@ bool_flag(
     build_setting_default = False,
 )
 
+bool_flag(
+    name = "debug_print_scripts",
+    build_setting_default = False,
+)
+
 exports_files([
     "environment.bzl",
     "preserve_env.sh",

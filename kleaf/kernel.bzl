@@ -164,6 +164,10 @@ def _kernel_env_impl(ctx):
         out = out_file.path,
     )
 
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
             setup_env,
@@ -252,6 +256,7 @@ Example:
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
         "_debug_annotate_scripts": attr.label(default = "//build/kleaf:debug_annotate_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -265,25 +270,31 @@ def _kernel_config_impl(ctx):
     config = ctx.outputs.config
     include_tar_gz = ctx.outputs.include_tar_gz
 
+    command = ctx.attr.env[KernelEnvInfo].setup + """
+        # Pre-defconfig commands
+          eval ${{PRE_DEFCONFIG_CMDS}}
+        # Actual defconfig
+          make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
+        # Post-defconfig commands
+          eval ${{POST_DEFCONFIG_CMDS}}
+        # Grab outputs
+          mv ${{OUT_DIR}}/.config {config}
+          tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
+        """.format(
+        config = config.path,
+        include_tar_gz = include_tar_gz.path,
+    )
+
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
     ctx.actions.run_shell(
         inputs = srcs,
         outputs = [config, include_tar_gz],
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
         progress_message = "Creating kernel config %s" % ctx.attr.name,
-        command = ctx.attr.env[KernelEnvInfo].setup + """
-            # Pre-defconfig commands
-              eval ${{PRE_DEFCONFIG_CMDS}}
-            # Actual defconfig
-              make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
-            # Post-defconfig commands
-              eval ${{POST_DEFCONFIG_CMDS}}
-            # Grab outputs
-              mv ${{OUT_DIR}}/.config {config}
-              tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
-            """.format(
-            config = config.path,
-            include_tar_gz = include_tar_gz.path,
-        ),
+        command = command,
     )
 
     setup = ctx.attr.env[KernelEnvInfo].setup + """
@@ -317,6 +328,7 @@ _kernel_config = rule(
             mandatory = True,
             doc = "the packaged include/ files",
         ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -359,6 +371,10 @@ def _kernel_build_impl(ctx):
         module_staging_dir = module_staging_archive.dirname + "/staging",
         module_staging_archive = module_staging_archive.path,
     )
+
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps + [ctx.file._search_and_mv_output],
@@ -407,10 +423,15 @@ _kernel_build = rule(
         "deps": attr.label_list(
             allow_files = True,
         ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
 def _modules_prepare_impl(ctx):
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
     command = ctx.attr.config[KernelEnvInfo].setup + """
          # Prepare for the module build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
@@ -450,6 +471,7 @@ _modules_prepare = rule(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
         ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -559,6 +581,10 @@ def _kernel_module_impl(ctx):
         outs = " ".join([out.name for out in ctx.attr.outs]),
         comma_separated_outs = "".join([out.name + "," for out in ctx.attr.outs]),
     )
+
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
 
     ctx.actions.run_shell(
         inputs = inputs,
@@ -686,5 +712,6 @@ See search_and_mv_output.py for details.
             default = _get_modules_prepare,
             providers = [KernelEnvInfo],
         ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
