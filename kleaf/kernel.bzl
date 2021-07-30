@@ -29,19 +29,19 @@ def kernel_build(
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
 
-       It uses a build_config to construct a deterministic build environment
-       (e.g. `common/build.config.gki.aarch64`). The kernel sources need to be
-       declared via srcs (using a glob). outs declares the output files
-       that are surviving the build. The effective output file names will be
-       `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
-       accessible after the rule has run. The default toolchain_version is
-       defined with a sensible default, but can be overriden.
+    It uses a build_config to construct a deterministic build environment (e.g.
+    `common/build.config.gki.aarch64`). The kernel sources need to be declared
+    via srcs (using a glob). outs declares the output files that are surviving
+    the build. The effective output file names will be
+    `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
+    accessible after the rule has run. The default toolchain_version is defined
+    with a sensible default, but can be overriden.
 
-       Two additional labels, `{name}_env` and `{name}_config`, are generated.
-       For example, if name is `"kernel_aarch64"`:
-       - `kernel_aarch64_env` provides a source-able build environment defined
-         by the build config.
-       - `kernel_aarch64_config` provides the kernel config.
+    Two additional labels, `{name}_env` and `{name}_config`, are generated.
+    For example, if name is `"kernel_aarch64"`:
+    - `kernel_aarch64_env` provides a source-able build environment defined by
+      the build config.
+    - `kernel_aarch64_config` provides the kernel config.
 
     Args:
         name: the final kernel target name, e.g. `"kernel_aarch64"`
@@ -133,8 +133,8 @@ def kernel_build(
     )
 
 _KernelEnvInfo = provider(fields = {
-    "dependencies": "dependencies that need to provided to use this environment setup",
-    "setup": "the setup script to initialize the environment",
+    "dependencies": "dependencies required to use this environment setup",
+    "setup": "setup script to initialize the environment",
 })
 
 def _kernel_env_impl(ctx):
@@ -218,19 +218,20 @@ def _get_tools(toolchain_version):
 
 _kernel_env = rule(
     implementation = _kernel_env_impl,
-    doc = """
-Generates a rule that generates a source-able build environment.
+    doc = """Generates a rule that generates a source-able build environment.
 
-A build environment is defined by a single entry build config file that can
-refer to further build config files.
+          A build environment is defined by a single entry build config file
+          that can refer to further build config files.
 
-Example:
-    kernel_env(
-        name = "kernel_aarch64_env,
-        build_config = "build.config.gki.aarch64",
-        srcs = glob(["build.config.*"]),
-    )
-""",
+          Example:
+          ```
+              kernel_env(
+                  name = "kernel_aarch64_env,
+                  build_config = "build.config.gki.aarch64",
+                  srcs = glob(["build.config.*"]),
+              )
+          ```
+          """,
     attrs = {
         "build_config": attr.label(
             mandatory = True,
@@ -240,7 +241,7 @@ Example:
         "srcs": attr.label_list(
             mandatory = True,
             allow_files = True,
-            doc = """labels that this build config may refer to, including itself.
+            doc = """labels that this build config refers to, including itself.
             E.g. ["build.config.gki.aarch64", "build.config.gki"]""",
         ),
         "setup_env": attr.label(
@@ -259,8 +260,12 @@ Example:
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
-        "_debug_annotate_scripts": attr.label(default = "//build/kleaf:debug_annotate_scripts"),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_annotate_scripts": attr.label(
+            default = "//build/kleaf:debug_annotate_scripts",
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
     },
 )
 
@@ -287,14 +292,26 @@ def _kernel_config_impl(ctx):
             "THINLTO": "d",
         }
         if lto_config_flag == "thin":
-            lto_config.update(LTO_CLANG = "e", LTO_NONE = "d", LTO_CLANG_THIN = "e", THINLTO = "e")
+            lto_config.update(
+                LTO_CLANG = "e",
+                LTO_NONE = "d",
+                LTO_CLANG_THIN = "e",
+                THINLTO = "e",
+            )
         elif lto_config_flag == "full":
-            lto_config.update(LTO_CLANG = "e", LTO_NONE = "d", LTO_CLANG_FULL = "e")
+            lto_config.update(
+                LTO_CLANG = "e",
+                LTO_NONE = "d",
+                LTO_CLANG_FULL = "e",
+            )
 
         lto_command = """
             ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config {configs}
             make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
-        """.format(configs = " ".join(["-%s %s" % (value, key) for key, value in lto_config.items()]))
+        """.format(configs = " ".join([
+            "-%s %s" % (value, key)
+            for key, value in lto_config.items()
+        ]))
 
     command = ctx.attr.env[_KernelEnvInfo].setup + """
         # Pre-defconfig commands
@@ -358,12 +375,15 @@ _kernel_config = rule(
             doc = "the packaged include/ files",
         ),
         "lto": attr.label(default = "//build/kleaf:lto"),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
     },
 )
 
 _KernelBuildInfo = provider(fields = {
-    "module_staging_archive": "Archive containing directory for staging kernel modules. Does not contain the lib/modules/* suffix.",
+    "module_staging_archive": "Archive containing staging kernel modules. " +
+                              "Does not contain the lib/modules/* suffix.",
     "srcs": "sources for this kernel_build",
 })
 
@@ -407,7 +427,8 @@ def _kernel_build_impl(ctx):
         # Script that runs %s:%s""" % (ctx.label, command))
 
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs + ctx.files.deps + [ctx.file._search_and_mv_output],
+        inputs = ctx.files.srcs + ctx.files.deps +
+                 [ctx.file._search_and_mv_output],
         outputs = ctx.outputs.outs + [
             outdir,
             module_staging_archive,
@@ -453,7 +474,9 @@ _kernel_build = rule(
         "deps": attr.label_list(
             allow_files = True,
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
     },
 )
 
@@ -501,13 +524,16 @@ _modules_prepare = rule(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
     },
 )
 
 _KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
-    "module_staging_archive": "Archive containing directory for staging kernel modules. Does not contain the lib/modules/* suffix.",
+    "module_staging_archive": "Archive containing staging kernel modules. " +
+                              "Does not contain the lib/modules/* suffix.",
 })
 
 def _kernel_module_impl(ctx):
@@ -603,7 +629,8 @@ def _kernel_module_impl(ctx):
                """.format(
         ext_mod = ctx.file.makefile.dirname,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
-        kernel_build_module_staging_archive = ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
+        kernel_build_module_staging_archive =
+            ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
         module_symvers = module_symvers.path,
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
@@ -618,7 +645,8 @@ def _kernel_module_impl(ctx):
 
     ctx.actions.run_shell(
         inputs = inputs,
-        outputs = ctx.outputs.outs + additional_outputs + additional_declared_outputs,
+        outputs = ctx.outputs.outs + additional_outputs +
+                  additional_declared_outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),
     )
@@ -659,26 +687,25 @@ kernel_module = rule(
     implementation = _kernel_module_impl,
     doc = """Generates a rule that builds an external kernel module.
 
-Example:
+          Example:
+          ```
+              kernel_module(
+                  name = "nfc",
+                  srcs = glob([
+                      "**/*.c",
+                      "**/*.h",
 
-```
-    kernel_module(
-        name = "nfc",
-        srcs = glob([
-            "**/*.c",
-            "**/*.h",
-
-            # If there are Kbuild files, add them
-            "**/Kbuild",
-            # If there are additional makefiles in subdirectories, add them
-            "**/Makefile",
-        ]),
-        outs = ["nfc.ko"],
-        kernel_build = "//common:kernel_aarch64",
-        makefile = ":Makefile",
-    )
-```
-""",
+                      # If there are Kbuild files, add them
+                      "**/Kbuild",
+                      # If there are additional makefiles in subdirectories, add them
+                      "**/Makefile",
+                  ]),
+                  outs = ["nfc.ko"],
+                  kernel_build = "//common:kernel_aarch64",
+                  makefile = ":Makefile",
+              )
+          ```
+          """,
     attrs = {
         "srcs": attr.label_list(
             mandatory = True,
@@ -702,42 +729,43 @@ Example:
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(
-            doc = """the expected output files. For each token `out`, the build rule
-automatically finds a file named `out` in the legacy kernel modules
-staging directory.
-The file is copied to the output directory of this package,
-with the label `out`.
+            doc = """the expected output files.
 
-- If `out` doesn't contain a slash, subdirectories are searched.
+                  For each token `out`, the build rule automatically finds a
+                  file named `out` in the legacy kernel modules staging
+                  directory. The file is copied to the output directory of
+                  this package, with the label `out`.
 
-  Example:
-  ```
-  kernel_module(name = "nfc", outs = ["nfc.ko"])
-  ```
+                  - If `out` doesn't contain a slash, subdirectories are searched.
 
-  The build system copies
-    `<legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko`
-  to
-    `<package output dir>/nfc.ko`.
-  `nfc.ko` is the label to the file.
+                    Example:
+                    ```
+                    kernel_module(name = "nfc", outs = ["nfc.ko"])
+                    ```
 
-- If {out} contains slashes, its value is used. The file is also copied
-  to the top of package output directory.
+                    The build system copies
+                      `<legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko`
+                    to
+                      `<package output dir>/nfc.ko`.
+                    `nfc.ko` is the label to the file.
 
-  For example:
-  kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+                  - If {out} contains slashes, its value is used. The file is
+                    also copied to the top of package output directory.
 
-  The build system copies
-    `<legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko`
-  to
-    `foo/nfc.ko`.
-  `foo/nfc.ko` is the label to the file.
+                    For example:
+                    kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
 
-  The file is also copied to
-    `<package output dir>/nfc.ko`.
-  `nfc.ko` is the label to the file.
-  See `search_and_mv_output.py` for details.
-            """,
+                    The build system copies
+                      `<legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko`
+                    to
+                      `foo/nfc.ko`.
+                    `foo/nfc.ko` is the label to the file.
+
+                    The file is also copied to
+                      `<package output dir>/nfc.ko`.
+                    `nfc.ko` is the label to the file.
+                    See `search_and_mv_output.py` for details.
+                  """,
         ),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
@@ -748,6 +776,8 @@ with the label `out`.
             default = _get_modules_prepare,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
     },
 )
