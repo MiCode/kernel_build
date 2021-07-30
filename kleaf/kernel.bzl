@@ -29,61 +29,65 @@ def kernel_build(
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
 
-        It uses a build_config to construct a deterministic build environment
-        (e.g. 'common/build.config.gki.aarch64'). The kernel sources need to be
-        declared via srcs (using a glob). outs declares the output files
-        that are surviving the build. The effective output file names will be
-        $(name)/$(output_file). Any other artifact is not guaranteed to be
-        accessible after the rule has run. The default toolchain_version is
-        defined with a sensible default, but can be overriden.
+       It uses a build_config to construct a deterministic build environment
+       (e.g. `common/build.config.gki.aarch64`). The kernel sources need to be
+       declared via srcs (using a glob). outs declares the output files
+       that are surviving the build. The effective output file names will be
+       `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
+       accessible after the rule has run. The default toolchain_version is
+       defined with a sensible default, but can be overriden.
 
-        Two additional labels, "{name}_env" and "{name}_config", are generated.
-        For example, if name is "kernel_aarch64":
-        - kernel_aarch64_env provides a source-able build environment defined
-          by the build config.
-        - kernel_aarch64_config provides the kernel config.
+       Two additional labels, `{name}_env` and `{name}_config`, are generated.
+       For example, if name is `"kernel_aarch64"`:
+       - `kernel_aarch64_env` provides a source-able build environment defined
+         by the build config.
+       - `kernel_aarch64_config` provides the kernel config.
 
     Args:
-        name: the final kernel target name, e.g. "kernel_aarch64"
+        name: the final kernel target name, e.g. `"kernel_aarch64"`
         build_config: the path to the build config from the directory containing
-           the WORKSPACE file, e.g. "common/build.config.gki.aarch64"
-        srcs: the kernel sources (a glob())
-        outs: the expected output files. For each item {out}:
+           the WORKSPACE file, e.g. `"common/build.config.gki.aarch64"`
+        srcs: the kernel sources (a `glob()`)
+        outs: the expected output files. For each item `out`:
 
-          - If {out} does not contain a slash, the build rule
-            automatically finds a file with name {out} in the kernel
-            build output directory ${OUT_DIR}.
-              find ${OUT_DIR} -name {out}
+          - If `out` does not contain a slash, the build rule
+            automatically finds a file with name `out` in the kernel
+            build output directory `${OUT_DIR}`.
+            ```
+            find ${OUT_DIR} -name {out}
+            ```
             There must be exactly one match.
             The file is copied to the following in the output directory
-              {name}/{out}
+            `{name}/{out}`
 
             Example:
-              kernel_build(name = "kernel_aarch64", outs = ["vmlinux"])
-            The bulid system copies
-              ${OUT_DIR}/[<optional subdirectory>/]vmlinux
-            to
-              kernel_aarch64/vmlinux.
+            ```
+            kernel_build(name = "kernel_aarch64", outs = ["vmlinux"])
+            ```
+            The bulid system copies `${OUT_DIR}/[<optional subdirectory>/]vmlinux`
+            to `kernel_aarch64/vmlinux`.
             `kernel_aarch64/vmlinux` is the label to the file.
 
-          - If {out} contains a slash, the build rule locates the file in the
-            kernel build output directory ${OUT_DIR} with path {out}
+          - If `out` contains a slash, the build rule locates the file in the
+            kernel build output directory `${OUT_DIR}` with path `out`
             The file is copied to the following in the output directory
-              1. {name}/{out}
-              2. {name}/$(basename {out})
+              1. `{name}/{out}`
+              2. `{name}/$(basename {out})`
 
             Example:
-              kernel_build(
-                name = "kernel_aarch64",
-                outs = ["arch/arm64/boot/vmlinux"])
+            ```
+            kernel_build(
+              name = "kernel_aarch64",
+              outs = ["arch/arm64/boot/vmlinux"])
+            ```
             The bulid system copies
-              ${OUT_DIR}/arch/arm64/boot/vmlinux
+              `${OUT_DIR}/arch/arm64/boot/vmlinux`
             to:
-              1. kernel_aarch64/arch/arm64/boot/vmlinux
-              2. kernel_aarch64/vmlinux
+              - `kernel_aarch64/arch/arm64/boot/vmlinux`
+              - `kernel_aarch64/vmlinux`
             They are also the labels to the output files, respectively.
 
-            See search_and_mv_output.py for details.
+            See `search_and_mv_output.py` for details.
         toolchain_version: the toolchain version to depend on
     """
     sources_target_name = name + "_sources"
@@ -630,6 +634,8 @@ kernel_module = rule(
     doc = """Generates a rule that builds an external kernel module.
 
 Example:
+
+```
     kernel_module(
         name = "nfc",
         srcs = glob([
@@ -645,6 +651,7 @@ Example:
         kernel_build = "//common:kernel_aarch64",
         makefile = ":Makefile",
     )
+```
 """,
     attrs = {
         "srcs": attr.label_list(
@@ -669,38 +676,41 @@ Example:
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(
-            doc = """the expected output files. For each token {out}, the build rule
-automatically finds a file named {out} in the legacy kernel modules
+            doc = """the expected output files. For each token `out`, the build rule
+automatically finds a file named `out` in the legacy kernel modules
 staging directory.
 The file is copied to the output directory of this package,
-with the label {out}.
+with the label `out`.
 
-- If {out} doesn't contain a slash, subdirectories are searched.
+- If `out` doesn't contain a slash, subdirectories are searched.
 
-Example:
-kernel_module(name = "nfc", outs = ["nfc.ko"])
+  Example:
+  ```
+  kernel_module(name = "nfc", outs = ["nfc.ko"])
+  ```
 
-The build system copies
-  <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko
-to
-  <package output dir>/nfc.ko
-`nfc.ko` is the label to the file.
+  The build system copies
+    `<legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko`
+  to
+    `<package output dir>/nfc.ko`.
+  `nfc.ko` is the label to the file.
 
 - If {out} contains slashes, its value is used. The file is also copied
   to the top of package output directory.
 
-For example:
-kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+  For example:
+  kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
 
-The build system copies
-  <legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko
-to
-  foo/nfc.ko
-`foo/nfc.ko` is the label to the file.
-The file is also copied to
-  <package output dir>/nfc.ko
-`nfc.ko` is the label to the file.
-See search_and_mv_output.py for details.
+  The build system copies
+    `<legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko`
+  to
+    `foo/nfc.ko`.
+  `foo/nfc.ko` is the label to the file.
+
+  The file is also copied to
+    `<package output dir>/nfc.ko`.
+  `nfc.ko` is the label to the file.
+  See `search_and_mv_output.py` for details.
             """,
         ),
         "_search_and_mv_output": attr.label(
