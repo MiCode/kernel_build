@@ -132,7 +132,7 @@ def kernel_build(
         deps = deps,
     )
 
-KernelEnvInfo = provider(fields = {
+_KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies that need to provided to use this environment setup",
     "setup": "the setup script to initialize the environment",
 })
@@ -198,7 +198,7 @@ def _kernel_env_impl(ctx):
            """.format(env = out_file.path, host_tool_path = host_tool_path)
 
     return [
-        KernelEnvInfo(
+        _KernelEnvInfo(
             dependencies = dependencies + [out_file],
             setup = setup,
         ),
@@ -296,7 +296,7 @@ def _kernel_config_impl(ctx):
             make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
         """.format(configs = " ".join(["-%s %s" % (value, key) for key, value in lto_config.items()]))
 
-    command = ctx.attr.env[KernelEnvInfo].setup + """
+    command = ctx.attr.env[_KernelEnvInfo].setup + """
         # Pre-defconfig commands
           eval ${{PRE_DEFCONFIG_CMDS}}
         # Actual defconfig
@@ -321,12 +321,12 @@ def _kernel_config_impl(ctx):
     ctx.actions.run_shell(
         inputs = srcs,
         outputs = [config, include_tar_gz],
-        tools = ctx.attr.env[KernelEnvInfo].dependencies,
+        tools = ctx.attr.env[_KernelEnvInfo].dependencies,
         progress_message = "Creating kernel config %s" % ctx.attr.name,
         command = command,
     )
 
-    setup = ctx.attr.env[KernelEnvInfo].setup + """
+    setup = ctx.attr.env[_KernelEnvInfo].setup + """
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
            cp {config} ${{OUT_DIR}}/.config
@@ -334,8 +334,8 @@ def _kernel_config_impl(ctx):
     """.format(config = config.path, include_tar_gz = include_tar_gz.path)
 
     return [
-        KernelEnvInfo(
-            dependencies = ctx.attr.env[KernelEnvInfo].dependencies +
+        _KernelEnvInfo(
+            dependencies = ctx.attr.env[_KernelEnvInfo].dependencies +
                            [config, include_tar_gz],
             setup = setup,
         ),
@@ -348,7 +348,7 @@ _kernel_config = rule(
     attrs = {
         "env": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo],
+            providers = [_KernelEnvInfo],
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
@@ -362,7 +362,7 @@ _kernel_config = rule(
     },
 )
 
-KernelBuildInfo = provider(fields = {
+_KernelBuildInfo = provider(fields = {
     "module_staging_archive": "Archive containing directory for staging kernel modules. Does not contain the lib/modules/* suffix.",
     "srcs": "sources for this kernel_build",
 })
@@ -379,7 +379,7 @@ def _kernel_build_impl(ctx):
         "{name}/module_staging_dir.tar.gz".format(name = ctx.label.name),
     )
 
-    command = ctx.attr.config[KernelEnvInfo].setup + """
+    command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Actual kernel build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
          # Set variables and create dirs for modules
@@ -412,23 +412,23 @@ def _kernel_build_impl(ctx):
             outdir,
             module_staging_archive,
         ],
-        tools = ctx.attr.config[KernelEnvInfo].dependencies,
+        tools = ctx.attr.config[_KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
         command = command,
     )
 
-    setup = ctx.attr.config[KernelEnvInfo].setup + """
+    setup = ctx.attr.config[_KernelEnvInfo].setup + """
          # Restore kernel build outputs
            cp -R {outdir}/* ${{OUT_DIR}}
            """.format(outdir = outdir.path)
 
     return [
-        KernelEnvInfo(
-            dependencies = ctx.attr.config[KernelEnvInfo].dependencies +
+        _KernelEnvInfo(
+            dependencies = ctx.attr.config[_KernelEnvInfo].dependencies +
                            ctx.outputs.outs,
             setup = setup,
         ),
-        KernelBuildInfo(
+        _KernelBuildInfo(
             module_staging_archive = module_staging_archive,
             srcs = ctx.files.srcs,
         ),
@@ -440,7 +440,7 @@ _kernel_build = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo],
+            providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
@@ -462,7 +462,7 @@ def _modules_prepare_impl(ctx):
         print("""
         # Script that runs %s:%s""" % (ctx.label, command))
 
-    command = ctx.attr.config[KernelEnvInfo].setup + """
+    command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Prepare for the module build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
          # Package files
@@ -472,7 +472,7 @@ def _modules_prepare_impl(ctx):
     ctx.actions.run_shell(
         inputs = ctx.files.srcs,
         outputs = [ctx.outputs.outdir_tar_gz],
-        tools = ctx.attr.config[KernelEnvInfo].dependencies,
+        tools = ctx.attr.config[_KernelEnvInfo].dependencies,
         progress_message = "Preparing for module build %s" % ctx.label,
         command = command,
     )
@@ -483,7 +483,7 @@ def _modules_prepare_impl(ctx):
            tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
            """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
 
-    return [KernelEnvInfo(
+    return [_KernelEnvInfo(
         dependencies = [ctx.outputs.outdir_tar_gz],
         setup = setup,
     )]
@@ -493,7 +493,7 @@ _modules_prepare = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo],
+            providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
@@ -505,7 +505,7 @@ _modules_prepare = rule(
     },
 )
 
-KernelModuleInfo = provider(fields = {
+_KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
     "module_staging_archive": "Archive containing directory for staging kernel modules. Does not contain the lib/modules/* suffix.",
 })
@@ -514,7 +514,7 @@ def _kernel_module_impl(ctx):
     name = ctx.label.name
 
     for kernel_module_dep in ctx.attr.kernel_module_deps:
-        if kernel_module_dep[KernelModuleInfo].kernel_build != \
+        if kernel_module_dep[_KernelModuleInfo].kernel_build != \
            ctx.attr.kernel_build:
             fail((
                 "{name} refers to kernel_build {kernel_build}, but " +
@@ -524,22 +524,22 @@ def _kernel_module_impl(ctx):
                 name = ctx.label,
                 kernel_build = ctx.attr.kernel_build.label,
                 dep = kernel_module_dep.label,
-                dep_kernel_build = kernel_module_dep[KernelModuleInfo].kernel_build.label,
+                dep_kernel_build = kernel_module_dep[_KernelModuleInfo].kernel_build.label,
             ))
 
     inputs = []
     inputs += ctx.files.srcs
-    inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[KernelBuildInfo].srcs
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += ctx.attr.kernel_build[_KernelBuildInfo].srcs
     inputs += [
-        ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive,
+        ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
         ctx.file.makefile,
         ctx.file._search_and_mv_output,
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
-        inputs += kernel_module_dep[KernelEnvInfo].dependencies
-        inputs.append(kernel_module_dep[KernelModuleInfo].module_staging_archive)
+        inputs += kernel_module_dep[_KernelEnvInfo].dependencies
+        inputs.append(kernel_module_dep[_KernelModuleInfo].module_staging_archive)
 
     module_staging_archive = ctx.actions.declare_file("module_staging_archive.tar.gz")
     module_staging_dir = module_staging_archive.dirname + "/staging"
@@ -559,20 +559,20 @@ def _kernel_module_impl(ctx):
         module_symvers,
     ]
 
-    command = ctx.attr.kernel_build[KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[KernelEnvInfo].setup
+    command = ctx.attr.kernel_build[_KernelEnvInfo].setup
+    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {module_staging_dir}
     """.format(module_staging_dir = module_staging_dir)
     for kernel_module_dep in ctx.attr.kernel_module_deps:
-        command += kernel_module_dep[KernelEnvInfo].setup
+        command += kernel_module_dep[_KernelEnvInfo].setup
 
         # TODO(b/194347374): ensure that output files for different modules don't conflict.
         command += """
             tar xf {module_staging_archive} -C {module_staging_dir}
         """.format(
-            module_staging_archive = kernel_module_dep[KernelModuleInfo].module_staging_archive.path,
+            module_staging_archive = kernel_module_dep[_KernelModuleInfo].module_staging_archive.path,
             module_staging_dir = module_staging_dir,
         )
     command += """
@@ -603,7 +603,7 @@ def _kernel_module_impl(ctx):
                """.format(
         ext_mod = ctx.file.makefile.dirname,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
-        kernel_build_module_staging_archive = ctx.attr.kernel_build[KernelBuildInfo].module_staging_archive.path,
+        kernel_build_module_staging_archive = ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
         module_symvers = module_symvers.path,
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
@@ -642,11 +642,11 @@ def _kernel_module_impl(ctx):
     # the label is available, but this rule doesn't explicitly return it in the info.
     return [
         DefaultInfo(files = depset(ctx.outputs.outs + additional_declared_outputs)),
-        KernelEnvInfo(
+        _KernelEnvInfo(
             dependencies = additional_declared_outputs,
             setup = setup,
         ),
-        KernelModuleInfo(
+        _KernelModuleInfo(
             kernel_build = ctx.attr.kernel_build,
             module_staging_archive = module_staging_archive,
         ),
@@ -692,12 +692,12 @@ Example:
         ),
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo, KernelBuildInfo],
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
             doc = "Label referring to the kernel_build module",
         ),
         "kernel_module_deps": attr.label_list(
             doc = "A list of other kernel_module dependencies",
-            providers = [KernelEnvInfo, KernelModuleInfo],
+            providers = [_KernelEnvInfo, _KernelModuleInfo],
         ),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
@@ -746,7 +746,7 @@ with the label `out`.
         ),
         "_modules_prepare": attr.label(
             default = _get_modules_prepare,
-            providers = [KernelEnvInfo],
+            providers = [_KernelEnvInfo],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
