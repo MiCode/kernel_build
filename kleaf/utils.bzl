@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This is all inspired by the bazel-skylib
+# https://github.com/bazelbuild/bazel-skylib/blob/main/rules/common_settings.bzl
+
 BuildSettingInfo = provider(
     doc = "A singleton provider that contains the raw value of a build setting",
     fields = {
@@ -28,4 +31,23 @@ bool_flag = rule(
     implementation = _impl,
     build_setting = config.bool(flag = True),
     doc = "A bool-typed build setting that can be set on the command line",
+)
+
+def _string_impl(ctx):
+    allowed_values = ctx.attr.values
+    value = ctx.build_setting_value
+    if len(allowed_values) == 0 or value in ctx.attr.values:
+        return BuildSettingInfo(value = value)
+    else:
+        fail("Error setting " + str(ctx.label) + ": invalid value '" + value + "'. Allowed values are " + str(allowed_values))
+
+string_flag = rule(
+    implementation = _string_impl,
+    build_setting = config.string(flag = True),
+    attrs = {
+        "values": attr.string_list(
+            doc = "The list of allowed values for this setting. An error is raised if any other value is given.",
+        ),
+    },
+    doc = "A string-typed build setting that can be set on the command line",
 )
