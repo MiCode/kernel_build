@@ -419,6 +419,7 @@ function create_modules_staging() {
   local dest_stage=$3
   local modules_blocklist_file=$4
   local depmod_flags=$5
+  local list_order=$6
 
   rm -rf ${dest_dir}
   mkdir -p ${dest_dir}/kernel
@@ -464,7 +465,12 @@ function create_modules_staging() {
 
     # grep the modules.order for any KOs in the modules list
     cp ${dest_dir}/modules.order ${old_modules_list}
-    ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
+    if [ "${list_order}" = "1" ]; then
+        sed -i 's/.*\///g' ${old_modules_list}
+        ! grep -w -f ${old_modules_list} ${modules_list_filter} > ${dest_dir}/modules.order
+    else
+        ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
+    fi
     rm -f ${modules_list_filter} ${old_modules_list}
     cat ${dest_dir}/modules.order | sed -e "s/^/  /"
   fi
@@ -1118,7 +1124,7 @@ if [ -n "${MODULES}" ]; then
     echo " Creating initramfs"
     rm -rf ${INITRAMFS_STAGING_DIR}
     create_modules_staging "${MODULES_LIST}" ${MODULES_STAGING_DIR} \
-      ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e"
+      ${INITRAMFS_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e" "${MODULES_LIST_ORDER}"
 
     MODULES_ROOT_DIR=$(echo ${INITRAMFS_STAGING_DIR}/lib/modules/*)
     cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
