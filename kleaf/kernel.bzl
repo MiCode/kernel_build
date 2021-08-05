@@ -44,11 +44,11 @@ def kernel_build(
     - `kernel_aarch64_config` provides the kernel config.
 
     Args:
-        name: the final kernel target name, e.g. `"kernel_aarch64"`
-        build_config: the path to the build config from the directory containing
-           the WORKSPACE file, e.g. `"common/build.config.gki.aarch64"`
-        srcs: the kernel sources (a `glob()`)
-        outs: the expected output files. For each item `out`:
+        name: The final kernel target name, e.g. `"kernel_aarch64"`.
+        build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
+        srcs: The kernel sources (a `glob()`).
+        deps: Additional dependencies to build this kernel.
+        outs: The expected output files. For each item `out`:
 
           - If `out` does not contain a slash, the build rule
             automatically finds a file with name `out` in the kernel
@@ -88,7 +88,7 @@ def kernel_build(
             They are also the labels to the output files, respectively.
 
             See `search_and_mv_output.py` for details.
-        toolchain_version: the toolchain version to depend on
+        toolchain_version: The toolchain version to depend on.
     """
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
@@ -687,90 +687,103 @@ kernel_module = rule(
     implementation = _kernel_module_impl,
     doc = """Generates a rule that builds an external kernel module.
 
-          Example:
-          ```
-              kernel_module(
-                  name = "nfc",
-                  srcs = glob([
-                      "**/*.c",
-                      "**/*.h",
+Example:
+```
+kernel_module(
+    name = "nfc",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
 
-                      # If there are Kbuild files, add them
-                      "**/Kbuild",
-                      # If there are additional makefiles in subdirectories, add them
-                      "**/Makefile",
-                  ]),
-                  outs = ["nfc.ko"],
-                  kernel_build = "//common:kernel_aarch64",
-                  makefile = ":Makefile",
-              )
-          ```
-          """,
+        # If there are Kbuild files, add them
+        "**/Kbuild",
+        # If there are additional makefiles in subdirectories, add them
+        "**/Makefile",
+    ]),
+    outs = ["nfc.ko"],
+    kernel_build = "//common:kernel_aarch64",
+    makefile = ":Makefile",
+)
+```
+""",
     attrs = {
         "srcs": attr.label_list(
             mandatory = True,
             allow_files = True,
-            doc = "source files to build this kernel module",
+            doc = "Source files to build this kernel module.",
         ),
         # TODO figure out how to specify default :Makefile
         "makefile": attr.label(
             allow_single_file = True,
-            doc = """Label referring to the makefile. This is where "make" is executed on ("make -C $(dirname ${makefile})").""",
+            doc = """Label referring to the makefile. This is where `make` is executed on (`make -C $(dirname ${makefile})`).""",
         ),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo, _KernelBuildInfo],
-            doc = "Label referring to the kernel_build module",
+            doc = "Label referring to the kernel_build module.",
         ),
         "kernel_module_deps": attr.label_list(
-            doc = "A list of other kernel_module dependencies",
+            doc = "A list of other kernel_module dependencies.",
             providers = [_KernelEnvInfo, _KernelModuleInfo],
         ),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(
-            doc = """the expected output files.
+            doc = """The expected output files.
 
-                  For each token `out`, the build rule automatically finds a
-                  file named `out` in the legacy kernel modules staging
-                  directory. The file is copied to the output directory of
-                  this package, with the label `out`.
+For each token `out`, the build rule automatically finds a
+file named `out` in the legacy kernel modules staging
+directory. The file is copied to the output directory of
+this package, with the label `out`.
 
-                  - If `out` doesn't contain a slash, subdirectories are searched.
+- If `out` doesn't contain a slash, subdirectories are searched.
 
-                    Example:
-                    ```
-                    kernel_module(name = "nfc", outs = ["nfc.ko"])
-                    ```
+    Example:
+    ```
+    kernel_module(name = "nfc", outs = ["nfc.ko"])
+    ```
 
-                    The build system copies
-                      `<legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko`
-                    to
-                      `<package output dir>/nfc.ko`.
-                    `nfc.ko` is the label to the file.
+    The build system copies
+    ```
+    <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko
+    ```
+    to
+    ```
+    <package output dir>/nfc.ko
+    ```
 
-                  - If {out} contains slashes, its value is used. The file is
-                    also copied to the top of package output directory.
+    `nfc.ko` is the label to the file.
 
-                    For example:
-                    kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+- If {out} contains slashes, its value is used. The file is
+  also copied to the top of package output directory.
 
-                    The build system copies
-                      `<legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko`
-                    to
-                      `foo/nfc.ko`.
-                    `foo/nfc.ko` is the label to the file.
+    For example:
+    ```
+    kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+    ```
 
-                    The file is also copied to
-                      `<package output dir>/nfc.ko`.
-                    `nfc.ko` is the label to the file.
-                    See `search_and_mv_output.py` for details.
-                  """,
+    The build system copies
+    ```
+    <legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko
+    ```
+    to
+    ```
+    foo/nfc.ko
+    ```
+
+    `foo/nfc.ko` is the label to the file.
+
+    The file is also copied to `<package output dir>/nfc.ko`.
+
+    `nfc.ko` is the label to the file.
+
+    See `search_and_mv_output.py` for details.
+""",
         ),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
-            doc = "label referring to the script to process outputs",
+            doc = "Label referring to the script to process outputs",
         ),
         "_modules_prepare": attr.label(
             default = _get_modules_prepare,
