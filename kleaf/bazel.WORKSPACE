@@ -17,3 +17,13 @@ toplevel_output_directories(paths = ["out"])
 load("//build/kleaf:environment.bzl", "capture_env")
 
 capture_env()
+
+local_repository(
+    name = "bazel_skylib",
+    path = "external/bazel-skylib",
+)
+
+local_repository(
+    name = "io_bazel_stardoc",
+    path = "external/stardoc",
+)

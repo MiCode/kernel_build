@@ -13,6 +13,8 @@
 # limitations under the License.
 
 load("//build/kleaf:utils.bzl", "bool_flag", "string_flag")
+load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -46,3 +48,33 @@ exports_files([
     "preserve_env.sh",
     "search_and_mv_output.py",
 ])
+
+# Docs. To view them:
+#   bazel build //build/kleaf:docs
+#   # Examine bazel-bin/build/kleaf/*.md
+
+kernel_rule_files = [
+    "environment",
+    "kernel",
+    "utils",
+]
+
+bzl_library(
+    name = "kernel-rules",
+    srcs = [name + ".bzl" for name in kernel_rule_files],
+)
+
+[stardoc(
+    name = name + "-docs",
+    out = name + ".md",
+    func_template = "templates/func.vm",
+    input = name + ".bzl",
+    provider_template = "templates/provider.vm",
+    rule_template = "templates/rule.vm",
+    deps = ["kernel-rules"],
+) for name in kernel_rule_files]
+
+filegroup(
+    name = "docs",
+    srcs = [name + "-docs" for name in kernel_rule_files],
+)
