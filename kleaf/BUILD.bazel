@@ -54,6 +54,7 @@ exports_files([
 #   # Examine bazel-bin/build/kleaf/*.md
 
 kernel_rule_files = [
+    "common_kernels",
     "environment",
     "kernel",
     "utils",
