@@ -14,7 +14,7 @@
 
 load("//build/kleaf:utils.bzl", "BuildSettingInfo")
 
-_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r416183b"
+_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r428724"
 
 def _debug_trap():
     return """set -x
