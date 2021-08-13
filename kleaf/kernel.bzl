@@ -107,6 +107,7 @@ def kernel_build(
         name = env_target_name,
         build_config = build_config,
         srcs = build_config_srcs,
+        toolchain_version = toolchain_version,
     )
 
     _kernel_config(
@@ -255,7 +256,6 @@ _kernel_env = rule(
             doc = "label referring to the script capturing the environment",
         ),
         "toolchain_version": attr.string(
-            default = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
             doc = "the toolchain to use for this environment",
         ),
         "_tools": attr.label_list(default = _get_tools),
