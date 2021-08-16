@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kleaf:utils.bzl", "BuildSettingInfo")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r428724"
 
