@@ -56,7 +56,6 @@ exports_files([
 kernel_rule_files = [
     "environment",
     "kernel",
-    "utils",
 ]
 
 bzl_library(
