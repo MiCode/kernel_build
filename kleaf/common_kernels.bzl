@@ -19,15 +19,15 @@ def define_common_kernels():
 
     This macro expands to the commonly defined common kernels (such as the GKI
     kernels and their variants. They are defined based on the conventionally
-    used BUILD_CONFIG file and produce usual output files.
+    used `BUILD_CONFIG` file and produce usual output files.
 
     The targets declared:
-      kernel_aarch64
-      kernel_aarch64_debug
-      kernel_x86_64
-      kernel_x86_64_debug
+    - `kernel_aarch64`
+    - `kernel_aarch64_debug`
+    - `kernel_x86_64`
+    - `kernel_x86_64_debug`
 
-    An alias is created to refer to the GKI kernel (kernel_aarch64) as 'kernel'.
+    An alias is created to refer to the GKI kernel (`kernel_aarch64`) as "`kernel`".
     """
     common_outs = [
         "System.map",

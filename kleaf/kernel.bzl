@@ -29,12 +29,12 @@ def kernel_build(
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
 
-    It uses a build_config to construct a deterministic build environment (e.g.
+    It uses a `build_config` to construct a deterministic build environment (e.g.
     `common/build.config.gki.aarch64`). The kernel sources need to be declared
     via srcs (using a glob). outs declares the output files that are surviving
     the build. The effective output file names will be
     `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
-    accessible after the rule has run. The default toolchain_version is defined
+    accessible after the rule has run. The default `toolchain_version` is defined
     with a sensible default, but can be overriden.
 
     Two additional labels, `{name}_env` and `{name}_config`, are generated.
