@@ -44,7 +44,6 @@ bool_flag(
 )
 
 exports_files([
-    "environment.bzl",
     "preserve_env.sh",
     "search_and_mv_output.py",
 ])
@@ -55,7 +54,6 @@ exports_files([
 
 kernel_rule_files = [
     "common_kernels",
-    "environment",
     "kernel",
 ]
 
