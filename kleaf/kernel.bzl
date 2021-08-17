@@ -31,7 +31,7 @@ def kernel_build(
 
     It uses a `build_config` to construct a deterministic build environment (e.g.
     `common/build.config.gki.aarch64`). The kernel sources need to be declared
-    via srcs (using a glob). outs declares the output files that are surviving
+    via srcs (using a `glob()`). outs declares the output files that are surviving
     the build. The effective output file names will be
     `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
     accessible after the rule has run. The default `toolchain_version` is defined
