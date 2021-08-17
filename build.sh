@@ -188,6 +188,8 @@
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #       (defaults to 3)
+#     - BOOT_IMAGE_FILENAME=<name of the output file>
+#       (defaults to "boot.img")
 #     - KERNEL_CMDLINE=<string of kernel parameters for boot>
 #     - KERNEL_VENDOR_CMDLINE=<string of kernel parameters for vendor boot image,
 #       vendor_boot when BOOT_IMAGE_HEADER_VERSION >= 3; boot otherwise>
@@ -1165,8 +1167,11 @@ if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
     fi
   fi
 
+  if [ -z "${BOOT_IMAGE_FILENAME}" ]; then
+    BOOT_IMAGE_FILENAME="boot.img"
+  fi
   if [ -n "${BUILD_BOOT_IMG}" ]; then
-    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${BOOT_IMAGE_FILENAME}")
   fi
 
   for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
@@ -1175,17 +1180,17 @@ if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
 
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
 
-  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/boot.img" ]; then
-    echo "boot image created at ${DIST_DIR}/boot.img"
+  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
+    echo "boot image created at ${DIST_DIR}/${BOOT_IMAGE_FILENAME}"
 
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
       if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
           && [ -n "${AVB_BOOT_KEY}" ] \
           && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
-        echo "Signing the boot.img..."
+        echo "Signing ${BOOT_IMAGE_FILENAME}..."
         avbtool add_hash_footer --partition_name boot \
             --partition_size ${AVB_BOOT_PARTITION_SIZE} \
-            --image ${DIST_DIR}/boot.img \
+            --image "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" \
             --algorithm ${AVB_BOOT_ALGORITHM} \
             --key ${AVB_BOOT_KEY}
       else
