@@ -1,6 +1,4 @@
-<a name="#${funcInfo.functionName}"></a>
-
-#[[##]]# ${funcInfo.functionName}
+#[[#]]# `${funcInfo.functionName}`
 
 <pre>
 ${util.funcSummary($funcInfo)}
@@ -8,12 +6,12 @@ ${util.funcSummary($funcInfo)}
 
 ${funcInfo.docString}
 
-#[[###]]## Parameters
+#[[##]]## Parameters
 
 #if (!$funcInfo.getParameterList().isEmpty())
 
 #foreach ($param in $funcInfo.getParameterList())
-#[[####]]## ${param.name} <a name="${funcInfo.functionName}-${param.name}"></a> #[[{:#]]#${funcInfo.functionName}-${param.name}#[[}]]#
+#[[###]]## `${param.name}` #[[{:#]]#${funcInfo.functionName}-${param.name}#[[}]]#
 
 #if(${param.getDefaultValue().isEmpty()}) *Required.* #else *Optional.* *Default is* `${param.getDefaultValue()}`. #end ${param.docString}
 

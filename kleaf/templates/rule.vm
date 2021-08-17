@@ -1,6 +1,4 @@
-<a name="#${ruleName}"></a>
-
-#[[##]]# ${ruleName}
+#[[#]]# `${ruleName}`
 
 <pre>
 ${util.ruleSummary($ruleName, $ruleInfo)}
@@ -8,12 +6,12 @@ ${util.ruleSummary($ruleName, $ruleInfo)}
 
 ${ruleInfo.docString}
 
-#[[###]]# Attributes
+#[[##]]# Attributes
 
 #if (!$ruleInfo.getAttributeList().isEmpty())
 
 #foreach ($attribute in $ruleInfo.getAttributeList())
-#[[####]]# ${attribute.name} <a name="${ruleName}-${attribute.name}"></a> #[[{:#]]#${ruleName}-${attribute.name}#[[}]]#
+#[[###]]# `${attribute.name}` #[[{:#]]#${ruleName}-${attribute.name}#[[}]]#
 
 *${util.attributeTypeString($attribute)}.* #if(${attribute.mandatory}) *Required.* #else *Optional.* #end #if(!${attribute.defaultValue.isEmpty()}) *Default is* `${attribute.defaultValue}`. #end $attribute.docString
 
