@@ -78,3 +78,23 @@ filegroup(
     name = "docs",
     srcs = [name + "-docs" for name in kernel_rule_files],
 )
+
+#
+# Remote Build Execution (RBE) Definitions
+#
+_CONTAINER = "gcr.io/androidbuild-re-dockerimage/android-build-remoteexec-image"
+
+_CONTAINER_VERSION = "sha256:582efb38f0c229ea39952fff9e132ccbe183e14869b39888010dacf56b360d62"
+
+platform(
+    name = "rbe_platform",
+    constraint_values = [
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:x86_64",
+    ],
+    exec_properties = {
+        "container-image": "docker://%s@%s" % (_CONTAINER, _CONTAINER_VERSION),
+        "OSFamily": "Linux",
+    },
+    parents = ["@local_config_platform//:host"],
+)
