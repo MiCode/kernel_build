@@ -19,9 +19,7 @@ genrule(
     name = "host-tools",
     outs = [
         "host-tools/bash",
-        "host-tools/git",
         "host-tools/perl",
-        "host-tools/rsync",
         "host-tools/sh",
         "host-tools/tar",
     ],

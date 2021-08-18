@@ -44,7 +44,6 @@ bool_flag(
 )
 
 exports_files([
-    "environment.bzl",
     "preserve_env.sh",
     "search_and_mv_output.py",
 ])
@@ -55,13 +54,14 @@ exports_files([
 
 kernel_rule_files = [
     "common_kernels",
-    "environment",
     "kernel",
 ]
 
 bzl_library(
     name = "kernel-rules",
-    srcs = [name + ".bzl" for name in kernel_rule_files],
+    srcs = [name + ".bzl" for name in kernel_rule_files] + [
+        "@bazel_skylib//rules:common_settings",
+    ],
 )
 
 [stardoc(
