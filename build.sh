@@ -248,6 +248,8 @@
 #     - AVB_BOOT_ALGORITHM=<AVB_BOOT_KEY algorithm used> e.g. SHA256_RSA2048. For the
 #       full list of supported algorithms, refer to the enum AvbAlgorithmType in
 #       https://android.googlesource.com/platform/external/avb/+/refs/heads/master/libavb/avb_crypto.h
+#     - AVB_BOOT_PARTITION_NAME=<name of the boot partition>
+#       (defaults to BOOT_IMAGE_FILENAME without extension; by default, "boot")
 #
 #   BUILD_INITRAMFS
 #     if set to "1", build a ramdisk containing all .ko files and resulting
@@ -1188,7 +1190,13 @@ if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
           && [ -n "${AVB_BOOT_KEY}" ] \
           && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
         echo "Signing ${BOOT_IMAGE_FILENAME}..."
-        avbtool add_hash_footer --partition_name boot \
+
+        if [ -z "${AVB_BOOT_PARTITION_NAME}" ]; then
+          AVB_BOOT_PARTITION_NAME=${BOOT_IMAGE_FILENAME%%.*}
+        fi
+
+        avbtool add_hash_footer \
+            --partition_name ${AVB_BOOT_PARTITION_NAME} \
             --partition_size ${AVB_BOOT_PARTITION_SIZE} \
             --image "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" \
             --algorithm ${AVB_BOOT_ALGORITHM} \
