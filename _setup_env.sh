@@ -43,7 +43,7 @@ if [ -z "${KERNEL_DIR}" ]; then
     # for the case that KERNEL_DIR is specified in the BUILD_CONFIG file,
     # or via the config files sourced, the value of KERNEL_DIR
     # set here would be overwritten, and the specified value would be used.
-    build_config_path=$(realpath ${ROOT_DIR}/${BUILD_CONFIG})
+    build_config_path=$(readlink -f ${ROOT_DIR}/${BUILD_CONFIG})
     real_root_dir=${build_config_path%%${BUILD_CONFIG}}
     build_config_dir=$(dirname ${build_config_path})
     build_config_dir=${build_config_dir##${ROOT_DIR}/}

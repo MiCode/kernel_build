@@ -151,8 +151,9 @@ def _kernel_env_impl(ctx):
 
     command += """
         export SOURCE_DATE_EPOCH=0  # TODO(b/194772369)
-        # do not fail upon unset variables being read
-          set +u
+        # error on failures
+          set -e
+          set -o pipefail
         # Run Make in silence mode to suppress most of the info output
           export MAKEFLAGS="${{MAKEFLAGS}} -s"
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
@@ -190,8 +191,9 @@ def _kernel_env_impl(ctx):
         setup += _debug_trap()
 
     setup += """
-         # do not fail upon unset variables being read
-           set +u
+         # error on failures
+           set -e
+           set -o pipefail
          # source the build environment
            source {env}
          # setup the PATH to also include the host tools

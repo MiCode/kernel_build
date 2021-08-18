@@ -21,6 +21,9 @@ build --experimental_strict_action_env
 # Show the full set of flags for observability and debuggability.
 # common --announce_rc
 
+# Add support for remote building
+import %workspace%/build/kleaf/rbe.bazelrc
+
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 

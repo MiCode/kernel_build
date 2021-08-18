@@ -24,6 +24,7 @@ genrule(
         "host-tools/tar",
     ],
     cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
+    tags = ["no-remote"],
 )
 
 filegroup(
