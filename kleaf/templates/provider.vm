@@ -1,6 +1,4 @@
-<a name="#${providerName}"></a>
-
-#[[##]]# ${providerName}
+#[[#]]# `${providerName}`
 
 <pre>
 ${util.providerSummary($providerName, $providerInfo)}
@@ -8,12 +6,12 @@ ${util.providerSummary($providerName, $providerInfo)}
 
 ${providerInfo.docString}
 
-#[[###]]# Fields
+#[[##]]# Fields
 
 #if (!$providerInfo.fieldInfoList.isEmpty())
 
 #foreach ($field in $providerInfo.fieldInfoList)
-#[[####]]# $field.name ${field.name} <a name="${providerName}-${field.name}"></a> #[[{:#]]#${providerName}-${field.name}#[[}]]#
+#[[###]]# `$field.name` ${field.name} #[[{:#]]#${providerName}-${field.name}#[[}]]#
 
 ${field.docString}
 
