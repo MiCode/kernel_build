@@ -65,9 +65,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     const params = new URLSearchParams(window.location.search);
-    const file = params.get("file")
+    var file = params.get("file");
     if (!file) {
-        return;
+        file = "kernel.md";
     }
     if (!file.endsWith(".md")) {
         document.body.innerText = "Invalid param for file";
