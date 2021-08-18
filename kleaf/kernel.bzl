@@ -275,7 +275,13 @@ def _kernel_config_impl(ctx):
     srcs = [
         s
         for s in ctx.files.srcs
-        if "scripts" in s.path or not s.path.endswith((".h", ".c"))
+        if any([token in s.path for token in [
+            "Kbuild",
+            "Kconfig",
+            "Makefile",
+            "configs/",
+            "scripts/",
+        ]])
     ]
 
     config = ctx.outputs.config
