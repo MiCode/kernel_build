@@ -188,6 +188,8 @@
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #       (defaults to 3)
+#     - BOOT_IMAGE_FILENAME=<name of the output file>
+#       (defaults to "boot.img")
 #     - KERNEL_CMDLINE=<string of kernel parameters for boot>
 #     - KERNEL_VENDOR_CMDLINE=<string of kernel parameters for vendor boot image,
 #       vendor_boot when BOOT_IMAGE_HEADER_VERSION >= 3; boot otherwise>
@@ -246,6 +248,8 @@
 #     - AVB_BOOT_ALGORITHM=<AVB_BOOT_KEY algorithm used> e.g. SHA256_RSA2048. For the
 #       full list of supported algorithms, refer to the enum AvbAlgorithmType in
 #       https://android.googlesource.com/platform/external/avb/+/refs/heads/master/libavb/avb_crypto.h
+#     - AVB_BOOT_PARTITION_NAME=<name of the boot partition>
+#       (defaults to BOOT_IMAGE_FILENAME without extension; by default, "boot")
 #
 #   BUILD_INITRAMFS
 #     if set to "1", build a ramdisk containing all .ko files and resulting
@@ -1165,8 +1169,11 @@ if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
     fi
   fi
 
+  if [ -z "${BOOT_IMAGE_FILENAME}" ]; then
+    BOOT_IMAGE_FILENAME="boot.img"
+  fi
   if [ -n "${BUILD_BOOT_IMG}" ]; then
-    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${BOOT_IMAGE_FILENAME}")
   fi
 
   for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
@@ -1175,17 +1182,23 @@ if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
 
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
 
-  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/boot.img" ]; then
-    echo "boot image created at ${DIST_DIR}/boot.img"
+  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
+    echo "boot image created at ${DIST_DIR}/${BOOT_IMAGE_FILENAME}"
 
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
       if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
           && [ -n "${AVB_BOOT_KEY}" ] \
           && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
-        echo "Signing the boot.img..."
-        avbtool add_hash_footer --partition_name boot \
+        echo "Signing ${BOOT_IMAGE_FILENAME}..."
+
+        if [ -z "${AVB_BOOT_PARTITION_NAME}" ]; then
+          AVB_BOOT_PARTITION_NAME=${BOOT_IMAGE_FILENAME%%.*}
+        fi
+
+        avbtool add_hash_footer \
+            --partition_name ${AVB_BOOT_PARTITION_NAME} \
             --partition_size ${AVB_BOOT_PARTITION_SIZE} \
-            --image ${DIST_DIR}/boot.img \
+            --image "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" \
             --algorithm ${AVB_BOOT_ALGORITHM} \
             --key ${AVB_BOOT_KEY}
       else

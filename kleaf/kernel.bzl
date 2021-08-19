@@ -31,7 +31,7 @@ def kernel_build(
 
     It uses a `build_config` to construct a deterministic build environment (e.g.
     `common/build.config.gki.aarch64`). The kernel sources need to be declared
-    via srcs (using a glob). outs declares the output files that are surviving
+    via srcs (using a `glob()`). outs declares the output files that are surviving
     the build. The effective output file names will be
     `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
     accessible after the rule has run. The default `toolchain_version` is defined
@@ -151,8 +151,9 @@ def _kernel_env_impl(ctx):
 
     command += """
         export SOURCE_DATE_EPOCH=0  # TODO(b/194772369)
-        # do not fail upon unset variables being read
-          set +u
+        # error on failures
+          set -e
+          set -o pipefail
         # Run Make in silence mode to suppress most of the info output
           export MAKEFLAGS="${{MAKEFLAGS}} -s"
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
@@ -190,8 +191,9 @@ def _kernel_env_impl(ctx):
         setup += _debug_trap()
 
     setup += """
-         # do not fail upon unset variables being read
-           set +u
+         # error on failures
+           set -e
+           set -o pipefail
          # source the build environment
            source {env}
          # setup the PATH to also include the host tools
