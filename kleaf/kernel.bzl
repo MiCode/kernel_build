@@ -544,22 +544,33 @@ _KernelModuleInfo = provider(fields = {
                               "Does not contain the lib/modules/* suffix.",
 })
 
-def _kernel_module_impl(ctx):
-    name = ctx.label.name
+def _check_kernel_build(kernel_modules, kernel_build, this_label):
+    """Check that kernel_modules have the same kernel_build as the given one.
 
-    for kernel_module_dep in ctx.attr.kernel_module_deps:
-        if kernel_module_dep[_KernelModuleInfo].kernel_build != \
-           ctx.attr.kernel_build:
+    Args:
+        kernel_modules: the attribute of kernel_module dependencies. Should be
+          an attribute of a list of labels.
+        kernel_build: the attribute of kernel_build. Should be an attribute of
+          a label.
+        this_label: label of the module being checked.
+    """
+
+    for kernel_module in kernel_modules:
+        if kernel_module[_KernelModuleInfo].kernel_build != \
+           kernel_build:
             fail((
-                "{name} refers to kernel_build {kernel_build}, but " +
+                "{this_label} refers to kernel_build {kernel_build}, but " +
                 "depended kernel_module {dep} refers to kernel_build " +
                 "{kernel_build}. They must refer to the same kernel_build."
             ).format(
-                name = ctx.label,
-                kernel_build = ctx.attr.kernel_build.label,
-                dep = kernel_module_dep.label,
-                dep_kernel_build = kernel_module_dep[_KernelModuleInfo].kernel_build.label,
+                this_label = this_label,
+                kernel_build = kernel_build.label,
+                dep = kernel_module.label,
+                dep_kernel_build = kernel_module[_KernelModuleInfo].kernel_build.label,
             ))
+
+def _kernel_module_impl(ctx):
+    _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
     inputs = []
     inputs += ctx.files.srcs
@@ -780,6 +791,121 @@ this package, with the label `out`.
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
+        ),
+        "_modules_prepare": attr.label(
+            default = _get_modules_prepare,
+            providers = [_KernelEnvInfo],
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+    },
+)
+
+def _kernel_modules_install_impl(ctx):
+    _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
+
+    inputs = []
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += ctx.attr.kernel_build[_KernelBuildInfo].srcs
+    inputs += [
+        ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
+    ]
+    for kernel_module in ctx.attr.kernel_modules:
+        inputs += kernel_module[_KernelEnvInfo].dependencies
+        inputs += [
+            kernel_module[_KernelModuleInfo].module_staging_archive,
+        ]
+
+    module_staging_archive = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
+    module_staging_dir = module_staging_archive.dirname + "/staging"
+
+    command = ""
+    command += ctx.attr.kernel_build[_KernelEnvInfo].setup
+    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += """
+             # create dirs for modules
+               mkdir -p {module_staging_dir}
+             # Restore module_staging_dir from kernel_build
+               tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
+    """.format(
+        module_staging_dir = module_staging_dir,
+        kernel_build_module_staging_archive =
+            ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
+    )
+    for kernel_module in ctx.attr.kernel_modules:
+        command += kernel_module[_KernelEnvInfo].setup
+
+        command += """
+                 # Restore module_staging_dir from depended kernel_module
+                   tar xf {module_staging_archive} -C {module_staging_dir}
+        """.format(
+            module_staging_archive = kernel_module[_KernelModuleInfo].module_staging_archive.path,
+            module_staging_dir = module_staging_dir,
+        )
+
+    # TODO(b/194347374): maybe run depmod.sh with CONFIG_SHELL?
+    # TODO: Support mixed builds by setting mixed_build_prefix from KBUILD_MIXED_TREE
+    command += """
+             # Set variables
+               if [[ ! -f ${{OUT_DIR}}/include/config/kernel.release ]]; then
+                   echo "No ${{OUT_DIR}}/include/config/kernel.release"
+                   exit 1
+               fi
+               kernelrelease=$(cat ${{OUT_DIR}}/include/config/kernel.release 2> /dev/null)
+               mixed_build_prefix=
+               real_module_staging_dir=$(realpath {module_staging_dir})
+             # Run depmod
+               (
+                 cd ${{OUT_DIR}} # for System.map when mixed_build_prefix is not set
+                 INSTALL_MOD_PATH=${{real_module_staging_dir}} ${{ROOT_DIR}}/${{KERNEL_DIR}}/scripts/depmod.sh depmod ${{kernelrelease}} ${{mixed_build_prefix}}
+               )
+             # Archive module_staging_dir
+               tar czf {module_staging_archive} -C {module_staging_dir} .
+               rm -rf {module_staging_dir}
+    """.format(
+        module_staging_dir = module_staging_dir,
+        module_staging_archive = module_staging_archive.path,
+    )
+
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [module_staging_archive],
+        command = command,
+        progress_message = "Running depmod {}".format(ctx.label),
+    )
+    return [
+        DefaultInfo(files = depset([module_staging_archive])),
+    ]
+
+kernel_modules_install = rule(
+    implementation = _kernel_modules_install_impl,
+    doc = """Generates a rule that runs depmod in the module installation directory.
+
+Example:
+```
+kernel_modules_install(
+    name = "foo_modules_install",
+    kernel_build = "foo", // A kernel_build rule
+    kernel_modules = [ // kernel_module rules
+        "//path/to/nfc:nfc_module",
+    ],
+)
+```
+""",
+    attrs = {
+        "kernel_modules": attr.label_list(
+            providers = [_KernelEnvInfo, _KernelModuleInfo],
+            doc = "A list of labels referring to `kernel_module`s to install. Must have the same `kernel_build` as this rule.",
+        ),
+        "kernel_build": attr.label(
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
+            doc = "Label referring to the `kernel_build` module.",
         ),
         "_modules_prepare": attr.label(
             default = _get_modules_prepare,
