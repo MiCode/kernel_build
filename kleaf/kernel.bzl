@@ -567,13 +567,11 @@ def _kernel_module_impl(ctx):
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].srcs
     inputs += [
-        ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
         ctx.file.makefile,
         ctx.file._search_and_mv_output,
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
-        inputs.append(kernel_module_dep[_KernelModuleInfo].module_staging_archive)
 
     module_staging_archive = ctx.actions.declare_file("module_staging_archive.tar.gz")
     module_staging_dir = module_staging_archive.dirname + "/staging"
@@ -602,14 +600,6 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[_KernelEnvInfo].setup
 
-        # TODO(b/194347374): ensure that output files for different modules don't conflict.
-        command += """
-            tar xf {module_staging_archive} -C {module_staging_dir}
-        """.format(
-            module_staging_archive = kernel_module_dep[_KernelModuleInfo].module_staging_archive.path,
-            module_staging_dir = module_staging_dir,
-        )
-
     module_staging_outs = ["lib/modules/*/extra/" + out.name for out in ctx.attr.outs]
     command += """
              # Set variables
@@ -617,8 +607,6 @@ def _kernel_module_impl(ctx):
                  module_strip_flag="INSTALL_MOD_STRIP=1"
                fi
                ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
-             # Restore module_staging_dir from kernel_build
-               tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
 
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
@@ -639,8 +627,6 @@ def _kernel_module_impl(ctx):
                """.format(
         ext_mod = ctx.file.makefile.dirname,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
-        kernel_build_module_staging_archive =
-            ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
         module_symvers = module_symvers.path,
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
