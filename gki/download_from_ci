@@ -136,7 +136,7 @@ def get_build_kernel_version(data):
   if branch == "aosp_kernel-common-android-mainline":
     return "mainline"
   else:
-    pattern = "android(\d\d)?-(?P<version>\d+\.\d+|\w\+)(-stable)?$"
+    pattern = "android(\d\d)?-(?P<version>\d+\.\d+|\w\+)(-stable)?(-\d{4}-\d{2})?$"
     result = re.search(pattern, branch)
     if not result:
       raise Exception("Could not determine kernel version in branch " + branch)
