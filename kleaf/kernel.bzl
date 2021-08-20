@@ -633,7 +633,7 @@ def _kernel_module_impl(ctx):
                  tar czf ${{module_staging_archive}} lib/modules/*/extra/{{{comma_separated_outs}}}
                )
              # Move files into place
-               {search_and_mv_output} --srcdir ${{OUT_DIR}}/${{ext_mod_rel}} --dstdir {outdir} {outs}
+               {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
              # Remove {module_staging_dir} because they are not declared
                rm -rf {module_staging_dir}
                """.format(
