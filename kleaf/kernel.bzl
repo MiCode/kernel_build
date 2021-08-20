@@ -588,9 +588,9 @@ def _kernel_module_impl(ctx):
         if "/" in short_name:
             additional_outputs.append(ctx.actions.declare_file(out.basename))
 
-    ext_mod_archive = ctx.actions.declare_file("ext_mod_archive.tar.gz")
+    module_symvers = ctx.actions.declare_file("Module.symvers")
     additional_declared_outputs = [
-        ext_mod_archive,
+        module_symvers,
     ]
 
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
@@ -620,10 +620,6 @@ def _kernel_module_impl(ctx):
 
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
-
-             # Archive ext_mod
-               tar czf {ext_mod_archive} -C ${{OUT_DIR}}/${{ext_mod_rel}} .
-
              # Install into staging directory
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) ${{module_strip_flag}} modules_install
              # Archive module_staging_dir
@@ -636,12 +632,14 @@ def _kernel_module_impl(ctx):
                {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
              # Remove {module_staging_dir} because they are not declared
                rm -rf {module_staging_dir}
+             # Move Module.symvers
+               mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
         ext_mod = ctx.file.makefile.dirname,
-        ext_mod_archive = ext_mod_archive.path,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         kernel_build_module_staging_archive =
             ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
+        module_symvers = module_symvers.path,
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
         outdir = outdir,
@@ -666,14 +664,14 @@ def _kernel_module_impl(ctx):
                (
              # Set variables
                ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
-             # Restore ext_mod_archive
+             # Restore Modules.symvers
                mkdir -p ${{OUT_DIR}}/${{ext_mod_rel}}
-               tar xf {ext_mod_archive} -C ${{OUT_DIR}}/${{ext_mod_rel}}
+               cp {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers
              # New shell ends
                )
     """.format(
         ext_mod = ctx.file.makefile.dirname,
-        ext_mod_archive = ext_mod_archive.path,
+        module_symvers = module_symvers.path,
     )
 
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
