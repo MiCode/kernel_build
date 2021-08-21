@@ -392,7 +392,7 @@ _kernel_config = rule(
 _KernelBuildInfo = provider(fields = {
     "module_staging_archive": "Archive containing staging kernel modules. " +
                               "Does not contain the lib/modules/* suffix.",
-    "srcs": "sources for this kernel_build",
+    "module_srcs": "sources for this kernel_build for building external modules",
 })
 
 def _kernel_build_impl(ctx):
@@ -451,6 +451,15 @@ def _kernel_build_impl(ctx):
            cp -R {outdir}/* ${{OUT_DIR}}
            """.format(outdir = outdir.path)
 
+    module_srcs = [
+        s
+        for s in ctx.files.srcs
+        if s.path.endswith(".h") or any([token in s.path for token in [
+            "Makefile",
+            "scripts/",
+        ]])
+    ]
+
     return [
         _KernelEnvInfo(
             dependencies = ctx.attr.config[_KernelEnvInfo].dependencies +
@@ -459,7 +468,7 @@ def _kernel_build_impl(ctx):
         ),
         _KernelBuildInfo(
             module_staging_archive = module_staging_archive,
-            srcs = ctx.files.srcs,
+            module_srcs = module_srcs,
         ),
     ]
 
@@ -576,7 +585,7 @@ def _kernel_module_impl(ctx):
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[_KernelBuildInfo].srcs
+    inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
         ctx.file.makefile,
         ctx.file._search_and_mv_output,
@@ -808,7 +817,7 @@ def _kernel_modules_install_impl(ctx):
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[_KernelBuildInfo].srcs
+    inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
         ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
     ]
