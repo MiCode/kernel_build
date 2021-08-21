@@ -609,6 +609,8 @@ def _kernel_module_impl(ctx):
             module_staging_archive = kernel_module_dep[_KernelModuleInfo].module_staging_archive.path,
             module_staging_dir = module_staging_dir,
         )
+
+    module_staging_outs = ["lib/modules/*/extra/" + out.name for out in ctx.attr.outs]
     command += """
              # Set variables
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
@@ -626,7 +628,7 @@ def _kernel_module_impl(ctx):
                (
                  module_staging_archive=$(realpath {module_staging_archive})
                  cd {module_staging_dir}
-                 tar czf ${{module_staging_archive}} lib/modules/*/extra/{{{comma_separated_outs}}}
+                 tar czf ${{module_staging_archive}} {module_staging_outs}
                )
              # Move files into place
                {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
@@ -644,7 +646,7 @@ def _kernel_module_impl(ctx):
         module_staging_archive = module_staging_archive.path,
         outdir = outdir,
         outs = " ".join([out.name for out in ctx.attr.outs]),
-        comma_separated_outs = "".join([out.name + "," for out in ctx.attr.outs]),
+        module_staging_outs = " ".join(module_staging_outs),
     )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
