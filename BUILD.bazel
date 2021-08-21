@@ -20,6 +20,7 @@ genrule(
     outs = [
         "host-tools/bash",
         "host-tools/perl",
+        "host-tools/rsync",
         "host-tools/sh",
         "host-tools/tar",
     ],
