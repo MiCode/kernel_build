@@ -489,16 +489,16 @@ _kernel_build = rule(
 )
 
 def _modules_prepare_impl(ctx):
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Prepare for the module build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
          # Package files
            tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
     """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
+
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs,
