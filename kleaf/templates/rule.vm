@@ -11,8 +11,7 @@ ${ruleInfo.docString}
 #if (!$ruleInfo.getAttributeList().isEmpty())
 
 #foreach ($attribute in $ruleInfo.getAttributeList())
-#[[###]]# `${attribute.name}` #[[{:#]]#${ruleName}-${attribute.name}#[[}]]#
-
+<a name="${ruleName}-${attribute.name}" /> **`${attribute.name}`**
 *${util.attributeTypeString($attribute)}.* #if(${attribute.mandatory}) *Required.* #else *Optional.* #end #if(!${attribute.defaultValue.isEmpty()}) *Default is* `${attribute.defaultValue}`. #end $attribute.docString
 
 #end
