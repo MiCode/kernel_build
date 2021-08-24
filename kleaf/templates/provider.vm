@@ -11,8 +11,7 @@ ${providerInfo.docString}
 #if (!$providerInfo.fieldInfoList.isEmpty())
 
 #foreach ($field in $providerInfo.fieldInfoList)
-#[[###]]# `$field.name` ${field.name} #[[{:#]]#${providerName}-${field.name}#[[}]]#
-
+<a name="${providerName}-${field.name}" /> **`${field.name}`**
 ${field.docString}
 
 #end

@@ -11,12 +11,11 @@ ${funcInfo.docString}
 #if (!$funcInfo.getParameterList().isEmpty())
 
 #foreach ($param in $funcInfo.getParameterList())
-#[[###]]## `${param.name}` #[[{:#]]#${funcInfo.functionName}-${param.name}#[[}]]#
-
+<a name="${funcInfo.functionName}-${param.name}"/> **`${param.name}`**
 #if(${param.getDefaultValue().isEmpty()}) *Required.* #else *Optional.* *Default is* `${param.getDefaultValue()}`. #end ${param.docString}
 
 #end
 #else
-No attributes.
+No parameters.
 
 #end
