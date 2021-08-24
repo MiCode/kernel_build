@@ -202,6 +202,53 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
 fi
 
 ################################################################################
+# Set up recompile and copy variables for edk2
+ANDROID_ABL_OUT_DIR=${ANDROID_KERNEL_OUT}/kernel-abl
+
+if [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-user/unsigned_abl.elf" ] && \
+  [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-userdebug/unsigned_abl.elf" ]; then
+  COPY_ABL_NEEDED=1
+fi
+
+for variant in "userdebug" "user"
+do
+  if [ -e "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${variant}.elf" ] && \
+    ! diff -q "${ANDROID_ABL_OUT_DIR}/abl-${variant}/unsigned_abl.elf" \
+    "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${variant}.elf" ; then
+    COPY_ABL_NEEDED=1
+  fi
+done
+
+if [ ! -e "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_user.elf" ] && \
+  [ ! -e "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_userdebug.elf" ] && \
+  [ "${COPY_ABL_NEEDED}" == "1" ]; then
+  RECOMPILE_ABL=1
+fi
+
+if [ "${RECOMPILE_ABL}" == "1" -o "${COPY_ABL_NEEDED}" == "1" ]; then
+  rm -rf ${ANDROID_ABL_OUT_DIR}
+fi
+
+################################################################################
+if [ "${RECOMPILE_ABL}" == "1" ]; then
+  if [ "${RECOMPILE_KERNEL}" == "1" -a -n "${ABL_SRC}" ]; then
+   echo "edk2 image already be generated!"
+  else
+    echo
+    echo "  Recompiling edk2"
+
+    (
+      cd ${ROOT_DIR}
+      OUT_DIR=${ANDROID_KP_OUT_DIR} \
+      DIST_DIR=${ANDROID_KP_OUT_DIR}/dist \
+      ./build/build_abl.sh ${KERNEL_TARGET}
+    )
+
+    COPY_ABL_NEEDED=1
+  fi
+fi
+
+################################################################################
 if [ "${COPY_NEEDED}" == "1" ]; then
   if [ ! -e "${ANDROID_KP_OUT_DIR}" ]; then
     echo "!! kernel platform output directory doesn't exist. Bad path or output wasn't copied?"
@@ -275,6 +322,26 @@ if [ "${COPY_NEEDED}" == "1" ]; then
     echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
   fi
 fi
+
+
+################################################################################
+if [ "${COPY_ABL_NEEDED}" == "1" ]; then
+  [ -e "${ANDROID_ABL_OUT_DIR}" ] && rm -rf ${ANDROID_ABL_OUT_DIR}
+  for variant in "userdebug" "user"
+  do
+    for file in LinuxLoader_${variant}.debug unsigned_abl_${variant}.elf ; do
+      if [ -e ${ANDROID_KP_OUT_DIR}/dist/${file} ]; then
+        if [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-${variant}" ]; then
+          mkdir -p ${ANDROID_ABL_OUT_DIR}/abl-${variant}
+        fi
+        FILE_NAME=$(echo ${file} | sed 's/_'${variant}'//g')
+        cp ${ANDROID_KP_OUT_DIR}/dist/${file} ${ANDROID_ABL_OUT_DIR}/abl-${variant}/${FILE_NAME}
+      fi
+    done
+  done
+fi
+
+################################################################################
 
 if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
   ANDROID_TO_KP=$(rel_path ${ROOT_DIR} ${ANDROID_BUILD_TOP})
