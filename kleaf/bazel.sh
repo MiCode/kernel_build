@@ -22,6 +22,12 @@ BAZELRC_NAME="build/kleaf/common.bazelrc"
 
 ABSOLUTE_OUT_DIR="${ROOT_DIR}/out"
 
+export SOURCE_DATE_EPOCH=$(${ROOT_DIR}/build/kleaf/source_date_epoch.sh)
+if [ -z "${SOURCE_DATE_EPOCH}" ]; then
+  echo "Unable to determine SOURCE_DATE_EPOCH, fallback to 0" >&2
+  export SOURCE_DATE_EPOCH=0
+fi
+
 exec "${BAZEL_PATH}" \
   --server_javabase="${BAZEL_JDK_PATH}" \
   --output_user_root="${ABSOLUTE_OUT_DIR}/bazel/output_user_root" \
