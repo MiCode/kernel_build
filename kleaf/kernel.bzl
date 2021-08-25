@@ -819,6 +819,7 @@ def _kernel_modules_install_impl(ctx):
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
+        ctx.file._check_duplicated_files_in_archives,
         ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
     ]
     for kernel_module in ctx.attr.kernel_modules:
@@ -838,6 +839,7 @@ def _kernel_modules_install_impl(ctx):
                mkdir -p {module_staging_dir}
              # Restore module_staging_dir from kernel_build
                tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
+               module_staging_archives="{kernel_build_module_staging_archive}"
     """.format(
         module_staging_dir = module_staging_dir,
         kernel_build_module_staging_archive =
@@ -849,6 +851,7 @@ def _kernel_modules_install_impl(ctx):
         command += """
                  # Restore module_staging_dir from depended kernel_module
                    tar xf {module_staging_archive} -C {module_staging_dir}
+                   module_staging_archives="${{module_staging_archives}} {module_staging_archive}"
         """.format(
             module_staging_archive = kernel_module[_KernelModuleInfo].module_staging_archive.path,
             module_staging_dir = module_staging_dir,
@@ -857,6 +860,9 @@ def _kernel_modules_install_impl(ctx):
     # TODO(b/194347374): maybe run depmod.sh with CONFIG_SHELL?
     # TODO: Support mixed builds by setting mixed_build_prefix from KBUILD_MIXED_TREE
     command += """
+             # Check if there are duplicated files in module_staging_archive of
+             # depended kernel_build and kernel_module's
+               {check_duplicated_files_in_archives} ${{module_staging_archives}}
              # Set variables
                if [[ ! -f ${{OUT_DIR}}/include/config/kernel.release ]]; then
                    echo "No ${{OUT_DIR}}/include/config/kernel.release"
@@ -876,6 +882,7 @@ def _kernel_modules_install_impl(ctx):
     """.format(
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
+        check_duplicated_files_in_archives = ctx.file._check_duplicated_files_in_archives.path,
     )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
@@ -922,6 +929,11 @@ kernel_modules_install(
         ),
         "_debug_print_scripts": attr.label(
             default = "//build/kleaf:debug_print_scripts",
+        ),
+        "_check_duplicated_files_in_archives": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
+            doc = "Label referring to the script to process outputs",
         ),
     },
 )
