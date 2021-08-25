@@ -552,6 +552,9 @@ function build_super() {
   rm ${super_props_file}
 
   echo "super image created at ${DIST_DIR}/super.img"
+
+  simg2img ${DIST_DIR}/super.img ${DIST_DIR}/super_unsparsed.img
+  echo "Unsparsed super image created at ${DIST_DIR}/super_unsparsed.img"
 }
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
