@@ -597,6 +597,8 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.* GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
   GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
   GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
+  # Clean ABL_SRC, there is no need to compile abl for GKI_BUILD
+  GKI_ENVIRON+=("ABL_SRC=")
   ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
 
   # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
@@ -1076,6 +1078,30 @@ if [ -n "${MODULES}" ]; then
 
     mkbootfs "${INITRAMFS_STAGING_DIR}" >"${MODULES_STAGING_DIR}/initramfs.cpio"
     ${RAMDISK_COMPRESS} "${MODULES_STAGING_DIR}/initramfs.cpio" >"${DIST_DIR}/initramfs.img"
+  fi
+fi
+
+# Building abl.elf
+if [ -n "${ABL_SRC}" ]; then
+  if [ -e "${ROOT_DIR}/${ABL_SRC}" ]; then
+    if [ -n "${MSM_ARCH}" ]; then
+      ABL_ENVIRON=("ABL_SRC=${ABL_SRC}")
+      ABL_ENVIRON+=("OUT_DIR=${OUT_DIR}")
+      ABL_ENVIRON+=("DIST_DIR=${DIST_DIR}")
+      BUILD_VARIANTS=("userdebug")
+      [ -n "${COMPILE_ABL}" ] && BUILD_VARIANTS+=("user")
+      for variant in "${BUILD_VARIANTS[@]}"
+      do
+        ( env -i bash -c "export TARGET_BUILD_VARIANT=${variant}; export ${ABL_ENVIRON[*]} ; \
+        ./build/build_abl.sh" ${MSM_ARCH} )
+      done
+      [ -z "${TARGET_BUILD_VARIANT}" ] && TARGET_BUILD_VARIANT=userdebug
+      if [ -e "${DIST_DIR}/abl_${TARGET_BUILD_VARIANT}.elf" ]; then
+        ln -sf ${DIST_DIR}/abl_${TARGET_BUILD_VARIANT}.elf ${DIST_DIR}/abl.elf
+      fi
+    else
+      echo "*** Warning *** Set a msm arch in build.confg.msm.kalama for compiling abl - ex: kalama"
+    fi
   fi
 fi
 
