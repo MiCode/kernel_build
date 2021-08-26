@@ -52,6 +52,7 @@ def define_common_kernels():
                 "android/*",
                 "BUILD.bazel",
                 "**/*.bzl",
+                ".git/**",
             ],
         ),
         outs = outs,
