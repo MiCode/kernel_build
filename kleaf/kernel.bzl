@@ -37,11 +37,12 @@ def kernel_build(
     accessible after the rule has run. The default `toolchain_version` is defined
     with a sensible default, but can be overriden.
 
-    Two additional labels, `{name}_env` and `{name}_config`, are generated.
+    A few additional labels are generated.
     For example, if name is `"kernel_aarch64"`:
     - `kernel_aarch64_env` provides a source-able build environment defined by
       the build config.
     - `kernel_aarch64_config` provides the kernel config.
+    - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
@@ -131,6 +132,12 @@ def kernel_build(
         srcs = [sources_target_name],
         outs = [name + "/" + out for out in outs],
         deps = deps,
+    )
+
+    _kernel_uapi_headers(
+        name = name + "_uapi_headers",
+        config = config_target_name,
+        srcs = [sources_target_name],
     )
 
 _KernelEnvInfo = provider(fields = {
@@ -934,6 +941,52 @@ kernel_modules_install(
             allow_single_file = True,
             default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
             doc = "Label referring to the script to process outputs",
+        ),
+    },
+)
+
+def _kernel_uapi_headers_impl(ctx):
+    out_file = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
+    command = ctx.attr.config[_KernelEnvInfo].setup + """
+         # Create staging directory
+           mkdir -p {kernel_uapi_headers_dir}/usr
+         # Actual headers_install
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} INSTALL_HDR_PATH=$(realpath {kernel_uapi_headers_dir}/usr) headers_install
+         # Create archive
+           tar czf {out_file} --directory={kernel_uapi_headers_dir} usr/
+         # Delete kernel_uapi_headers_dir because it is not declared
+           rm -rf {kernel_uapi_headers_dir}
+    """.format(
+        out_file = out_file.path,
+        kernel_uapi_headers_dir = out_file.path + "_staging",
+    )
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs + ctx.attr.config[_KernelEnvInfo].dependencies,
+        outputs = [out_file],
+        progress_message = "Building UAPI kernel headers %s" % ctx.attr.name,
+        command = command,
+    )
+
+    return [
+        DefaultInfo(files = depset([out_file])),
+    ]
+
+_kernel_uapi_headers = rule(
+    implementation = _kernel_uapi_headers_impl,
+    doc = """Build kernel-uapi-headers.tar.gz""",
+    attrs = {
+        "srcs": attr.label_list(),
+        "config": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo],
+            doc = "the kernel_config target",
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
         ),
     },
 )

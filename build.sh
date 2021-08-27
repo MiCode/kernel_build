@@ -55,6 +55,12 @@
 #   EXT_MODULES
 #     Space separated list of external kernel modules to be build.
 #
+#   EXT_MODULES_MAKEFILE
+#     Location of a makefile to build external modules. If set, it will get
+#     called with all the necessary parameters to build and install external
+#     modules.  This allows for building them in parallel using makefile
+#     parallelization.
+#
 #   UNSTRIPPED_MODULES
 #     Space separated list of modules to be copied to <DIST_DIR>/unstripped
 #     for debugging purposes.
@@ -423,7 +429,7 @@ function create_modules_staging() {
   cp ${src_dir}/modules.order ${dest_dir}/modules.order
   cp ${src_dir}/modules.builtin ${dest_dir}/modules.builtin
 
-  if [ -n "${EXT_MODULES}" ]; then
+  if [[ -n "${EXT_MODULES}" ]] || [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
     mkdir -p ${dest_dir}/extra/
     cp -r ${src_dir}/extra/* ${dest_dir}/extra/
     (cd ${dest_dir}/ && \
@@ -836,6 +842,15 @@ if [ "${BUILD_INITRAMFS}" = "1" -o  -n "${IN_KERNEL_MODULES}" ]; then
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}" modules_install)
 fi
 
+if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
+  echo "========================================================"
+  echo " Building and installing external modules using ${EXT_MODULES_MAKEFILE}"
+
+  make -f "${EXT_MODULES_MAKEFILE}" KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR} \
+          O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}                 \
+          INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}"
+fi
+
 if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
   echo "========================================================"
   echo " Building external modules and installing them into staging directory"
@@ -966,7 +981,7 @@ fi
 
 MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 if [ -n "${MODULES}" ]; then
-  if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" ]; then
+  if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" -o -n "${EXT_MODULES_MAKEFILE}" ]; then
     echo "========================================================"
     echo " Copying modules files"
     for FILE in ${MODULES}; do
