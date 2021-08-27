@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r428724"
 
@@ -43,6 +44,7 @@ def kernel_build(
       the build config.
     - `kernel_aarch64_config` provides the kernel config.
     - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
+    - `kernel_aarch64_dist` to create a DIST_DIR distribution
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
@@ -146,6 +148,15 @@ def kernel_build(
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
         srcs = [sources_target_name],
+    )
+
+    copy_to_dist_dir(
+        name = name + "_dist",
+        data = [
+            name,
+            name + "_uapi_headers",
+            name + "_headers",
+        ],
     )
 
 _KernelEnvInfo = provider(fields = {
