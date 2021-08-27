@@ -140,6 +140,14 @@ def kernel_build(
         srcs = [sources_target_name],
     )
 
+    _kernel_headers(
+        name = name + "_headers",
+        kernel_build = name,
+        env = env_target_name,
+        # TODO: We need arch/ and include/ only.
+        srcs = [sources_target_name],
+    )
+
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
     "setup": "setup script to initialize the environment",
@@ -400,6 +408,7 @@ _KernelBuildInfo = provider(fields = {
     "module_staging_archive": "Archive containing staging kernel modules. " +
                               "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
+    "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
 })
 
 def _kernel_build_impl(ctx):
@@ -413,6 +422,9 @@ def _kernel_build_impl(ctx):
     module_staging_archive = ctx.actions.declare_file(
         "{name}/module_staging_dir.tar.gz".format(name = ctx.label.name),
     )
+    out_dir_kernel_headers_tar = ctx.actions.declare_file(
+        "{name}/out-dir-kernel-headers.tar.gz".format(name = ctx.label.name),
+    )
 
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Actual kernel build
@@ -424,6 +436,14 @@ def _kernel_build_impl(ctx):
            mkdir -p {module_staging_dir}
          # Install modules
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} ${{module_strip_flag}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) modules_install
+         # Archive headers in OUT_DIR
+           find ${{OUT_DIR}} -name *.h -print0                          \
+               | tar czf {out_dir_kernel_headers_tar}                   \
+                       --absolute-names                                 \
+                       --dereference                                    \
+                       --transform "s,.*$OUT_DIR,,"                     \
+                       --transform "s,^/,,"                             \
+                       --null -T -
          # Grab outputs
            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
          # Archive module_staging_dir
@@ -435,6 +455,7 @@ def _kernel_build_impl(ctx):
         outs = " ".join(outs),
         module_staging_dir = module_staging_archive.dirname + "/staging",
         module_staging_archive = module_staging_archive.path,
+        out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
     )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
@@ -447,6 +468,7 @@ def _kernel_build_impl(ctx):
         outputs = ctx.outputs.outs + [
             outdir,
             module_staging_archive,
+            out_dir_kernel_headers_tar,
         ],
         tools = ctx.attr.config[_KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
@@ -476,6 +498,7 @@ def _kernel_build_impl(ctx):
         _KernelBuildInfo(
             module_staging_archive = module_staging_archive,
             module_srcs = module_srcs,
+            out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         ),
     ]
 
@@ -984,6 +1007,68 @@ _kernel_uapi_headers = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+    },
+)
+
+def _kernel_headers_impl(ctx):
+    inputs = []
+    inputs += ctx.files.srcs
+    inputs += ctx.attr.env[_KernelEnvInfo].dependencies
+    inputs += [
+        ctx.attr.kernel_build[_KernelBuildInfo].out_dir_kernel_headers_tar,
+    ]
+    out_file = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
+    command = ctx.attr.env[_KernelEnvInfo].setup + """
+            # Restore headers in ${{OUT_DIR}}
+              mkdir -p ${{OUT_DIR}}
+              tar xf {out_dir_kernel_headers_tar} -C ${{OUT_DIR}}
+            # Create archive
+              (
+                real_out_file=$(realpath {out_file})
+                cd ${{ROOT_DIR}}/${{KERNEL_DIR}}
+                find arch include ${{OUT_DIR}} -name *.h -print0         \
+                    | tar czf ${{real_out_file}}                         \
+                        --absolute-names                                 \
+                        --dereference                                    \
+                        --transform "s,.*$OUT_DIR,,"                     \
+                        --transform "s,^,kernel-headers/,"               \
+                        --null -T -
+              )
+    """.format(
+        out_file = out_file.path,
+        out_dir_kernel_headers_tar = ctx.attr.kernel_build[_KernelBuildInfo].out_dir_kernel_headers_tar.path,
+    )
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [out_file],
+        progress_message = "Building kernel headers %s" % ctx.attr.name,
+        command = command,
+    )
+
+    return [
+        DefaultInfo(files = depset([out_file])),
+    ]
+
+_kernel_headers = rule(
+    implementation = _kernel_headers_impl,
+    doc = "Build kernel-headers.tar.gz",
+    attrs = {
+        "srcs": attr.label_list(),
+        "kernel_build": attr.label(
+            mandatory = True,
+            providers = [_KernelBuildInfo],  # for out_dir_kernel_headers_tar only
+        ),
+        "env": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo],
         ),
         "_debug_print_scripts": attr.label(
             default = "//build/kleaf:debug_print_scripts",
