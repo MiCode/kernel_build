@@ -27,7 +27,12 @@ def define_common_kernels():
     - `kernel_x86_64`
     - `kernel_x86_64_debug`
 
-    An alias is created to refer to the GKI kernel (`kernel_aarch64`) as "`kernel`".
+    In addition, <name>_dist targets are created that can be run to obtain a
+    distribution outside the workspace.
+
+    Aliases are created to refer to the GKI kernel (`kernel_aarch64`) as
+    "`kernel`" and the corresponding dist target (`kernel_aarch64_dist`) as
+    "`kernel_dist`".
     """
     common_outs = [
         "System.map",
@@ -83,4 +88,9 @@ def define_common_kernels():
     native.alias(
         name = "kernel",
         actual = ":kernel_aarch64",
+    )
+
+    native.alias(
+        name = "kernel_dist",
+        actual = ":kernel_aarch64_dist",
     )
