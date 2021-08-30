@@ -142,11 +142,8 @@ for ex: build.config.msm.kalama"
   exit 1
 fi
 
-[ -z "${ABL_OUT_DIR}" ] && ABL_OUT_DIR=${OUT_DIR}/
-[ -z "${ABL_OUT_DIR}" ] && ABL_OUT_DIR=${ROOT_DIR}/out/${MSM_ARCH}
+[ -z "${ABL_OUT_DIR}" ] && ABL_OUT_DIR=${COMMON_OUT_DIR}
 
-KERNEL_DIR=$(echo ${KERNEL_DIR##*/})
-ABL_OUT_DIR=$(echo ${ABL_OUT_DIR} | sed 's/'${KERNEL_DIR}'\///g')
 [ -z "${TARGET_BUILD_VARIANT}" ] && TARGET_BUILD_VARIANT=userdebug
 
 ABL_OUT_DIR=${ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}

@@ -1089,8 +1089,8 @@ if [ -n "${ABL_SRC}" ]; then
   if [ -e "${ROOT_DIR}/${ABL_SRC}" ]; then
     if [ -n "${MSM_ARCH}" ]; then
       ABL_ENVIRON=("ABL_SRC=${ABL_SRC}")
-      ABL_ENVIRON+=("OUT_DIR=${OUT_DIR}")
-      ABL_ENVIRON+=("DIST_DIR=${DIST_DIR}")
+      ABL_ENVIRON+=("ABL_OUT_DIR=${COMMON_OUT_DIR}")
+      ABL_ENVIRON+=("ABL_IMAGE_DIR=${DIST_DIR}")
       BUILD_VARIANTS=("userdebug")
       [ -n "${COMPILE_ABL}" ] && BUILD_VARIANTS+=("user")
       for variant in "${BUILD_VARIANTS[@]}"
