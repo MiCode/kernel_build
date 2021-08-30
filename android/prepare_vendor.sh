@@ -239,8 +239,8 @@ if [ "${RECOMPILE_ABL}" == "1" ]; then
 
     (
       cd ${ROOT_DIR}
-      OUT_DIR=${ANDROID_KP_OUT_DIR} \
-      DIST_DIR=${ANDROID_KP_OUT_DIR}/dist \
+      ABL_OUT_DIR=${ANDROID_KP_OUT_DIR} \
+      ABL_IMAGE_DIR=${ANDROID_KP_OUT_DIR}/dist \
       ./build/build_abl.sh ${KERNEL_TARGET}
     )
 
