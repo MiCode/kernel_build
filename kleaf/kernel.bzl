@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r428724"
 
@@ -44,7 +43,8 @@ def kernel_build(
       the build config.
     - `kernel_aarch64_config` provides the kernel config.
     - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
-    - `kernel_aarch64_dist` to create a DIST_DIR distribution
+    - `kernel_aarch64_headers` provides the kernel headers.
+    - `kernel_for_dist` is a filegroup for all dist files
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
@@ -97,6 +97,8 @@ def kernel_build(
     env_target_name = name + "_env"
     config_target_name = name + "_config"
     modules_prepare_target_name = name + "_modules_prepare"
+    uapi_headers_target_name = name + "_uapi_headers"
+    headers_target_name = name + "_headers"
     build_config_srcs = [
         s
         for s in srcs
@@ -137,26 +139,28 @@ def kernel_build(
     )
 
     _kernel_uapi_headers(
-        name = name + "_uapi_headers",
+        name = uapi_headers_target_name,
         config = config_target_name,
         srcs = [sources_target_name],
     )
 
     _kernel_headers(
-        name = name + "_headers",
+        name = headers_target_name,
         kernel_build = name,
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
         srcs = [sources_target_name],
     )
 
-    copy_to_dist_dir(
-        name = name + "_dist",
-        data = [
-            name,
-            name + "_uapi_headers",
-            name + "_headers",
-        ],
+    labels_for_dist = [
+        name,
+        uapi_headers_target_name,
+        headers_target_name,
+    ]
+
+    native.filegroup(
+        name = name + "_for_dist",
+        srcs = labels_for_dist,
     )
 
 _KernelEnvInfo = provider(fields = {
