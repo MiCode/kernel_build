@@ -63,6 +63,7 @@ bzl_library(
     name = "kernel-rules",
     srcs = [name + ".bzl" for name in kernel_rule_files] + [
         "@bazel_skylib//rules:common_settings",
+        "//build/bazel_common_rules/dist:dist",
     ],
 )
 
