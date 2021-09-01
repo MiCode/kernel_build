@@ -80,7 +80,7 @@ DIFF=1
 PRINT_REPORT=0
 FULL_REPORT=0
 
-if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUP}" ]]; then
+if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUPING}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
 fi
 if [[ -z "$KMI_SYMBOL_LIST_ADD_ONLY" ]]; then
@@ -219,6 +219,11 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             ${GKI_MOD_FLAG}                            \
             ${FULL_ABI_FLAG}                           \
             ${DIST_DIR}
+
+        # Redo what build.sh has done, with possibly fresher symbol lists.
+        ${ROOT_DIR}/build/abi/process_symbols --out-dir="$DIST_DIR" --out-file=abi_symbollist \
+          --report-file=abi_symbollist.report --in-dir="$ROOT_DIR/$KERNEL_DIR" \
+          "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
 
         # In case of a simple --update-symbol-list call we can bail out early
         [ $UPDATE -eq 0 ] && exit 0

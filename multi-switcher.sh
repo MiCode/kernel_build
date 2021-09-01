@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BASE=$(readlink -f $(dirname $0)/..)
+BASE=$(dirname $(dirname $(readlink -f $0)))
 
 BRANCH=$1
 
@@ -46,6 +46,20 @@ pushd $BASE > /dev/null
           )
       fi
     done
+  done
+
+  # now switch the build tools between trunk and legacy version
+  case "${BRANCH}" in
+    4.4|4.9|4.14-stable|4.19-stable|11-5.4|12-5.4|12-5.10)
+      suffix="legacy"
+      ;;
+    *)
+      suffix="trunk"
+      ;;
+  esac
+
+  for dir in "build" "kernel" "prebuilts" "tools"; do
+    ln -vsnf "${dir}-${suffix}" "${dir}"
   done
 
 popd > /dev/null

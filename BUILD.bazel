@@ -1,0 +1,51 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+package(default_visibility = ["//visibility:public"])
+
+# Provide access to some host tools for rules wanting to restrict PATH
+genrule(
+    name = "host-tools",
+    outs = [
+        "host-tools/bash",
+        "host-tools/perl",
+        "host-tools/rsync",
+        "host-tools/sh",
+        "host-tools/tar",
+    ],
+    cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
+    tags = ["no-remote"],
+)
+
+filegroup(
+    name = "kernel-build-scripts",
+    srcs = [
+        "_setup_env.sh",
+        "build.sh",
+    ] + glob(
+        ["build-tools/**"],
+        allow_empty = False,
+    ),
+)
+
+filegroup(
+    name = "kernel-abi-scripts",
+    srcs = [
+        "abi/compare_to_symbol_list",
+        "abi/flatten_symbol_list",
+        "abi/process_symbols",
+        "abi/symbols.allow",
+        "abi/symbols.deny",
+    ],
+)

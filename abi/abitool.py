@@ -15,9 +15,10 @@
 # limitations under the License.
 #
 
+import logging
 import re
 import subprocess
-import logging
+import tempfile
 
 log = logging.getLogger(__name__)
 
@@ -160,26 +161,36 @@ class Libabigail(AbiTool):
     """" Concrete AbiTool implementation for libabigail """
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
             vmlinux_path=None):
-        dump_abi_cmd = ['abidw',
-                        # omit various sources of indeterministic abidw output
-                        '--no-corpus-path',
-                        '--no-comp-dir-path',
-                        # use (more) stable type ids
-                        '--type-id-style',
-                        'hash',
-                        # the path containing vmlinux and *.ko
-                        '--linux-tree',
-                        linux_tree,
-                        '--out-file',
-                        dump_path]
+        with tempfile.NamedTemporaryFile() as temp_file:
+            temp_path = temp_file.name
 
-        if vmlinux_path is not None:
-            dump_abi_cmd.extend(['--vmlinux', vmlinux_path])
+            dump_abi_cmd = ['abidw',
+                            # omit various sources of indeterministic abidw output
+                            '--no-corpus-path',
+                            '--no-comp-dir-path',
+                            # use (more) stable type ids
+                            '--type-id-style',
+                            'hash',
+                            # the path containing vmlinux and *.ko
+                            '--linux-tree',
+                            linux_tree,
+                            '--out-file',
+                            temp_path]
 
-        if symbol_list is not None:
-            dump_abi_cmd.extend(['--kmi-whitelist', symbol_list])
+            if vmlinux_path is not None:
+                dump_abi_cmd.extend(['--vmlinux', vmlinux_path])
 
-        subprocess.check_call(dump_abi_cmd)
+            if symbol_list is not None:
+                dump_abi_cmd.extend(['--kmi-whitelist', symbol_list])
+
+            subprocess.check_call(dump_abi_cmd)
+
+            tidy_abi_command = ['abitidy',
+                                '--all',
+                                '--input', temp_path,
+                                '--output', dump_path]
+
+            subprocess.check_call(tidy_abi_command)
 
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):

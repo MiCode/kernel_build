@@ -1,0 +1,21 @@
+#[[#]]# `${ruleName}`
+
+<pre>
+${util.ruleSummary($ruleName, $ruleInfo)}
+</pre>
+
+${ruleInfo.docString}
+
+#[[##]]# Attributes
+
+#if (!$ruleInfo.getAttributeList().isEmpty())
+
+#foreach ($attribute in $ruleInfo.getAttributeList())
+<a name="${ruleName}-${attribute.name}" /> **`${attribute.name}`**
+*${util.attributeTypeString($attribute)}.* #if(${attribute.mandatory}) *Required.* #else *Optional.* #end #if(!${attribute.defaultValue.isEmpty()}) *Default is* `${attribute.defaultValue}`. #end $attribute.docString
+
+#end
+#else
+No attributes.
+
+#end

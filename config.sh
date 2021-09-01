@@ -68,10 +68,10 @@ function menuconfig() {
   fi
 
   cp ${OUT_DIR}/.config ${orig_config}
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
+  (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
 
   if [ -z "${FRAGMENT_CONFIG}" ]; then
-    (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
+    (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
     [ "$ARCH" = "x86_64" -o "$ARCH" = "i386" ] && local ARCH=x86
     echo "Updating ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
     mv ${OUT_DIR}/defconfig ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
