@@ -980,7 +980,7 @@ kernel_modules_install(
 )
 
 def _kernel_uapi_headers_impl(ctx):
-    out_file = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
+    out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.label.name))
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Create staging directory
            mkdir -p {kernel_uapi_headers_dir}/usr
@@ -1032,7 +1032,7 @@ def _kernel_headers_impl(ctx):
     inputs += [
         ctx.attr.kernel_build[_KernelBuildInfo].out_dir_kernel_headers_tar,
     ]
-    out_file = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
+    out_file = ctx.actions.declare_file("{}/kernel-headers.tar.gz".format(ctx.label.name))
     command = ctx.attr.env[_KernelEnvInfo].setup + """
             # Restore headers in ${{OUT_DIR}}
               mkdir -p ${{OUT_DIR}}
