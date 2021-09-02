@@ -14,6 +14,23 @@
 
 load("//build/kleaf:kernel.bzl", "kernel_build")
 
+_common_outs = [
+    "System.map",
+    "modules.builtin",
+    "modules.builtin.modinfo",
+    "vmlinux",
+    "vmlinux.symvers",
+]
+
+# Common output files for aarch64 kernel builds.
+aarch64_outs = _common_outs + [
+    "Image",
+    "Image.lz4",
+]
+
+# Common output files for x86_64 kernel builds.
+x86_64_outs = _common_outs + ["bzImage"]
+
 def define_common_kernels():
     """Defines common build targets for Android Common Kernels.
 
@@ -34,20 +51,6 @@ def define_common_kernels():
     "`kernel`" and the corresponding dist target (`kernel_aarch64_dist`) as
     "`kernel_dist`".
     """
-    common_outs = [
-        "System.map",
-        "modules.builtin",
-        "modules.builtin.modinfo",
-        "vmlinux",
-        "vmlinux.symvers",
-    ]
-
-    aarch64_outs = common_outs + [
-        "Image",
-        "Image.lz4",
-    ]
-
-    x86_64_outs = common_outs + ["bzImage"]
 
     [kernel_build(
         name = name,
