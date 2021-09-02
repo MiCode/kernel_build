@@ -726,7 +726,7 @@ def _kernel_module_impl(ctx):
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
     return [
-        DefaultInfo(files = depset(ctx.outputs.outs + additional_declared_outputs)),
+        DefaultInfo(files = depset(ctx.outputs.outs)),
         _KernelEnvInfo(
             dependencies = additional_declared_outputs,
             setup = setup,
