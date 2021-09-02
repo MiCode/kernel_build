@@ -107,7 +107,7 @@ class DeviceTreeInfo(object):
 		# other's plat, board, and/or pmic. Set logic (unique elemnts) handles
 		# duplicate devicetrees IDs spit out by this loop
 		for combo in combinations_with_replacement([True, False], 3):
-			if combo == (False, False, False):
+			if not any((c and n) for (c, n) in zip(combo, (new_plat, new_board, new_pmic))):
 				continue
 			s = copy.deepcopy(self)
 			if combo[0] and new_plat:
