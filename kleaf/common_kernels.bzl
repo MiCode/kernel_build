@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("//build/kleaf:kernel.bzl", "kernel_build")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 _common_outs = [
     "System.map",
@@ -20,6 +21,10 @@ _common_outs = [
     "modules.builtin.modinfo",
     "vmlinux",
     "vmlinux.symvers",
+
+    # Needed to build kernel modules.
+    "Module.symvers",
+    "include/config/kernel.release",
 ]
 
 # Common output files for aarch64 kernel builds.
@@ -52,20 +57,28 @@ def define_common_kernels():
     "`kernel_dist`".
     """
 
-    [kernel_build(
-        name = name,
-        srcs = native.glob(
-            ["**"],
-            exclude = [
-                "android/*",
-                "BUILD.bazel",
-                "**/*.bzl",
-                ".git/**",
+    [[
+        kernel_build(
+            name = name,
+            srcs = native.glob(
+                ["**"],
+                exclude = [
+                    "android/*",
+                    "BUILD.bazel",
+                    "**/*.bzl",
+                    ".git/**",
+                ],
+            ),
+            outs = outs,
+            build_config = config,
+        ),
+        copy_to_dist_dir(
+            name = name + "_dist",
+            data = [
+                name + "_for_dist",
             ],
         ),
-        outs = outs,
-        build_config = config,
-    ) for name, config, outs in [
+    ] for name, config, outs in [
         (
             "kernel_aarch64",
             "build.config.gki.aarch64",
