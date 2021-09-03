@@ -55,6 +55,12 @@
 #   EXT_MODULES
 #     Space separated list of external kernel modules to be build.
 #
+#   EXT_MODULES_MAKEFILE
+#     Location of a makefile to build external modules. If set, it will get
+#     called with all the necessary parameters to build and install external
+#     modules.  This allows for building them in parallel using makefile
+#     parallelization.
+#
 #   UNSTRIPPED_MODULES
 #     Space separated list of modules to be copied to <DIST_DIR>/unstripped
 #     for debugging purposes.
@@ -62,11 +68,9 @@
 #   COMPRESS_UNSTRIPPED_MODULES
 #     If set to "1", then compress the unstripped modules into a tarball.
 #
-#   CC
-#     Override compiler to be used. (e.g. CC=clang) Specifying CC=gcc
-#     effectively unsets CC to fall back to the default gcc detected by kbuild
-#     (including any target triplet). To use a custom 'gcc' from PATH, use an
-#     absolute path, e.g.  CC=/usr/local/bin/gcc
+#   COMPRESS_MODULES
+#     If set to "1", then compress all modules into a tarball. The default
+#     is without defining COMPRESS_MODULES.
 #
 #   LD
 #     Override linker (flags) to be used.
@@ -190,6 +194,8 @@
 #     - KERNEL_BINARY=<name of kernel binary, eg. Image.lz4, Image.gz etc>
 #     - BOOT_IMAGE_HEADER_VERSION=<version of the boot image header>
 #       (defaults to 3)
+#     - BOOT_IMAGE_FILENAME=<name of the output file>
+#       (defaults to "boot.img")
 #     - KERNEL_CMDLINE=<string of kernel parameters for boot>
 #     - KERNEL_VENDOR_CMDLINE=<string of kernel parameters for vendor boot image,
 #       vendor_boot when BOOT_IMAGE_HEADER_VERSION >= 3; boot otherwise>
@@ -202,10 +208,14 @@
 #     - BASE_ADDRESS=<base address to load the kernel at>
 #     - PAGE_SIZE=<flash page size>
 #     If BOOT_IMAGE_HEADER_VERSION >= 3, a vendor_boot image will be built
-#     unless SKIP_VENDOR_BOOT is defined.
+#     unless SKIP_VENDOR_BOOT is defined. A vendor_boot will also be generated if
+#     BUILD_VENDOR_BOOT_IMG is set.
+#
+#     BUILD_VENDOR_BOOT_IMG is incompatible with SKIP_VENDOR_BOOT, and is effectively a
+#     nop if BUILD_BOOT_IMG is set.
 #     - MODULES_LIST=<file to list of modules> list of modules to use for
-#       modules.load. If this property is not set, then the default modules.load
-#       is used.
+#       vendor_boot.modules.load. If this property is not set, then the default
+#       modules.load is used.
 #     - TRIM_UNUSED_MODULES. If set, then modules not mentioned in
 #       modules.load are removed from initramfs. If MODULES_LIST is unset, then
 #       having this variable set effectively becomes a no-op.
@@ -244,6 +254,8 @@
 #     - AVB_BOOT_ALGORITHM=<AVB_BOOT_KEY algorithm used> e.g. SHA256_RSA2048. For the
 #       full list of supported algorithms, refer to the enum AvbAlgorithmType in
 #       https://android.googlesource.com/platform/external/avb/+/refs/heads/master/libavb/avb_crypto.h
+#     - AVB_BOOT_PARTITION_NAME=<name of the boot partition>
+#       (defaults to BOOT_IMAGE_FILENAME without extension; by default, "boot")
 #
 #   BUILD_INITRAMFS
 #     if set to "1", build a ramdisk containing all .ko files and resulting
@@ -268,7 +280,9 @@
 #   VENDOR_DLKM_MODULES_LIST
 #     location (relative to the repo root directory) of an optional file
 #     containing the list of kernel modules which shall be copied into a
-#     vendor_dlkm partition image.
+#     vendor_dlkm partition image. Any modules passed into MODULES_LIST which
+#     become part of the vendor_boot.modules.load will be trimmed from the
+#     vendor_dlkm.modules.load.
 #
 #   VENDOR_DLKM_MODULES_BLOCKLIST
 #     location (relative to the repo root directory) of an optional file
@@ -320,6 +334,23 @@
 #     effectively discarded and a GKI kernel Image used from an Android Common
 #     Kernel. Any variables prefixed with GKI_ are passed into into the GKI
 #     kernel's build.sh invocation.
+#
+#     This is incompatible with GKI_PREBUILTS_DIR.
+#
+#   GKI_PREBUILTS_DIR
+#     If set, copies an existing set of GKI kernel binaries to the DIST_DIR to
+#     perform a "mixed build," as with GKI_BUILD_CONFIG. This allows you to
+#     skip the additional compilation, if interested.
+#
+#     This is incompatible with GKI_BUILD_CONFIG.
+#
+#     The following must be present:
+#       vmlinux
+#       System.map
+#       vmlinux.symvers
+#       modules.builtin
+#       modules.builtin.modinfo
+#       Image.lz4
 #
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
@@ -405,7 +436,7 @@ function create_modules_staging() {
   cp ${src_dir}/modules.order ${dest_dir}/modules.order
   cp ${src_dir}/modules.builtin ${dest_dir}/modules.builtin
 
-  if [ -n "${EXT_MODULES}" ]; then
+  if [[ -n "${EXT_MODULES}" ]] || [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
     mkdir -p ${dest_dir}/extra/
     cp -r ${src_dir}/extra/* ${dest_dir}/extra/
     (cd ${dest_dir}/ && \
@@ -491,10 +522,21 @@ function build_vendor_dlkm() {
   create_modules_staging "${VENDOR_DLKM_MODULES_LIST}" "${MODULES_STAGING_DIR}" \
     "${VENDOR_DLKM_STAGING_DIR}" "${VENDOR_DLKM_MODULES_BLOCKLIST}"
 
-  VENDOR_DLKM_ROOT_DIR=$(echo ${VENDOR_DLKM_STAGING_DIR}/lib/modules/*)
-  cp ${VENDOR_DLKM_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_dlkm.modules.load
-  if [ -e ${VENDOR_DLKM_ROOT_DIR}/modules.blocklist ]; then
-    cp ${VENDOR_DLKM_ROOT_DIR}/modules.blocklist \
+  local vendor_dlkm_modules_root_dir=$(echo ${VENDOR_DLKM_STAGING_DIR}/lib/modules/*)
+  local vendor_dlkm_modules_load=${vendor_dlkm_modules_root_dir}/modules.load
+
+  # Modules loaded in vendor_boot should not be loaded in vendor_dlkm.
+  if [ -f ${DIST_DIR}/vendor_boot.modules.load ]; then
+    local stripped_modules_load="$(mktemp)"
+    ! grep -x -v -F -f ${DIST_DIR}/vendor_boot.modules.load \
+      ${vendor_dlkm_modules_load} > ${stripped_modules_load}
+    mv -f ${stripped_modules_load} ${vendor_dlkm_modules_load}
+  fi
+
+  cp ${vendor_dlkm_modules_load} ${DIST_DIR}/vendor_dlkm.modules.load
+
+  if [ -e ${vendor_dlkm_modules_root_dir}/modules.blocklist ]; then
+    cp ${vendor_dlkm_modules_root_dir}/modules.blocklist \
       ${DIST_DIR}/vendor_dlkm.modules.blocklist
   fi
 
@@ -559,16 +601,6 @@ function build_super() {
 
 export ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
-# For module file Signing with the kernel (if needed)
-FILE_SIGN_BIN=scripts/sign-file
-SIGN_SEC=certs/signing_key.pem
-SIGN_CERT=certs/signing_key.x509
-SIGN_ALGO=sha512
-
-# Save environment parameters before being overwritten by sourcing
-# BUILD_CONFIG.
-CC_ARG="${CC}"
-
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 MAKE_ARGS=( "$@" )
@@ -580,7 +612,17 @@ export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
 export MKBOOTIMG_STAGING_DIR="${MODULES_STAGING_DIR}/mkbootimg_staging"
 
+if [ -n "${SKIP_VENDOR_BOOT}" -a -n "${BUILD_VENDOR_BOOT_IMG}" ]; then
+  echo "ERROR: SKIP_VENDOR_BOOT is incompatible with BUILD_VENDOR_BOOT_IMG." >&2
+  exit 1
+fi
+
 if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  if [ -n "${GKI_PREBUILTS_DIR}" ]; then
+      echo "ERROR: GKI_BUILD_CONFIG is incompatible with GKI_PREBUILTS_DIR." >&2
+      exit 1
+  fi
+
   GKI_OUT_DIR=${GKI_OUT_DIR:-${COMMON_OUT_DIR}/gki_kernel}
   GKI_DIST_DIR=${GKI_DIST_DIR:-${GKI_OUT_DIR}/dist}
 
@@ -591,6 +633,8 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
 
   # Inherit SKIP_MRPROPER, LTO, SKIP_DEFCONFIG unless overridden by corresponding GKI_* variables
   GKI_ENVIRON=("SKIP_MRPROPER=${SKIP_MRPROPER}" "LTO=${LTO}" "SKIP_DEFCONFIG=${SKIP_DEFCONFIG}" "SKIP_IF_VERSION_MATCHES=${SKIP_IF_VERSION_MATCHES}")
+  # Explicitly unset EXT_MODULES since they should be compiled against the device kernel
+  GKI_ENVIRON+=("EXT_MODULES=")
   # Explicitly unset GKI_BUILD_CONFIG in case it was set by in the old environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
   # gki build recursively
@@ -605,7 +649,7 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
 
   # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
-  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_DIST_DIR}")
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=$(readlink -m ${GKI_DIST_DIR})")
 else
   rm -f ${OLD_ENVIRONMENT}
 fi
@@ -614,96 +658,9 @@ BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
 
 cd ${ROOT_DIR}
 
-export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_COMPAT CROSS_COMPILE_ARM32 ARCH SUBARCH MAKE_GOALS
-
-# Restore the previously saved CC argument that might have been overridden by
-# the BUILD_CONFIG.
-[ -n "${CC_ARG}" ] && CC="${CC_ARG}"
-
-# CC=gcc is effectively a fallback to the default gcc including any target
-# triplets. An absolute path (e.g., CC=/usr/bin/gcc) must be specified to use a
-# custom compiler.
-[ "${CC}" == "gcc" ] && unset CC && unset CC_ARG
-
-TOOL_ARGS=()
-
-# LLVM=1 implies what is otherwise set below; it is a more concise way of
-# specifying CC=clang LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy <etc>, for
-# newer kernel versions.
-if [[ -n "${LLVM}" ]]; then
-  TOOL_ARGS+=("LLVM=1")
-  # Reset a bunch of variables that the kernel's top level Makefile does, just
-  # in case someone tries to use these binaries in this script such as in
-  # initramfs generation below.
-  HOSTCC=clang
-  HOSTCXX=clang++
-  CC=clang
-  LD=ld.lld
-  AR=llvm-ar
-  NM=llvm-nm
-  OBJCOPY=llvm-objcopy
-  OBJDUMP=llvm-objdump
-  READELF=llvm-readelf
-  OBJSIZE=llvm-size
-  STRIP=llvm-strip
-else
-  if [ -n "${HOSTCC}" ]; then
-    TOOL_ARGS+=("HOSTCC=${HOSTCC}")
-  fi
-
-  if [ -n "${CC}" ]; then
-    TOOL_ARGS+=("CC=${CC}")
-    if [ -z "${HOSTCC}" ]; then
-      TOOL_ARGS+=("HOSTCC=${CC}")
-    fi
-  fi
-
-  if [ -n "${LD}" ]; then
-    TOOL_ARGS+=("LD=${LD}" "HOSTLD=${LD}")
-  fi
-
-  if [ -n "${NM}" ]; then
-    TOOL_ARGS+=("NM=${NM}")
-  fi
-
-  if [ -n "${OBJCOPY}" ]; then
-    TOOL_ARGS+=("OBJCOPY=${OBJCOPY}")
-  fi
-fi
-
-if [ -n "${LLVM_IAS}" ]; then
-  TOOL_ARGS+=("LLVM_IAS=${LLVM_IAS}")
-  # Reset $AS for the same reason that we reset $CC etc above.
-  AS=clang
-fi
-
-if [ -n "${DEPMOD}" ]; then
-  TOOL_ARGS+=("DEPMOD=${DEPMOD}")
-fi
-
-if [ -n "${DTC}" ]; then
-  TOOL_ARGS+=("DTC=${DTC}")
-fi
-
-# Allow hooks that refer to $CC_LD_ARG to keep working until they can be
-# updated.
-CC_LD_ARG="${TOOL_ARGS[@]}"
-
-DECOMPRESS_GZIP="gzip -c -d"
-DECOMPRESS_LZ4="lz4 -c -d -l"
-if [ -z "${LZ4_RAMDISK}" ] ; then
-  RAMDISK_COMPRESS="gzip -c -f"
-  RAMDISK_DECOMPRESS="${DECOMPRESS_GZIP}"
-  RAMDISK_EXT="gz"
-else
-  RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
-  RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
-  RAMDISK_EXT="lz4"
-fi
-
 if [ -n "${SKIP_IF_VERSION_MATCHES}" ]; then
   if [ -f "${DIST_DIR}/vmlinux" ]; then
-    kernelversion="$(cd ${KERNEL_DIR} && make -s "${TOOL_ARGS[@]}" O=${OUT_DIR} kernelrelease)"
+    kernelversion="$(cd ${KERNEL_DIR} && make -s ${TOOL_ARGS} O=${OUT_DIR} kernelrelease)"
     # Split grep into 2 steps. "Linux version" will always be towards top and fast to find. Don't
     # need to search the entire vmlinux for it
     if [[ ! "$kernelversion" =~ .*dirty.* ]] && \
@@ -718,11 +675,28 @@ fi
 rm -rf ${DIST_DIR}
 mkdir -p ${OUT_DIR} ${DIST_DIR}
 
+if [ -n "${GKI_PREBUILTS_DIR}" ]; then
+  echo "========================================================"
+  echo " Copying GKI prebuilts"
+  GKI_PREBUILTS_DIR=$(readlink -m ${GKI_PREBUILTS_DIR})
+  if [ ! -d "${GKI_PREBUILTS_DIR}" ]; then
+    echo "ERROR: ${GKI_PREBULTS_DIR} does not exist." >&2
+    exit 1
+  fi
+  for file in ${GKI_PREBUILTS_DIR}/*; do
+    filename=$(basename ${file})
+    if ! $(cmp -s ${file} ${DIST_DIR}/${filename}); then
+      cp -v ${file} ${DIST_DIR}/${filename}
+    fi
+  done
+  MAKE_ARGS+=("KBUILD_MIXED_TREE=${GKI_PREBUILTS_DIR}")
+fi
+
 echo "========================================================"
 echo " Setting up for build"
 if [ "${SKIP_MRPROPER}" != "1" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" mrproper)
+  (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} "${MAKE_ARGS[@]}" mrproper)
   set +x
 fi
 
@@ -736,7 +710,7 @@ fi
 
 if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
   set -x
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG})
+  (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG})
   set +x
 
   if [ -n "${POST_DEFCONFIG_CMDS}" ]; then
@@ -778,7 +752,7 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e LTO_CLANG_FULL \
       -d THINLTO
   fi
-  (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
+  (cd ${OUT_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
   set +x
 elif [ -n "${LTO}" ]; then
   echo "LTO= must be one of 'none', 'thin' or 'full'."
@@ -832,20 +806,12 @@ fi
 
 # Copy the abi symbol list file from the sources into the dist dir
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
-  echo "========================================================"
-  echo " Generating abi symbol list definition to ${ABI_SL}"
+  ${ROOT_DIR}/build/abi/process_symbols --out-dir="$DIST_DIR" --out-file=abi_symbollist \
+    --report-file=abi_symbollist.report --in-dir="$ROOT_DIR/$KERNEL_DIR" \
+    "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
   pushd $ROOT_DIR/$KERNEL_DIR
-  cp "${KMI_SYMBOL_LIST}" ${ABI_SL}
-
-  # If there are additional symbol lists specified, append them
-  if [ -n "${ADDITIONAL_KMI_SYMBOL_LISTS}" ]; then
-    for symbol_list in ${ADDITIONAL_KMI_SYMBOL_LISTS}; do
-        echo >> ${ABI_SL}
-        cat "${symbol_list}" >> ${ABI_SL}
-    done
-  fi
   if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
-      # Create the raw symbol list 
+      # Create the raw symbol list
       cat ${ABI_SL} | \
               ${ROOT_DIR}/build/abi/flatten_symbol_list > \
               ${OUT_DIR}/abi_symbollist.raw
@@ -855,7 +821,7 @@ if [ -n "${KMI_SYMBOL_LIST}" ]; then
               -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
               --set-str UNUSED_KSYMS_WHITELIST ${OUT_DIR}/abi_symbollist.raw
       (cd ${OUT_DIR} && \
-              make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" olddefconfig)
+              make O=${OUT_DIR} ${TOOL_ARGS} "${MAKE_ARGS[@]}" olddefconfig)
       # Make sure the config is applied
       grep CONFIG_UNUSED_KSYMS_WHITELIST ${OUT_DIR}/.config > /dev/null || {
         echo "ERROR: Failed to apply TRIM_NONLISTED_KMI kernel configuration" >&2
@@ -880,7 +846,7 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-(cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" ${MAKE_GOALS})
+(cd ${OUT_DIR} && make O=${OUT_DIR} ${TOOL_ARGS} "${MAKE_ARGS[@]}" ${MAKE_GOALS})
 set +x
 
 if [ -n "${POST_KERNEL_BUILD_CMDS}" ]; then
@@ -923,8 +889,17 @@ if [ "${BUILD_INITRAMFS}" = "1" -o  -n "${IN_KERNEL_MODULES}" ]; then
   echo " Installing kernel modules into staging directory"
 
   (cd ${OUT_DIR} &&                                                           \
-   make O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}                   \
+   make O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}                        \
         INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}" modules_install)
+fi
+
+if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
+  echo "========================================================"
+  echo " Building and installing external modules using ${EXT_MODULES_MAKEFILE}"
+
+  make -f "${EXT_MODULES_MAKEFILE}" KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR} \
+          O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}                 \
+          INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}"
 fi
 
 if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
@@ -944,9 +919,9 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
     set -x
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}"
+                       O=${OUT_DIR} ${TOOL_ARGS} "${MAKE_ARGS[@]}"
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                       O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MODULE_STRIP_FLAG}    \
+                       O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}         \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
                        "${MAKE_ARGS[@]}" modules_install
     set +x
@@ -998,8 +973,8 @@ if [ -z "${SKIP_CP_KERNEL_HDR}" ]; then
   echo "========================================================"
   echo " Installing UAPI kernel headers:"
   mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
-  make -C ${OUT_DIR} O=${OUT_DIR} "${TOOL_ARGS[@]}"                           \
-          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" "${MAKE_ARGS[@]}"      \
+  make -C ${OUT_DIR} O=${OUT_DIR} ${TOOL_ARGS}                                \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr" "${MAKE_ARGS[@]}" \
           headers_install
   # The kernel makefiles create files named ..install.cmd and .install which
   # are only side products. We don't want those. Let's delete them.
@@ -1057,13 +1032,17 @@ fi
 
 MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
 if [ -n "${MODULES}" ]; then
-  if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" ]; then
+  if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" -o -n "${EXT_MODULES_MAKEFILE}" ]; then
     echo "========================================================"
     echo " Copying modules files"
     for FILE in ${MODULES}; do
       echo "  ${FILE#${MODULES_STAGING_DIR}/}"
       cp -p ${FILE} ${DIST_DIR}
     done
+    echo " Archiving modules to ${MODULES_ARCHIVE}"
+    if [ "${COMPRESS_MODULES}" = "1" ]; then
+      tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
+    fi
   fi
   if [ "${BUILD_INITRAMFS}" = "1" ]; then
     echo "========================================================"
@@ -1074,6 +1053,7 @@ if [ -n "${MODULES}" ]; then
 
     MODULES_ROOT_DIR=$(echo ${INITRAMFS_STAGING_DIR}/lib/modules/*)
     cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
+    cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_boot.modules.load
     echo "${MODULES_OPTIONS}" > ${MODULES_ROOT_DIR}/modules.options
     if [ -e "${MODULES_ROOT_DIR}/modules.blocklist" ]; then
       cp ${MODULES_ROOT_DIR}/modules.blocklist ${DIST_DIR}/modules.blocklist
@@ -1134,7 +1114,7 @@ fi
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
 
-if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
+if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
   if [ -z "${MKBOOTIMG_PATH}" ]; then
     MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
   fi
@@ -1239,11 +1219,13 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" >"${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
   fi
 
-  if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
-    echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
-    exit 1
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
+      echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
+      exit 1
+    fi
+    MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
   fi
-  MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
     if [ -n "${VENDOR_BOOTCONFIG}" ]; then
@@ -1284,23 +1266,36 @@ if [ ! -z "${BUILD_BOOT_IMG}" ] ; then
     fi
   fi
 
-  MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+  if [ -z "${BOOT_IMAGE_FILENAME}" ]; then
+    BOOT_IMAGE_FILENAME="boot.img"
+  fi
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${BOOT_IMAGE_FILENAME}")
+  fi
+
   for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
     MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
   done
+
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
 
-  if [ -f "${DIST_DIR}/boot.img" ]; then
-    echo "boot image created at ${DIST_DIR}/boot.img"
+  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
+    echo "boot image created at ${DIST_DIR}/${BOOT_IMAGE_FILENAME}"
 
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
       if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
           && [ -n "${AVB_BOOT_KEY}" ] \
           && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
-        echo "Signing the boot.img..."
-        avbtool add_hash_footer --partition_name boot \
+        echo "Signing ${BOOT_IMAGE_FILENAME}..."
+
+        if [ -z "${AVB_BOOT_PARTITION_NAME}" ]; then
+          AVB_BOOT_PARTITION_NAME=${BOOT_IMAGE_FILENAME%%.*}
+        fi
+
+        avbtool add_hash_footer \
+            --partition_name ${AVB_BOOT_PARTITION_NAME} \
             --partition_size ${AVB_BOOT_PARTITION_SIZE} \
-            --image ${DIST_DIR}/boot.img \
+            --image "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" \
             --algorithm ${AVB_BOOT_ALGORITHM} \
             --key ${AVB_BOOT_KEY}
       else

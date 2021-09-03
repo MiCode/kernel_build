@@ -1,0 +1,20 @@
+#[[#]]# `${providerName}`
+
+<pre>
+${util.providerSummary($providerName, $providerInfo)}
+</pre>
+
+${providerInfo.docString}
+
+#[[##]]# Fields
+
+#if (!$providerInfo.fieldInfoList.isEmpty())
+
+#foreach ($field in $providerInfo.fieldInfoList)
+<a name="${providerName}-${field.name}" /> **`${field.name}`**
+${field.docString}
+
+#end
+#else
+No fields.
+#end
