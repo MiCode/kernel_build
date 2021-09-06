@@ -368,6 +368,10 @@ set -e
 OLD_ENVIRONMENT=$(mktemp)
 export -p > ${OLD_ENVIRONMENT}
 
+# Save environment for ABL build support.
+ABL_OLD_ENVIRONMENT=$(mktemp)
+export -p > ${ABL_OLD_ENVIRONMENT}
+
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
@@ -1075,8 +1079,10 @@ if [ -n "${ABL_SRC}" ]; then
       [ -n "${COMPILE_ABL}" ] && BUILD_VARIANTS+=("user")
       for variant in "${BUILD_VARIANTS[@]}"
       do
-        ( env -i bash -c "export TARGET_BUILD_VARIANT=${variant}; export ${ABL_ENVIRON[*]} ; \
-        ./build/build_abl.sh" ${MSM_ARCH} )
+        ( env -i bash -c "source ${ABL_OLD_ENVIRONMENT}; \
+        export TARGET_BUILD_VARIANT=${variant}; \
+        export ${ABL_ENVIRON[*]} ; \
+        ./build/build_abl.sh ${MSM_ARCH}" )
       done
       [ -z "${TARGET_BUILD_VARIANT}" ] && TARGET_BUILD_VARIANT=userdebug
       if [ -e "${DIST_DIR}/abl_${TARGET_BUILD_VARIANT}.elf" ]; then
@@ -1087,6 +1093,7 @@ if [ -n "${ABL_SRC}" ]; then
     fi
   fi
 fi
+rm -f "${ABL_OLD_ENVIRONMENT}"
 
 if [ -n "${VENDOR_DLKM_MODULES_LIST}" ]; then
   build_vendor_dlkm
