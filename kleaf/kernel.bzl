@@ -760,103 +760,28 @@ def _kernel_module_impl(ctx):
 def _get_modules_prepare(kernel_build):
     return Label(str(kernel_build) + "_modules_prepare")
 
-kernel_module = rule(
+_kernel_module = rule(
     implementation = _kernel_module_impl,
-    doc = """Generates a rule that builds an external kernel module.
-
-Example:
-```
-kernel_module(
-    name = "nfc",
-    srcs = glob([
-        "**/*.c",
-        "**/*.h",
-
-        # If there are Kbuild files, add them
-        "**/Kbuild",
-        # If there are additional makefiles in subdirectories, add them
-        "**/Makefile",
-    ]),
-    outs = ["nfc.ko"],
-    kernel_build = "//common:kernel_aarch64",
-    makefile = ":Makefile",
-)
-```
+    doc = """
 """,
     attrs = {
         "srcs": attr.label_list(
             mandatory = True,
             allow_files = True,
-            doc = "Source files to build this kernel module.",
         ),
-        # TODO figure out how to specify default :Makefile
         "makefile": attr.label(
             allow_single_file = True,
-            doc = """Label referring to the makefile. This is where `make` is executed on (`make -C $(dirname ${makefile})`).""",
         ),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo, _KernelBuildInfo],
-            doc = "Label referring to the kernel_build module.",
         ),
         "kernel_module_deps": attr.label_list(
-            doc = "A list of other kernel_module dependencies.",
             providers = [_KernelEnvInfo, _KernelModuleInfo],
         ),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
-        "outs": attr.output_list(
-            doc = """The expected output files.
-
-For each token `out`, the build rule automatically finds a
-file named `out` in the legacy kernel modules staging
-directory. The file is copied to the output directory of
-this package, with the label `out`.
-
-- If `out` doesn't contain a slash, subdirectories are searched.
-
-    Example:
-    ```
-    kernel_module(name = "nfc", outs = ["nfc.ko"])
-    ```
-
-    The build system copies
-    ```
-    <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko
-    ```
-    to
-    ```
-    <package output dir>/nfc.ko
-    ```
-
-    `nfc.ko` is the label to the file.
-
-- If {out} contains slashes, its value is used. The file is
-  also copied to the top of package output directory.
-
-    For example:
-    ```
-    kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
-    ```
-
-    The build system copies
-    ```
-    <legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko
-    ```
-    to
-    ```
-    foo/nfc.ko
-    ```
-
-    `foo/nfc.ko` is the label to the file.
-
-    The file is also copied to `<package output dir>/nfc.ko`.
-
-    `nfc.ko` is the label to the file.
-
-    See `search_and_mv_output.py` for details.
-""",
-        ),
+        "outs": attr.output_list(),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
@@ -871,6 +796,124 @@ this package, with the label `out`.
         ),
     },
 )
+
+def kernel_module(
+        name,
+        kernel_build,
+        outs = None,
+        srcs = None,
+        kernel_module_deps = [],
+        makefile = ":Makefile",
+        **kwargs):
+    """Generates a rule that builds an external kernel module.
+
+    Example:
+    ```
+    kernel_module(
+        name = "nfc",
+        srcs = glob([
+            "**/*.c",
+            "**/*.h",
+
+            # If there are Kbuild files, add them
+            "**/Kbuild",
+            # If there are additional makefiles in subdirectories, add them
+            "**/Makefile",
+        ]),
+        outs = ["nfc.ko"],
+        kernel_build = "//common:kernel_aarch64",
+    )
+    ```
+
+    Args:
+        name: Name of this kernel module.
+        srcs: Source files to build this kernel module. If unspecified or value
+          is `None`, it is by default the list in the above example:
+          ```
+          glob([
+            "**/*.c",
+            "**/*.h",
+            "**/Kbuild",
+            "**/Makefile",
+          ])
+          ```
+        kernel_build: Label referring to the kernel_build module.
+        kernel_module_deps: A list of other kernel_module dependencies.
+        makefile: Label referring to the makefile. This is where `make` is
+          executed on (`make -C $(dirname ${makefile})`).
+        outs: The expected output files. If unspecified or value is `None`, it
+          is `["{name}.ko"]` by default.
+
+          For each token `out`, the build rule automatically finds a
+          file named `out` in the legacy kernel modules staging
+          directory. The file is copied to the output directory of
+          this package, with the label `out`.
+
+          - If `out` doesn't contain a slash, subdirectories are searched.
+
+            Example:
+            ```
+            kernel_module(name = "nfc", outs = ["nfc.ko"])
+            ```
+
+            The build system copies
+            ```
+            <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko
+            ```
+            to
+            ```
+            <package output dir>/nfc.ko
+            ```
+
+            `nfc.ko` is the label to the file.
+
+          - If `out` contains slashes, its value is used. The file is
+            also copied to the top of package output directory.
+
+            For example:
+            ```
+            kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+            ```
+
+            The build system copies
+            ```
+            <legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko
+            ```
+            to
+            ```
+            foo/nfc.ko
+            ```
+
+            `foo/nfc.ko` is the label to the file.
+
+            The file is also copied to `<package output dir>/nfc.ko`.
+
+            `nfc.ko` is the label to the file.
+
+            See `search_and_mv_output.py` for details.
+        kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+    """
+    if outs == None:
+        outs = ["{}.ko".format(name)]
+    if srcs == None:
+        srcs = native.glob([
+            "**/*.c",
+            "**/*.h",
+            "**/Kbuild",
+            "**/Makefile",
+        ])
+    _kernel_module(
+        name = name,
+        srcs = srcs,
+        kernel_build = kernel_build,
+        kernel_module_deps = kernel_module_deps,
+        outs = outs,
+        makefile = makefile,
+        **kwargs
+    )
 
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)

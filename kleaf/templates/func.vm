@@ -12,7 +12,7 @@ ${funcInfo.docString}
 
 #foreach ($param in $funcInfo.getParameterList())
 <a name="${funcInfo.functionName}-${param.name}"/> **`${param.name}`**
-#if(${param.getDefaultValue().isEmpty()}) *Required.* #else *Optional.* *Default is* `${param.getDefaultValue()}`. #end ${param.docString}
+#if(${param.mandatory}) *Required.* #else *Optional.* #end #if(!${param.getDefaultValue().isEmpty()}) *Default is* `${param.getDefaultValue()}`. #end ${param.docString}
 
 #end
 #else
