@@ -44,18 +44,25 @@ function rel_path() {
 function run_depmod() {
   (
     local ramdisk_dir=$1
-    local DEPMOD_OUTPUT
+    local depmod_stdout
+    local depmod_stderr=$(mktemp)
 
     cd ${ramdisk_dir}
-    if ! DEPMOD_OUTPUT="$(depmod $2 -F ${DIST_DIR}/System.map -b . $3 2>&1)"; then
-      echo "$DEPMOD_OUTPUT" >&2
+    if ! depmod_stdout="$(depmod $2 -F ${DIST_DIR}/System.map -b . $3 \
+        2>${depmod_stderr})"; then
+      echo "$depmod_stdout"
+      cat ${depmod_stderr} >&2
+      rm -f ${depmod_stderr}
       exit 1
     fi
-    echo "$DEPMOD_OUTPUT"
-    if { echo "$DEPMOD_OUTPUT" | grep -q "needs unknown symbol"; }; then
+    echo "$depmod_stdout"
+    cat ${depmod_stderr} >&2
+    if { grep -q "needs unknown symbol" ${depmod_stderr}; }; then
       echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
+      rm -f ${depmod_stderr}
       exit 1
     fi
+    rm -f ${depmod_stderr}
   )
 }
 
