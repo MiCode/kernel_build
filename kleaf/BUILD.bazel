@@ -16,6 +16,7 @@ load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -138,13 +139,23 @@ genrule(
     out = doc_root + name + ".md",
 ) for name in kernel_rule_files]
 
+filegroup(
+    name = "docs_files",
+    srcs =
+        [doc_root + "directory.html.frag"] +
+        ["docs_server_files_" + name + ".md" for name in kernel_rule_files] +
+        ["docs_server_files_" + name for name in docs_server_files],
+)
+
 sh_binary(
     name = "docs_server",
     srcs = [
         "docs/run_server.sh",
     ],
-    data =
-        [doc_root + "directory.html.frag"] +
-        ["docs_server_files_" + name + ".md" for name in kernel_rule_files] +
-        ["docs_server_files_" + name for name in docs_server_files],
+    data = [":docs_files"],
+)
+
+copy_to_dist_dir(
+    name = "docs_dist",
+    data = [":docs_files"],
 )
