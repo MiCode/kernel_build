@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r428724"
 
@@ -26,6 +25,7 @@ def kernel_build(
         build_config,
         srcs,
         outs,
+        generate_vmlinux_btf = False,
         deps = (),
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
     """Defines a kernel build target with all dependent targets.
@@ -44,13 +44,20 @@ def kernel_build(
       the build config.
     - `kernel_aarch64_config` provides the kernel config.
     - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
-    - `kernel_aarch64_dist` to create a DIST_DIR distribution
+    - `kernel_aarch64_headers` provides the kernel headers.
+    - `kernel_for_dist` is a filegroup for all dist files
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
         srcs: The kernel sources (a `glob()`).
+        generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped off any debug
+          symbols, but contains type and symbol information within a .BTF section.
+          This is suitable for ABI analysis through BTF.
+
+          Requires that `"vmlinux"` is in `outs`.
         deps: Additional dependencies to build this kernel.
+
         outs: The expected output files. For each item `out`:
 
           - If `out` does not contain a slash, the build rule
@@ -97,6 +104,8 @@ def kernel_build(
     env_target_name = name + "_env"
     config_target_name = name + "_config"
     modules_prepare_target_name = name + "_modules_prepare"
+    uapi_headers_target_name = name + "_uapi_headers"
+    headers_target_name = name + "_headers"
     build_config_srcs = [
         s
         for s in srcs
@@ -137,26 +146,37 @@ def kernel_build(
     )
 
     _kernel_uapi_headers(
-        name = name + "_uapi_headers",
+        name = uapi_headers_target_name,
         config = config_target_name,
         srcs = [sources_target_name],
     )
 
     _kernel_headers(
-        name = name + "_headers",
+        name = headers_target_name,
         kernel_build = name,
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
         srcs = [sources_target_name],
     )
 
-    copy_to_dist_dir(
-        name = name + "_dist",
-        data = [
-            name,
-            name + "_uapi_headers",
-            name + "_headers",
-        ],
+    labels_for_dist = [
+        name,
+        uapi_headers_target_name,
+        headers_target_name,
+    ]
+
+    if generate_vmlinux_btf:
+        vmlinux_btf_name = name + "_vmlinux_btf"
+        _vmlinux_btf(
+            name = vmlinux_btf_name,
+            vmlinux = name + "/vmlinux",
+            env = env_target_name,
+        )
+        labels_for_dist.append(vmlinux_btf_name)
+
+    native.filegroup(
+        name = name + "_for_dist",
+        srcs = labels_for_dist,
     )
 
 _KernelEnvInfo = provider(fields = {
@@ -726,7 +746,7 @@ def _kernel_module_impl(ctx):
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
     return [
-        DefaultInfo(files = depset(ctx.outputs.outs + additional_declared_outputs)),
+        DefaultInfo(files = depset(ctx.outputs.outs)),
         _KernelEnvInfo(
             dependencies = additional_declared_outputs,
             setup = setup,
@@ -740,103 +760,28 @@ def _kernel_module_impl(ctx):
 def _get_modules_prepare(kernel_build):
     return Label(str(kernel_build) + "_modules_prepare")
 
-kernel_module = rule(
+_kernel_module = rule(
     implementation = _kernel_module_impl,
-    doc = """Generates a rule that builds an external kernel module.
-
-Example:
-```
-kernel_module(
-    name = "nfc",
-    srcs = glob([
-        "**/*.c",
-        "**/*.h",
-
-        # If there are Kbuild files, add them
-        "**/Kbuild",
-        # If there are additional makefiles in subdirectories, add them
-        "**/Makefile",
-    ]),
-    outs = ["nfc.ko"],
-    kernel_build = "//common:kernel_aarch64",
-    makefile = ":Makefile",
-)
-```
+    doc = """
 """,
     attrs = {
         "srcs": attr.label_list(
             mandatory = True,
             allow_files = True,
-            doc = "Source files to build this kernel module.",
         ),
-        # TODO figure out how to specify default :Makefile
         "makefile": attr.label(
             allow_single_file = True,
-            doc = """Label referring to the makefile. This is where `make` is executed on (`make -C $(dirname ${makefile})`).""",
         ),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo, _KernelBuildInfo],
-            doc = "Label referring to the kernel_build module.",
         ),
         "kernel_module_deps": attr.label_list(
-            doc = "A list of other kernel_module dependencies.",
             providers = [_KernelEnvInfo, _KernelModuleInfo],
         ),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
-        "outs": attr.output_list(
-            doc = """The expected output files.
-
-For each token `out`, the build rule automatically finds a
-file named `out` in the legacy kernel modules staging
-directory. The file is copied to the output directory of
-this package, with the label `out`.
-
-- If `out` doesn't contain a slash, subdirectories are searched.
-
-    Example:
-    ```
-    kernel_module(name = "nfc", outs = ["nfc.ko"])
-    ```
-
-    The build system copies
-    ```
-    <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko
-    ```
-    to
-    ```
-    <package output dir>/nfc.ko
-    ```
-
-    `nfc.ko` is the label to the file.
-
-- If {out} contains slashes, its value is used. The file is
-  also copied to the top of package output directory.
-
-    For example:
-    ```
-    kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
-    ```
-
-    The build system copies
-    ```
-    <legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko
-    ```
-    to
-    ```
-    foo/nfc.ko
-    ```
-
-    `foo/nfc.ko` is the label to the file.
-
-    The file is also copied to `<package output dir>/nfc.ko`.
-
-    `nfc.ko` is the label to the file.
-
-    See `search_and_mv_output.py` for details.
-""",
-        ),
+        "outs": attr.output_list(),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
@@ -851,6 +796,124 @@ this package, with the label `out`.
         ),
     },
 )
+
+def kernel_module(
+        name,
+        kernel_build,
+        outs = None,
+        srcs = None,
+        kernel_module_deps = [],
+        makefile = ":Makefile",
+        **kwargs):
+    """Generates a rule that builds an external kernel module.
+
+    Example:
+    ```
+    kernel_module(
+        name = "nfc",
+        srcs = glob([
+            "**/*.c",
+            "**/*.h",
+
+            # If there are Kbuild files, add them
+            "**/Kbuild",
+            # If there are additional makefiles in subdirectories, add them
+            "**/Makefile",
+        ]),
+        outs = ["nfc.ko"],
+        kernel_build = "//common:kernel_aarch64",
+    )
+    ```
+
+    Args:
+        name: Name of this kernel module.
+        srcs: Source files to build this kernel module. If unspecified or value
+          is `None`, it is by default the list in the above example:
+          ```
+          glob([
+            "**/*.c",
+            "**/*.h",
+            "**/Kbuild",
+            "**/Makefile",
+          ])
+          ```
+        kernel_build: Label referring to the kernel_build module.
+        kernel_module_deps: A list of other kernel_module dependencies.
+        makefile: Label referring to the makefile. This is where `make` is
+          executed on (`make -C $(dirname ${makefile})`).
+        outs: The expected output files. If unspecified or value is `None`, it
+          is `["{name}.ko"]` by default.
+
+          For each token `out`, the build rule automatically finds a
+          file named `out` in the legacy kernel modules staging
+          directory. The file is copied to the output directory of
+          this package, with the label `out`.
+
+          - If `out` doesn't contain a slash, subdirectories are searched.
+
+            Example:
+            ```
+            kernel_module(name = "nfc", outs = ["nfc.ko"])
+            ```
+
+            The build system copies
+            ```
+            <legacy modules staging dir>/lib/modules/*/extra/<some subdir>/nfc.ko
+            ```
+            to
+            ```
+            <package output dir>/nfc.ko
+            ```
+
+            `nfc.ko` is the label to the file.
+
+          - If `out` contains slashes, its value is used. The file is
+            also copied to the top of package output directory.
+
+            For example:
+            ```
+            kernel_module(name = "nfc", outs = ["foo/nfc.ko"])
+            ```
+
+            The build system copies
+            ```
+            <legacy modules staging dir>/lib/modules/*/extra/foo/nfc.ko
+            ```
+            to
+            ```
+            foo/nfc.ko
+            ```
+
+            `foo/nfc.ko` is the label to the file.
+
+            The file is also copied to `<package output dir>/nfc.ko`.
+
+            `nfc.ko` is the label to the file.
+
+            See `search_and_mv_output.py` for details.
+        kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+    """
+    if outs == None:
+        outs = ["{}.ko".format(name)]
+    if srcs == None:
+        srcs = native.glob([
+            "**/*.c",
+            "**/*.h",
+            "**/Kbuild",
+            "**/Makefile",
+        ])
+    _kernel_module(
+        name = name,
+        srcs = srcs,
+        kernel_build = kernel_build,
+        kernel_module_deps = kernel_module_deps,
+        outs = outs,
+        makefile = makefile,
+        **kwargs
+    )
 
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
@@ -1076,6 +1139,52 @@ _kernel_headers = rule(
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelBuildInfo],  # for out_dir_kernel_headers_tar only
+        ),
+        "env": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo],
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+    },
+)
+
+def _vmlinux_btf_impl(ctx):
+    inputs = [
+        ctx.file.vmlinux,
+    ]
+    inputs += ctx.attr.env[_KernelEnvInfo].dependencies
+    out_file = ctx.actions.declare_file("{}/vmlinux.btf".format(ctx.label.name))
+    out_dir = out_file.dirname
+    command = ctx.attr.env[_KernelEnvInfo].setup + """
+              mkdir -p {out_dir}
+              cp -Lp {vmlinux} {vmlinux_btf}
+              pahole -J {vmlinux_btf}
+              llvm-strip --strip-debug {vmlinux_btf}
+    """.format(
+        vmlinux = ctx.file.vmlinux.path,
+        vmlinux_btf = out_file.path,
+        out_dir = out_dir,
+    )
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [out_file],
+        progress_message = "Building vmlinux.btf {}".format(ctx.label),
+        command = command,
+    )
+    return DefaultInfo(files = depset([out_file]))
+
+_vmlinux_btf = rule(
+    implementation = _vmlinux_btf_impl,
+    doc = "Build vmlinux.btf",
+    attrs = {
+        "vmlinux": attr.label(
+            mandatory = True,
+            allow_single_file = True,
         ),
         "env": attr.label(
             mandatory = True,
