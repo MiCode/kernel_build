@@ -960,11 +960,15 @@ def kernel_module(
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
+    # A list of declared files for outputs of kernel_module rules
+    external_modules = []
+
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
+        ctx.file._search_and_mv_output,
         ctx.file._check_duplicated_files_in_archives,
         ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
     ]
@@ -973,6 +977,12 @@ def _kernel_modules_install_impl(ctx):
         inputs += [
             kernel_module[_KernelModuleInfo].module_staging_archive,
         ]
+
+        # Intentionally expand depset.to_list() to figure out what module files
+        # will be installed to module install directory.
+        for module_file in kernel_module[DefaultInfo].files.to_list():
+            declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
+            external_modules.append(declared_file)
 
     module_staging_archive = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
     module_staging_dir = module_staging_archive.dirname + "/staging"
@@ -1024,12 +1034,23 @@ def _kernel_modules_install_impl(ctx):
                )
              # Archive module_staging_dir
                tar czf {module_staging_archive} -C {module_staging_dir} .
-               rm -rf {module_staging_dir}
     """.format(
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
         check_duplicated_files_in_archives = ctx.file._check_duplicated_files_in_archives.path,
     )
+
+    if external_modules:
+        external_module_dir = external_modules[0].dirname
+        command += """
+                 # Move external modules to declared output location
+                   {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {filenames}
+        """.format(
+            module_staging_dir = module_staging_dir,
+            outdir = external_module_dir,
+            filenames = " ".join([declared_file.basename for declared_file in external_modules]),
+            search_and_mv_output = ctx.file._search_and_mv_output.path,
+        )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
         print("""
@@ -1037,28 +1058,49 @@ def _kernel_modules_install_impl(ctx):
 
     ctx.actions.run_shell(
         inputs = inputs,
-        outputs = [module_staging_archive],
+        outputs = external_modules + [
+            module_staging_archive,
+        ],
         command = command,
         progress_message = "Running depmod {}".format(ctx.label),
     )
+
     return [
-        DefaultInfo(files = depset([module_staging_archive])),
+        DefaultInfo(files = depset(external_modules)),
     ]
 
 kernel_modules_install = rule(
     implementation = _kernel_modules_install_impl,
     doc = """Generates a rule that runs depmod in the module installation directory.
 
+When including this rule to the `data` attribute of a `copy_to_dist_dir` rule,
+all external kernel modules specified in `kernel_modules` are included in
+distribution. This excludes `module_outs` in `kernel_build` to avoid conflicts.
+
 Example:
 ```
 kernel_modules_install(
     name = "foo_modules_install",
-    kernel_build = "foo", // A kernel_build rule
-    kernel_modules = [ // kernel_module rules
+    kernel_build = ":foo",           # A kernel_build rule
+    kernel_modules = [               # kernel_module rules
         "//path/to/nfc:nfc_module",
     ],
 )
+kernel_build(
+    name = "foo",
+    outs = ["vmlinux"],
+    module_outs = ["core_module.ko"],
+)
+copy_to_dist_dir(
+    name = "foo_dist",
+    data = [
+        ":foo",                      # Includes core_module.ko and vmlinux
+        ":foo_modules_install",      # Includes nfc_module
+    ],
+)
 ```
+In `foo_dist`, specifying `foo_modules_install` in `data` won't include
+`core_module.ko`, because it is already included in `foo` in `data`.
 """,
     attrs = {
         "kernel_modules": attr.label_list(
@@ -1079,6 +1121,11 @@ kernel_modules_install(
         "_check_duplicated_files_in_archives": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
+            doc = "Label referring to the script to process outputs",
+        ),
+        "_search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
     },
