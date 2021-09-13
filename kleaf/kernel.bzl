@@ -14,7 +14,7 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r428724"
+_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r433403"
 
 def _debug_trap():
     return """set -x
