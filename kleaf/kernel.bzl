@@ -25,6 +25,7 @@ def kernel_build(
         build_config,
         srcs,
         outs,
+        module_outs = [],
         generate_vmlinux_btf = False,
         deps = (),
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
@@ -57,7 +58,17 @@ def kernel_build(
 
           Requires that `"vmlinux"` is in `outs`.
         deps: Additional dependencies to build this kernel.
+        module_outs: Similar to `outs`, but for `*.ko` files searched from
+          module install directory.
 
+          Like `outs`, `module_outs` are part
+          of the [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)
+          that this `kernel_build` returns. For example:
+          ```
+          kernel_build(name = "kernel", module_outs = ["foo.ko"], ...)
+          copy_to_dist_dir(name = "kernel_dist", data = [":kernel"])
+          ```
+          `foo.ko` will be included in the distribution.
         outs: The expected output files. For each item `out`:
 
           - If `out` does not contain a slash, the build rule
@@ -98,6 +109,15 @@ def kernel_build(
             They are also the labels to the output files, respectively.
 
             See `search_and_mv_output.py` for details.
+
+          Files in `outs` are part
+          of the [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)
+          that this `kernel_build` returns. For example:
+          ```
+          kernel_build(name = "kernel", outs = ["vmlinux"], ...)
+          copy_to_dist_dir(name = "kernel_dist", data = [":kernel"])
+          ```
+          `vmlinux` will be included in the distribution.
         toolchain_version: The toolchain version to depend on.
     """
     sources_target_name = name + "_sources"
@@ -142,6 +162,7 @@ def kernel_build(
         config = config_target_name,
         srcs = [sources_target_name],
         outs = [name + "/" + out for out in outs],
+        module_outs = [name + "/" + module_out for module_out in module_outs],
         deps = deps,
     )
 
@@ -449,6 +470,10 @@ def _kernel_build_impl(ctx):
     for out in ctx.outputs.outs:
         short_name = out.short_path[len(outdir.short_path) + 1:]
         outs.append(short_name)
+    module_outs = []
+    for module_out in ctx.outputs.module_outs:
+        short_name = module_out.short_path[len(outdir.short_path) + 1:]
+        module_outs.append(short_name)
 
     module_staging_archive = ctx.actions.declare_file(
         "{name}/module_staging_dir.tar.gz".format(name = ctx.label.name),
@@ -456,6 +481,7 @@ def _kernel_build_impl(ctx):
     out_dir_kernel_headers_tar = ctx.actions.declare_file(
         "{name}/out-dir-kernel-headers.tar.gz".format(name = ctx.label.name),
     )
+    module_staging_dir = module_staging_archive.dirname + "/staging"
 
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Actual kernel build
@@ -479,15 +505,29 @@ def _kernel_build_impl(ctx):
            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
          # Archive module_staging_dir
            tar czf {module_staging_archive} -C {module_staging_dir} .
-           rm -rf {module_staging_dir}
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
-        module_staging_dir = module_staging_archive.dirname + "/staging",
+        module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
     )
+
+    if module_outs:
+        command += """
+                 # Grab modules
+                   {search_and_mv_output} --srcdir {module_staging_dir} --dstdir {outdir} {module_outs}
+        """.format(
+            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            module_staging_dir = module_staging_dir,
+            outdir = outdir.path,
+            module_outs = " ".join(module_outs),
+        )
+
+    command += """
+               rm -rf {module_staging_dir}
+    """.format(module_staging_dir = module_staging_dir)
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
         print("""
@@ -496,7 +536,7 @@ def _kernel_build_impl(ctx):
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps +
                  [ctx.file._search_and_mv_output],
-        outputs = ctx.outputs.outs + [
+        outputs = ctx.outputs.outs + ctx.outputs.module_outs + [
             outdir,
             module_staging_archive,
             out_dir_kernel_headers_tar,
@@ -531,6 +571,7 @@ def _kernel_build_impl(ctx):
             module_srcs = module_srcs,
             out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         ),
+        DefaultInfo(files = depset(ctx.outputs.outs + ctx.outputs.module_outs)),
     ]
 
 _kernel_build = rule(
@@ -544,6 +585,7 @@ _kernel_build = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
         "outs": attr.output_list(),
+        "module_outs": attr.output_list(doc = "output *.ko files"),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
@@ -918,11 +960,15 @@ def kernel_module(
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
+    # A list of declared files for outputs of kernel_module rules
+    external_modules = []
+
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
+        ctx.file._search_and_mv_output,
         ctx.file._check_duplicated_files_in_archives,
         ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
     ]
@@ -931,6 +977,12 @@ def _kernel_modules_install_impl(ctx):
         inputs += [
             kernel_module[_KernelModuleInfo].module_staging_archive,
         ]
+
+        # Intentionally expand depset.to_list() to figure out what module files
+        # will be installed to module install directory.
+        for module_file in kernel_module[DefaultInfo].files.to_list():
+            declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
+            external_modules.append(declared_file)
 
     module_staging_archive = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
     module_staging_dir = module_staging_archive.dirname + "/staging"
@@ -982,12 +1034,23 @@ def _kernel_modules_install_impl(ctx):
                )
              # Archive module_staging_dir
                tar czf {module_staging_archive} -C {module_staging_dir} .
-               rm -rf {module_staging_dir}
     """.format(
         module_staging_dir = module_staging_dir,
         module_staging_archive = module_staging_archive.path,
         check_duplicated_files_in_archives = ctx.file._check_duplicated_files_in_archives.path,
     )
+
+    if external_modules:
+        external_module_dir = external_modules[0].dirname
+        command += """
+                 # Move external modules to declared output location
+                   {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {filenames}
+        """.format(
+            module_staging_dir = module_staging_dir,
+            outdir = external_module_dir,
+            filenames = " ".join([declared_file.basename for declared_file in external_modules]),
+            search_and_mv_output = ctx.file._search_and_mv_output.path,
+        )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
         print("""
@@ -995,28 +1058,49 @@ def _kernel_modules_install_impl(ctx):
 
     ctx.actions.run_shell(
         inputs = inputs,
-        outputs = [module_staging_archive],
+        outputs = external_modules + [
+            module_staging_archive,
+        ],
         command = command,
         progress_message = "Running depmod {}".format(ctx.label),
     )
+
     return [
-        DefaultInfo(files = depset([module_staging_archive])),
+        DefaultInfo(files = depset(external_modules)),
     ]
 
 kernel_modules_install = rule(
     implementation = _kernel_modules_install_impl,
     doc = """Generates a rule that runs depmod in the module installation directory.
 
+When including this rule to the `data` attribute of a `copy_to_dist_dir` rule,
+all external kernel modules specified in `kernel_modules` are included in
+distribution. This excludes `module_outs` in `kernel_build` to avoid conflicts.
+
 Example:
 ```
 kernel_modules_install(
     name = "foo_modules_install",
-    kernel_build = "foo", // A kernel_build rule
-    kernel_modules = [ // kernel_module rules
+    kernel_build = ":foo",           # A kernel_build rule
+    kernel_modules = [               # kernel_module rules
         "//path/to/nfc:nfc_module",
     ],
 )
+kernel_build(
+    name = "foo",
+    outs = ["vmlinux"],
+    module_outs = ["core_module.ko"],
+)
+copy_to_dist_dir(
+    name = "foo_dist",
+    data = [
+        ":foo",                      # Includes core_module.ko and vmlinux
+        ":foo_modules_install",      # Includes nfc_module
+    ],
+)
 ```
+In `foo_dist`, specifying `foo_modules_install` in `data` won't include
+`core_module.ko`, because it is already included in `foo` in `data`.
 """,
     attrs = {
         "kernel_modules": attr.label_list(
@@ -1037,6 +1121,11 @@ kernel_modules_install(
         "_check_duplicated_files_in_archives": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
+            doc = "Label referring to the script to process outputs",
+        ),
+        "_search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
     },
