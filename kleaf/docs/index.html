@@ -20,21 +20,6 @@
 <head>
     <script src="https://unpkg.com/showdown@latest/dist/showdown.min.js"></script>
     <script>
-        function get(url, successFn, failFn) {
-            var request = new XMLHttpRequest()
-            request.open("GET", url, true);
-            request.onreadystatechange = function () {
-                if (request.readyState === XMLHttpRequest.DONE) {
-                    if (request.status === 200) {
-                        successFn(request);
-                    } else {
-                        failFn(request);
-                    }
-                }
-            }
-            request.send(null)
-        }
-
         function showMarkdownFile(responseText, file) {
             const headerLevelStart = 1;
 
@@ -75,11 +60,7 @@
                 document.body.innerText = "Invalid param for file";
                 return;
             }
-            get(new URL(file, document.location).href, function (request) {
-                showMarkdownFile(request.responseText, file);
-            }, function (request) {
-                document.body.innerText = request.status + " " + request.statusText
-            })
+            showMarkdownFile(atob(document.getElementById(file).innerText), file);
         });
     </script>
     <style>

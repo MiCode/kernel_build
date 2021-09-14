@@ -15,7 +15,6 @@
 load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 package(default_visibility = ["//visibility:public"])
@@ -79,7 +78,7 @@ bzl_library(
 ) for name in kernel_rule_files]
 
 filegroup(
-    name = "docs",
+    name = "docs_markdown_files",
     srcs = [name + "-docs" for name in kernel_rule_files],
 )
 
@@ -107,8 +106,6 @@ platform(
 # Documentation
 #
 
-doc_root = "docs_server_files/"
-
 genrule(
     name = "docs_resources_directory.html.frag",
     srcs = [
@@ -127,9 +124,7 @@ genrule(
     srcs = [
         "docs/index.html",
         ":docs_resources_directory.html.frag",
-    ],
-    tools = [
-        "docs/insert_resource.py",
+        ":docs_markdown_files",
     ],
     outs = [
         "docs_server_files/index.html",
@@ -138,21 +133,17 @@ genrule(
         $(location docs/insert_resource.py) \
           --infile $(location docs/index.html) \
           --outfile $(location docs_server_files/index.html) \
-          --resources $(location :docs_resources_directory.html.frag)
+          --resources $(location :docs_resources_directory.html.frag) \
+                      $(locations :docs_markdown_files)
     """,
+    tools = [
+        "docs/insert_resource.py",
+    ],
 )
-
-[copy_file(
-    name = "docs_server_files_" + name + ".md",
-    src = name + ".md",
-    out = doc_root + name + ".md",
-) for name in kernel_rule_files]
 
 filegroup(
     name = "docs_files",
-    srcs =
-        [":docs_server_files_" + name + ".md" for name in kernel_rule_files] +
-        ["docs_server_files/index.html"],
+    srcs = ["docs_server_files/index.html"],
 )
 
 sh_binary(
