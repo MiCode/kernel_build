@@ -106,29 +106,40 @@ platform(
 #
 # Documentation
 #
-docs_server_files = [
-    "index.html",
-]
 
 doc_root = "docs_server_files/"
 
-[copy_file(
-    name = "docs_server_files_" + file,
-    src = "docs/" + file,
-    out = doc_root + file,
-) for file in docs_server_files]
-
 genrule(
-    name = "docs_server_files_directory.html.frag",
+    name = "docs_resources_directory.html.frag",
     srcs = [
     ],
     outs = [
-        doc_root + "directory.html.frag",
+        "docs_resources/directory.html.frag",
     ],
     cmd = "".join([
         """echo '<div><a href="?file={name}.md">{name}.md</a></div>' >> $@ && """.format(name = name)
         for name in kernel_rule_files
     ]) + ":",
+)
+
+genrule(
+    name = "docs_server_files_index.html",
+    srcs = [
+        "docs/index.html",
+        ":docs_resources_directory.html.frag",
+    ],
+    tools = [
+        "docs/insert_resource.py",
+    ],
+    outs = [
+        "docs_server_files/index.html",
+    ],
+    cmd = """
+        $(location docs/insert_resource.py) \
+          --infile $(location docs/index.html) \
+          --outfile $(location docs_server_files/index.html) \
+          --resources $(location :docs_resources_directory.html.frag)
+    """,
 )
 
 [copy_file(
@@ -140,9 +151,8 @@ genrule(
 filegroup(
     name = "docs_files",
     srcs =
-        [doc_root + "directory.html.frag"] +
-        ["docs_server_files_" + name + ".md" for name in kernel_rule_files] +
-        ["docs_server_files_" + name for name in docs_server_files],
+        [":docs_server_files_" + name + ".md" for name in kernel_rule_files] +
+        ["docs_server_files/index.html"],
 )
 
 sh_binary(

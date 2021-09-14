@@ -64,11 +64,7 @@
 
         document.addEventListener("DOMContentLoaded", function () {
             // Show directory
-            get(new URL("directory.html.frag", document.location).href, function (request) {
-                document.getElementById("div-directory-frag").innerHTML = request.responseText;
-            }, function (request) {
-                document.getElementById("div-directory-frag").innerText = "Failed to get directory.html.frag"
-            });
+            document.getElementById("div-directory-frag").innerHTML = atob(document.getElementById("directory.html.frag").innerText);
 
             const params = new URLSearchParams(window.location.search);
             var file = params.get("file");
@@ -107,5 +103,6 @@
 <h2 id="headline-file-name" hidden></h2>
 <div id="div-file-contents">
 </div>
+<!--RESOURCE_EMBED_HINT-->
 </body>
 </html>
