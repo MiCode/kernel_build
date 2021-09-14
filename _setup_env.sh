@@ -213,7 +213,7 @@ if [ -z "${LZ4_RAMDISK}" ] ; then
   RAMDISK_DECOMPRESS="${DECOMPRESS_GZIP}"
   RAMDISK_EXT="gz"
 else
-  RAMDISK_COMPRESS="lz4 -c -l -12 --favor-decSpeed"
+  RAMDISK_COMPRESS="lz4 -c -l ${LZ4_RAMDISK_COMPRESS_ARGS:--12 --favor-decSpeed}"
   RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
   RAMDISK_EXT="lz4"
 fi

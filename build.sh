@@ -301,6 +301,12 @@
 #     if set to "1", any ramdisks generated will be lz4 compressed instead of
 #     gzip compressed.
 #
+#   LZ4_RAMDISK_COMPRESS_ARGS
+#     Command line arguments passed to lz4 command to control compression
+#     level (defaults to "-12 --favor-decSpeed"). For iterative kernel
+#     development where faster compression is more desirable than a high
+#     compression ratio, it can be useful to control the compression ratio.
+#
 #   TRIM_NONLISTED_KMI
 #     if set to "1", enable the CONFIG_UNUSED_KSYMS_WHITELIST kernel config
 #     option to un-export from the build any un-used and non-symbol-listed
