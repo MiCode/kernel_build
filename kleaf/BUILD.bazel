@@ -108,8 +108,6 @@ platform(
 #
 docs_server_files = [
     "index.html",
-    "render.js",
-    "styles.css",
 ]
 
 doc_root = "docs_server_files/"

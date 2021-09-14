@@ -19,8 +19,80 @@
 <html>
 <head>
     <script src="https://unpkg.com/showdown@latest/dist/showdown.min.js"></script>
-    <script src="render.js"></script>
-    <link href="styles.css" rel="stylesheet">
+    <script>
+        function get(url, successFn, failFn) {
+            var request = new XMLHttpRequest()
+            request.open("GET", url, true);
+            request.onreadystatechange = function () {
+                if (request.readyState === XMLHttpRequest.DONE) {
+                    if (request.status === 200) {
+                        successFn(request);
+                    } else {
+                        failFn(request);
+                    }
+                }
+            }
+            request.send(null)
+        }
+
+        function showMarkdownFile(responseText, file) {
+            const headerLevelStart = 1;
+
+            var converter = new showdown.Converter();
+            converter.setOption("customizedHeaderId", true);
+            converter.setOption("ghCompatibleHeaderId", true);
+            converter.setOption("headerLevelStart", headerLevelStart);
+            document.getElementById("div-file-contents").innerHTML = converter.makeHtml(responseText);
+
+            // Show file name
+            document.getElementById("headline-file-name").innerText = file;
+            // Generate table of contents
+            var h2Elements = document.getElementById("div-file-contents").getElementsByTagName("h" + headerLevelStart)
+            var sampleToc = document.getElementById("div-sample-toc")
+            var toc = document.getElementById("div-toc-contents")
+            for (let i = 0; i < h2Elements.length; i++) {
+                var clone = sampleToc.cloneNode(true)
+                var link = clone.getElementsByTagName("a")[0];
+                link.href = "#" + h2Elements[i].id
+                link.innerText = h2Elements[i].id
+                toc.appendChild(clone)
+            }
+
+            var fileName = document.getElementById("headline-file-name")
+            fileName.hidden = false;
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // Show directory
+            get(new URL("directory.html.frag", document.location).href, function (request) {
+                document.getElementById("div-directory-frag").innerHTML = request.responseText;
+            }, function (request) {
+                document.getElementById("div-directory-frag").innerText = "Failed to get directory.html.frag"
+            });
+
+            const params = new URLSearchParams(window.location.search);
+            var file = params.get("file");
+            if (!file) {
+                file = "kernel.md";
+            }
+            if (!file.endsWith(".md")) {
+                document.body.innerText = "Invalid param for file";
+                return;
+            }
+            get(new URL(file, document.location).href, function (request) {
+                showMarkdownFile(request.responseText, file);
+            }, function (request) {
+                document.body.innerText = request.status + " " + request.statusText
+            })
+        });
+    </script>
+    <style>
+        #div-float-right {
+            position: fixed;
+            right: 0;
+            top: 0;
+        }
+    </style>
 </head>
 <body>
 <div id="div-float-right">
