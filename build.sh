@@ -807,8 +807,8 @@ if [ -n "${MODULES}" ]; then
     echo "========================================================"
     echo " Copying modules files"
     cp -p ${MODULES} ${DIST_DIR}
-    echo " Archiving modules to ${MODULES_ARCHIVE}"
     if [ "${COMPRESS_MODULES}" = "1" ]; then
+      echo " Archiving modules to ${MODULES_ARCHIVE}"
       tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
     fi
   fi
