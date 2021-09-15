@@ -16,6 +16,7 @@ load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -51,35 +52,19 @@ exports_files([
 ])
 
 # Docs. To view them:
-#   bazel build //build/kleaf:docs
-#   # Examine bazel-bin/build/kleaf/*.md
+#   bazel run //build/kleaf:docs_server
 
-kernel_rule_files = [
-    "common_kernels",
-    "kernel",
-]
-
-bzl_library(
-    name = "kernel-rules",
-    srcs = [name + ".bzl" for name in kernel_rule_files] + [
-        "@bazel_skylib//rules:common_settings",
-        "//build/bazel_common_rules/dist:dist",
+docs(
+    name = "docs",
+    srcs = [
+        "common_kernels.bzl",
+        "kernel.bzl",
     ],
-)
-
-[stardoc(
-    name = name + "-docs",
-    out = name + ".md",
-    func_template = "templates/func.vm",
-    input = name + ".bzl",
-    provider_template = "templates/provider.vm",
-    rule_template = "templates/rule.vm",
-    deps = ["kernel-rules"],
-) for name in kernel_rule_files]
-
-filegroup(
-    name = "docs_markdown_files",
-    srcs = [name + "-docs" for name in kernel_rule_files],
+    default = "kernel.bzl",
+    deps = [
+        "//build/bazel_common_rules/dist",
+        "@bazel_skylib//rules:common_settings",
+    ],
 )
 
 #
@@ -100,61 +85,4 @@ platform(
         "OSFamily": "Linux",
     },
     parents = ["@local_config_platform//:host"],
-)
-
-#
-# Documentation
-#
-
-genrule(
-    name = "docs_resources_directory.html.frag",
-    srcs = [
-    ],
-    outs = [
-        "docs_resources/directory.html.frag",
-    ],
-    cmd = "".join([
-        """echo '<div><a href="?file={name}.md">{name}.md</a></div>' >> $@ && """.format(name = name)
-        for name in kernel_rule_files
-    ]) + ":",
-)
-
-genrule(
-    name = "docs_server_files_index.html",
-    srcs = [
-        "docs/index.html",
-        ":docs_resources_directory.html.frag",
-        ":docs_markdown_files",
-    ],
-    outs = [
-        "docs_server_files/index.html",
-    ],
-    cmd = """
-        $(location docs/insert_resource.py) \
-          --infile $(location docs/index.html) \
-          --outfile $(location docs_server_files/index.html) \
-          --resources $(location :docs_resources_directory.html.frag) \
-                      $(locations :docs_markdown_files)
-    """,
-    tools = [
-        "docs/insert_resource.py",
-    ],
-)
-
-filegroup(
-    name = "docs_files",
-    srcs = ["docs_server_files/index.html"],
-)
-
-sh_binary(
-    name = "docs_server",
-    srcs = [
-        "docs/run_server.sh",
-    ],
-    data = [":docs_files"],
-)
-
-copy_to_dist_dir(
-    name = "docs_dist",
-    data = [":docs_files"],
 )
