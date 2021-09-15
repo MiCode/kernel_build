@@ -55,7 +55,7 @@ function run_depmod() {
       rm -f ${depmod_stderr}
       exit 1
     fi
-    echo "$depmod_stdout"
+    [ -n "$depmod_stdout" ] && echo "$depmod_stdout"
     cat ${depmod_stderr} >&2
     if { grep -q "needs unknown symbol" ${depmod_stderr}; }; then
       echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
