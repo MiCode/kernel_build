@@ -40,6 +40,14 @@
 #     sourced after the main build config file. Typically used for sanitizers or
 #     other special builds.
 #
+#   FAST_BUILD
+#     If defined, trade run-time optimizations for build speed. In other words,
+#     if given a choice between a faster build and a run-time optimization,
+#     choose the shorter build time. For example, use ThinLTO for faster
+#     linking and reduce the lz4 compression level to speed up ramdisk
+#     compression. This trade-off is desirable for incremental kernel
+#     development where fast turnaround times are critical for productivity.
+#
 #   OUT_DIR
 #     Base output directory for the kernel build.
 #     Defaults to <REPO_ROOT>/out/<BRANCH>.

@@ -58,6 +58,15 @@ for fragment in ${BUILD_CONFIG_FRAGMENTS}; do
 done
 set +a
 
+# For incremental kernel development, it is beneficial to trade certain
+# optimizations for faster builds.
+if [[ -n "${FAST_BUILD}" ]]; then
+  # Decrease lz4 compression level to significantly speed up ramdisk compression.
+  : ${LZ4_RAMDISK_COMPRESS_ARGS:="--fast"}
+  # Use ThinLTO for fast incremental compiles
+  : ${LTO:="thin"}
+fi
+
 export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
 export OUT_DIR=$(readlink -m ${COMMON_OUT_DIR}/${KERNEL_DIR})
 export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
