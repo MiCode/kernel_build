@@ -806,12 +806,9 @@ if [ -n "${MODULES}" ]; then
   if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" -o -n "${EXT_MODULES_MAKEFILE}" ]; then
     echo "========================================================"
     echo " Copying modules files"
-    for FILE in ${MODULES}; do
-      echo "  ${FILE#${MODULES_STAGING_DIR}/}"
-      cp -p ${FILE} ${DIST_DIR}
-    done
-    echo " Archiving modules to ${MODULES_ARCHIVE}"
+    cp -p ${MODULES} ${DIST_DIR}
     if [ "${COMPRESS_MODULES}" = "1" ]; then
+      echo " Archiving modules to ${MODULES_ARCHIVE}"
       tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
     fi
   fi

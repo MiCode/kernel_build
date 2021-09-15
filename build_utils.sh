@@ -55,7 +55,7 @@ function run_depmod() {
       rm -f ${depmod_stderr}
       exit 1
     fi
-    echo "$depmod_stdout"
+    [ -n "$depmod_stdout" ] && echo "$depmod_stdout"
     cat ${depmod_stderr} >&2
     if { grep -q "needs unknown symbol" ${depmod_stderr}; }; then
       echo "ERROR: kernel module(s) need unknown symbol(s)" >&2
@@ -103,8 +103,6 @@ function create_modules_staging() {
   fi
 
   if [ -n "${modules_list_file}" ]; then
-    echo "========================================================"
-    echo " Reducing modules.order to:"
     # Need to make sure we can find modules_list_file from the staging dir
     if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
       modules_list_file="${ROOT_DIR}/${modules_list_file}"
@@ -127,7 +125,6 @@ function create_modules_staging() {
     cp ${dest_dir}/modules.order ${old_modules_list}
     ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
     rm -f ${modules_list_filter} ${old_modules_list}
-    cat ${dest_dir}/modules.order | sed -e "s/^/  /"
   fi
 
   if [ -n "${modules_blocklist_file}" ]; then
