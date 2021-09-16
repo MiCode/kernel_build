@@ -19,8 +19,57 @@
 <html>
 <head>
     <script src="https://unpkg.com/showdown@latest/dist/showdown.min.js"></script>
-    <script src="render.js"></script>
-    <link href="styles.css" rel="stylesheet">
+    <script>
+        function showMarkdownFile(responseText, file) {
+            const headerLevelStart = 1;
+
+            var converter = new showdown.Converter();
+            converter.setOption("customizedHeaderId", true);
+            converter.setOption("ghCompatibleHeaderId", true);
+            converter.setOption("headerLevelStart", headerLevelStart);
+            document.getElementById("div-file-contents").innerHTML = converter.makeHtml(responseText);
+
+            // Show file name
+            document.getElementById("headline-file-name").innerText = file;
+            // Generate table of contents
+            var h2Elements = document.getElementById("div-file-contents").getElementsByTagName("h" + headerLevelStart)
+            var sampleToc = document.getElementById("div-sample-toc")
+            var toc = document.getElementById("div-toc-contents")
+            for (let i = 0; i < h2Elements.length; i++) {
+                var clone = sampleToc.cloneNode(true)
+                var link = clone.getElementsByTagName("a")[0];
+                link.href = "#" + h2Elements[i].id
+                link.innerText = h2Elements[i].id
+                toc.appendChild(clone)
+            }
+
+            var fileName = document.getElementById("headline-file-name")
+            fileName.hidden = false;
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // Show directory
+            document.getElementById("div-directory-frag").innerHTML = atob(document.getElementById("directory.html.frag").innerText);
+
+            const params = new URLSearchParams(window.location.search);
+            var file = params.get("file");
+            if (!file) {
+                file = "kernel.md";
+            }
+            if (!file.endsWith(".md")) {
+                document.body.innerText = "Invalid param for file";
+                return;
+            }
+            showMarkdownFile(atob(document.getElementById(file).innerText), file);
+        });
+    </script>
+    <style>
+        #div-float-right {
+            position: fixed;
+            right: 0;
+            top: 0;
+        }
+    </style>
 </head>
 <body>
 <div id="div-float-right">
@@ -35,5 +84,6 @@
 <h2 id="headline-file-name" hidden></h2>
 <div id="div-file-contents">
 </div>
+<!--RESOURCE_EMBED_HINT-->
 </body>
 </html>

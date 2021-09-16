@@ -707,6 +707,7 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
 
   make -f "${EXT_MODULES_MAKEFILE}" KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR} \
           O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}                 \
+          INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr"              \
           INSTALL_MOD_PATH=${MODULES_STAGING_DIR} "${MAKE_ARGS[@]}"
 fi
 
@@ -731,6 +732,7 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                        O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}         \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
+                       INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr"      \
                        "${MAKE_ARGS[@]}" modules_install
     set +x
   done
@@ -853,12 +855,9 @@ if [ -n "${MODULES}" ]; then
   if [ -n "${IN_KERNEL_MODULES}" -o -n "${EXT_MODULES}" -o -n "${EXT_MODULES_MAKEFILE}" ]; then
     echo "========================================================"
     echo " Copying modules files"
-    for FILE in ${MODULES}; do
-      echo "  ${FILE#${MODULES_STAGING_DIR}/}"
-      cp -p ${FILE} ${DIST_DIR}
-    done
-    echo " Archiving modules to ${MODULES_ARCHIVE}"
+    cp -p ${MODULES} ${DIST_DIR}
     if [ "${COMPRESS_MODULES}" = "1" ]; then
+      echo " Archiving modules to ${MODULES_ARCHIVE}"
       tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
     fi
   fi

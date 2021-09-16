@@ -49,7 +49,7 @@ def define_common_kernels():
     - `kernel_x86_64`
     - `kernel_x86_64_debug`
 
-    In addition, <name>_dist targets are created that can be run to obtain a
+    In addition, `<name>_dist` targets are created that can be run to obtain a
     distribution outside the workspace.
 
     Aliases are created to refer to the GKI kernel (`kernel_aarch64`) as
