@@ -65,6 +65,8 @@ if [[ -n "${FAST_BUILD}" ]]; then
   : ${LZ4_RAMDISK_COMPRESS_ARGS:="--fast"}
   # Use ThinLTO for fast incremental compiles
   : ${LTO:="thin"}
+  # skip installing kernel headers
+  : ${SKIP_CP_KERNEL_HDR:="1"}
 fi
 
 export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
