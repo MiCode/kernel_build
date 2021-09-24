@@ -147,6 +147,7 @@ for prebuilt_bin in "${prebuilts_paths[@]}"; do
 done
 export PATH
 
+unset LD_LIBRARY_PATH
 unset PYTHONPATH
 unset PYTHONHOME
 unset PYTHONSTARTUP
