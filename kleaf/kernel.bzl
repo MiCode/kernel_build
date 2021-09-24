@@ -653,7 +653,7 @@ _modules_prepare = rule(
 _KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
     "module_staging_archive": "Archive containing staging kernel modules. " +
-                              "Does not contain the lib/modules/* suffix.",
+                              "Contains the lib/modules/* suffix.",
 })
 
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
