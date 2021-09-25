@@ -263,15 +263,24 @@ def _kernel_env_impl(ctx):
          # error on failures
            set -e
            set -o pipefail
+         # utility functions
+           source {build_utils_sh}
          # source the build environment
            source {env}
          # setup the PATH to also include the host tools
            export PATH=$PATH:$PWD/{host_tool_path}
-           """.format(env = out_file.path, host_tool_path = host_tool_path)
+           """.format(
+        env = out_file.path,
+        host_tool_path = host_tool_path,
+        build_utils_sh = ctx.file._build_utils_sh.path,
+    )
 
     return [
         _KernelEnvInfo(
-            dependencies = dependencies + [out_file],
+            dependencies = dependencies + [
+                out_file,
+                ctx.file._build_utils_sh,
+            ],
             setup = setup,
         ),
         DefaultInfo(files = depset([out_file])),
@@ -331,6 +340,10 @@ _kernel_env = rule(
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
+        "_build_utils_sh": attr.label(
+            allow_single_file = True,
+            default = Label("//build:build_utils.sh"),
+        ),
         "_debug_annotate_scripts": attr.label(
             default = "//build/kleaf:debug_annotate_scripts",
         ),
@@ -456,19 +469,20 @@ _KernelBuildInfo = provider(fields = {
                                "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
+    "outs": "A list of File object corresponding to the `outs` attribute",
 })
 
 def _kernel_build_impl(ctx):
     outdir = ctx.actions.declare_directory(ctx.label.name)
 
-    outs = []
+    outs = {}
     for out in ctx.outputs.outs:
         short_name = out.short_path[len(outdir.short_path) + 1:]
-        outs.append(short_name)
-    module_outs = []
+        outs[short_name] = out
+    module_outs = {}
     for module_out in ctx.outputs.module_outs:
         short_name = module_out.short_path[len(outdir.short_path) + 1:]
-        module_outs.append(short_name)
+        module_outs[short_name] = module_out
 
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
@@ -503,7 +517,7 @@ def _kernel_build_impl(ctx):
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
-        outs = " ".join(outs),
+        outs = " ".join(outs.keys()),
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
@@ -517,7 +531,7 @@ def _kernel_build_impl(ctx):
             search_and_mv_output = ctx.file._search_and_mv_output.path,
             modules_staging_dir = modules_staging_dir,
             outdir = outdir.path,
-            module_outs = " ".join(module_outs),
+            module_outs = " ".join(module_outs.keys()),
         )
 
     command += """
@@ -562,6 +576,7 @@ def _kernel_build_impl(ctx):
             modules_staging_archive = modules_staging_archive,
             module_srcs = module_srcs,
             out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
+            outs = outs.values(),
         ),
         DefaultInfo(files = depset(ctx.outputs.outs + ctx.outputs.module_outs)),
     ]
@@ -1044,6 +1059,10 @@ def _kernel_modules_install_impl(ctx):
 
     return [
         DefaultInfo(files = depset(external_modules)),
+        _KernelModuleInfo(
+            kernel_build = ctx.attr.kernel_build,
+            modules_staging_archive = modules_staging_archive,
+        ),
     ]
 
 kernel_modules_install = rule(
@@ -1246,4 +1265,178 @@ _vmlinux_btf = rule(
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
+)
+
+def _build_modules_image_impl_common(
+        ctx,
+        what,
+        outputs,
+        build_command,
+        modules_staging_dir,
+        implicit_outputs = [],
+        additional_inputs = []):
+    """Command implementation for building images that directly contain modules.
+
+    Args:
+        ctx: ctx
+        what: what is being built, for logging
+        outputs: list of `ctx.actions.declare_file`
+        build_command: the command to build `outputs` and `implicit_outputs`
+        modules_staging_dir: a staging directory for module installation
+        implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not returned in
+          `DefaultInfo`)
+    """
+    kernel_build = ctx.attr.kernel_modules_install[_KernelModuleInfo].kernel_build
+    kernel_build_outs = kernel_build[_KernelBuildInfo].outs
+    system_map = None
+    for kernel_build_out in kernel_build_outs:
+        if kernel_build_out.basename == "System.map":
+            if system_map != None:
+                fail("{}: dependent kernel_build {} has multiple System.map in outs:\n  {}\n  {}".format(
+                    ctx.label,
+                    kernel_build,
+                    system_map.path,
+                    kernel_build_out.path,
+                ))
+            system_map = kernel_build_out
+    if system_map == None:
+        fail("{}: dependent kernel_build {} has no System.map in outs".format(
+            ctx.label,
+            kernel_build,
+        ))
+    modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
+
+    inputs = additional_inputs + [
+        system_map,
+        modules_staging_archive,
+    ]
+    inputs += ctx.files.deps
+    inputs += kernel_build[_KernelEnvInfo].dependencies
+
+    command = ""
+    command += kernel_build[_KernelEnvInfo].setup
+    command += """
+             # create staging dirs
+               mkdir -p {modules_staging_dir}
+             # Restore modules_staging_dir from kernel_modules_install
+               tar xf {modules_staging_archive} -C {modules_staging_dir}
+
+             # Restore System.map to DIST_DIR for run_depmod in create_modules_staging
+               mkdir -p ${{DIST_DIR}}
+               cp {system_map} ${{DIST_DIR}}/System.map
+
+               {build_command}
+
+             # remove staging dirs
+               rm -rf {modules_staging_dir}
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        modules_staging_archive = modules_staging_archive.path,
+        system_map = system_map.path,
+        build_command = build_command,
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = outputs + implicit_outputs,
+        progress_message = "Building {} {}".format(what, ctx.label),
+        command = command,
+    )
+    return DefaultInfo(files = depset(outputs))
+
+def _build_modules_image_attrs_common(additional = {}):
+    """Common attrs for rules that builds images that directly contain modules."""
+    ret = {
+        "kernel_modules_install": attr.label(
+            mandatory = True,
+            providers = [_KernelModuleInfo],
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+    }
+    ret.update(additional)
+    return ret
+
+_InitramfsInfo = provider(fields = {
+    "initramfs_img": "Output image",
+    "initramfs_staging_archive": "Archive of initramfs staging directory",
+})
+
+def _initramfs_impl(ctx):
+    initramfs_img = ctx.actions.declare_file("{}/initramfs.img".format(ctx.label.name))
+    modules_load = ctx.actions.declare_file("{}/modules.load".format(ctx.label.name))
+    vendor_boot_modules_load = ctx.outputs.vendor_boot_modules_load
+    initramfs_staging_archive = ctx.actions.declare_file("{}/initramfs_staging_archive.tar.gz".format(ctx.label.name))
+
+    outputs = [
+        initramfs_img,
+        modules_load,
+        vendor_boot_modules_load,
+    ]
+
+    modules_staging_dir = initramfs_img.dirname + "/staging"
+    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
+
+    command = """
+               mkdir -p {initramfs_staging_dir}
+             # Build initramfs
+               create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
+                 {initramfs_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
+               modules_root_dir=$(echo {initramfs_staging_dir}/lib/modules/*)
+               cp ${{modules_root_dir}}/modules.load {modules_load}
+               cp ${{modules_root_dir}}/modules.load {vendor_boot_modules_load}
+               echo "${{MODULES_OPTIONS}}" > ${{modules_root_dir}}/modules.options
+               mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
+               ${{RAMDISK_COMPRESS}} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
+             # Archive initramfs_staging_dir
+               tar czf {initramfs_staging_archive} -C {initramfs_staging_dir} .
+             # Remove staging directories
+               rm -rf {initramfs_staging_dir}
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        initramfs_staging_dir = initramfs_staging_dir,
+        modules_load = modules_load.path,
+        vendor_boot_modules_load = vendor_boot_modules_load.path,
+        initramfs_img = initramfs_img.path,
+        initramfs_staging_archive = initramfs_staging_archive.path,
+    )
+
+    default_info = _build_modules_image_impl_common(
+        ctx = ctx,
+        what = "initramfs",
+        outputs = outputs,
+        build_command = command,
+        modules_staging_dir = modules_staging_dir,
+        implicit_outputs = [
+            initramfs_staging_archive,
+        ],
+    )
+    return [
+        default_info,
+        _InitramfsInfo(
+            initramfs_img = initramfs_img,
+            initramfs_staging_archive = initramfs_staging_archive,
+        ),
+    ]
+
+_initramfs = rule(
+    implementation = _initramfs_impl,
+    doc = """Build initramfs.
+
+When included in a `copy_to_dist_dir` rule, this rule copies the following to `DIST_DIR`:
+- `initramfs.img`
+- `modules.load`
+- `vendor_boot.modules.load`
+
+An additional label, `{name}/vendor_boot.modules.load`, is declared to point to the
+corresponding files.
+""",
+    attrs = _build_modules_image_attrs_common({
+        "vendor_boot_modules_load": attr.output(),
+    }),
 )
