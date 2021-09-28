@@ -1495,3 +1495,97 @@ Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
         ),
     }),
 )
+
+def _boot_images_impl(ctx):
+    initramfs_staging_archive = ctx.attr.initramfs[_InitramfsInfo].initramfs_staging_archive
+    outdir = ctx.actions.declare_directory(ctx.label.name)
+    modules_staging_dir = outdir.path + "/staging"
+    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
+    mkbootimg_staging_dir = modules_staging_dir + "/mkbootimg_staging"
+
+    outs = []
+    for out in ctx.outputs.outs:
+        outs.append(out.short_path[len(outdir.short_path) + 1:])
+
+    kernel_build_outs = ctx.attr.kernel_build[_KernelBuildInfo].outs
+
+    inputs = [
+        ctx.attr.initramfs[_InitramfsInfo].initramfs_img,
+        initramfs_staging_archive,
+        ctx.file.mkbootimg,
+        ctx.file._search_and_mv_output,
+    ]
+    inputs += ctx.files.deps
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    inputs += kernel_build_outs
+
+    command = ""
+    command += ctx.attr.kernel_build[_KernelEnvInfo].setup
+    command += """
+             # Create and restore initramfs_staging_dir
+               mkdir -p {initramfs_staging_dir}
+               tar xf {initramfs_staging_archive} -C {initramfs_staging_dir}
+             # Create and restore DIST_DIR.
+             # We don't need all of *_for_dist. Copying all declared outputs of kernel_build is
+             # sufficient.
+               mkdir -p ${{DIST_DIR}}
+               cp {kernel_build_outs} ${{DIST_DIR}}
+               cp {initramfs_img} ${{DIST_DIR}}/initramfs.img
+             # Build boot images
+               (
+                 INITRAMFS_STAGING_DIR={initramfs_staging_dir}
+                 MKBOOTIMG_STAGING_DIR=$(realpath {mkbootimg_staging_dir})
+                 build_boot_images
+               )
+               {search_and_mv_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
+             # Remove staging directories
+               rm -rf {modules_staging_dir}
+    """.format(
+        initramfs_staging_dir = initramfs_staging_dir,
+        mkbootimg_staging_dir = mkbootimg_staging_dir,
+        search_and_mv_output = ctx.file._search_and_mv_output.path,
+        outdir = outdir.path,
+        outs = " ".join(outs),
+        modules_staging_dir = modules_staging_dir,
+        initramfs_staging_archive = initramfs_staging_archive.path,
+        initramfs_img = ctx.attr.initramfs[_InitramfsInfo].initramfs_img.path,
+        kernel_build_outs = " ".join([out.path for out in kernel_build_outs]),
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = ctx.outputs.outs + [outdir],
+        progress_message = "Building boot images {}".format(ctx.label),
+        command = command,
+    )
+
+_boot_images = rule(
+    implementation = _boot_images_impl,
+    doc = """Build boot images, including `boot.img`, `vendor_boot.img`, etc.
+
+Execute `build_boot_images` in `build_utils.sh`.""",
+    attrs = {
+        "kernel_build": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
+        ),
+        "initramfs": attr.label(
+            providers = [_InitramfsInfo],
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
+        ),
+        "outs": attr.output_list(),
+        "mkbootimg": attr.label(
+            allow_single_file = True,
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+        "_search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
+        ),
+    },
+)
