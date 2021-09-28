@@ -1440,3 +1440,58 @@ corresponding files.
         "vendor_boot_modules_load": attr.output(),
     }),
 )
+
+def _vendor_dlkm_image_impl(ctx):
+    vendor_dlkm_img = ctx.actions.declare_file("{}/vendor_dlkm.img".format(ctx.label.name))
+    vendor_dlkm_modules_load = ctx.actions.declare_file("{}/vendor_dlkm.modules.load".format(ctx.label.name))
+    modules_staging_dir = vendor_dlkm_img.dirname + "/staging"
+    vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
+    command = """
+            # Restore vendor_boot.modules.load
+              cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+            # Build vendor_dlkm
+              mkdir -p {vendor_dlkm_staging_dir}
+              (
+                MODULES_STAGING_DIR={modules_staging_dir}
+                VENDOR_DLKM_STAGING_DIR={vendor_dlkm_staging_dir}
+                build_vendor_dlkm
+              )
+            # Move output files into place
+              mv "${{DIST_DIR}}/vendor_dlkm.img" {vendor_dlkm_img}
+              mv "${{DIST_DIR}}/vendor_dlkm.modules.load" {vendor_dlkm_modules_load}
+            # Remove staging directories
+              rm -rf {vendor_dlkm_staging_dir}
+    """.format(
+        vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
+        modules_staging_dir = modules_staging_dir,
+        vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
+        vendor_dlkm_img = vendor_dlkm_img.path,
+        vendor_dlkm_modules_load = vendor_dlkm_modules_load.path,
+    )
+
+    return _build_modules_image_impl_common(
+        ctx = ctx,
+        what = "vendor_dlkm",
+        outputs = [vendor_dlkm_img, vendor_dlkm_modules_load],
+        build_command = command,
+        modules_staging_dir = modules_staging_dir,
+        additional_inputs = [ctx.file.vendor_boot_modules_load],
+    )
+
+_vendor_dlkm_image = rule(
+    implementation = _vendor_dlkm_image_impl,
+    doc = """Build vendor_dlkm image.
+
+Execute `build_vendor_dlkm` in `build_utils.sh`.
+
+When included in a `copy_to_dist_dir` rule, this rule copies a `vendor_dlkm.img` to `DIST_DIR`.
+""",
+    attrs = _build_modules_image_attrs_common({
+        "vendor_boot_modules_load": attr.label(
+            allow_single_file = True,
+            doc = """File to `vendor_boot.modules.load`.
+
+Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
+        ),
+    }),
+)
