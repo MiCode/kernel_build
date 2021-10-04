@@ -16,6 +16,12 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r433403"
 
+# Outputs of a kernel_build rule needed to build kernel_module's
+_kernel_build_implicit_outs = [
+    "Module.symvers",
+    "include/config/kernel.release",
+]
+
 def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
@@ -168,6 +174,7 @@ def kernel_build(
         srcs = [sources_target_name],
         outs = [name + "/" + out for out in outs],
         module_outs = [name + "/" + module_out for module_out in module_outs],
+        implicit_outs = [name + "/" + out for out in _kernel_build_implicit_outs],
         deps = deps,
     )
 
@@ -469,20 +476,23 @@ _KernelBuildInfo = provider(fields = {
                                "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
-    "outs": "A list of File object corresponding to the `outs` attribute",
+    "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs` and `implicit_outs`)",
 })
 
 def _kernel_build_impl(ctx):
     outdir = ctx.actions.declare_directory(ctx.label.name)
 
-    outs = {}
-    for out in ctx.outputs.outs:
+    # kernel_build(name="kenrel", outs=["out"])
+    # => _kernel_build(name="kernel", outs=["kernel/out"], implicit_outs=["kernel/Module.symvers", ...])
+    # => all_output_names = ["foo", "Module.symvers", ...]
+    #    all_output_files = [File(...), File(...), ...]
+    all_output_files = []
+    for attr in ("outs", "module_outs", "implicit_outs"):
+        all_output_files += getattr(ctx.outputs, attr)
+    all_output_names = []
+    for out in all_output_files:
         short_name = out.short_path[len(outdir.short_path) + 1:]
-        outs[short_name] = out
-    module_outs = {}
-    for module_out in ctx.outputs.module_outs:
-        short_name = module_out.short_path[len(outdir.short_path) + 1:]
-        module_outs[short_name] = module_out
+        all_output_names.append(short_name)
 
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
@@ -511,28 +521,17 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {all_output_names}
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
-        outs = " ".join(outs.keys()),
+        all_output_names = " ".join(all_output_names),
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
     )
-
-    if module_outs:
-        command += """
-                 # Grab modules
-                   {search_and_mv_output} --srcdir {modules_staging_dir} --dstdir {outdir} {module_outs}
-        """.format(
-            search_and_mv_output = ctx.file._search_and_mv_output.path,
-            modules_staging_dir = modules_staging_dir,
-            outdir = outdir.path,
-            module_outs = " ".join(module_outs.keys()),
-        )
 
     command += """
                rm -rf {modules_staging_dir}
@@ -542,7 +541,7 @@ def _kernel_build_impl(ctx):
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps +
                  [ctx.file._search_and_mv_output],
-        outputs = ctx.outputs.outs + ctx.outputs.module_outs + [
+        outputs = all_output_files + [
             outdir,
             modules_staging_archive,
             out_dir_kernel_headers_tar,
@@ -552,10 +551,18 @@ def _kernel_build_impl(ctx):
         command = command,
     )
 
-    setup = ctx.attr.config[_KernelEnvInfo].setup + """
+    # Only outs and implicit_outs are needed. But for simplicity, copy the full {outdir}
+    # which includes module_outs too.
+    env_info_dependencies = ctx.attr.config[_KernelEnvInfo].dependencies + \
+                            all_output_files
+    env_info_setup = ctx.attr.config[_KernelEnvInfo].setup + """
          # Restore kernel build outputs
            cp -R {outdir}/* ${{OUT_DIR}}
            """.format(outdir = outdir.path)
+    env_info = _KernelEnvInfo(
+        dependencies = env_info_dependencies,
+        setup = env_info_setup,
+    )
 
     module_srcs = [
         s
@@ -567,16 +574,12 @@ def _kernel_build_impl(ctx):
     ]
 
     return [
-        _KernelEnvInfo(
-            dependencies = ctx.attr.config[_KernelEnvInfo].dependencies +
-                           ctx.outputs.outs,
-            setup = setup,
-        ),
+        env_info,
         _KernelBuildInfo(
             modules_staging_archive = modules_staging_archive,
             module_srcs = module_srcs,
             out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
-            outs = outs.values(),
+            outs = ctx.outputs.outs,
         ),
         DefaultInfo(files = depset(ctx.outputs.outs + ctx.outputs.module_outs)),
     ]
@@ -593,6 +596,7 @@ _kernel_build = rule(
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
         "outs": attr.output_list(),
         "module_outs": attr.output_list(doc = "output *.ko files"),
+        "implicit_outs": attr.output_list(doc = "Like `outs`, but not in dist"),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
