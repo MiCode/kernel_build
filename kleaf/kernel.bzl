@@ -457,8 +457,8 @@ _kernel_config = rule(
 )
 
 _KernelBuildInfo = provider(fields = {
-    "module_staging_archive": "Archive containing staging kernel modules. " +
-                              "Does not contain the lib/modules/* suffix.",
+    "modules_staging_archive": "Archive containing staging kernel modules. " +
+                               "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
 })
@@ -475,13 +475,13 @@ def _kernel_build_impl(ctx):
         short_name = module_out.short_path[len(outdir.short_path) + 1:]
         module_outs.append(short_name)
 
-    module_staging_archive = ctx.actions.declare_file(
-        "{name}/module_staging_dir.tar.gz".format(name = ctx.label.name),
+    modules_staging_archive = ctx.actions.declare_file(
+        "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
     )
     out_dir_kernel_headers_tar = ctx.actions.declare_file(
         "{name}/out-dir-kernel-headers.tar.gz".format(name = ctx.label.name),
     )
-    module_staging_dir = module_staging_archive.dirname + "/staging"
+    modules_staging_dir = modules_staging_archive.dirname + "/staging"
 
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Actual kernel build
@@ -490,9 +490,9 @@ def _kernel_build_impl(ctx):
            if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
              module_strip_flag="INSTALL_MOD_STRIP=1"
            fi
-           mkdir -p {module_staging_dir}
+           mkdir -p {modules_staging_dir}
          # Install modules
-           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} ${{module_strip_flag}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) modules_install
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} ${{module_strip_flag}} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
          # Archive headers in OUT_DIR
            find ${{OUT_DIR}} -name *.h -print0                          \
                | tar czf {out_dir_kernel_headers_tar}                   \
@@ -503,31 +503,31 @@ def _kernel_build_impl(ctx):
                        --null -T -
          # Grab outputs
            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
-         # Archive module_staging_dir
-           tar czf {module_staging_archive} -C {module_staging_dir} .
+         # Archive modules_staging_dir
+           tar czf {modules_staging_archive} -C {modules_staging_dir} .
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
-        module_staging_dir = module_staging_dir,
-        module_staging_archive = module_staging_archive.path,
+        modules_staging_dir = modules_staging_dir,
+        modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
     )
 
     if module_outs:
         command += """
                  # Grab modules
-                   {search_and_mv_output} --srcdir {module_staging_dir} --dstdir {outdir} {module_outs}
+                   {search_and_mv_output} --srcdir {modules_staging_dir} --dstdir {outdir} {module_outs}
         """.format(
             search_and_mv_output = ctx.file._search_and_mv_output.path,
-            module_staging_dir = module_staging_dir,
+            modules_staging_dir = modules_staging_dir,
             outdir = outdir.path,
             module_outs = " ".join(module_outs),
         )
 
     command += """
-               rm -rf {module_staging_dir}
-    """.format(module_staging_dir = module_staging_dir)
+               rm -rf {modules_staging_dir}
+    """.format(modules_staging_dir = modules_staging_dir)
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
         print("""
@@ -538,7 +538,7 @@ def _kernel_build_impl(ctx):
                  [ctx.file._search_and_mv_output],
         outputs = ctx.outputs.outs + ctx.outputs.module_outs + [
             outdir,
-            module_staging_archive,
+            modules_staging_archive,
             out_dir_kernel_headers_tar,
         ],
         tools = ctx.attr.config[_KernelEnvInfo].dependencies,
@@ -567,7 +567,7 @@ def _kernel_build_impl(ctx):
             setup = setup,
         ),
         _KernelBuildInfo(
-            module_staging_archive = module_staging_archive,
+            modules_staging_archive = modules_staging_archive,
             module_srcs = module_srcs,
             out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         ),
@@ -652,8 +652,8 @@ _modules_prepare = rule(
 
 _KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
-    "module_staging_archive": "Archive containing staging kernel modules. " +
-                              "Does not contain the lib/modules/* suffix.",
+    "modules_staging_archive": "Archive containing staging kernel modules. " +
+                               "Contains the lib/modules/* suffix.",
 })
 
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
@@ -696,13 +696,13 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
 
-    module_staging_archive = ctx.actions.declare_file("module_staging_archive.tar.gz")
-    module_staging_dir = module_staging_archive.dirname + "/staging"
-    outdir = module_staging_archive.dirname
+    modules_staging_archive = ctx.actions.declare_file("modules_staging_archive.tar.gz")
+    modules_staging_dir = modules_staging_archive.dirname + "/staging"
+    outdir = modules_staging_archive.dirname
 
-    # additional_outputs: [module_staging_archive] + [basename(out) for out in outs]
+    # additional_outputs: [modules_staging_archive] + [basename(out) for out in outs]
     additional_outputs = [
-        module_staging_archive,
+        modules_staging_archive,
     ]
     for out in ctx.outputs.outs:
         short_name = out.path[len(outdir) + 1:]
@@ -718,12 +718,12 @@ def _kernel_module_impl(ctx):
     command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
-               mkdir -p {module_staging_dir}
-    """.format(module_staging_dir = module_staging_dir)
+               mkdir -p {modules_staging_dir}
+    """.format(modules_staging_dir = modules_staging_dir)
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[_KernelEnvInfo].setup
 
-    module_staging_outs = ["lib/modules/*/extra/" + out.name for out in ctx.attr.outs]
+    modules_staging_outs = ["lib/modules/*/extra/" + out.name for out in ctx.attr.outs]
     command += """
              # Set variables
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
@@ -734,28 +734,28 @@ def _kernel_module_impl(ctx):
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
-               make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {module_staging_dir}) ${{module_strip_flag}} modules_install
-             # Archive module_staging_dir
+               make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) ${{module_strip_flag}} modules_install
+             # Archive modules_staging_dir
                (
-                 module_staging_archive=$(realpath {module_staging_archive})
-                 cd {module_staging_dir}
-                 tar czf ${{module_staging_archive}} {module_staging_outs}
+                 modules_staging_archive=$(realpath {modules_staging_archive})
+                 cd {modules_staging_dir}
+                 tar czf ${{modules_staging_archive}} {modules_staging_outs}
                )
              # Move files into place
-               {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
-             # Remove {module_staging_dir} because they are not declared
-               rm -rf {module_staging_dir}
+               {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
+             # Remove {modules_staging_dir} because they are not declared
+               rm -rf {modules_staging_dir}
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
         ext_mod = ctx.file.makefile.dirname,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         module_symvers = module_symvers.path,
-        module_staging_dir = module_staging_dir,
-        module_staging_archive = module_staging_archive.path,
+        modules_staging_dir = modules_staging_dir,
+        modules_staging_archive = modules_staging_archive.path,
         outdir = outdir,
         outs = " ".join([out.name for out in ctx.attr.outs]),
-        module_staging_outs = " ".join(module_staging_outs),
+        modules_staging_outs = " ".join(modules_staging_outs),
     )
 
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
@@ -795,7 +795,7 @@ def _kernel_module_impl(ctx):
         ),
         _KernelModuleInfo(
             kernel_build = ctx.attr.kernel_build,
-            module_staging_archive = module_staging_archive,
+            modules_staging_archive = modules_staging_archive,
         ),
     ]
 
@@ -970,12 +970,12 @@ def _kernel_modules_install_impl(ctx):
     inputs += [
         ctx.file._search_and_mv_output,
         ctx.file._check_duplicated_files_in_archives,
-        ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive,
+        ctx.attr.kernel_build[_KernelBuildInfo].modules_staging_archive,
     ]
     for kernel_module in ctx.attr.kernel_modules:
         inputs += kernel_module[_KernelEnvInfo].dependencies
         inputs += [
-            kernel_module[_KernelModuleInfo].module_staging_archive,
+            kernel_module[_KernelModuleInfo].modules_staging_archive,
         ]
 
         # Intentionally expand depset.to_list() to figure out what module files
@@ -984,41 +984,41 @@ def _kernel_modules_install_impl(ctx):
             declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
             external_modules.append(declared_file)
 
-    module_staging_archive = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
-    module_staging_dir = module_staging_archive.dirname + "/staging"
+    modules_staging_archive = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
+    modules_staging_dir = modules_staging_archive.dirname + "/staging"
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
     command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
-               mkdir -p {module_staging_dir}
-             # Restore module_staging_dir from kernel_build
-               tar xf {kernel_build_module_staging_archive} -C {module_staging_dir}
-               module_staging_archives="{kernel_build_module_staging_archive}"
+               mkdir -p {modules_staging_dir}
+             # Restore modules_staging_dir from kernel_build
+               tar xf {kernel_build_modules_staging_archive} -C {modules_staging_dir}
+               modules_staging_archives="{kernel_build_modules_staging_archive}"
     """.format(
-        module_staging_dir = module_staging_dir,
-        kernel_build_module_staging_archive =
-            ctx.attr.kernel_build[_KernelBuildInfo].module_staging_archive.path,
+        modules_staging_dir = modules_staging_dir,
+        kernel_build_modules_staging_archive =
+            ctx.attr.kernel_build[_KernelBuildInfo].modules_staging_archive.path,
     )
     for kernel_module in ctx.attr.kernel_modules:
         command += kernel_module[_KernelEnvInfo].setup
 
         command += """
-                 # Restore module_staging_dir from depended kernel_module
-                   tar xf {module_staging_archive} -C {module_staging_dir}
-                   module_staging_archives="${{module_staging_archives}} {module_staging_archive}"
+                 # Restore modules_staging_dir from depended kernel_module
+                   tar xf {modules_staging_archive} -C {modules_staging_dir}
+                   modules_staging_archives="${{modules_staging_archives}} {modules_staging_archive}"
         """.format(
-            module_staging_archive = kernel_module[_KernelModuleInfo].module_staging_archive.path,
-            module_staging_dir = module_staging_dir,
+            modules_staging_archive = kernel_module[_KernelModuleInfo].modules_staging_archive.path,
+            modules_staging_dir = modules_staging_dir,
         )
 
     # TODO(b/194347374): maybe run depmod.sh with CONFIG_SHELL?
     # TODO: Support mixed builds by setting mixed_build_prefix from KBUILD_MIXED_TREE
     command += """
-             # Check if there are duplicated files in module_staging_archive of
+             # Check if there are duplicated files in modules_staging_archive of
              # depended kernel_build and kernel_module's
-               {check_duplicated_files_in_archives} ${{module_staging_archives}}
+               {check_duplicated_files_in_archives} ${{modules_staging_archives}}
              # Set variables
                if [[ ! -f ${{OUT_DIR}}/include/config/kernel.release ]]; then
                    echo "No ${{OUT_DIR}}/include/config/kernel.release"
@@ -1026,17 +1026,17 @@ def _kernel_modules_install_impl(ctx):
                fi
                kernelrelease=$(cat ${{OUT_DIR}}/include/config/kernel.release 2> /dev/null)
                mixed_build_prefix=
-               real_module_staging_dir=$(realpath {module_staging_dir})
+               real_modules_staging_dir=$(realpath {modules_staging_dir})
              # Run depmod
                (
                  cd ${{OUT_DIR}} # for System.map when mixed_build_prefix is not set
-                 INSTALL_MOD_PATH=${{real_module_staging_dir}} ${{ROOT_DIR}}/${{KERNEL_DIR}}/scripts/depmod.sh depmod ${{kernelrelease}} ${{mixed_build_prefix}}
+                 INSTALL_MOD_PATH=${{real_modules_staging_dir}} ${{ROOT_DIR}}/${{KERNEL_DIR}}/scripts/depmod.sh depmod ${{kernelrelease}} ${{mixed_build_prefix}}
                )
-             # Archive module_staging_dir
-               tar czf {module_staging_archive} -C {module_staging_dir} .
+             # Archive modules_staging_dir
+               tar czf {modules_staging_archive} -C {modules_staging_dir} .
     """.format(
-        module_staging_dir = module_staging_dir,
-        module_staging_archive = module_staging_archive.path,
+        modules_staging_dir = modules_staging_dir,
+        modules_staging_archive = modules_staging_archive.path,
         check_duplicated_files_in_archives = ctx.file._check_duplicated_files_in_archives.path,
     )
 
@@ -1044,9 +1044,9 @@ def _kernel_modules_install_impl(ctx):
         external_module_dir = external_modules[0].dirname
         command += """
                  # Move external modules to declared output location
-                   {search_and_mv_output} --srcdir {module_staging_dir}/lib/modules/*/extra --dstdir {outdir} {filenames}
+                   {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra --dstdir {outdir} {filenames}
         """.format(
-            module_staging_dir = module_staging_dir,
+            modules_staging_dir = modules_staging_dir,
             outdir = external_module_dir,
             filenames = " ".join([declared_file.basename for declared_file in external_modules]),
             search_and_mv_output = ctx.file._search_and_mv_output.path,
@@ -1059,7 +1059,7 @@ def _kernel_modules_install_impl(ctx):
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = external_modules + [
-            module_staging_archive,
+            modules_staging_archive,
         ],
         command = command,
         progress_message = "Running depmod {}".format(ctx.label),
