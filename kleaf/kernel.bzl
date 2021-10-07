@@ -20,6 +20,11 @@ def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
 
+def _debug_print_scripts(ctx, command):
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
 def kernel_build(
         name,
         build_config,
@@ -236,10 +241,7 @@ def _kernel_env_impl(ctx):
         out = out_file.path,
     )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
             setup_env,
@@ -332,9 +334,7 @@ _kernel_env = rule(
         "_debug_annotate_scripts": attr.label(
             default = "//build/kleaf:debug_annotate_scripts",
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -406,10 +406,7 @@ def _kernel_config_impl(ctx):
         lto_command = lto_command,
     )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = srcs,
         outputs = [config, include_tar_gz],
@@ -450,9 +447,7 @@ _kernel_config = rule(
             doc = "the packaged include/ files",
         ),
         "lto": attr.label(default = "//build/kleaf:lto"),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -529,10 +524,7 @@ def _kernel_build_impl(ctx):
                rm -rf {modules_staging_dir}
     """.format(modules_staging_dir = modules_staging_dir)
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps +
                  [ctx.file._search_and_mv_output],
@@ -594,9 +586,7 @@ _kernel_build = rule(
         "deps": attr.label_list(
             allow_files = True,
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -608,10 +598,7 @@ def _modules_prepare_impl(ctx):
            tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
     """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs,
         outputs = [ctx.outputs.outdir_tar_gz],
@@ -644,9 +631,7 @@ _modules_prepare = rule(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -758,10 +743,7 @@ def _kernel_module_impl(ctx):
         modules_staging_outs = " ".join(modules_staging_outs),
     )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = ctx.outputs.outs + additional_outputs +
@@ -833,9 +815,7 @@ _kernel_module = rule(
             default = _get_modules_prepare,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1052,10 +1032,7 @@ def _kernel_modules_install_impl(ctx):
             search_and_mv_output = ctx.file._search_and_mv_output.path,
         )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = external_modules + [
@@ -1115,9 +1092,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             default = _get_modules_prepare,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
@@ -1146,10 +1121,7 @@ def _kernel_uapi_headers_impl(ctx):
         out_file = out_file.path,
         kernel_uapi_headers_dir = out_file.path + "_staging",
     )
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.attr.config[_KernelEnvInfo].dependencies,
         outputs = [out_file],
@@ -1171,9 +1143,7 @@ _kernel_uapi_headers = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1205,10 +1175,8 @@ def _kernel_headers_impl(ctx):
         out_file = out_file.path,
         out_dir_kernel_headers_tar = ctx.attr.kernel_build[_KernelBuildInfo].out_dir_kernel_headers_tar.path,
     )
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
 
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],
@@ -1233,9 +1201,7 @@ _kernel_headers = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1256,9 +1222,8 @@ def _vmlinux_btf_impl(ctx):
         vmlinux_btf = out_file.path,
         out_dir = out_dir,
     )
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
+
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],
@@ -1279,8 +1244,6 @@ _vmlinux_btf = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
