@@ -523,7 +523,7 @@ _KernelBuildInfo = provider(fields = {
 })
 
 def _kernel_build_impl(ctx):
-    outdir = ctx.actions.declare_directory(ctx.label.name)
+    ruledir = ctx.actions.declare_directory(ctx.label.name)
 
     # kernel_build(name="kenrel", outs=["out"])
     # => _kernel_build(name="kernel", outs=["kernel/out"], implicit_outs=["kernel/Module.symvers", ...])
@@ -534,7 +534,7 @@ def _kernel_build_impl(ctx):
         all_output_files += getattr(ctx.outputs, attr)
     all_output_names = []
     for out in all_output_files:
-        short_name = out.short_path[len(outdir.short_path) + 1:]
+        short_name = out.short_path[len(ruledir.short_path) + 1:]
         all_output_names.append(short_name)
 
     modules_staging_archive = ctx.actions.declare_file(
@@ -547,7 +547,7 @@ def _kernel_build_impl(ctx):
 
     # all outputs that |command| generates
     command_outputs = all_output_files + [
-        outdir,
+        ruledir,
         modules_staging_archive,
         out_dir_kernel_headers_tar,
     ]
@@ -571,12 +571,12 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {all_output_names}
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {ruledir} {all_output_names}
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
-        outdir = outdir.path,
+        ruledir = ruledir.path,
         all_output_names = " ".join(all_output_names),
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
@@ -597,14 +597,14 @@ def _kernel_build_impl(ctx):
         command = command,
     )
 
-    # Only outs and implicit_outs are needed. But for simplicity, copy the full {outdir}
+    # Only outs and implicit_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs too.
     env_info_dependencies = ctx.attr.config[_KernelEnvInfo].dependencies + \
                             all_output_files
     env_info_setup = ctx.attr.config[_KernelEnvInfo].setup + """
          # Restore kernel build outputs
-           cp -R {outdir}/* ${{OUT_DIR}}
-           """.format(outdir = outdir.path)
+           cp -R {ruledir}/* ${{OUT_DIR}}
+           """.format(ruledir = ruledir.path)
     env_info = _KernelEnvInfo(
         dependencies = env_info_dependencies,
         setup = env_info_setup,
