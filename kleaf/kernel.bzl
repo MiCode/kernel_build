@@ -545,6 +545,13 @@ def _kernel_build_impl(ctx):
     )
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
 
+    # all outputs that |command| generates
+    command_outputs = all_output_files + [
+        outdir,
+        modules_staging_archive,
+        out_dir_kernel_headers_tar,
+    ]
+
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Actual kernel build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
@@ -584,11 +591,7 @@ def _kernel_build_impl(ctx):
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps +
                  [ctx.file._search_and_mv_output],
-        outputs = all_output_files + [
-            outdir,
-            modules_staging_archive,
-            out_dir_kernel_headers_tar,
-        ],
+        outputs = command_outputs,
         tools = ctx.attr.config[_KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
         command = command,
