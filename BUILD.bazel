@@ -33,6 +33,7 @@ filegroup(
     srcs = [
         "_setup_env.sh",
         "build.sh",
+        "build_utils.sh",
     ] + glob(
         ["build-tools/**"],
         allow_empty = False,

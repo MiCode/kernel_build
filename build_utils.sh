@@ -213,3 +213,201 @@ function build_vendor_dlkm() {
   build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" \
     "${DIST_DIR}/vendor_dlkm.img" /dev/null
 }
+
+function build_boot_images() {
+  BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
+  if [ -z "${MKBOOTIMG_PATH}" ]; then
+    MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
+  fi
+  if [ ! -f "${MKBOOTIMG_PATH}" ]; then
+    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = ${MKBOOTIMG_PATH}"
+    exit 1
+  fi
+
+  MKBOOTIMG_ARGS=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
+  if [ -n  "${BASE_ADDRESS}" ]; then
+    MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
+  fi
+  if [ -n  "${PAGE_SIZE}" ]; then
+    MKBOOTIMG_ARGS+=("--pagesize" "${PAGE_SIZE}")
+  fi
+  if [ -n "${KERNEL_VENDOR_CMDLINE}" -a "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
+    KERNEL_CMDLINE+=" ${KERNEL_VENDOR_CMDLINE}"
+  fi
+  if [ -n "${KERNEL_CMDLINE}" ]; then
+    MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
+  fi
+  if [ -n "${TAGS_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--tags_offset" "${TAGS_OFFSET}")
+  fi
+  if [ -n "${RAMDISK_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--ramdisk_offset" "${RAMDISK_OFFSET}")
+  fi
+
+  DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb" | sort)
+  if [ -z "${DTB_FILE_LIST}" ]; then
+    if [ -z "${SKIP_VENDOR_BOOT}" ]; then
+      echo "No *.dtb files found in ${DIST_DIR}"
+      exit 1
+    fi
+  else
+    cat $DTB_FILE_LIST > ${DIST_DIR}/dtb.img
+    MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
+  fi
+
+  rm -rf "${MKBOOTIMG_STAGING_DIR}"
+  MKBOOTIMG_RAMDISK_STAGING_DIR="${MKBOOTIMG_STAGING_DIR}/ramdisk_root"
+  mkdir -p "${MKBOOTIMG_RAMDISK_STAGING_DIR}"
+
+  if [ -n "${VENDOR_RAMDISK_BINARY}" ]; then
+    VENDOR_RAMDISK_CPIO="${MKBOOTIMG_STAGING_DIR}/vendor_ramdisk_binary.cpio"
+    rm -f "${VENDOR_RAMDISK_CPIO}"
+    for vendor_ramdisk_binary in ${VENDOR_RAMDISK_BINARY}; do
+      if ! [ -f "${vendor_ramdisk_binary}" ]; then
+        echo "Unable to locate vendor ramdisk ${vendor_ramdisk_binary}."
+        exit 1
+      fi
+      if ${DECOMPRESS_GZIP} "${vendor_ramdisk_binary}" 2>/dev/null >> "${VENDOR_RAMDISK_CPIO}"; then
+        echo "${vendor_ramdisk_binary} is GZIP compressed"
+      elif ${DECOMPRESS_LZ4} "${vendor_ramdisk_binary}" 2>/dev/null >> "${VENDOR_RAMDISK_CPIO}"; then
+        echo "${vendor_ramdisk_binary} is LZ4 compressed"
+      elif cpio -t < "${vendor_ramdisk_binary}" &>/dev/null; then
+        echo "${vendor_ramdisk_binary} is plain CPIO archive"
+        cat "${vendor_ramdisk_binary}" >> "${VENDOR_RAMDISK_CPIO}"
+      else
+        echo "Unable to identify type of vendor ramdisk ${vendor_ramdisk_binary}"
+        rm -f "${VENDOR_RAMDISK_CPIO}"
+        exit 1
+      fi
+    done
+
+    # Remove lib/modules from the vendor ramdisk binary
+    # Also execute ${VENDOR_RAMDISK_CMDS} for further modifications
+    ( cd "${MKBOOTIMG_RAMDISK_STAGING_DIR}"
+      cpio -idu --quiet <"${VENDOR_RAMDISK_CPIO}"
+      rm -rf lib/modules
+      eval ${VENDOR_RAMDISK_CMDS}
+    )
+  fi
+
+  if [ -f "${VENDOR_FSTAB}" ]; then
+    mkdir -p "${MKBOOTIMG_RAMDISK_STAGING_DIR}/first_stage_ramdisk"
+    cp "${VENDOR_FSTAB}" "${MKBOOTIMG_RAMDISK_STAGING_DIR}/first_stage_ramdisk/"
+  fi
+
+  HAS_RAMDISK=
+  MKBOOTIMG_RAMDISK_DIRS=()
+  if [ -n "${VENDOR_RAMDISK_BINARY}" ] || [ -f "${VENDOR_FSTAB}" ]; then
+    HAS_RAMDISK="1"
+    MKBOOTIMG_RAMDISK_DIRS+=("${MKBOOTIMG_RAMDISK_STAGING_DIR}")
+  fi
+
+  if [ "${BUILD_INITRAMFS}" = "1" ]; then
+    HAS_RAMDISK="1"
+    if [ -z "${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME}" ]; then
+      MKBOOTIMG_RAMDISK_DIRS+=("${INITRAMFS_STAGING_DIR}")
+    fi
+  fi
+
+  if [ -z "${HAS_RAMDISK}" ] && [ -z "${SKIP_VENDOR_BOOT}" ]; then
+    echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
+    exit 1
+  fi
+
+  if [ "${#MKBOOTIMG_RAMDISK_DIRS[@]}" -gt 0 ]; then
+    MKBOOTIMG_RAMDISK_CPIO="${MKBOOTIMG_STAGING_DIR}/ramdisk.cpio"
+    mkbootfs "${MKBOOTIMG_RAMDISK_DIRS[@]}" >"${MKBOOTIMG_RAMDISK_CPIO}"
+    ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" >"${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
+  fi
+
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
+      echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
+      exit 1
+    fi
+    MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
+  fi
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
+    if [ -n "${VENDOR_BOOTCONFIG}" ]; then
+      for PARAM in ${VENDOR_BOOTCONFIG}; do
+        echo "${PARAM}"
+      done >"${DIST_DIR}/vendor-bootconfig.img"
+      MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img")
+      KERNEL_VENDOR_CMDLINE+=" bootconfig"
+    fi
+  fi
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
+    if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
+      MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+    fi
+
+    if [ -z "${SKIP_VENDOR_BOOT}" ]; then
+      MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img")
+      if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
+        MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
+      fi
+      if [ -f "${DIST_DIR}/ramdisk.${RAMDISK_EXT}" ]; then
+        MKBOOTIMG_ARGS+=("--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+      fi
+      if [ "${BUILD_INITRAMFS}" = "1" ] \
+          && [ -n "${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME}" ]; then
+        MKBOOTIMG_ARGS+=("--ramdisk_type" "DLKM")
+        for MKBOOTIMG_ARG in ${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_MKBOOTIMG_ARGS}; do
+          MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
+        done
+        MKBOOTIMG_ARGS+=("--ramdisk_name" "${INITRAMFS_VENDOR_RAMDISK_FRAGMENT_NAME}")
+        MKBOOTIMG_ARGS+=("--vendor_ramdisk_fragment" "${DIST_DIR}/initramfs.img")
+      fi
+    fi
+  else
+    if [ -f "${DIST_DIR}/ramdisk.${RAMDISK_EXT}" ]; then
+      MKBOOTIMG_ARGS+=("--ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
+    fi
+  fi
+
+  if [ -z "${BOOT_IMAGE_FILENAME}" ]; then
+    BOOT_IMAGE_FILENAME="boot.img"
+  fi
+  if [ -n "${BUILD_BOOT_IMG}" ]; then
+    MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${BOOT_IMAGE_FILENAME}")
+  fi
+
+  for MKBOOTIMG_ARG in ${MKBOOTIMG_EXTRA_ARGS}; do
+    MKBOOTIMG_ARGS+=("${MKBOOTIMG_ARG}")
+  done
+
+  "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
+
+  if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
+    echo "boot image created at ${DIST_DIR}/${BOOT_IMAGE_FILENAME}"
+
+    if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
+      if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
+          && [ -n "${AVB_BOOT_KEY}" ] \
+          && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
+        echo "Signing ${BOOT_IMAGE_FILENAME}..."
+
+        if [ -z "${AVB_BOOT_PARTITION_NAME}" ]; then
+          AVB_BOOT_PARTITION_NAME=${BOOT_IMAGE_FILENAME%%.*}
+        fi
+
+        avbtool add_hash_footer \
+            --partition_name ${AVB_BOOT_PARTITION_NAME} \
+            --partition_size ${AVB_BOOT_PARTITION_SIZE} \
+            --image "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" \
+            --algorithm ${AVB_BOOT_ALGORITHM} \
+            --key ${AVB_BOOT_KEY}
+      else
+        echo "Missing the AVB_* flags. Failed to sign the boot image" 1>&2
+        exit 1
+      fi
+    fi
+  fi
+
+  [ -z "${SKIP_VENDOR_BOOT}" ] \
+    && [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ] \
+    && [ -f "${DIST_DIR}/vendor_boot.img" ] \
+    && echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
+}
