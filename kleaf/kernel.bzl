@@ -16,9 +16,63 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r433403"
 
+# Outputs of a kernel_build rule needed to build kernel_module's
+_kernel_build_implicit_outs = [
+    "Module.symvers",
+    "include/config/kernel.release",
+]
+
 def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
+
+def _debug_print_scripts(ctx, command):
+    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        print("""
+        # Script that runs %s:%s""" % (ctx.label, command))
+
+def _kernel_build_config_impl(ctx):
+    out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
+    command = "cat {srcs} > {out_file}".format(
+        srcs = " ".join([src.path for src in ctx.files.srcs]),
+        out_file = out_file.path,
+    )
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs,
+        outputs = [out_file],
+        command = command,
+        progress_message = "Generating build config {}".format(ctx.label),
+    )
+    return DefaultInfo(files = depset([out_file]))
+
+kernel_build_config = rule(
+    implementation = _kernel_build_config_impl,
+    doc = "Create a build.config file by concatenating build config fragments.",
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            doc = """List of build config fragments.
+
+Order matters. To prevent buildifier from sorting the list, use the
+`# do not sort` magic line. For example:
+
+```
+kernel_build_config(
+    name = "build.config.foo.mixed",
+    srcs = [
+        # do not sort
+        "build.config.mixed",
+        "build.config.foo",
+    ],
+)
+```
+
+""",
+        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+    },
+)
 
 def kernel_build(
         name,
@@ -163,6 +217,7 @@ def kernel_build(
         srcs = [sources_target_name],
         outs = [name + "/" + out for out in outs],
         module_outs = [name + "/" + module_out for module_out in module_outs],
+        implicit_outs = [name + "/" + out for out in _kernel_build_implicit_outs],
         deps = deps,
     )
 
@@ -236,10 +291,7 @@ def _kernel_env_impl(ctx):
         out = out_file.path,
     )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + [
             setup_env,
@@ -261,15 +313,24 @@ def _kernel_env_impl(ctx):
          # error on failures
            set -e
            set -o pipefail
+         # utility functions
+           source {build_utils_sh}
          # source the build environment
            source {env}
          # setup the PATH to also include the host tools
            export PATH=$PATH:$PWD/{host_tool_path}
-           """.format(env = out_file.path, host_tool_path = host_tool_path)
+           """.format(
+        env = out_file.path,
+        host_tool_path = host_tool_path,
+        build_utils_sh = ctx.file._build_utils_sh.path,
+    )
 
     return [
         _KernelEnvInfo(
-            dependencies = dependencies + [out_file],
+            dependencies = dependencies + [
+                out_file,
+                ctx.file._build_utils_sh,
+            ],
             setup = setup,
         ),
         DefaultInfo(files = depset([out_file])),
@@ -329,12 +390,14 @@ _kernel_env = rule(
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
+        "_build_utils_sh": attr.label(
+            allow_single_file = True,
+            default = Label("//build:build_utils.sh"),
+        ),
         "_debug_annotate_scripts": attr.label(
             default = "//build/kleaf:debug_annotate_scripts",
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -406,10 +469,7 @@ def _kernel_config_impl(ctx):
         lto_command = lto_command,
     )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = srcs,
         outputs = [config, include_tar_gz],
@@ -450,9 +510,7 @@ _kernel_config = rule(
             doc = "the packaged include/ files",
         ),
         "lto": attr.label(default = "//build/kleaf:lto"),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -461,19 +519,23 @@ _KernelBuildInfo = provider(fields = {
                                "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
+    "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs` and `implicit_outs`)",
 })
 
 def _kernel_build_impl(ctx):
-    outdir = ctx.actions.declare_directory(ctx.label.name)
+    ruledir = ctx.actions.declare_directory(ctx.label.name)
 
-    outs = []
-    for out in ctx.outputs.outs:
-        short_name = out.short_path[len(outdir.short_path) + 1:]
-        outs.append(short_name)
-    module_outs = []
-    for module_out in ctx.outputs.module_outs:
-        short_name = module_out.short_path[len(outdir.short_path) + 1:]
-        module_outs.append(short_name)
+    # kernel_build(name="kenrel", outs=["out"])
+    # => _kernel_build(name="kernel", outs=["kernel/out"], implicit_outs=["kernel/Module.symvers", ...])
+    # => all_output_names = ["foo", "Module.symvers", ...]
+    #    all_output_files = [File(...), File(...), ...]
+    all_output_files = []
+    for attr in ("outs", "module_outs", "implicit_outs"):
+        all_output_files += getattr(ctx.outputs, attr)
+    all_output_names = []
+    for out in all_output_files:
+        short_name = out.short_path[len(ruledir.short_path) + 1:]
+        all_output_names.append(short_name)
 
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
@@ -482,6 +544,13 @@ def _kernel_build_impl(ctx):
         "{name}/out-dir-kernel-headers.tar.gz".format(name = ctx.label.name),
     )
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
+
+    # all outputs that |command| generates
+    command_outputs = all_output_files + [
+        ruledir,
+        modules_staging_archive,
+        out_dir_kernel_headers_tar,
+    ]
 
     command = ctx.attr.config[_KernelEnvInfo].setup + """
          # Actual kernel build
@@ -502,54 +571,44 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {outdir} {outs}
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {ruledir} {all_output_names}
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
-        outdir = outdir.path,
-        outs = " ".join(outs),
+        ruledir = ruledir.path,
+        all_output_names = " ".join(all_output_names),
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
     )
 
-    if module_outs:
-        command += """
-                 # Grab modules
-                   {search_and_mv_output} --srcdir {modules_staging_dir} --dstdir {outdir} {module_outs}
-        """.format(
-            search_and_mv_output = ctx.file._search_and_mv_output.path,
-            modules_staging_dir = modules_staging_dir,
-            outdir = outdir.path,
-            module_outs = " ".join(module_outs),
-        )
-
     command += """
                rm -rf {modules_staging_dir}
     """.format(modules_staging_dir = modules_staging_dir)
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps +
                  [ctx.file._search_and_mv_output],
-        outputs = ctx.outputs.outs + ctx.outputs.module_outs + [
-            outdir,
-            modules_staging_archive,
-            out_dir_kernel_headers_tar,
-        ],
+        outputs = command_outputs,
         tools = ctx.attr.config[_KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
         command = command,
     )
 
-    setup = ctx.attr.config[_KernelEnvInfo].setup + """
+    # Only outs and implicit_outs are needed. But for simplicity, copy the full {ruledir}
+    # which includes module_outs too.
+    env_info_dependencies = ctx.attr.config[_KernelEnvInfo].dependencies + \
+                            all_output_files
+    env_info_setup = ctx.attr.config[_KernelEnvInfo].setup + """
          # Restore kernel build outputs
-           cp -R {outdir}/* ${{OUT_DIR}}
-           """.format(outdir = outdir.path)
+           cp -R {ruledir}/* ${{OUT_DIR}}
+           """.format(ruledir = ruledir.path)
+    env_info = _KernelEnvInfo(
+        dependencies = env_info_dependencies,
+        setup = env_info_setup,
+    )
 
     module_srcs = [
         s
@@ -561,15 +620,12 @@ def _kernel_build_impl(ctx):
     ]
 
     return [
-        _KernelEnvInfo(
-            dependencies = ctx.attr.config[_KernelEnvInfo].dependencies +
-                           ctx.outputs.outs,
-            setup = setup,
-        ),
+        env_info,
         _KernelBuildInfo(
             modules_staging_archive = modules_staging_archive,
             module_srcs = module_srcs,
             out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
+            outs = ctx.outputs.outs,
         ),
         DefaultInfo(files = depset(ctx.outputs.outs + ctx.outputs.module_outs)),
     ]
@@ -586,6 +642,7 @@ _kernel_build = rule(
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
         "outs": attr.output_list(),
         "module_outs": attr.output_list(doc = "output *.ko files"),
+        "implicit_outs": attr.output_list(doc = "Like `outs`, but not in dist"),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
@@ -594,9 +651,7 @@ _kernel_build = rule(
         "deps": attr.label_list(
             allow_files = True,
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -608,10 +663,7 @@ def _modules_prepare_impl(ctx):
            tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
     """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs,
         outputs = [ctx.outputs.outdir_tar_gz],
@@ -644,9 +696,7 @@ _modules_prepare = rule(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -758,10 +808,7 @@ def _kernel_module_impl(ctx):
         modules_staging_outs = " ".join(modules_staging_outs),
     )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = ctx.outputs.outs + additional_outputs +
@@ -833,9 +880,7 @@ _kernel_module = rule(
             default = _get_modules_prepare,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1052,10 +1097,7 @@ def _kernel_modules_install_impl(ctx):
             search_and_mv_output = ctx.file._search_and_mv_output.path,
         )
 
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = external_modules + [
@@ -1067,6 +1109,10 @@ def _kernel_modules_install_impl(ctx):
 
     return [
         DefaultInfo(files = depset(external_modules)),
+        _KernelModuleInfo(
+            kernel_build = ctx.attr.kernel_build,
+            modules_staging_archive = modules_staging_archive,
+        ),
     ]
 
 kernel_modules_install = rule(
@@ -1115,9 +1161,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             default = _get_modules_prepare,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
@@ -1146,10 +1190,7 @@ def _kernel_uapi_headers_impl(ctx):
         out_file = out_file.path,
         kernel_uapi_headers_dir = out_file.path + "_staging",
     )
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
-
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.attr.config[_KernelEnvInfo].dependencies,
         outputs = [out_file],
@@ -1171,9 +1212,7 @@ _kernel_uapi_headers = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1205,10 +1244,8 @@ def _kernel_headers_impl(ctx):
         out_file = out_file.path,
         out_dir_kernel_headers_tar = ctx.attr.kernel_build[_KernelBuildInfo].out_dir_kernel_headers_tar.path,
     )
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
 
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],
@@ -1233,9 +1270,7 @@ _kernel_headers = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
-        ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1256,9 +1291,8 @@ def _vmlinux_btf_impl(ctx):
         vmlinux_btf = out_file.path,
         out_dir = out_dir,
     )
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
+
+    _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],
@@ -1279,8 +1313,435 @@ _vmlinux_btf = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
         ),
+        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+    },
+)
+
+def _build_modules_image_impl_common(
+        ctx,
+        what,
+        outputs,
+        build_command,
+        modules_staging_dir,
+        implicit_outputs = [],
+        additional_inputs = []):
+    """Command implementation for building images that directly contain modules.
+
+    Args:
+        ctx: ctx
+        what: what is being built, for logging
+        outputs: list of `ctx.actions.declare_file`
+        build_command: the command to build `outputs` and `implicit_outputs`
+        modules_staging_dir: a staging directory for module installation
+        implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not returned in
+          `DefaultInfo`)
+    """
+    kernel_build = ctx.attr.kernel_modules_install[_KernelModuleInfo].kernel_build
+    kernel_build_outs = kernel_build[_KernelBuildInfo].outs
+    system_map = None
+    for kernel_build_out in kernel_build_outs:
+        if kernel_build_out.basename == "System.map":
+            if system_map != None:
+                fail("{}: dependent kernel_build {} has multiple System.map in outs:\n  {}\n  {}".format(
+                    ctx.label,
+                    kernel_build,
+                    system_map.path,
+                    kernel_build_out.path,
+                ))
+            system_map = kernel_build_out
+    if system_map == None:
+        fail("{}: dependent kernel_build {} has no System.map in outs".format(
+            ctx.label,
+            kernel_build,
+        ))
+    modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
+
+    inputs = additional_inputs + [
+        system_map,
+        modules_staging_archive,
+    ]
+    inputs += ctx.files.deps
+    inputs += kernel_build[_KernelEnvInfo].dependencies
+
+    command = ""
+    command += kernel_build[_KernelEnvInfo].setup
+    command += """
+             # create staging dirs
+               mkdir -p {modules_staging_dir}
+             # Restore modules_staging_dir from kernel_modules_install
+               tar xf {modules_staging_archive} -C {modules_staging_dir}
+
+             # Restore System.map to DIST_DIR for run_depmod in create_modules_staging
+               mkdir -p ${{DIST_DIR}}
+               cp {system_map} ${{DIST_DIR}}/System.map
+
+               {build_command}
+
+             # remove staging dirs
+               rm -rf {modules_staging_dir}
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        modules_staging_archive = modules_staging_archive.path,
+        system_map = system_map.path,
+        build_command = build_command,
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = outputs + implicit_outputs,
+        progress_message = "Building {} {}".format(what, ctx.label),
+        command = command,
+    )
+    return DefaultInfo(files = depset(outputs))
+
+def _build_modules_image_attrs_common(additional = {}):
+    """Common attrs for rules that builds images that directly contain modules."""
+    ret = {
+        "kernel_modules_install": attr.label(
+            mandatory = True,
+            providers = [_KernelModuleInfo],
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
+        ),
         "_debug_print_scripts": attr.label(
             default = "//build/kleaf:debug_print_scripts",
         ),
+    }
+    ret.update(additional)
+    return ret
+
+_InitramfsInfo = provider(fields = {
+    "initramfs_img": "Output image",
+    "initramfs_staging_archive": "Archive of initramfs staging directory",
+})
+
+def _initramfs_impl(ctx):
+    initramfs_img = ctx.actions.declare_file("{}/initramfs.img".format(ctx.label.name))
+    modules_load = ctx.actions.declare_file("{}/modules.load".format(ctx.label.name))
+    vendor_boot_modules_load = ctx.outputs.vendor_boot_modules_load
+    initramfs_staging_archive = ctx.actions.declare_file("{}/initramfs_staging_archive.tar.gz".format(ctx.label.name))
+
+    outputs = [
+        initramfs_img,
+        modules_load,
+        vendor_boot_modules_load,
+    ]
+
+    modules_staging_dir = initramfs_img.dirname + "/staging"
+    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
+
+    command = """
+               mkdir -p {initramfs_staging_dir}
+             # Build initramfs
+               create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
+                 {initramfs_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
+               modules_root_dir=$(echo {initramfs_staging_dir}/lib/modules/*)
+               cp ${{modules_root_dir}}/modules.load {modules_load}
+               cp ${{modules_root_dir}}/modules.load {vendor_boot_modules_load}
+               echo "${{MODULES_OPTIONS}}" > ${{modules_root_dir}}/modules.options
+               mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
+               ${{RAMDISK_COMPRESS}} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
+             # Archive initramfs_staging_dir
+               tar czf {initramfs_staging_archive} -C {initramfs_staging_dir} .
+             # Remove staging directories
+               rm -rf {initramfs_staging_dir}
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        initramfs_staging_dir = initramfs_staging_dir,
+        modules_load = modules_load.path,
+        vendor_boot_modules_load = vendor_boot_modules_load.path,
+        initramfs_img = initramfs_img.path,
+        initramfs_staging_archive = initramfs_staging_archive.path,
+    )
+
+    default_info = _build_modules_image_impl_common(
+        ctx = ctx,
+        what = "initramfs",
+        outputs = outputs,
+        build_command = command,
+        modules_staging_dir = modules_staging_dir,
+        implicit_outputs = [
+            initramfs_staging_archive,
+        ],
+    )
+    return [
+        default_info,
+        _InitramfsInfo(
+            initramfs_img = initramfs_img,
+            initramfs_staging_archive = initramfs_staging_archive,
+        ),
+    ]
+
+_initramfs = rule(
+    implementation = _initramfs_impl,
+    doc = """Build initramfs.
+
+When included in a `copy_to_dist_dir` rule, this rule copies the following to `DIST_DIR`:
+- `initramfs.img`
+- `modules.load`
+- `vendor_boot.modules.load`
+
+An additional label, `{name}/vendor_boot.modules.load`, is declared to point to the
+corresponding files.
+""",
+    attrs = _build_modules_image_attrs_common({
+        "vendor_boot_modules_load": attr.output(),
+    }),
+)
+
+def _vendor_dlkm_image_impl(ctx):
+    vendor_dlkm_img = ctx.actions.declare_file("{}/vendor_dlkm.img".format(ctx.label.name))
+    vendor_dlkm_modules_load = ctx.actions.declare_file("{}/vendor_dlkm.modules.load".format(ctx.label.name))
+    modules_staging_dir = vendor_dlkm_img.dirname + "/staging"
+    vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
+    command = """
+            # Restore vendor_boot.modules.load
+              cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+            # Build vendor_dlkm
+              mkdir -p {vendor_dlkm_staging_dir}
+              (
+                MODULES_STAGING_DIR={modules_staging_dir}
+                VENDOR_DLKM_STAGING_DIR={vendor_dlkm_staging_dir}
+                build_vendor_dlkm
+              )
+            # Move output files into place
+              mv "${{DIST_DIR}}/vendor_dlkm.img" {vendor_dlkm_img}
+              mv "${{DIST_DIR}}/vendor_dlkm.modules.load" {vendor_dlkm_modules_load}
+            # Remove staging directories
+              rm -rf {vendor_dlkm_staging_dir}
+    """.format(
+        vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
+        modules_staging_dir = modules_staging_dir,
+        vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
+        vendor_dlkm_img = vendor_dlkm_img.path,
+        vendor_dlkm_modules_load = vendor_dlkm_modules_load.path,
+    )
+
+    return _build_modules_image_impl_common(
+        ctx = ctx,
+        what = "vendor_dlkm",
+        outputs = [vendor_dlkm_img, vendor_dlkm_modules_load],
+        build_command = command,
+        modules_staging_dir = modules_staging_dir,
+        additional_inputs = [ctx.file.vendor_boot_modules_load],
+    )
+
+_vendor_dlkm_image = rule(
+    implementation = _vendor_dlkm_image_impl,
+    doc = """Build vendor_dlkm image.
+
+Execute `build_vendor_dlkm` in `build_utils.sh`.
+
+When included in a `copy_to_dist_dir` rule, this rule copies a `vendor_dlkm.img` to `DIST_DIR`.
+""",
+    attrs = _build_modules_image_attrs_common({
+        "vendor_boot_modules_load": attr.label(
+            allow_single_file = True,
+            doc = """File to `vendor_boot.modules.load`.
+
+Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
+        ),
+    }),
+)
+
+def _boot_images_impl(ctx):
+    initramfs_staging_archive = ctx.attr.initramfs[_InitramfsInfo].initramfs_staging_archive
+    outdir = ctx.actions.declare_directory(ctx.label.name)
+    modules_staging_dir = outdir.path + "/staging"
+    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
+    mkbootimg_staging_dir = modules_staging_dir + "/mkbootimg_staging"
+
+    outs = []
+    for out in ctx.outputs.outs:
+        outs.append(out.short_path[len(outdir.short_path) + 1:])
+
+    kernel_build_outs = ctx.attr.kernel_build[_KernelBuildInfo].outs
+
+    inputs = [
+        ctx.attr.initramfs[_InitramfsInfo].initramfs_img,
+        initramfs_staging_archive,
+        ctx.file.mkbootimg,
+        ctx.file._search_and_mv_output,
+    ]
+    inputs += ctx.files.deps
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    inputs += kernel_build_outs
+
+    command = ""
+    command += ctx.attr.kernel_build[_KernelEnvInfo].setup
+    command += """
+             # Create and restore initramfs_staging_dir
+               mkdir -p {initramfs_staging_dir}
+               tar xf {initramfs_staging_archive} -C {initramfs_staging_dir}
+             # Create and restore DIST_DIR.
+             # We don't need all of *_for_dist. Copying all declared outputs of kernel_build is
+             # sufficient.
+               mkdir -p ${{DIST_DIR}}
+               cp {kernel_build_outs} ${{DIST_DIR}}
+               cp {initramfs_img} ${{DIST_DIR}}/initramfs.img
+             # Build boot images
+               (
+                 INITRAMFS_STAGING_DIR={initramfs_staging_dir}
+                 MKBOOTIMG_STAGING_DIR=$(realpath {mkbootimg_staging_dir})
+                 build_boot_images
+               )
+               {search_and_mv_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
+             # Remove staging directories
+               rm -rf {modules_staging_dir}
+    """.format(
+        initramfs_staging_dir = initramfs_staging_dir,
+        mkbootimg_staging_dir = mkbootimg_staging_dir,
+        search_and_mv_output = ctx.file._search_and_mv_output.path,
+        outdir = outdir.path,
+        outs = " ".join(outs),
+        modules_staging_dir = modules_staging_dir,
+        initramfs_staging_archive = initramfs_staging_archive.path,
+        initramfs_img = ctx.attr.initramfs[_InitramfsInfo].initramfs_img.path,
+        kernel_build_outs = " ".join([out.path for out in kernel_build_outs]),
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = ctx.outputs.outs + [outdir],
+        progress_message = "Building boot images {}".format(ctx.label),
+        command = command,
+    )
+
+_boot_images = rule(
+    implementation = _boot_images_impl,
+    doc = """Build boot images, including `boot.img`, `vendor_boot.img`, etc.
+
+Execute `build_boot_images` in `build_utils.sh`.""",
+    attrs = {
+        "kernel_build": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
+        ),
+        "initramfs": attr.label(
+            providers = [_InitramfsInfo],
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
+        ),
+        "outs": attr.output_list(),
+        "mkbootimg": attr.label(
+            allow_single_file = True,
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+        "_search_and_mv_output": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kleaf:search_and_mv_output.py"),
+        ),
     },
 )
+
+def kernel_images(
+        name,
+        kernel_modules_install,
+        kernel_build = None,
+        build_initramfs = None,
+        build_vendor_dlkm = None,
+        build_boot_images = None,
+        mkbootimg = "//tools/mkbootimg:mkbootimg.py",
+        deps = [],
+        boot_image_outs = [
+            "boot.img",
+            "dtb.img",
+            "ramdisk.lz4",
+            "vendor_boot.img",
+            "vendor-bootconfig.img",
+        ]):
+    """Build multiple kernel images.
+
+    Args:
+        name: name of this rule, e.g. `kernel_images`,
+        kernel_modules_install: A `kernel_modules_install` rule.
+
+          The main kernel build is inferred from the `kernel_build` attribute of the
+          specified `kernel_modules_install` rule. The main kernel build must contain
+          `System.map` in `outs` (which is included if you use `aarch64_outs` or
+          `x86_64_outs` from `common_kernels.bzl`).
+        kernel_build: A `kernel_build` rule. Must specify if `build_boot_images`.
+        mkbootimg: Path to the mkbootimg.py script which builds boot.img.
+          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`.
+        deps: Additional dependencies to build images.
+
+          This must include the following:
+          - For `initramfs`:
+            - The file specified by `MODULES_LIST`
+            - The file specified by `MODULES_BLOCKLIST`, if `MODULES_BLOCKLIST` is set
+          - For `vendor_dlkm` image:
+            - The file specified by `VENDOR_DLKM_MODULES_LIST`
+            - The file specified by `VENDOR_DLKM_MODULES_BLOCKLIST`, if set
+            - The file specified by `VENDOR_DLKM_PROPS`, if set
+            - The file specified by `selinux_fc` in `VENDOR_DLKM_PROPS`, if set
+
+        boot_image_outs: A list of output files that will be installed to `DIST_DIR` when
+          `build_boot_images` is executed.
+
+          The default list assumes the following:
+          - `BOOT_IMAGE_FILENAME` is not set (which takes default value `boot.img`), or is set to
+            `"boot.img"`
+          - `SKIP_VENDOR_BOOT` is not set, which builds `vendor_boot.img"
+          - `RAMDISK_EXT=lz4`. If the build configuration has a different value, replace
+            `ramdisk.lz4` with `ramdisk.{RAMDISK_EXT}` accordingly.
+          - `BOOT_IMAGE_HEADER_VERSION >= 4`, which creates `vendor-bootconfig.img` to contain
+            `VENDOR_BOOTCONFIG`
+        build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
+        build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
+          `VENDOR_DLKM_MODULES_LIST` is non-empty.
+        build_boot_images: Whether to build boot images. It must be set if either `BUILD_BOOT_IMG`
+          or `BUILD_VENDOR_BOOT_IMG` is set.
+
+          This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
+          `build_initramfs` is implicitly true, and `kernel_build` must be set.
+    """
+    all_rules = []
+
+    if build_boot_images:
+        if build_initramfs == None:
+            build_initramfs = True
+        if not build_initramfs:
+            fail("{}: Must set build_initramfs to True if build_boot_images".format(name))
+        if kernel_build == None:
+            fail("{}: Must set kernel_build if build_boot_images".format(name))
+
+    if build_initramfs:
+        _initramfs(
+            name = "{}_initramfs".format(name),
+            kernel_modules_install = kernel_modules_install,
+            deps = deps,
+            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
+        )
+        all_rules.append(":{}_initramfs".format(name))
+
+    if build_vendor_dlkm:
+        _vendor_dlkm_image(
+            name = "{}_vendor_dlkm_image".format(name),
+            kernel_modules_install = kernel_modules_install,
+            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
+            deps = deps,
+        )
+        all_rules.append(":{}_vendor_dlkm_image".format(name))
+
+    # Assume BUILD_BOOT_IMG or BUILD_VENDOR_BOOT_IMG
+    if build_boot_images:
+        _boot_images(
+            name = "{}_boot_images".format(name),
+            kernel_build = kernel_build,
+            outs = ["{}_boot_images/{}".format(name, out) for out in boot_image_outs],
+            deps = deps,
+            initramfs = ":{}_initramfs".format(name),
+            mkbootimg = mkbootimg,
+        )
+        all_rules.append(":{}_boot_images".format(name))
+
+    native.filegroup(
+        name = name,
+        srcs = all_rules,
+    )
