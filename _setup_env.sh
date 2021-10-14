@@ -111,15 +111,17 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   # (e.g. debug info)
   export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/${KERNEL_DIR}/= -ffile-prefix-map=${ROOT_DIR}/="
 
-  # set the common sysroot
-  sysroot_flags+="--sysroot=${ROOT_DIR}/build/build-tools/sysroot "
+  if [ "${DISABLE_HERMETIC_SYSROOT}" != "1" ]; then
+    # set the common sysroot
+    sysroot_flags+="--sysroot=${ROOT_DIR}/build/build-tools/sysroot "
 
-  # add openssl (via boringssl) and other prebuilts into the lookup path
-  cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
+    # add openssl (via boringssl) and other prebuilts into the lookup path
+    cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
 
-  # add openssl and further prebuilt libraries into the lookup path
-  ldflags+="-Wl,-rpath,${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
-  ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+    # add openssl and further prebuilt libraries into the lookup path
+    ldflags+="-Wl,-rpath,${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+    ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+  fi
 
   # Have host compiler use LLD and compiler-rt.
   ldflags+="-fuse-ld=lld --rtlib=compiler-rt"
