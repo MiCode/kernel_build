@@ -400,8 +400,9 @@ function build_boot_images() {
     fi
   fi
 
-  [ -z "${SKIP_VENDOR_BOOT}" ] \
+  if [ -z "${SKIP_VENDOR_BOOT}" ] \
     && [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ] \
-    && [ -f "${DIST_DIR}/vendor_boot.img" ] \
-    && echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
+    && [ -f "${DIST_DIR}/vendor_boot.img" ]; then
+      echo "vendor boot image created at ${DIST_DIR}/vendor_boot.img"
+  fi
 }
