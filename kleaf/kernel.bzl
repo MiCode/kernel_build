@@ -155,6 +155,14 @@ def kernel_build(
           - `//common:kernel_{arch}`
           - `//common:kernel_{arch}_for_dist`, if kernel headers are needed in
             `KBUILD_MIXED_TREE`. This is uncommon.
+          - A `kernel_filegroup` rule, e.g.
+            ```
+            load("//build/kleaf:common_kernels.bzl, "aarch64_outs")
+            kernel_filegroup(
+              name = "my_kernel_filegroup",
+              srcs = aarch64_outs,
+            )
+            ```
 
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped off any debug
           symbols, but contains type and symbol information within a .BTF section.
@@ -1931,3 +1939,28 @@ def kernel_images(
         name = name,
         srcs = all_rules,
     )
+
+def _kernel_filegroup_impl(ctx):
+    return [
+        DefaultInfo(files = depset(ctx.files.srcs)),
+        KernelFilesInfo(files = ctx.files.srcs),
+    ]
+
+kernel_filegroup = rule(
+    implementation = _kernel_filegroup_impl,
+    doc = """Specify a list of kernel prebuilts.
+
+This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/general.html#filegroup)
+that gives a convenient name to a collection of targets, which can be referenced from other rules.
+
+In addition, this rule is conformed with [`KernelFilesInfo`](#kernelfilesinfo), so it can be used
+in the `base_build` attribute of a [`kernel_build`](#kernel_build).
+""",
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            doc = "The list of labels that are members of this file group."
+        ),
+    },
+)
+
