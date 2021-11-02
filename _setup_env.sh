@@ -145,12 +145,11 @@ for prebuilt_bin in "${prebuilts_paths[@]}"; do
     fi
 done
 PATH=${COMMON_OUT_DIR}/host/bin:${PATH}
-LD_LIBRARY_PATH=${COMMON_OUT_DIR}/host/lib:${LD_LIBRARY_PATH}
+LD_LIBRARY_PATH=${COMMON_OUT_DIR}/host/lib
 
 export PATH
 export LD_LIBRARY_PATH
 
-unset LD_LIBRARY_PATH
 unset PYTHONPATH
 unset PYTHONHOME
 unset PYTHONSTARTUP
