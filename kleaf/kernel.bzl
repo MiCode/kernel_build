@@ -105,7 +105,7 @@ KernelFilesInfo = provider(doc = """Contains information of files that a kernel 
 
 In particular, this is required by the `base_kernel` attribute of a `kernel_build` rule.
 """, fields = {
-    "files": "A list of files that this kernel build provides."
+    "files": "A list of files that this kernel build provides.",
 })
 
 def kernel_build(
@@ -1843,13 +1843,7 @@ def kernel_images(
         build_boot_images = None,
         mkbootimg = "//tools/mkbootimg:mkbootimg.py",
         deps = [],
-        boot_image_outs = [
-            "boot.img",
-            "dtb.img",
-            "ramdisk.lz4",
-            "vendor_boot.img",
-            "vendor-bootconfig.img",
-        ]):
+        boot_image_outs = None):
     """Build multiple kernel images.
 
     Args:
@@ -1878,7 +1872,9 @@ def kernel_images(
         boot_image_outs: A list of output files that will be installed to `DIST_DIR` when
           `build_boot_images` is executed.
 
-          The default list assumes the following:
+          If `build_boot_images` is equal to `False`, the default is empty.
+
+          If `build_boot_images` is equal to `True`, the default list assumes the following:
           - `BOOT_IMAGE_FILENAME` is not set (which takes default value `boot.img`), or is set to
             `"boot.img"`
           - `SKIP_VENDOR_BOOT` is not set, which builds `vendor_boot.img"
@@ -1886,6 +1882,7 @@ def kernel_images(
             `ramdisk.lz4` with `ramdisk.{RAMDISK_EXT}` accordingly.
           - `BOOT_IMAGE_HEADER_VERSION >= 4`, which creates `vendor-bootconfig.img` to contain
             `VENDOR_BOOTCONFIG`
+          - The list contains `dtb.img`
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `VENDOR_DLKM_MODULES_LIST` is non-empty.
@@ -1904,6 +1901,19 @@ def kernel_images(
             fail("{}: Must set build_initramfs to True if build_boot_images".format(name))
         if kernel_build == None:
             fail("{}: Must set kernel_build if build_boot_images".format(name))
+
+    # Set default value for boot_image_outs according to build_boot_images
+    if boot_image_outs == None:
+        if not build_boot_images:
+            boot_image_outs = []
+        else:
+            boot_image_outs = [
+                "boot.img",
+                "dtb.img",
+                "ramdisk.lz4",
+                "vendor_boot.img",
+                "vendor-bootconfig.img",
+            ]
 
     if build_initramfs:
         _initramfs(
@@ -1959,8 +1969,7 @@ in the `base_build` attribute of a [`kernel_build`](#kernel_build).
     attrs = {
         "srcs": attr.label_list(
             allow_files = True,
-            doc = "The list of labels that are members of this file group."
+            doc = "The list of labels that are members of this file group.",
         ),
     },
 )
-
