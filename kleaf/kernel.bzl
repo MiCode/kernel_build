@@ -546,6 +546,7 @@ def _kernel_config_impl(ctx):
             "Makefile",
             "configs/",
             "scripts/",
+            ".fragment",
         ]])
     ]
 
