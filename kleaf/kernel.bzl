@@ -140,7 +140,19 @@ def kernel_build(
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
-        srcs: The kernel sources (a `glob()`).
+        srcs: The kernel sources (a `glob()`). Example:
+          ```
+          glob(
+              ["**"],
+              exclude = [
+                  ".*",
+                  ".*/**",
+                  "BUILD.bazel",
+                  "**/*.bzl",
+              ],
+          )
+          ```
+
         base_kernel: A label referring the base kernel build.
 
           If set, the list of files specified in the `KernelFilesInfo` of the rule specified in
