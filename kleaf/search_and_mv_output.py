@@ -33,8 +33,8 @@ def handle_outputs_without_slash(srcdir, dstdir, outputs):
         found = True
         break
       if not found:
-        matches = search_and_mv_output_one(sdir, dstdir, out)
-        if len(matches) == 1:
+        ok, matches = search_and_mv_output_one(sdir, dstdir, out)
+        if ok:
           found = True
           break
         if len(matches) > 1:
@@ -60,15 +60,20 @@ def search_and_mv_output_one(srcdir, dstdir, out):
 
   Return all matches.
   """
-  found = []
+  matches = []
   for root, dirs, files in os.walk(srcdir):
     for f in files + dirs:
       if f == out:
-        found.append(os.path.join(root, f))
+        matches.append(os.path.join(root, f))
 
-  if len(found) == 1:
-    shutil.move(found[0], dstdir)
-  return found
+  # realpath() of each object in matches, deduplicated
+  real_matches = set(os.path.realpath(f) for f in matches)
+  ok = len(real_matches) == 1
+  if ok:
+    shutil.move(next(iter(real_matches)), os.path.join(dstdir, out))
+
+  # For readable error messages, return |matches| instead of the realpaths here.
+  return ok, matches
 
 
 def main(srcdir, dstdir, outputs):
