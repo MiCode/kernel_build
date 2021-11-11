@@ -140,7 +140,18 @@ def kernel_build(
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
-        srcs: The kernel sources (a `glob()`).
+        srcs: The kernel sources (a `glob()`). Example:
+          ```
+          glob(
+              ["**"],
+              exclude = [
+                  ".*",
+                  ".*/**",
+                  "BUILD.bazel",
+                  "**/*.bzl",
+              ],
+          )
+          ```
         base_kernel: A label referring the base kernel build.
 
           If set, the list of files specified in the `KernelFilesInfo` of the rule specified in
@@ -276,19 +287,13 @@ def kernel_build(
     modules_prepare_target_name = name + "_modules_prepare"
     uapi_headers_target_name = name + "_uapi_headers"
     headers_target_name = name + "_headers"
-    build_config_srcs = [
-        s
-        for s in srcs
-        if "/build.config" in s or s.startswith("build.config")
-    ]
-    kernel_srcs = [s for s in srcs if s not in build_config_srcs]
 
-    native.filegroup(name = sources_target_name, srcs = kernel_srcs)
+    native.filegroup(name = sources_target_name, srcs = srcs)
 
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
-        srcs = build_config_srcs,
+        srcs = srcs,
         toolchain_version = toolchain_version,
     )
 
@@ -384,6 +389,12 @@ _KernelEnvInfo = provider(fields = {
 })
 
 def _kernel_env_impl(ctx):
+    srcs = [
+        s
+        for s in ctx.files.srcs
+        if "/build.config" in s.path or s.path.startswith("build.config")
+    ]
+
     build_config = ctx.file.build_config
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
@@ -416,7 +427,7 @@ def _kernel_env_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs + [
+        inputs = srcs + [
             build_config,
             setup_env,
             preserve_env,
