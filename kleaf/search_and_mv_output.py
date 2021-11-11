@@ -17,7 +17,7 @@ def handle_outputs_with_slash(srcdir, dstdir, outputs):
         break
     if not found:
       errors.append(
-        f"Unable to find f{out} in any of the following directories:\n  " + (
+        f"Unable to find {out} in any of the following directories:\n  " + (
           "\n  ".join([os.path.realpath(sdir) for sdir in srcdir])))
 
   return errors
@@ -45,7 +45,7 @@ def handle_outputs_without_slash(srcdir, dstdir, outputs):
           break
     if not found:
       errors.append(
-        f"Unable to find f{out} in any of the following directories:\n  " + (
+        f"Unable to find {out} in any of the following directories:\n  " + (
           "\n  ".join([os.path.realpath(sdir) for sdir in srcdir])))
 
   return errors
