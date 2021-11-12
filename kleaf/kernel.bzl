@@ -117,7 +117,8 @@ def kernel_build(
         generate_vmlinux_btf = False,
         deps = (),
         base_kernel = None,
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+        **kwargs):
     """Defines a kernel build target with all dependent targets.
 
     It uses a `build_config` to construct a deterministic build environment (e.g.
@@ -280,6 +281,12 @@ def kernel_build(
             use `selects.config_setting_group()`.
 
         toolchain_version: The toolchain version to depend on.
+        kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+
+          These arguments applies on the target with `{name}` and `{name}_for_dist`.
     """
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
@@ -321,6 +328,7 @@ def kernel_build(
         implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", _kernel_build_implicit_outs),
         deps = deps,
         base_kernel = base_kernel,
+        **kwargs
     )
 
     for out_name, out_attr_val in (
@@ -381,6 +389,7 @@ def kernel_build(
     native.filegroup(
         name = name + "_for_dist",
         srcs = labels_for_dist,
+        **kwargs
     )
 
 _KernelEnvInfo = provider(fields = {
