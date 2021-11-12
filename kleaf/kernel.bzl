@@ -463,10 +463,13 @@ def _kernel_env_impl(ctx):
            source {env}
          # setup the PATH to also include the host tools
            export PATH=$PATH:$PWD/{host_tool_path}
+         # setup LD_LIBRARY_PATH for prebuilts
+           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
            """.format(
         env = out_file.path,
         host_tool_path = host_tool_path,
         build_utils_sh = ctx.file._build_utils_sh.path,
+        linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
     )
 
     return [
@@ -542,6 +545,7 @@ _kernel_env = rule(
             default = "//build/kleaf:debug_annotate_scripts",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
     },
 )
 
