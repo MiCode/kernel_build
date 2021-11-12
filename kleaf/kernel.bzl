@@ -111,8 +111,8 @@ In particular, this is required by the `base_kernel` attribute of a `kernel_buil
 def kernel_build(
         name,
         build_config,
-        srcs,
         outs,
+        srcs = None,
         module_outs = [],
         generate_vmlinux_btf = False,
         deps = (),
@@ -141,15 +141,15 @@ def kernel_build(
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
-        srcs: The kernel sources (a `glob()`). Example:
+        srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
           ```
           glob(
               ["**"],
               exclude = [
-                  ".*",
-                  ".*/**",
-                  "BUILD.bazel",
-                  "**/*.bzl",
+                  "**/.*",          # Hidden files
+                  "**/.*/**",       # Files in hidden directories
+                  "**/BUILD.bazel", # build files
+                  "**/*.bzl",       # build files
               ],
           )
           ```
@@ -182,8 +182,8 @@ def kernel_build(
 
           Requires that `"vmlinux"` is in `outs`.
         deps: Additional dependencies to build this kernel.
-        module_outs: Similar to `outs`, but for `*.ko` files searched from
-          module install directory.
+        module_outs: A list of in-tree drivers. Similar to `outs`, but for `*.ko` files searched
+          from module install directory.
 
           Like `outs`, `module_outs` are part of the
           [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)
@@ -198,6 +198,8 @@ def kernel_build(
           [`select()`](https://docs.bazel.build/versions/main/configurable-attributes.html). See
           documentation for `outs` for more details.
         outs: The expected output files.
+
+          Note: in-tree modules should be specified in `module_outs` instead.
 
           This attribute must be either a `dict` or a `list`. If it is a `list`, for each item
           in `out`:
@@ -294,6 +296,17 @@ def kernel_build(
     modules_prepare_target_name = name + "_modules_prepare"
     uapi_headers_target_name = name + "_uapi_headers"
     headers_target_name = name + "_headers"
+
+    if srcs == None:
+        srcs = native.glob(
+            ["**"],
+            exclude = [
+                "**/.*",
+                "**/.*/**",
+                "**/BUILD.bazel",
+                "**/*.bzl",
+            ],
+        )
 
     native.filegroup(name = sources_target_name, srcs = srcs)
 
