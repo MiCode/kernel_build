@@ -117,7 +117,8 @@ def kernel_build(
         generate_vmlinux_btf = False,
         deps = (),
         base_kernel = None,
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+        **kwargs):
     """Defines a kernel build target with all dependent targets.
 
     It uses a `build_config` to construct a deterministic build environment (e.g.
@@ -280,6 +281,12 @@ def kernel_build(
             use `selects.config_setting_group()`.
 
         toolchain_version: The toolchain version to depend on.
+        kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+
+          These arguments applies on the target with `{name}` and `{name}_for_dist`.
     """
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
@@ -321,6 +328,7 @@ def kernel_build(
         implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", _kernel_build_implicit_outs),
         deps = deps,
         base_kernel = base_kernel,
+        **kwargs
     )
 
     for out_name, out_attr_val in (
@@ -381,6 +389,7 @@ def kernel_build(
     native.filegroup(
         name = name + "_for_dist",
         srcs = labels_for_dist,
+        **kwargs
     )
 
 _KernelEnvInfo = provider(fields = {
@@ -454,10 +463,13 @@ def _kernel_env_impl(ctx):
            source {env}
          # setup the PATH to also include the host tools
            export PATH=$PATH:$PWD/{host_tool_path}
+         # setup LD_LIBRARY_PATH for prebuilts
+           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
            """.format(
         env = out_file.path,
         host_tool_path = host_tool_path,
         build_utils_sh = ctx.file._build_utils_sh.path,
+        linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
     )
 
     return [
@@ -533,6 +545,7 @@ _kernel_env = rule(
             default = "//build/kleaf:debug_annotate_scripts",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
     },
 )
 
