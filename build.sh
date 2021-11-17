@@ -69,6 +69,12 @@
 #     modules.  This allows for building them in parallel using makefile
 #     parallelization.
 #
+#   KCONFIG_EXT_PREFIX
+#     Path prefix relative to either ROOT_DIR or KERNEL_DIR that points to
+#     a directory containing an external Kconfig file named Kconfig.ext. When
+#     set, kbuild will source ${KCONFIG_EXT_PREFIX}Kconfig.ext which can be
+#     used to set configs for external modules in the defconfig.
+#
 #   UNSTRIPPED_MODULES
 #     Space separated list of modules to be copied to <DIST_DIR>/unstripped
 #     for debugging purposes.
@@ -429,6 +435,8 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.x86 ./build/build.sh would cause
   # gki build recursively
   GKI_ENVIRON+=("GKI_BUILD_CONFIG=")
+  # Explicitly unset KCONFIG_EXT_PREFIX in case it was set by the older environment.
+  GKI_ENVIRON+=("KCONFIG_EXT_PREFIX=")
   # Any variables prefixed with GKI_ get set without that prefix in the GKI build environment
   # e.g. GKI_BUILD_CONFIG=common/build.config.gki.aarch64 -> BUILD_CONFIG=common/build.config.gki.aarch64
   GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.* GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
@@ -440,6 +448,30 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   MAKE_ARGS+=("KBUILD_MIXED_TREE=$(readlink -m ${GKI_DIST_DIR})")
 else
   rm -f ${OLD_ENVIRONMENT}
+fi
+
+if [ -n "${KCONFIG_EXT_PREFIX}" ]; then
+  # Since this is a prefix, make sure it ends with "/"
+  if [[ ! "${KCONFIG_EXT_PREFIX}" =~ \/$ ]]; then
+    KCONFIG_EXT_PREFIX=${KCONFIG_EXT_PREFIX}/
+  fi
+
+  # KCONFIG_EXT_PREFIX needs to be relative to KERNEL_DIR but we allow one to set
+  # it relative to ROOT_DIR for ease of use. So figure out what was used.
+  if [ -f "${ROOT_DIR}/${KCONFIG_EXT_PREFIX}Kconfig.ext" ]; then
+    # KCONFIG_EXT_PREFIX is currently relative to ROOT_DIR. So recalcuate it to be
+    # relative to KERNEL_DIR
+    KCONFIG_EXT_PREFIX=$(rel_path ${ROOT_DIR}/${KCONFIG_EXT_PREFIX} ${KERNEL_DIR})
+  elif [ ! -f "${KERNEL_DIR}/${KCONFIG_EXT_PREFIX}Kconfig.ext" ]; then
+    echo "Couldn't find the Kconfig.ext in ${KCONFIG_EXT_PREFIX}" >&2
+    exit 1
+  fi
+
+  # Since this is a prefix, make sure it ends with "/"
+  if [[ ! "${KCONFIG_EXT_PREFIX}" =~ \/$ ]]; then
+    KCONFIG_EXT_PREFIX=${KCONFIG_EXT_PREFIX}/
+  fi
+  MAKE_ARGS+=("KCONFIG_EXT_PREFIX=${KCONFIG_EXT_PREFIX}")
 fi
 
 cd ${ROOT_DIR}
