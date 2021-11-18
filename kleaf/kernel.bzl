@@ -117,6 +117,7 @@ def kernel_build(
         generate_vmlinux_btf = False,
         deps = (),
         base_kernel = None,
+        kconfig_ext = None,
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -141,6 +142,7 @@ def kernel_build(
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
+        kconfig_ext: Label of an external Kconfig.ext file sourced by the GKI kernel.
         srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
           ```
           glob(
@@ -313,6 +315,7 @@ def kernel_build(
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
+        kconfig_ext = kconfig_ext,
         srcs = srcs,
         toolchain_version = toolchain_version,
     )
@@ -418,6 +421,7 @@ def _kernel_env_impl(ctx):
     ]
 
     build_config = ctx.file.build_config
+    kconfig_ext = ctx.file.kconfig_ext
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
@@ -426,6 +430,13 @@ def _kernel_env_impl(ctx):
     command = ""
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         command += _debug_trap()
+
+    if kconfig_ext:
+        command += """
+              export KCONFIG_EXT={kconfig_ext}
+            """.format(
+            kconfig_ext = kconfig_ext.short_path,
+        )
 
     command += """
         # error on failures
@@ -478,6 +489,9 @@ def _kernel_env_impl(ctx):
            export PATH=$PATH:$PWD/{host_tool_path}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
+           if [ -n "${{KCONFIG_EXT}}" ]; then
+             export KCONFIG_EXT_PREFIX=$(rel_path $(realpath $(dirname ${{KCONFIG_EXT}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})/
+           fi
            """.format(
         env = out_file.path,
         host_tool_path = host_tool_path,
@@ -485,12 +499,15 @@ def _kernel_env_impl(ctx):
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
     )
 
+    dependencies += [
+        out_file,
+        ctx.file._build_utils_sh,
+    ]
+    if kconfig_ext:
+        dependencies.append(kconfig_ext)
     return [
         _KernelEnvInfo(
-            dependencies = dependencies + [
-                out_file,
-                ctx.file._build_utils_sh,
-            ],
+            dependencies = dependencies,
             setup = setup,
         ),
         DefaultInfo(files = depset([out_file])),
@@ -547,6 +564,10 @@ _kernel_env = rule(
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
+        ),
+        "kconfig_ext": attr.label(
+            allow_single_file = True,
+            doc = "an external Kconfig.ext file sourced by the base kernel",
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
