@@ -336,7 +336,7 @@ if [ -n "$ABI_DEFINITION" ]; then
         echo " The detailed report is available in the same directory."
 
         if [ $rc -ne 0 ]; then
-            echo " ABI DIFFERENCES HAVE BEEN DETECTED! (RC=$rc)" 1>&2
+            echo " ABI DIFFERENCES HAVE BEEN DETECTED!" 1>&2
         fi
 
         if [ $PRINT_REPORT -eq 1 ] && [ $rc -ne 0 ] ; then
