@@ -73,15 +73,6 @@ def _collapse_offset_changes(text):
   return "".join(new_text)
 
 
-# TODO(b/157510812#comment15): Drop when libabigail fixed.
-def _eliminate_spurious_blank_lines(text):
-    return re.sub(
-        r"^\n(^    CRC.*changed from [^ ]* to [^ ]*$)",
-        r"\1",
-        text,
-        flags=re.MULTILINE)
-
-
 def _collapse_CRC_changes(text, limit):
     """Preserves some CRC-only changes and summarises the rest.
 
@@ -141,12 +132,13 @@ def _collapse_CRC_changes(text, limit):
 
 
 class AbiTool(object):
-    """ Base class for different kinds of abi analysis tools"""
+    """Base class for different kinds of abi analysis tools"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
             vmlinux_path=None):
         raise NotImplementedError()
 
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report,
+                 symbol_list, full_report):
         raise NotImplementedError()
 
     def name(self):
@@ -158,62 +150,62 @@ ABIDIFF_ABI_CHANGE              = (1<<2)
 ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 
 class Libabigail(AbiTool):
-    """" Concrete AbiTool implementation for libabigail """
+    """Concrete AbiTool implementation for libabigail"""
     def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
             vmlinux_path=None):
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_path = temp_file.name
 
-            dump_abi_cmd = ['abidw',
+            dump_abi_cmd = ["abidw",
                             # omit various sources of indeterministic abidw output
-                            '--no-corpus-path',
-                            '--no-comp-dir-path',
+                            "--no-corpus-path",
+                            "--no-comp-dir-path",
                             # use (more) stable type ids
-                            '--type-id-style',
-                            'hash',
+                            "--type-id-style",
+                            "hash",
                             # the path containing vmlinux and *.ko
-                            '--linux-tree',
+                            "--linux-tree",
                             linux_tree,
-                            '--out-file',
+                            "--out-file",
                             temp_path]
 
             if vmlinux_path is not None:
-                dump_abi_cmd.extend(['--vmlinux', vmlinux_path])
+                dump_abi_cmd.extend(["--vmlinux", vmlinux_path])
 
             if symbol_list is not None:
-                dump_abi_cmd.extend(['--kmi-whitelist', symbol_list])
+                dump_abi_cmd.extend(["--kmi-whitelist", symbol_list])
 
             subprocess.check_call(dump_abi_cmd)
 
-            tidy_abi_command = ['abitidy',
-                                '--all',
-                                '--input', temp_path,
-                                '--output', dump_path]
+            tidy_abi_command = ["abitidy",
+                                "--all",
+                                "--input", temp_path,
+                                "--output", dump_path]
 
             subprocess.check_call(tidy_abi_command)
 
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):
-        log.info('libabigail diffing: {} and {} at {}'.format(old_dump,
+        log.info("libabigail diffing: {} and {} at {}".format(old_dump,
                                                                 new_dump,
                                                                 diff_report))
-        diff_abi_cmd = ['abidiff',
-                        '--flag-indirect',
+        diff_abi_cmd = ["abidiff",
+                        "--flag-indirect",
                         old_dump,
                         new_dump]
 
         if not full_report:
             diff_abi_cmd.extend([
-                '--leaf-changes-only',
-                '--impacted-interfaces',
+                "--leaf-changes-only",
+                "--impacted-interfaces",
             ])
 
         if symbol_list is not None:
-            diff_abi_cmd.extend(['--kmi-whitelist', symbol_list])
+            diff_abi_cmd.extend(["--kmi-whitelist", symbol_list])
 
         abi_changed = False
 
-        with open(diff_report, 'w') as out:
+        with open(diff_report, "w") as out:
             try:
                 subprocess.check_call(diff_abi_cmd, stdout=out, stderr=out)
             except subprocess.CalledProcessError as e:
@@ -223,19 +215,51 @@ class Libabigail(AbiTool):
 
         if short_report is not None:
             with open(diff_report) as full_report:
-                with open(short_report, 'w') as out:
+                with open(short_report, "w") as out:
                     text = full_report.read()
                     text = _collapse_impacted_interfaces(text)
                     text = _collapse_offset_changes(text)
-                    text = _eliminate_spurious_blank_lines(text)
                     text = _collapse_CRC_changes(text, 3)
                     out.write(text)
 
         return abi_changed
 
+class Stg(AbiTool):
+    DIFF_ERROR                   = (1<<0)
+    DIFF_ABI_CHANGE              = (1<<2)
+
+    """" Concrete AbiTool implementation for STG """
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
+            vmlinux_path=None):
+        raise
+
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
+                 symbol_list=None, full_report=None):
+        # shoehorn the interface
+        basename = diff_report
+
+        log.info(f"stgdiff {old_dump} {new_dump} at {basename}.*")
+        command = ["stgdiff", "--abi", old_dump, new_dump]
+        for f in ["plain", "flat", "small", "viz"]:
+            command.extend(["--format", f, "--output", f"{basename}.{f}"])
+
+        abi_changed = False
+
+        with open(f"{basename}.errors", "w") as out:
+            try:
+                subprocess.check_call(command, stdout=out, stderr=out)
+            except subprocess.CalledProcessError as e:
+                if e.returncode & self.DIFF_ERROR:
+                    raise
+                abi_changed = True
+
+        return abi_changed
+
 def get_abi_tool(abi_tool = "libabigail"):
-    if abi_tool == 'libabigail':
-        log.info('using libabigail for abi analysis')
+    log.info(f"using {abi_tool} for abi analysis")
+    if abi_tool == "libabigail":
         return Libabigail()
+    if abi_tool == "STG":
+        return Stg()
 
     raise ValueError("not a valid abi_tool: %s" % abi_tool)
