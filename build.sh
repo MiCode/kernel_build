@@ -247,6 +247,10 @@
 #     ramdisk binary. For example, the build config file could add firmware files
 #     on the vendor ramdisk (lib/firmware) for testing purposes.
 #
+#   SKIP_UNPACKING_RAMDISK
+#     If set, skip unpacking the vendor ramdisk and copy it as is, without
+#     modifications, into the boot image. Also skip the mkbootfs step.
+#
 #   AVB_SIGN_BOOT_IMG
 #     if defined, sign the boot image using the AVB_BOOT_KEY. Refer to
 #     https://android.googlesource.com/platform/external/avb/+/master/README.md
