@@ -379,6 +379,13 @@
 #     by adding each *.dtbo to the MAKE_GOALS.
 #     MKDTIMG_FLAGS=<list of flags> to be passed to mkdtimg.
 #
+#   DTS_EXT_DIR
+#     Set this variable to compile an out-of-tree device tree. The value of
+#     this variable is set to the kbuild variable "dtstree" which is used to
+#     compile the device tree. If this is set, then it's likely the dt-bindings
+#     are out-of-tree as well. So be sure to set DTC_INCLUDE in the
+#     BUILD_CONFIG file to the include path containing the dt-bindings.
+#
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -472,6 +479,22 @@ if [ -n "${KCONFIG_EXT_PREFIX}" ]; then
     KCONFIG_EXT_PREFIX=${KCONFIG_EXT_PREFIX}/
   fi
   MAKE_ARGS+=("KCONFIG_EXT_PREFIX=${KCONFIG_EXT_PREFIX}")
+fi
+
+if [ -n "${DTS_EXT_DIR}" ]; then
+  if [[ "${MAKE_GOALS}" =~ dtbs|\.dtb|\.dtbo ]]; then
+    # DTS_EXT_DIR needs to be relative to KERNEL_DIR but we allow one to set
+    # it relative to ROOT_DIR for ease of use. So figure out what was used.
+    if [ -d "${ROOT_DIR}/${DTS_EXT_DIR}" ]; then
+      # DTS_EXT_DIR is currently relative to ROOT_DIR. So recalcuate it to be
+      # relative to KERNEL_DIR
+      DTS_EXT_DIR=$(rel_path ${ROOT_DIR}/${DTS_EXT_DIR} ${KERNEL_DIR})
+    elif [ ! -d "${KERNEL_DIR}/${DTS_EXT_DIR}" ]; then
+      echo "Couldn't find the dtstree -- ${DTS_EXT_DIR}" >&2
+      exit 1
+    fi
+    MAKE_ARGS+=("dtstree=${DTS_EXT_DIR}")
+  fi
 fi
 
 cd ${ROOT_DIR}
