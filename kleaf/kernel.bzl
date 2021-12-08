@@ -118,6 +118,8 @@ def kernel_build(
         deps = (),
         base_kernel = None,
         kconfig_ext = None,
+        dtstree_makefile = None,
+        dtstree_srcs = [],
         toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -143,6 +145,8 @@ def kernel_build(
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
         kconfig_ext: Label of an external Kconfig.ext file sourced by the GKI kernel.
+        dtstree_makefile: Label of the external device tree Makefile.
+        dtstree_srcs: Labels of the device tree sources (a `glob()`).
         srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
           ```
           glob(
@@ -316,6 +320,8 @@ def kernel_build(
         name = env_target_name,
         build_config = build_config,
         kconfig_ext = kconfig_ext,
+        dtstree_makefile = dtstree_makefile,
+        dtstree_srcs = dtstree_srcs,
         srcs = srcs,
         toolchain_version = toolchain_version,
     )
@@ -422,6 +428,9 @@ def _kernel_env_impl(ctx):
 
     build_config = ctx.file.build_config
     kconfig_ext = ctx.file.kconfig_ext
+    dtstree_makefile = ctx.file.dtstree_makefile
+    dtstree_srcs = ctx.files.dtstree_srcs
+
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
@@ -436,6 +445,12 @@ def _kernel_env_impl(ctx):
               export KCONFIG_EXT={kconfig_ext}
             """.format(
             kconfig_ext = kconfig_ext.short_path,
+        )
+    if dtstree_makefile:
+        command += """
+              export DTSTREE_MAKEFILE={dtstree}
+            """.format(
+            dtstree = dtstree_makefile.short_path,
         )
 
     command += """
@@ -495,6 +510,9 @@ def _kernel_env_impl(ctx):
            if [ -n "${{KCONFIG_EXT}}" ]; then
              export KCONFIG_EXT_PREFIX=$(rel_path $(realpath $(dirname ${{KCONFIG_EXT}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})/
            fi
+           if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
+             export dtstree=$(rel_path $(realpath $(dirname ${{DTSTREE_MAKEFILE}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})
+           fi
            """.format(
         env = out_file.path,
         host_tool_path = host_tool_path,
@@ -508,6 +526,7 @@ def _kernel_env_impl(ctx):
     ]
     if kconfig_ext:
         dependencies.append(kconfig_ext)
+    dependencies += dtstree_srcs
     return [
         _KernelEnvInfo(
             dependencies = dependencies,
@@ -571,6 +590,14 @@ _kernel_env = rule(
         "kconfig_ext": attr.label(
             allow_single_file = True,
             doc = "an external Kconfig.ext file sourced by the base kernel",
+        ),
+        "dtstree_makefile": attr.label(
+            allow_single_file = True,
+            doc = "path to a device tree Makefile",
+        ),
+        "dtstree_srcs": attr.label_list(
+            allow_files = True,
+            doc = "device tree source files",
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
@@ -807,7 +834,7 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs. If unable to find from OUT_DIR, look at KBUILD_MIXED_TREE as well.
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} --dstdir {ruledir} {all_output_names}
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names}
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
          # Clean up staging directories
@@ -815,6 +842,7 @@ def _kernel_build_impl(ctx):
          """.format(
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         kbuild_mixed_tree_arg = "--srcdir ${KBUILD_MIXED_TREE}" if kbuild_mixed_tree else "",
+        dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
         all_output_names = " ".join(all_output_names),
         modules_staging_dir = modules_staging_dir,
