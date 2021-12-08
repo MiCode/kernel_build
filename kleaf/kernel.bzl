@@ -683,6 +683,7 @@ _KernelBuildInfo = provider(fields = {
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
     "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs` and `implicit_outs`)",
     "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
+    "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
 
 def _kernel_build_impl(ctx):
@@ -841,6 +842,7 @@ def _kernel_build_impl(ctx):
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         outs = all_output_files["outs"].values(),
         base_kernel_files = base_kernel_files,
+        interceptor_output = interceptor_output,
     )
 
     output_group_kwargs = {}
@@ -2117,5 +2119,117 @@ in the `base_build` attribute of a [`kernel_build`](#kernel_build).
             allow_files = True,
             doc = "The list of labels that are members of this file group.",
         ),
+    },
+)
+
+def _kernel_compile_commands_impl(ctx):
+    interceptor_output = ctx.attr.kernel_build[_KernelBuildInfo].interceptor_output
+    compile_commands = ctx.actions.declare_file(ctx.attr.name + "/compile_commands.json")
+    inputs = [interceptor_output]
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    command = ctx.attr.kernel_build[_KernelEnvInfo].setup
+    command += """
+             # Generate compile_commands.json
+               interceptor_analysis -l {interceptor_output} -o {compile_commands} -t compdb_commands --relative
+    """.format(
+        interceptor_output = interceptor_output.path,
+        compile_commands = compile_commands.path,
+    )
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [compile_commands],
+        command = command,
+        progress_message = "Building compile_commands.json {}".format(ctx.label),
+    )
+    return DefaultInfo(files = depset([compile_commands]))
+
+kernel_compile_commands = rule(
+    implementation = _kernel_compile_commands_impl,
+    doc = """
+Generate `compile_commands.json` from a `kernel_build`.
+    """,
+    attrs = {
+        "kernel_build": attr.label(
+            mandatory = True,
+            doc = "The `kernel_build` rule to extract from.",
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
+        ),
+    },
+)
+
+def _kernel_kythe_impl(ctx):
+    compile_commands = ctx.file.compile_commands
+    all_kzip = ctx.actions.declare_file(ctx.attr.name + "/all.kzip")
+    runextractor_error = ctx.actions.declare_file(ctx.attr.name + "/runextractor_error.log")
+    kzip_dir = all_kzip.dirname + "/intermediates"
+    extracted_kzip_dir = all_kzip.dirname + "/extracted"
+    inputs = [compile_commands]
+    inputs += ctx.files._srcs
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    command = ctx.attr.kernel_build[_KernelEnvInfo].setup
+    command += """
+             # Copy compile_commands.json to root
+               cp {compile_commands} ${{ROOT_DIR}}
+             # Prepare directories
+               mkdir -p {kzip_dir} {extracted_kzip_dir} ${{OUT_DIR}}
+             # Define env variables
+               export KYTHE_ROOT_DIRECTORY=${{ROOT_DIR}}
+               export KYTHE_OUTPUT_DIRECTORY={kzip_dir}
+               export KYTHE_CORPUS="{corpus}"
+             # Generate kzips
+               runextractor compdb -extractor $(which cxx_extractor) 2> {runextractor_error} || true
+
+             # Package it all into a single .kzip, ignoring duplicates.
+               for zip in $(find {kzip_dir} -name '*.kzip'); do
+                   unzip -qn "${{zip}}" -d {extracted_kzip_dir}
+               done
+               soong_zip -C {extracted_kzip_dir} -D {extracted_kzip_dir} -o {all_kzip}
+             # Clean up directories
+               rm -rf {kzip_dir}
+               rm -rf {extracted_kzip_dir}
+    """.format(
+        compile_commands = compile_commands.path,
+        kzip_dir = kzip_dir,
+        extracted_kzip_dir = extracted_kzip_dir,
+        corpus = ctx.attr.corpus,
+        all_kzip = all_kzip.path,
+        runextractor_error = runextractor_error.path,
+    )
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [all_kzip, runextractor_error],
+        command = command,
+        progress_message = "Building Kythe source code index (kzip) {}".format(ctx.label),
+    )
+
+    return DefaultInfo(files = depset([
+        all_kzip,
+        runextractor_error,
+    ]))
+
+def _get_sources(kernel_build):
+    return Label(str(kernel_build) + "_sources")
+
+kernel_kythe = rule(
+    implementation = _kernel_kythe_impl,
+    doc = """
+Extract Kythe source code index (kzip file) from a `kernel_build`.
+    """,
+    attrs = {
+        "kernel_build": attr.label(
+            mandatory = True,
+            doc = "The `kernel_build` target to extract from.",
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
+        ),
+        "compile_commands": attr.label(
+            mandatory = True,
+            allow_single_file = True,
+            doc = "The `compile_commands.json`, or a `kernel_compile_commands` target.",
+        ),
+        "corpus": attr.string(
+            default = "android.googlesource.com/kernel/superproject",
+            doc = "The value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
+        ),
+        "_srcs": attr.label(default = _get_sources),
     },
 )
