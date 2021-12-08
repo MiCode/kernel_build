@@ -105,19 +105,20 @@ KernelFilesInfo = provider(doc = """Contains information of files that a kernel 
 
 In particular, this is required by the `base_kernel` attribute of a `kernel_build` rule.
 """, fields = {
-    "files": "A list of files that this kernel build provides."
+    "files": "A list of files that this kernel build provides.",
 })
 
 def kernel_build(
         name,
         build_config,
-        srcs,
         outs,
+        srcs = None,
         module_outs = [],
         generate_vmlinux_btf = False,
         deps = (),
         base_kernel = None,
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION):
+        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+        **kwargs):
     """Defines a kernel build target with all dependent targets.
 
     It uses a `build_config` to construct a deterministic build environment (e.g.
@@ -140,7 +141,18 @@ def kernel_build(
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
-        srcs: The kernel sources (a `glob()`).
+        srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
+          ```
+          glob(
+              ["**"],
+              exclude = [
+                  "**/.*",          # Hidden files
+                  "**/.*/**",       # Files in hidden directories
+                  "**/BUILD.bazel", # build files
+                  "**/*.bzl",       # build files
+              ],
+          )
+          ```
         base_kernel: A label referring the base kernel build.
 
           If set, the list of files specified in the `KernelFilesInfo` of the rule specified in
@@ -170,8 +182,8 @@ def kernel_build(
 
           Requires that `"vmlinux"` is in `outs`.
         deps: Additional dependencies to build this kernel.
-        module_outs: Similar to `outs`, but for `*.ko` files searched from
-          module install directory.
+        module_outs: A list of in-tree drivers. Similar to `outs`, but for `*.ko` files searched
+          from module install directory.
 
           Like `outs`, `module_outs` are part of the
           [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)
@@ -186,6 +198,8 @@ def kernel_build(
           [`select()`](https://docs.bazel.build/versions/main/configurable-attributes.html). See
           documentation for `outs` for more details.
         outs: The expected output files.
+
+          Note: in-tree modules should be specified in `module_outs` instead.
 
           This attribute must be either a `dict` or a `list`. If it is a `list`, for each item
           in `out`:
@@ -269,6 +283,12 @@ def kernel_build(
             use `selects.config_setting_group()`.
 
         toolchain_version: The toolchain version to depend on.
+        kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+
+          These arguments applies on the target with `{name}` and `{name}_for_dist`.
     """
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
@@ -276,19 +296,24 @@ def kernel_build(
     modules_prepare_target_name = name + "_modules_prepare"
     uapi_headers_target_name = name + "_uapi_headers"
     headers_target_name = name + "_headers"
-    build_config_srcs = [
-        s
-        for s in srcs
-        if "/build.config" in s or s.startswith("build.config")
-    ]
-    kernel_srcs = [s for s in srcs if s not in build_config_srcs]
 
-    native.filegroup(name = sources_target_name, srcs = kernel_srcs)
+    if srcs == None:
+        srcs = native.glob(
+            ["**"],
+            exclude = [
+                "**/.*",
+                "**/.*/**",
+                "**/BUILD.bazel",
+                "**/*.bzl",
+            ],
+        )
+
+    native.filegroup(name = sources_target_name, srcs = srcs)
 
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
-        srcs = build_config_srcs,
+        srcs = srcs,
         toolchain_version = toolchain_version,
     )
 
@@ -316,6 +341,7 @@ def kernel_build(
         implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", _kernel_build_implicit_outs),
         deps = deps,
         base_kernel = base_kernel,
+        **kwargs
     )
 
     for out_name, out_attr_val in (
@@ -376,6 +402,7 @@ def kernel_build(
     native.filegroup(
         name = name + "_for_dist",
         srcs = labels_for_dist,
+        **kwargs
     )
 
 _KernelEnvInfo = provider(fields = {
@@ -384,6 +411,12 @@ _KernelEnvInfo = provider(fields = {
 })
 
 def _kernel_env_impl(ctx):
+    srcs = [
+        s
+        for s in ctx.files.srcs
+        if "/build.config" in s.path or s.path.startswith("build.config")
+    ]
+
     build_config = ctx.file.build_config
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
@@ -416,7 +449,7 @@ def _kernel_env_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs + [
+        inputs = srcs + [
             build_config,
             setup_env,
             preserve_env,
@@ -443,10 +476,13 @@ def _kernel_env_impl(ctx):
            source {env}
          # setup the PATH to also include the host tools
            export PATH=$PATH:$PWD/{host_tool_path}
+         # setup LD_LIBRARY_PATH for prebuilts
+           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
            """.format(
         env = out_file.path,
         host_tool_path = host_tool_path,
         build_utils_sh = ctx.file._build_utils_sh.path,
+        linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
     )
 
     return [
@@ -522,6 +558,7 @@ _kernel_env = rule(
             default = "//build/kleaf:debug_annotate_scripts",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
     },
 )
 
@@ -535,6 +572,7 @@ def _kernel_config_impl(ctx):
             "Makefile",
             "configs/",
             "scripts/",
+            ".fragment",
         ]])
     ]
 
@@ -1834,6 +1872,49 @@ Execute `build_boot_images` in `build_utils.sh`.""",
     },
 )
 
+def _dtbo_impl(ctx):
+    output = ctx.actions.declare_file("{}/dtbo.img".format(ctx.label.name))
+    inputs = []
+    inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
+    inputs += ctx.files.srcs
+    command = ""
+    command += ctx.attr.kernel_build[_KernelEnvInfo].setup
+
+    command += """
+             # make dtbo
+               mkdtimg create {output} ${{MKDTIMG_FLAGS}} {srcs}
+    """.format(
+        output = output.path,
+        srcs = " ".join([f.path for f in ctx.files.srcs])
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [output],
+        progress_message = "Building dtbo {}".format(ctx.label),
+        command = command,
+    )
+    return DefaultInfo(files = depset([output]))
+
+
+_dtbo = rule(
+    implementation = _dtbo_impl,
+    doc = "Build dtbo.",
+    attrs = {
+        "kernel_build": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo, _KernelBuildInfo],
+        ),
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "_debug_print_scripts": attr.label(
+            default = "//build/kleaf:debug_print_scripts",
+        ),
+    }
+)
+
 def kernel_images(
         name,
         kernel_modules_install,
@@ -1841,15 +1922,11 @@ def kernel_images(
         build_initramfs = None,
         build_vendor_dlkm = None,
         build_boot_images = None,
+        build_dtbo = None,
+        dtbo_srcs = [],
         mkbootimg = "//tools/mkbootimg:mkbootimg.py",
         deps = [],
-        boot_image_outs = [
-            "boot.img",
-            "dtb.img",
-            "ramdisk.lz4",
-            "vendor_boot.img",
-            "vendor-bootconfig.img",
-        ]):
+        boot_image_outs = None):
     """Build multiple kernel images.
 
     Args:
@@ -1878,7 +1955,9 @@ def kernel_images(
         boot_image_outs: A list of output files that will be installed to `DIST_DIR` when
           `build_boot_images` is executed.
 
-          The default list assumes the following:
+          If `build_boot_images` is equal to `False`, the default is empty.
+
+          If `build_boot_images` is equal to `True`, the default list assumes the following:
           - `BOOT_IMAGE_FILENAME` is not set (which takes default value `boot.img`), or is set to
             `"boot.img"`
           - `SKIP_VENDOR_BOOT` is not set, which builds `vendor_boot.img"
@@ -1886,6 +1965,7 @@ def kernel_images(
             `ramdisk.lz4` with `ramdisk.{RAMDISK_EXT}` accordingly.
           - `BOOT_IMAGE_HEADER_VERSION >= 4`, which creates `vendor-bootconfig.img` to contain
             `VENDOR_BOOTCONFIG`
+          - The list contains `dtb.img`
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `VENDOR_DLKM_MODULES_LIST` is non-empty.
@@ -1894,6 +1974,33 @@ def kernel_images(
 
           This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
           `build_initramfs` is implicitly true, and `kernel_build` must be set.
+        build_dtbo: Whether to build dtbo image. Keep this in sync with `BUILD_DTBO_IMG`.
+
+          If `dtbo_srcs` is non-empty, `build_dtbo` is `True` by default. Otherwise it is `False`
+          by default.
+        dtbo_srcs: list of `*.dtbo` files used to package the `dtbo.img`. Keep this in sync
+          with `MKDTIMG_DTBOS`; see example below.
+
+          If `dtbo_srcs` is non-empty, `build_dtbo` must not be explicitly set to `False`.
+
+          Example:
+          ```
+          kernel_build(
+              name = "tuna_kernel",
+              outs = [
+                  "path/to/foo.dtbo",
+                  "path/to/bar.dtbo",
+              ],
+          )
+          kernel_images(
+              name = "tuna_images",
+              kernel_build = ":tuna_kernel",
+              dtbo_srcs = [
+                  ":tuna_kernel/path/to/foo.dtbo",
+                  ":tuna_kernel/path/to/bar.dtbo",
+              ]
+          )
+          ```
     """
     all_rules = []
 
@@ -1904,6 +2011,19 @@ def kernel_images(
             fail("{}: Must set build_initramfs to True if build_boot_images".format(name))
         if kernel_build == None:
             fail("{}: Must set kernel_build if build_boot_images".format(name))
+
+    # Set default value for boot_image_outs according to build_boot_images
+    if boot_image_outs == None:
+        if not build_boot_images:
+            boot_image_outs = []
+        else:
+            boot_image_outs = [
+                "boot.img",
+                "dtb.img",
+                "ramdisk.lz4",
+                "vendor_boot.img",
+                "vendor-bootconfig.img",
+            ]
 
     if build_initramfs:
         _initramfs(
@@ -1935,6 +2055,21 @@ def kernel_images(
         )
         all_rules.append(":{}_boot_images".format(name))
 
+    if build_dtbo == None:
+        build_dtbo = bool(dtbo_srcs)
+
+    if dtbo_srcs:
+        if not build_dtbo:
+            fail("{}: build_dtbo must be True if dtbo_srcs is non-empty.")
+
+    if build_dtbo:
+        _dtbo(
+            name = "{}_dtbo".format(name),
+            srcs = dtbo_srcs,
+            kernel_build = kernel_build,
+        )
+        all_rules.append(":{}_dtbo".format(name))
+
     native.filegroup(
         name = name,
         srcs = all_rules,
@@ -1959,8 +2094,7 @@ in the `base_build` attribute of a [`kernel_build`](#kernel_build).
     attrs = {
         "srcs": attr.label_list(
             allow_files = True,
-            doc = "The list of labels that are members of this file group."
+            doc = "The list of labels that are members of this file group.",
         ),
     },
 )
-
