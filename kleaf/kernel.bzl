@@ -14,7 +14,7 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r433403"
+_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r437112"
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_implicit_outs = [
