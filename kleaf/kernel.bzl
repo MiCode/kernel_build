@@ -447,11 +447,13 @@ def _kernel_env_impl(ctx):
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
           export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
         # create a build environment
+          source {build_utils_sh}
           export BUILD_CONFIG={build_config}
           source {setup_env}
         # capture it as a file to be sourced in downstream rules
           {preserve_env} > {out}
         """.format(
+        build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
         setup_env = setup_env.path,
         preserve_env = preserve_env.path,
@@ -461,6 +463,7 @@ def _kernel_env_impl(ctx):
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = srcs + [
+            ctx.file._build_utils_sh,
             build_config,
             setup_env,
             preserve_env,
