@@ -1123,7 +1123,7 @@ def kernel_module(
         kernel_build,
         outs = None,
         srcs = None,
-        kernel_module_deps = [],
+        kernel_module_deps = None,
         **kwargs):
     """Generates a rule that builds an external kernel module.
 
@@ -1214,26 +1214,41 @@ def kernel_module(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    if outs == None:
-        outs = ["{}.ko".format(name)]
-    if srcs == None:
-        srcs = native.glob([
+    kwargs.update(
+        # This should be the exact list of arguments of kernel_module.
+        # Default arguments of _kernel_module go into _kernel_module_set_defaults.
+        name = name,
+        srcs = srcs,
+        kernel_build = kernel_build,
+        kernel_module_deps = kernel_module_deps,
+        outs = outs,
+    )
+    kwargs = _kernel_module_set_defaults(kwargs)
+    _kernel_module(**kwargs)
+
+def _kernel_module_set_defaults(kwargs):
+    """
+    Set default values for `_kernel_module` that can't be specified in
+    `attr.*(default=...)` in rule().
+    """
+    if kwargs.get("makefile") == None:
+        kwargs["makefile"] = native.glob(["Makefile"])
+
+    if kwargs.get("ext_mod") == None:
+        kwargs["ext_mod"] = native.package_name()
+
+    if kwargs.get("outs") == None:
+        kwargs["outs"] = ["{}.ko".format(kwargs["name"])]
+
+    if kwargs.get("srcs") == None:
+        kwargs["srcs"] = native.glob([
             "**/*.c",
             "**/*.h",
             "**/Kbuild",
             "**/Makefile",
         ])
 
-    _kernel_module(
-        name = name,
-        srcs = srcs,
-        kernel_build = kernel_build,
-        kernel_module_deps = kernel_module_deps,
-        outs = outs,
-        makefile = native.glob(["Makefile"]),
-        ext_mod = native.package_name(),
-        **kwargs
-    )
+    return kwargs
 
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
