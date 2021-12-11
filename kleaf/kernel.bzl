@@ -972,8 +972,8 @@ def _kernel_module_impl(ctx):
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
+    inputs += ctx.files.makefile
     inputs += [
-        ctx.file.makefile,
         ctx.file._search_and_mv_output,
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
@@ -1031,7 +1031,7 @@ def _kernel_module_impl(ctx):
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
-        ext_mod = ctx.file.makefile.dirname,
+        ext_mod = ctx.attr.ext_mod,
         search_and_mv_output = ctx.file._search_and_mv_output.path,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dir,
@@ -1061,7 +1061,7 @@ def _kernel_module_impl(ctx):
              # New shell ends
                )
     """.format(
-        ext_mod = ctx.file.makefile.dirname,
+        ext_mod = ctx.attr.ext_mod,
         module_symvers = module_symvers.path,
     )
 
@@ -1091,8 +1091,8 @@ _kernel_module = rule(
             mandatory = True,
             allow_files = True,
         ),
-        "makefile": attr.label(
-            allow_single_file = True,
+        "makefile": attr.label_list(
+            allow_files = True,
         ),
         "kernel_build": attr.label(
             mandatory = True,
@@ -1101,6 +1101,7 @@ _kernel_module = rule(
         "kernel_module_deps": attr.label_list(
             providers = [_KernelEnvInfo, _KernelModuleInfo],
         ),
+        "ext_mod": attr.string(mandatory = True),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
@@ -1122,8 +1123,7 @@ def kernel_module(
         kernel_build,
         outs = None,
         srcs = None,
-        kernel_module_deps = [],
-        makefile = ":Makefile",
+        kernel_module_deps = None,
         **kwargs):
     """Generates a rule that builds an external kernel module.
 
@@ -1159,8 +1159,6 @@ def kernel_module(
           ```
         kernel_build: Label referring to the kernel_build module.
         kernel_module_deps: A list of other kernel_module dependencies.
-        makefile: Label referring to the makefile. This is where `make` is
-          executed on (`make -C $(dirname ${makefile})`).
         outs: The expected output files. If unspecified or value is `None`, it
           is `["{name}.ko"]` by default.
 
@@ -1216,24 +1214,41 @@ def kernel_module(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    if outs == None:
-        outs = ["{}.ko".format(name)]
-    if srcs == None:
-        srcs = native.glob([
-            "**/*.c",
-            "**/*.h",
-            "**/Kbuild",
-            "**/Makefile",
-        ])
-    _kernel_module(
+    kwargs.update(
+        # This should be the exact list of arguments of kernel_module.
+        # Default arguments of _kernel_module go into _kernel_module_set_defaults.
         name = name,
         srcs = srcs,
         kernel_build = kernel_build,
         kernel_module_deps = kernel_module_deps,
         outs = outs,
-        makefile = makefile,
-        **kwargs
     )
+    kwargs = _kernel_module_set_defaults(kwargs)
+    _kernel_module(**kwargs)
+
+def _kernel_module_set_defaults(kwargs):
+    """
+    Set default values for `_kernel_module` that can't be specified in
+    `attr.*(default=...)` in rule().
+    """
+    if kwargs.get("makefile") == None:
+        kwargs["makefile"] = native.glob(["Makefile"])
+
+    if kwargs.get("ext_mod") == None:
+        kwargs["ext_mod"] = native.package_name()
+
+    if kwargs.get("outs") == None:
+        kwargs["outs"] = ["{}.ko".format(kwargs["name"])]
+
+    if kwargs.get("srcs") == None:
+        kwargs["srcs"] = native.glob([
+            "**/*.c",
+            "**/*.h",
+            "**/Kbuild",
+            "**/Makefile",
+        ])
+
+    return kwargs
 
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
