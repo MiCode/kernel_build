@@ -1159,6 +1159,10 @@ def kernel_module(
           ```
         kernel_build: Label referring to the kernel_build module.
         kernel_module_deps: A list of other kernel_module dependencies.
+
+          Before building this target, `Modules.symvers` from the targets in
+          `kernel_module_deps` are restored, so this target can be built against
+          them.
         outs: The expected output files. If unspecified or value is `None`, it
           is `["{name}.ko"]` by default.
 
