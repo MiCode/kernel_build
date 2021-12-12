@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//build/kleaf:key_value_repo.bzl", "key_value_repo")
+
 toplevel_output_directories(paths = ["out"])
 
 local_repository(
@@ -22,4 +24,9 @@ local_repository(
 local_repository(
     name = "io_bazel_stardoc",
     path = "external/stardoc",
+)
+
+key_value_repo(
+    name = "kernel_toolchain_info",
+    srcs = ["//common:build.config.constants"],
 )
