@@ -1060,7 +1060,10 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[_KernelEnvInfo].setup
 
-    modules_staging_outs = ["lib/modules/*/extra/" + out.name for out in ctx.attr.outs]
+    modules_staging_outs = []
+    for out in ctx.attr.outs:
+        modules_staging_outs.append("lib/modules/*/extra/" + ctx.attr.ext_mod + "/" + out.name)
+
     command += """
              # Set variables
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
@@ -1071,7 +1074,11 @@ def _kernel_module_impl(ctx):
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
-               make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) ${{module_strip_flag}} modules_install
+               make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} \
+                   O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}     \
+                   INSTALL_MOD_PATH=$(realpath {modules_staging_dir})          \
+                   INSTALL_MOD_DIR=extra/{ext_mod}                             \
+                   ${{module_strip_flag}} modules_install
              # Archive modules_staging_dir
                (
                  modules_staging_archive=$(realpath {modules_staging_archive})
@@ -1079,7 +1086,7 @@ def _kernel_module_impl(ctx):
                  tar czf ${{modules_staging_archive}} {modules_staging_outs}
                )
              # Move files into place
-               {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
+               {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
              # Remove {modules_staging_dir} because they are not declared
                rm -rf {modules_staging_dir}
              # Move Module.symvers
