@@ -1194,7 +1194,11 @@ def _kernel_module_impl(ctx):
                (
                  modules_staging_archive=$(realpath {modules_staging_archive})
                  cd {modules_staging_dir}
-                 tar czf ${{modules_staging_archive}} {modules_staging_outs}
+                 if ! mod_order=$(ls lib/modules/*/extra/{ext_mod}/modules.order.*); then
+                   # The modules.order.* file may not exist. Just keep it empty.
+                   mod_order=
+                 fi
+                 tar czf ${{modules_staging_archive}} {modules_staging_outs} ${{mod_order}}
                )
              # Move files into place
                {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
