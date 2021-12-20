@@ -1048,20 +1048,34 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
 
-    modules_staging_archive = ctx.actions.declare_file("modules_staging_archive.tar.gz")
+    modules_staging_archive = ctx.actions.declare_file("{}/modules_staging_archive.tar.gz".format(ctx.attr.name))
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
-    outdir = modules_staging_archive.dirname
+    outdir = modules_staging_archive.dirname  # equivalent to declare_directory(ctx.attr.name)
 
     # additional_outputs: [modules_staging_archive] + [basename(out) for out in outs]
     additional_outputs = [
         modules_staging_archive,
     ]
-    for out in ctx.outputs.outs:
-        short_name = out.path[len(outdir) + 1:]
-        if "/" in short_name:
-            additional_outputs.append(ctx.actions.declare_file(out.basename))
 
-    module_symvers = ctx.actions.declare_file("Module.symvers")
+    # Original `outs` attribute of `kernel_module` macro.
+    original_outs = []
+    for out in ctx.outputs.outs:
+        # outdir includes target name at the end already. So short_name is the original
+        # token in `outs` of `kernel_module` macro.
+        # e.g. kernel_module(name = "foo", outs = ["bar"])
+        #   => _kernel_module(name = "foo", outs = ["foo/bar"])
+        #   => outdir = ".../foo"
+        #      ctx.outputs.outs = [File(".../foo/bar")]
+        #   => short_name = "bar"
+        short_name = out.path[len(outdir) + 1:]
+        original_outs.append(short_name)
+        if "/" in short_name:
+            additional_outputs.append(ctx.actions.declare_file("{name}/{basename}".format(
+                name = ctx.attr.name,
+                basename = out.basename,
+            )))
+
+    module_symvers = ctx.actions.declare_file("{}/Module.symvers".format(ctx.attr.name))
     additional_declared_outputs = [
         module_symvers,
     ]
@@ -1076,8 +1090,8 @@ def _kernel_module_impl(ctx):
         command += kernel_module_dep[_KernelEnvInfo].setup
 
     modules_staging_outs = []
-    for out in ctx.attr.outs:
-        modules_staging_outs.append("lib/modules/*/extra/" + ctx.attr.ext_mod + "/" + out.name)
+    for short_name in original_outs:
+        modules_staging_outs.append("lib/modules/*/extra/" + ctx.attr.ext_mod + "/" + short_name)
 
     command += """
              # Set variables
@@ -1113,7 +1127,7 @@ def _kernel_module_impl(ctx):
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         outdir = outdir,
-        outs = " ".join([out.name for out in ctx.attr.outs]),
+        outs = " ".join(original_outs),
         modules_staging_outs = " ".join(modules_staging_outs),
     )
 
@@ -1245,7 +1259,7 @@ def kernel_module(
           For each token `out`, the build rule automatically finds a
           file named `out` in the legacy kernel modules staging
           directory. The file is copied to the output directory of
-          this package, with the label `out`.
+          this package, with the label `name/out`.
 
           - If `out` doesn't contain a slash, subdirectories are searched.
 
@@ -1263,7 +1277,7 @@ def kernel_module(
             <package output dir>/nfc.ko
             ```
 
-            `nfc.ko` is the label to the file.
+            `nfc/nfc.ko` is the label to the file.
 
           - If `out` contains slashes, its value is used. The file is
             also copied to the top of package output directory.
@@ -1282,11 +1296,11 @@ def kernel_module(
             foo/nfc.ko
             ```
 
-            `foo/nfc.ko` is the label to the file.
+            `nfc/foo/nfc.ko` is the label to the file.
 
             The file is also copied to `<package output dir>/nfc.ko`.
 
-            `nfc.ko` is the label to the file.
+            `nfc/nfc.ko` is the label to the file.
 
             See `search_and_mv_output.py` for details.
         kwargs: Additional attributes to the internal rule, e.g.
@@ -1301,7 +1315,7 @@ def kernel_module(
         srcs = srcs,
         kernel_build = kernel_build,
         kernel_module_deps = kernel_module_deps,
-        outs = outs,
+        outs = ["{name}/{out}".format(name = name, out = out) for out in outs] if outs else [],
     )
     kwargs = _kernel_module_set_defaults(kwargs)
     _kernel_module(**kwargs)
