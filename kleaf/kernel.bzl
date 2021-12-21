@@ -359,6 +359,7 @@ def kernel_build(
         internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
+        modules_prepare = modules_prepare_target_name,
         **kwargs
     )
 
@@ -766,6 +767,23 @@ _srcs_aspect = aspect(
     attr_aspects = ["srcs"],
 )
 
+_KernelBuildAspectInfo = provider(fields = {
+    "modules_prepare": "The *_modules_prepare target",
+})
+
+def _kernel_build_aspect_impl(target, ctx):
+    return [_KernelBuildAspectInfo(
+        modules_prepare = _getoptattr(ctx.rule.attr, "modules_prepare"),
+    )]
+
+_kernel_build_aspect = aspect(
+    implementation = _kernel_build_aspect_impl,
+    doc = "An aspect describing attributes of a _kernel_build rule.",
+    attr_aspects = [
+        "modules_prepare",
+    ],
+)
+
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
     base_kernel_files = []
@@ -968,6 +986,7 @@ _kernel_build = rule(
         "base_kernel": attr.label(
             providers = [KernelFilesInfo],
         ),
+        "modules_prepare": attr.label(),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
@@ -1051,10 +1070,11 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
 def _kernel_module_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
     inputs = []
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
@@ -1096,7 +1116,7 @@ def _kernel_module_impl(ctx):
     ]
 
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -1184,9 +1204,6 @@ def _kernel_module_impl(ctx):
         ),
     ]
 
-def _get_modules_prepare(kernel_build):
-    return Label(str(kernel_build) + "_modules_prepare")
-
 _kernel_module = rule(
     implementation = _kernel_module_impl,
     doc = """
@@ -1202,6 +1219,7 @@ _kernel_module = rule(
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo, _KernelBuildInfo],
+            aspects = [_kernel_build_aspect],
         ),
         "kernel_module_deps": attr.label_list(
             providers = [_KernelEnvInfo, _KernelModuleInfo],
@@ -1214,10 +1232,6 @@ _kernel_module = rule(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
-        ),
-        "_modules_prepare": attr.label(
-            default = _get_modules_prepare,
-            providers = [_KernelEnvInfo],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
@@ -1362,12 +1376,14 @@ def _kernel_module_set_defaults(kwargs):
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
+
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
 
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
         ctx.file._search_and_mv_output,
@@ -1391,7 +1407,7 @@ def _kernel_modules_install_impl(ctx):
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -1515,10 +1531,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
         "kernel_build": attr.label(
             providers = [_KernelEnvInfo, _KernelBuildInfo],
             doc = "Label referring to the `kernel_build` module.",
-        ),
-        "_modules_prepare": attr.label(
-            default = _get_modules_prepare,
-            providers = [_KernelEnvInfo],
+            aspects = [_kernel_build_aspect],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
