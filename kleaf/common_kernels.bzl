@@ -79,7 +79,6 @@ def define_common_kernels(
             srcs = native.glob(
                 ["**"],
                 exclude = [
-                    "android/*",
                     "BUILD.bazel",
                     "**/*.bzl",
                     ".git/**",
