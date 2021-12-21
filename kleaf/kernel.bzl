@@ -44,6 +44,11 @@ def _reverse_dict(d):
             ret[v].append(k)
     return ret
 
+def _getoptattr(thing, attr, default_value = None):
+    if hasattr(thing, attr):
+        return getattr(thing, attr)
+    return default_value
+
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
     command = "cat {srcs} > {out_file}".format(
@@ -750,6 +755,19 @@ _KernelBuildInfo = provider(fields = {
     "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
     "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
+
+_SrcsInfo = provider(fields = {
+    "srcs": "The srcs attribute of a rule.",
+})
+
+def _srcs_aspect_impl(target, ctx):
+    return [_SrcsInfo(srcs = _getoptattr(ctx.rule.attr, "srcs"))]
+
+_srcs_aspect = aspect(
+    implementation = _srcs_aspect_impl,
+    doc = "An aspect that retrieves srcs attribute from a rule.",
+    attr_aspects = ["srcs"],
+)
 
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
@@ -2251,8 +2269,8 @@ def _kernel_kythe_impl(ctx):
     runextractor_error = ctx.actions.declare_file(ctx.attr.name + "/runextractor_error.log")
     kzip_dir = all_kzip.dirname + "/intermediates"
     extracted_kzip_dir = all_kzip.dirname + "/extracted"
+    transitive_inputs = [src.files for src in ctx.attr.kernel_build[_SrcsInfo].srcs]
     inputs = [compile_commands]
-    inputs += ctx.files._srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
     command += """
@@ -2284,7 +2302,7 @@ def _kernel_kythe_impl(ctx):
         runextractor_error = runextractor_error.path,
     )
     ctx.actions.run_shell(
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [all_kzip, runextractor_error],
         command = command,
         progress_message = "Building Kythe source code index (kzip) {}".format(ctx.label),
@@ -2294,9 +2312,6 @@ def _kernel_kythe_impl(ctx):
         all_kzip,
         runextractor_error,
     ]))
-
-def _get_sources(kernel_build):
-    return Label(str(kernel_build) + "_sources")
 
 kernel_kythe = rule(
     implementation = _kernel_kythe_impl,
@@ -2308,6 +2323,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
             providers = [_KernelEnvInfo, _KernelBuildInfo],
+            aspects = [_srcs_aspect],
         ),
         "compile_commands": attr.label(
             mandatory = True,
@@ -2318,6 +2334,5 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             default = "android.googlesource.com/kernel/superproject",
             doc = "The value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
         ),
-        "_srcs": attr.label(default = _get_sources),
     },
 )
