@@ -764,6 +764,7 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                        O=${OUT_DIR} ${TOOL_ARGS} ${MODULE_STRIP_FLAG}         \
                        INSTALL_MOD_PATH=${MODULES_STAGING_DIR}                \
+                       INSTALL_MOD_DIR="extra/${EXT_MOD}"                     \
                        INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr"      \
                        "${MAKE_ARGS[@]}" modules_install
     set +x
