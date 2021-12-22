@@ -115,15 +115,15 @@ def kernel_build(
         build_config,
         outs,
         srcs = None,
-        module_outs = [],
+        module_outs = None,
         implicit_outs = None,
-        generate_vmlinux_btf = False,
-        deps = (),
+        generate_vmlinux_btf = None,
+        deps = None,
         base_kernel = None,
         kconfig_ext = None,
         dtstree_makefile = None,
-        dtstree_srcs = [],
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+        dtstree_srcs = None,
+        toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -596,6 +596,7 @@ _kernel_env = rule(
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
+            default = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
         ),
         "kconfig_ext": attr.label(
             allow_single_file = True,
