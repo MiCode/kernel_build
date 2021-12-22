@@ -126,6 +126,7 @@ def kernel_build(
         deps = None,
         base_kernel = None,
         kconfig_ext = None,
+        dtstree = None,
         dtstree_makefile = None,
         dtstree_srcs = None,
         toolchain_version = None,
@@ -149,8 +150,12 @@ def kernel_build(
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
         kconfig_ext: Label of an external Kconfig.ext file sourced by the GKI kernel.
-        dtstree_makefile: Label of the external device tree Makefile.
-        dtstree_srcs: Labels of the device tree sources (a `glob()`).
+        dtstree_makefile: Deprecated. Use `dtstree` instead.
+
+          Label of the external device tree Makefile.
+        dtstree_srcs: Deprecated. Use `dtstree` instead.
+
+          Labels of the device tree sources (a `glob()`).
         srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
           ```
           glob(
@@ -318,10 +323,14 @@ def kernel_build(
             ],
         )
 
+    if dtstree != None and (dtstree_makefile != None or dtstree_srcs != None):
+        fail("{}: When dtstree is specified, dtstree_makefile and dtstree_srcs must not be specified.".format(name))
+
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
         kconfig_ext = kconfig_ext,
+        dtstree = dtstree,
         dtstree_makefile = dtstree_makefile,
         dtstree_srcs = dtstree_srcs,
         srcs = srcs,
@@ -424,6 +433,64 @@ def kernel_build(
         **kwargs
     )
 
+_DtsTreeInfo = provider(fields = {
+    "srcs": "DTS tree sources",
+    "makefile": "DTS tree makefile",
+})
+
+def _kernel_dtstree_impl(ctx):
+    return _DtsTreeInfo(
+        srcs = ctx.files.srcs,
+        makefile = ctx.file.makefile,
+    )
+
+_kernel_dtstree = rule(
+    implementation = _kernel_dtstree_impl,
+    attrs = {
+        "srcs": attr.label_list(),
+        "makefile": attr.label(mandatory = True),
+    },
+)
+
+def kernel_dtstree(
+        name,
+        srcs = None,
+        makefile = None):
+    """Specify a kernel DTS tree.
+
+    Args:
+      srcs: sources of the DTS tree. Default is
+
+        ```
+        glob(["**"], exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ])
+        ```
+      makefile: Makefile of the DTS tree. Default is `:Makefile`, i.e. the `Makefile`
+        at the root of the package.
+    """
+    if srcs == None:
+        srcs = native.glob(
+            ["**"],
+            exclude = [
+                "**/.*",
+                "**/.*/**",
+                "**/BUILD.bazel",
+                "**/*.bzl",
+            ],
+        )
+    if makefile == None:
+        makefile = ":Makefile"
+
+    _kernel_dtstree(
+        name = name,
+        srcs = srcs,
+        makefile = makefile,
+    )
+
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
     "setup": "setup script to initialize the environment",
@@ -438,8 +505,14 @@ def _kernel_env_impl(ctx):
 
     build_config = ctx.file.build_config
     kconfig_ext = ctx.file.kconfig_ext
-    dtstree_makefile = ctx.file.dtstree_makefile
-    dtstree_srcs = ctx.files.dtstree_srcs
+    if ctx.attr.dtstree != None:
+        if ctx.file.dtstree_makefile != None or ctx.files.dtstree_srcs != None:
+            fail("{}: When dtstree is specified, dtstree_makefile and dtstree_srcs must not be specified.".format(ctx.label))
+        dtstree_makefile = ctx.attr.dtstree[_DtsTreeInfo].makefile
+        dtstree_srcs = ctx.attr.dtstree[_DtsTreeInfo].srcs
+    else:
+        dtstree_makefile = ctx.file.dtstree_makefile
+        dtstree_srcs = ctx.files.dtstree_srcs
 
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
@@ -601,6 +674,10 @@ _kernel_env = rule(
         "kconfig_ext": attr.label(
             allow_single_file = True,
             doc = "an external Kconfig.ext file sourced by the base kernel",
+        ),
+        "dtstree": attr.label(
+            providers = [_DtsTreeInfo],
+            doc = "Device tree",
         ),
         "dtstree_makefile": attr.label(
             allow_single_file = True,
