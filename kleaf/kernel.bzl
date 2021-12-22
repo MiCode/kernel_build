@@ -300,7 +300,7 @@ def kernel_build(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
 
-          These arguments applies on the target with `{name}` and `{name}_for_dist`.
+          These arguments applies on the target with `{name}`, `{name}_for_dist`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
     sources_target_name = name + "_sources"
     env_target_name = name + "_env"
@@ -393,6 +393,7 @@ def kernel_build(
         name = uapi_headers_target_name,
         config = config_target_name,
         srcs = [sources_target_name],
+        **kwargs
     )
 
     _kernel_headers(
@@ -401,6 +402,7 @@ def kernel_build(
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
         srcs = [sources_target_name],
+        **kwargs
     )
 
     labels_for_dist = [
@@ -415,6 +417,7 @@ def kernel_build(
             name = vmlinux_btf_name,
             vmlinux = name + "/vmlinux",
             env = env_target_name,
+            **kwargs
         )
         labels_for_dist.append(vmlinux_btf_name)
 
