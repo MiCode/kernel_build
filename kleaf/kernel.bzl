@@ -1689,8 +1689,8 @@ def _build_modules_image_impl_common(
         outputs,
         build_command,
         modules_staging_dir,
-        implicit_outputs = [],
-        additional_inputs = []):
+        implicit_outputs = None,
+        additional_inputs = None):
     """Command implementation for building images that directly contain modules.
 
     Args:
@@ -1722,12 +1722,20 @@ def _build_modules_image_impl_common(
         ))
     modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
 
-    inputs = additional_inputs + [
+    inputs = []
+    if additional_inputs != None:
+        inputs += additional_inputs
+    inputs += [
         system_map,
         modules_staging_archive,
     ]
     inputs += ctx.files.deps
     inputs += kernel_build[_KernelEnvInfo].dependencies
+
+    command_outputs = []
+    command_outputs += outputs
+    if implicit_outputs != None:
+        command_outputs += implicit_outputs
 
     command = ""
     command += kernel_build[_KernelEnvInfo].setup
@@ -1755,13 +1763,13 @@ def _build_modules_image_impl_common(
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
-        outputs = outputs + implicit_outputs,
+        outputs = command_outputs,
         progress_message = "Building {} {}".format(what, ctx.label),
         command = command,
     )
     return DefaultInfo(files = depset(outputs))
 
-def _build_modules_image_attrs_common(additional = {}):
+def _build_modules_image_attrs_common(additional = None):
     """Common attrs for rules that builds images that directly contain modules."""
     ret = {
         "kernel_modules_install": attr.label(
@@ -1775,7 +1783,8 @@ def _build_modules_image_attrs_common(additional = {}):
             default = "//build/kleaf:debug_print_scripts",
         ),
     }
-    ret.update(additional)
+    if additional != None:
+        ret.update(additional)
     return ret
 
 _InitramfsInfo = provider(fields = {
@@ -1995,6 +2004,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
         "outs": attr.output_list(),
         "mkbootimg": attr.label(
             allow_single_file = True,
+            default = "//tools/mkbootimg:mkbootimg.py",
         ),
         "_debug_print_scripts": attr.label(
             default = "//build/kleaf:debug_print_scripts",
@@ -2056,9 +2066,9 @@ def kernel_images(
         build_vendor_dlkm = None,
         build_boot_images = None,
         build_dtbo = None,
-        dtbo_srcs = [],
-        mkbootimg = "//tools/mkbootimg:mkbootimg.py",
-        deps = [],
+        dtbo_srcs = None,
+        mkbootimg = None,
+        deps = None,
         boot_image_outs = None):
     """Build multiple kernel images.
 
@@ -2072,7 +2082,8 @@ def kernel_images(
           `x86_64_outs` from `common_kernels.bzl`).
         kernel_build: A `kernel_build` rule. Must specify if `build_boot_images`.
         mkbootimg: Path to the mkbootimg.py script which builds boot.img.
-          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`.
+          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`. If `None`,
+          default to `//tools/mkbootimg:mkbootimg.py`.
         deps: Additional dependencies to build images.
 
           This must include the following:
