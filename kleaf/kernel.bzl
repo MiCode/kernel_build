@@ -142,12 +142,8 @@ def kernel_build(
 
     A few additional labels are generated.
     For example, if name is `"kernel_aarch64"`:
-    - `kernel_aarch64_env` provides a source-able build environment defined by
-      the build config.
-    - `kernel_aarch64_config` provides the kernel config.
     - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
     - `kernel_aarch64_headers` provides the kernel headers.
-    - `kernel_for_dist` is a filegroup for all dist files
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
@@ -179,8 +175,6 @@ def kernel_build(
           The label specified by `base_kernel` must conform to
           [`KernelFilesInfo`](#kernelfilesinfo). Usually, this points to one of the following:
           - `//common:kernel_{arch}`
-          - `//common:kernel_{arch}_for_dist`, if kernel headers are needed in
-            `KBUILD_MIXED_TREE`. This is uncommon.
           - A `kernel_filegroup` rule, e.g.
             ```
             load("//build/kleaf:common_kernels.bzl, "aarch64_outs")
@@ -305,7 +299,7 @@ def kernel_build(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
 
-          These arguments applies on the target with `{name}`, `{name}_for_dist`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
+          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
     env_target_name = name + "_env"
     config_target_name = name + "_config"
