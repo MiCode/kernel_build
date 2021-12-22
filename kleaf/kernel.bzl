@@ -307,7 +307,6 @@ def kernel_build(
 
           These arguments applies on the target with `{name}`, `{name}_for_dist`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
-    sources_target_name = name + "_sources"
     env_target_name = name + "_env"
     config_target_name = name + "_config"
     modules_prepare_target_name = name + "_modules_prepare"
@@ -325,8 +324,6 @@ def kernel_build(
             ],
         )
 
-    native.filegroup(name = sources_target_name, srcs = srcs)
-
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
@@ -340,7 +337,7 @@ def kernel_build(
     _kernel_config(
         name = config_target_name,
         env = env_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
     )
@@ -348,14 +345,14 @@ def kernel_build(
     _modules_prepare(
         name = modules_prepare_target_name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
     )
 
     _kernel_build(
         name = name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         outs = _transform_kernel_build_outs(name, "outs", outs),
         module_outs = _transform_kernel_build_outs(name, "module_outs", module_outs),
         implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
@@ -397,7 +394,7 @@ def kernel_build(
     _kernel_uapi_headers(
         name = uapi_headers_target_name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         **kwargs
     )
 
@@ -406,7 +403,7 @@ def kernel_build(
         kernel_build = name,
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
-        srcs = [sources_target_name],
+        srcs = srcs,
         **kwargs
     )
 

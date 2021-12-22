@@ -50,13 +50,19 @@ def define_common_kernels(
 
     The targets declared:
     - `kernel_aarch64`
+      - `kernel_aarch64_sources`
+      - `kernel_aarch64_dist`
     - `kernel_aarch64_debug`
+      - `kernel_aarch64_debug_dist`
     - `kernel_x86_64`
+      - `kernel_x86_64_sources`
+      - `kernel_x86_64_dist`
     - `kernel_x86_64_debug`
+      - `kernel_x86_64_debug_dist`
     - `kernel_aarch64_kythe`
+      - `kernel_aarch64_kythe_dist`
 
-    In addition, `<name>_dist` targets are created that can be run to obtain a
-    distribution outside the workspace.
+    `<name>_dist` targets can be run to obtain a distribution outside the workspace.
 
     Aliases are created to refer to the GKI kernel (`kernel_aarch64`) as
     "`kernel`" and the corresponding dist target (`kernel_aarch64_dist`) as
@@ -74,8 +80,8 @@ def define_common_kernels(
         kernel_build_kwargs["toolchain_version"] = toolchain_version
 
     [[
-        kernel_build(
-            name = name,
+        native.filegroup(
+            name = name + "_sources",
             srcs = native.glob(
                 ["**"],
                 exclude = [
@@ -84,6 +90,10 @@ def define_common_kernels(
                     ".git/**",
                 ],
             ),
+        ),
+        kernel_build(
+            name = name,
+            srcs = [name + "_sources"],
             outs = outs,
             build_config = config,
             visibility = visibility,
