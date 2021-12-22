@@ -1020,12 +1020,12 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """
 
     for kernel_module in kernel_modules:
-        if kernel_module[_KernelModuleInfo].kernel_build != \
-           kernel_build:
+        if kernel_module[_KernelModuleInfo].kernel_build.label != \
+           kernel_build.label:
             fail((
                 "{this_label} refers to kernel_build {kernel_build}, but " +
                 "depended kernel_module {dep} refers to kernel_build " +
-                "{kernel_build}. They must refer to the same kernel_build."
+                "{dep_kernel_build}. They must refer to the same kernel_build."
             ).format(
                 this_label = this_label,
                 kernel_build = kernel_build.label,
