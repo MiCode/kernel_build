@@ -17,7 +17,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r437112"
 
 # Outputs of a kernel_build rule needed to build kernel_module's
-_kernel_build_implicit_outs = [
+_kernel_build_internal_outs = [
     "Module.symvers",
     "include/config/kernel.release",
 ]
@@ -347,7 +347,7 @@ def kernel_build(
         srcs = [sources_target_name],
         outs = _transform_kernel_build_outs(name, "outs", outs),
         module_outs = _transform_kernel_build_outs(name, "module_outs", module_outs),
-        implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", _kernel_build_implicit_outs),
+        internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
         **kwargs
@@ -356,7 +356,7 @@ def kernel_build(
     for out_name, out_attr_val in (
         ("outs", outs),
         ("module_outs", module_outs),
-        # implicit_outs are opaque to the user, hence we don't create a alias (filegroup) for them.
+        # internal_outs are opaque to the user, hence we don't create a alias (filegroup) for them.
     ):
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
@@ -732,7 +732,7 @@ _KernelBuildInfo = provider(fields = {
                                "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
-    "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs` and `implicit_outs`)",
+    "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs` and `internal_outs`)",
     "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
     "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
@@ -776,11 +776,11 @@ def _kernel_build_impl(ctx):
         inputs.append(kbuild_mixed_tree)
 
     # kernel_build(name="kenrel", outs=["out"])
-    # => _kernel_build(name="kernel", outs=["kernel/out"], implicit_outs=["kernel/Module.symvers", ...])
+    # => _kernel_build(name="kernel", outs=["kernel/out"], internal_outs=["kernel/Module.symvers", ...])
     # => all_output_names = ["foo", "Module.symvers", ...]
-    #    all_output_files = {"out": {"foo": File(...)}, "implicit_outs": {"Module.symvers": File(...)}, ...}
+    #    all_output_files = {"out": {"foo": File(...)}, "internal_outs": {"Module.symvers": File(...)}, ...}
     all_output_files = {}
-    for attr in ("outs", "module_outs", "implicit_outs"):
+    for attr in ("outs", "module_outs", "internal_outs"):
         all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
     all_output_names = []
     for d in all_output_files.values():
@@ -860,7 +860,7 @@ def _kernel_build_impl(ctx):
         command = command,
     )
 
-    # Only outs and implicit_outs are needed. But for simplicity, copy the full {ruledir}
+    # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs too.
     env_info_dependencies = []
     env_info_dependencies += ctx.attr.config[_KernelEnvInfo].dependencies
@@ -926,7 +926,7 @@ _kernel_build = rule(
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
         "outs": attr.string_list(),
         "module_outs": attr.string_list(doc = "output *.ko files"),
-        "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
+        "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
