@@ -21,6 +21,7 @@ filp_open	Drivers should not open files directly
 kernel_read	Drivers should never read from a file
 kernel_write	Drivers should never write to a file
 __close_fd	Drivers should not close file descriptors
+close_fd	Drivers should not close file descriptors
 
 # Kprobe needs to be left alone
 disable_kprobe		kprobe should not be touched by any driver
