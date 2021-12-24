@@ -727,7 +727,7 @@ _kernel_config = rule(
             providers = [_KernelEnvInfo],
             doc = "environment target that defines the kernel build environment",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
         "include_tar_gz": attr.output(
             mandatory = True,
@@ -964,7 +964,7 @@ _kernel_build = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "outs": attr.string_list(),
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
@@ -1021,7 +1021,7 @@ _modules_prepare = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "outdir_tar_gz": attr.output(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
