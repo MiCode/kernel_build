@@ -126,8 +126,7 @@ def kernel_build(
         deps = None,
         base_kernel = None,
         kconfig_ext = None,
-        dtstree_makefile = None,
-        dtstree_srcs = None,
+        dtstree = None,
         toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -149,8 +148,6 @@ def kernel_build(
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
         kconfig_ext: Label of an external Kconfig.ext file sourced by the GKI kernel.
-        dtstree_makefile: Label of the external device tree Makefile.
-        dtstree_srcs: Labels of the device tree sources (a `glob()`).
         srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
           ```
           glob(
@@ -322,8 +319,7 @@ def kernel_build(
         name = env_target_name,
         build_config = build_config,
         kconfig_ext = kconfig_ext,
-        dtstree_makefile = dtstree_makefile,
-        dtstree_srcs = dtstree_srcs,
+        dtstree = dtstree,
         srcs = srcs,
         toolchain_version = toolchain_version,
     )
@@ -424,6 +420,64 @@ def kernel_build(
         **kwargs
     )
 
+_DtsTreeInfo = provider(fields = {
+    "srcs": "DTS tree sources",
+    "makefile": "DTS tree makefile",
+})
+
+def _kernel_dtstree_impl(ctx):
+    return _DtsTreeInfo(
+        srcs = ctx.files.srcs,
+        makefile = ctx.file.makefile,
+    )
+
+_kernel_dtstree = rule(
+    implementation = _kernel_dtstree_impl,
+    attrs = {
+        "srcs": attr.label_list(),
+        "makefile": attr.label(mandatory = True),
+    },
+)
+
+def kernel_dtstree(
+        name,
+        srcs = None,
+        makefile = None):
+    """Specify a kernel DTS tree.
+
+    Args:
+      srcs: sources of the DTS tree. Default is
+
+        ```
+        glob(["**"], exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ])
+        ```
+      makefile: Makefile of the DTS tree. Default is `:Makefile`, i.e. the `Makefile`
+        at the root of the package.
+    """
+    if srcs == None:
+        srcs = native.glob(
+            ["**"],
+            exclude = [
+                "**/.*",
+                "**/.*/**",
+                "**/BUILD.bazel",
+                "**/*.bzl",
+            ],
+        )
+    if makefile == None:
+        makefile = ":Makefile"
+
+    _kernel_dtstree(
+        name = name,
+        srcs = srcs,
+        makefile = makefile,
+    )
+
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
     "setup": "setup script to initialize the environment",
@@ -438,8 +492,11 @@ def _kernel_env_impl(ctx):
 
     build_config = ctx.file.build_config
     kconfig_ext = ctx.file.kconfig_ext
-    dtstree_makefile = ctx.file.dtstree_makefile
-    dtstree_srcs = ctx.files.dtstree_srcs
+    dtstree_makefile = None
+    dtstree_srcs = []
+    if ctx.attr.dtstree != None:
+        dtstree_makefile = ctx.attr.dtstree[_DtsTreeInfo].makefile
+        dtstree_srcs = ctx.attr.dtstree[_DtsTreeInfo].srcs
 
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
@@ -602,13 +659,9 @@ _kernel_env = rule(
             allow_single_file = True,
             doc = "an external Kconfig.ext file sourced by the base kernel",
         ),
-        "dtstree_makefile": attr.label(
-            allow_single_file = True,
-            doc = "path to a device tree Makefile",
-        ),
-        "dtstree_srcs": attr.label_list(
-            allow_files = True,
-            doc = "device tree source files",
+        "dtstree": attr.label(
+            providers = [_DtsTreeInfo],
+            doc = "Device tree",
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
@@ -727,7 +780,7 @@ _kernel_config = rule(
             providers = [_KernelEnvInfo],
             doc = "environment target that defines the kernel build environment",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
         "include_tar_gz": attr.output(
             mandatory = True,
@@ -964,7 +1017,7 @@ _kernel_build = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "outs": attr.string_list(),
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
@@ -1021,7 +1074,7 @@ _modules_prepare = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "outdir_tar_gz": attr.output(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
@@ -1689,8 +1742,8 @@ def _build_modules_image_impl_common(
         outputs,
         build_command,
         modules_staging_dir,
-        implicit_outputs = [],
-        additional_inputs = []):
+        implicit_outputs = None,
+        additional_inputs = None):
     """Command implementation for building images that directly contain modules.
 
     Args:
@@ -1722,12 +1775,20 @@ def _build_modules_image_impl_common(
         ))
     modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
 
-    inputs = additional_inputs + [
+    inputs = []
+    if additional_inputs != None:
+        inputs += additional_inputs
+    inputs += [
         system_map,
         modules_staging_archive,
     ]
     inputs += ctx.files.deps
     inputs += kernel_build[_KernelEnvInfo].dependencies
+
+    command_outputs = []
+    command_outputs += outputs
+    if implicit_outputs != None:
+        command_outputs += implicit_outputs
 
     command = ""
     command += kernel_build[_KernelEnvInfo].setup
@@ -1755,13 +1816,13 @@ def _build_modules_image_impl_common(
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
-        outputs = outputs + implicit_outputs,
+        outputs = command_outputs,
         progress_message = "Building {} {}".format(what, ctx.label),
         command = command,
     )
     return DefaultInfo(files = depset(outputs))
 
-def _build_modules_image_attrs_common(additional = {}):
+def _build_modules_image_attrs_common(additional = None):
     """Common attrs for rules that builds images that directly contain modules."""
     ret = {
         "kernel_modules_install": attr.label(
@@ -1775,7 +1836,8 @@ def _build_modules_image_attrs_common(additional = {}):
             default = "//build/kleaf:debug_print_scripts",
         ),
     }
-    ret.update(additional)
+    if additional != None:
+        ret.update(additional)
     return ret
 
 _InitramfsInfo = provider(fields = {
@@ -1995,6 +2057,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
         "outs": attr.output_list(),
         "mkbootimg": attr.label(
             allow_single_file = True,
+            default = "//tools/mkbootimg:mkbootimg.py",
         ),
         "_debug_print_scripts": attr.label(
             default = "//build/kleaf:debug_print_scripts",
@@ -2056,9 +2119,9 @@ def kernel_images(
         build_vendor_dlkm = None,
         build_boot_images = None,
         build_dtbo = None,
-        dtbo_srcs = [],
-        mkbootimg = "//tools/mkbootimg:mkbootimg.py",
-        deps = [],
+        dtbo_srcs = None,
+        mkbootimg = None,
+        deps = None,
         boot_image_outs = None):
     """Build multiple kernel images.
 
@@ -2072,7 +2135,8 @@ def kernel_images(
           `x86_64_outs` from `common_kernels.bzl`).
         kernel_build: A `kernel_build` rule. Must specify if `build_boot_images`.
         mkbootimg: Path to the mkbootimg.py script which builds boot.img.
-          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`.
+          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`. If `None`,
+          default to `//tools/mkbootimg:mkbootimg.py`.
         deps: Additional dependencies to build images.
 
           This must include the following:
