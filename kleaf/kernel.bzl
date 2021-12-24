@@ -44,6 +44,11 @@ def _reverse_dict(d):
             ret[v].append(k)
     return ret
 
+def _getoptattr(thing, attr, default_value = None):
+    if hasattr(thing, attr):
+        return getattr(thing, attr)
+    return default_value
+
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
     command = "cat {srcs} > {out_file}".format(
@@ -137,12 +142,8 @@ def kernel_build(
 
     A few additional labels are generated.
     For example, if name is `"kernel_aarch64"`:
-    - `kernel_aarch64_env` provides a source-able build environment defined by
-      the build config.
-    - `kernel_aarch64_config` provides the kernel config.
     - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
     - `kernel_aarch64_headers` provides the kernel headers.
-    - `kernel_for_dist` is a filegroup for all dist files
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
@@ -174,8 +175,6 @@ def kernel_build(
           The label specified by `base_kernel` must conform to
           [`KernelFilesInfo`](#kernelfilesinfo). Usually, this points to one of the following:
           - `//common:kernel_{arch}`
-          - `//common:kernel_{arch}_for_dist`, if kernel headers are needed in
-            `KBUILD_MIXED_TREE`. This is uncommon.
           - A `kernel_filegroup` rule, e.g.
             ```
             load("//build/kleaf:common_kernels.bzl, "aarch64_outs")
@@ -300,9 +299,8 @@ def kernel_build(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
 
-          These arguments applies on the target with `{name}`, `{name}_for_dist`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
+          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
-    sources_target_name = name + "_sources"
     env_target_name = name + "_env"
     config_target_name = name + "_config"
     modules_prepare_target_name = name + "_modules_prepare"
@@ -320,8 +318,6 @@ def kernel_build(
             ],
         )
 
-    native.filegroup(name = sources_target_name, srcs = srcs)
-
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
@@ -335,7 +331,7 @@ def kernel_build(
     _kernel_config(
         name = config_target_name,
         env = env_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
     )
@@ -343,20 +339,21 @@ def kernel_build(
     _modules_prepare(
         name = modules_prepare_target_name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
     )
 
     _kernel_build(
         name = name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         outs = _transform_kernel_build_outs(name, "outs", outs),
         module_outs = _transform_kernel_build_outs(name, "module_outs", module_outs),
         implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
         internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
+        modules_prepare = modules_prepare_target_name,
         **kwargs
     )
 
@@ -392,7 +389,7 @@ def kernel_build(
     _kernel_uapi_headers(
         name = uapi_headers_target_name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         **kwargs
     )
 
@@ -401,7 +398,7 @@ def kernel_build(
         kernel_build = name,
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
-        srcs = [sources_target_name],
+        srcs = srcs,
         **kwargs
     )
 
@@ -751,6 +748,36 @@ _KernelBuildInfo = provider(fields = {
     "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
 
+_SrcsInfo = provider(fields = {
+    "srcs": "The srcs attribute of a rule.",
+})
+
+def _srcs_aspect_impl(target, ctx):
+    return [_SrcsInfo(srcs = _getoptattr(ctx.rule.attr, "srcs"))]
+
+_srcs_aspect = aspect(
+    implementation = _srcs_aspect_impl,
+    doc = "An aspect that retrieves srcs attribute from a rule.",
+    attr_aspects = ["srcs"],
+)
+
+_KernelBuildAspectInfo = provider(fields = {
+    "modules_prepare": "The *_modules_prepare target",
+})
+
+def _kernel_build_aspect_impl(target, ctx):
+    return [_KernelBuildAspectInfo(
+        modules_prepare = _getoptattr(ctx.rule.attr, "modules_prepare"),
+    )]
+
+_kernel_build_aspect = aspect(
+    implementation = _kernel_build_aspect_impl,
+    doc = "An aspect describing attributes of a _kernel_build rule.",
+    attr_aspects = [
+        "modules_prepare",
+    ],
+)
+
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
     base_kernel_files = []
@@ -953,6 +980,7 @@ _kernel_build = rule(
         "base_kernel": attr.label(
             providers = [KernelFilesInfo],
         ),
+        "modules_prepare": attr.label(),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
@@ -1020,12 +1048,12 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """
 
     for kernel_module in kernel_modules:
-        if kernel_module[_KernelModuleInfo].kernel_build != \
-           kernel_build:
+        if kernel_module[_KernelModuleInfo].kernel_build.label != \
+           kernel_build.label:
             fail((
                 "{this_label} refers to kernel_build {kernel_build}, but " +
                 "depended kernel_module {dep} refers to kernel_build " +
-                "{kernel_build}. They must refer to the same kernel_build."
+                "{dep_kernel_build}. They must refer to the same kernel_build."
             ).format(
                 this_label = this_label,
                 kernel_build = kernel_build.label,
@@ -1036,10 +1064,11 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
 def _kernel_module_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
     inputs = []
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
@@ -1081,7 +1110,7 @@ def _kernel_module_impl(ctx):
     ]
 
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -1169,9 +1198,6 @@ def _kernel_module_impl(ctx):
         ),
     ]
 
-def _get_modules_prepare(kernel_build):
-    return Label(str(kernel_build) + "_modules_prepare")
-
 _kernel_module = rule(
     implementation = _kernel_module_impl,
     doc = """
@@ -1187,6 +1213,7 @@ _kernel_module = rule(
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo, _KernelBuildInfo],
+            aspects = [_kernel_build_aspect],
         ),
         "kernel_module_deps": attr.label_list(
             providers = [_KernelEnvInfo, _KernelModuleInfo],
@@ -1199,10 +1226,6 @@ _kernel_module = rule(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
-        ),
-        "_modules_prepare": attr.label(
-            default = _get_modules_prepare,
-            providers = [_KernelEnvInfo],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
@@ -1347,12 +1370,14 @@ def _kernel_module_set_defaults(kwargs):
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
+
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
 
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
         ctx.file._search_and_mv_output,
@@ -1376,7 +1401,7 @@ def _kernel_modules_install_impl(ctx):
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -1500,10 +1525,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
         "kernel_build": attr.label(
             providers = [_KernelEnvInfo, _KernelBuildInfo],
             doc = "Label referring to the `kernel_build` module.",
-        ),
-        "_modules_prepare": attr.label(
-            default = _get_modules_prepare,
-            providers = [_KernelEnvInfo],
+            aspects = [_kernel_build_aspect],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
@@ -2251,8 +2273,8 @@ def _kernel_kythe_impl(ctx):
     runextractor_error = ctx.actions.declare_file(ctx.attr.name + "/runextractor_error.log")
     kzip_dir = all_kzip.dirname + "/intermediates"
     extracted_kzip_dir = all_kzip.dirname + "/extracted"
+    transitive_inputs = [src.files for src in ctx.attr.kernel_build[_SrcsInfo].srcs]
     inputs = [compile_commands]
-    inputs += ctx.files._srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
     command += """
@@ -2284,7 +2306,7 @@ def _kernel_kythe_impl(ctx):
         runextractor_error = runextractor_error.path,
     )
     ctx.actions.run_shell(
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [all_kzip, runextractor_error],
         command = command,
         progress_message = "Building Kythe source code index (kzip) {}".format(ctx.label),
@@ -2294,9 +2316,6 @@ def _kernel_kythe_impl(ctx):
         all_kzip,
         runextractor_error,
     ]))
-
-def _get_sources(kernel_build):
-    return Label(str(kernel_build) + "_sources")
 
 kernel_kythe = rule(
     implementation = _kernel_kythe_impl,
@@ -2308,6 +2327,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
             providers = [_KernelEnvInfo, _KernelBuildInfo],
+            aspects = [_srcs_aspect],
         ),
         "compile_commands": attr.label(
             mandatory = True,
@@ -2318,6 +2338,5 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             default = "android.googlesource.com/kernel/superproject",
             doc = "The value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
         ),
-        "_srcs": attr.label(default = _get_sources),
     },
 )
