@@ -104,6 +104,7 @@ def define_common_kernels(
             data = [
                 name + "_for_dist",
             ],
+            flat = True,
         ),
     ] for name, config, outs in [
         (
@@ -155,4 +156,5 @@ def define_common_kernels(
             ":kernel_aarch64_compile_commands",
             ":kernel_aarch64_kythe",
         ],
+        flat = True,
     )
