@@ -434,15 +434,16 @@ def _kernel_dtstree_impl(ctx):
 _kernel_dtstree = rule(
     implementation = _kernel_dtstree_impl,
     attrs = {
-        "srcs": attr.label_list(),
-        "makefile": attr.label(mandatory = True),
+        "srcs": attr.label_list(doc = "kernel device tree sources", allow_files = True),
+        "makefile": attr.label(mandatory = True, allow_single_file = True),
     },
 )
 
 def kernel_dtstree(
         name,
         srcs = None,
-        makefile = None):
+        makefile = None,
+        **kwargs):
     """Specify a kernel DTS tree.
 
     Args:
@@ -458,6 +459,10 @@ def kernel_dtstree(
         ```
       makefile: Makefile of the DTS tree. Default is `:Makefile`, i.e. the `Makefile`
         at the root of the package.
+      kwargs: Additional attributes to the internal rule, e.g.
+        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+        See complete list
+        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
     if srcs == None:
         srcs = native.glob(
@@ -472,11 +477,13 @@ def kernel_dtstree(
     if makefile == None:
         makefile = ":Makefile"
 
-    _kernel_dtstree(
+    kwargs.update(
+        # This should be the exact list of arguments of kernel_dtstree.
         name = name,
         srcs = srcs,
         makefile = makefile,
     )
+    _kernel_dtstree(**kwargs)
 
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
