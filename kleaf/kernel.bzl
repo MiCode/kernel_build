@@ -1117,6 +1117,7 @@ _KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
     "modules_staging_archive": "Archive containing staging kernel modules. " +
                                "Contains the lib/modules/* suffix.",
+    "kernel_uapi_headers_archive": "Archive containing UAPI headers to use the module.",
 })
 
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
@@ -1162,11 +1163,14 @@ def _kernel_module_impl(ctx):
 
     modules_staging_archive = ctx.actions.declare_file("{}/modules_staging_archive.tar.gz".format(ctx.attr.name))
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
+    kernel_uapi_headers_archive = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.attr.name))
+    kernel_uapi_headers_dir = kernel_uapi_headers_archive.dirname + "/kernel-uapi-headers.tar.gz_staging"
     outdir = modules_staging_archive.dirname  # equivalent to declare_directory(ctx.attr.name)
 
-    # additional_outputs: [modules_staging_archive] + [basename(out) for out in outs]
+    # additional_outputs: archives + [basename(out) for out in outs]
     additional_outputs = [
         modules_staging_archive,
+        kernel_uapi_headers_archive,
     ]
 
     # Original `outs` attribute of `kernel_module` macro.
@@ -1196,8 +1200,11 @@ def _kernel_module_impl(ctx):
     command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
-               mkdir -p {modules_staging_dir}
-    """.format(modules_staging_dir = modules_staging_dir)
+               mkdir -p {modules_staging_dir} {kernel_uapi_headers_dir}/usr
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        kernel_uapi_headers_dir = kernel_uapi_headers_dir,
+    )
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[_KernelEnvInfo].setup
 
@@ -1219,6 +1226,8 @@ def _kernel_module_impl(ctx):
                    O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}     \
                    INSTALL_MOD_PATH=$(realpath {modules_staging_dir})          \
                    INSTALL_MOD_DIR=extra/{ext_mod}                             \
+                   KERNEL_UAPI_HEADERS_DIR=$(realpath {kernel_uapi_headers_dir}) \
+                   INSTALL_HDR_PATH=$(realpath {kernel_uapi_headers_dir}/usr)  \
                    ${{module_strip_flag}} modules_install
              # Archive modules_staging_dir
                (
@@ -1232,8 +1241,10 @@ def _kernel_module_impl(ctx):
                )
              # Move files into place
                {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
-             # Remove {modules_staging_dir} because they are not declared
-               rm -rf {modules_staging_dir}
+             # Create headers archive
+               tar czf {kernel_uapi_headers_archive} --directory={kernel_uapi_headers_dir} usr/
+             # Remove staging dirs because they are not declared
+               rm -rf {modules_staging_dir} {kernel_uapi_headers_dir}
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
@@ -1245,6 +1256,8 @@ def _kernel_module_impl(ctx):
         outdir = outdir,
         outs = " ".join(original_outs),
         modules_staging_outs = " ".join(modules_staging_outs),
+        kernel_uapi_headers_archive = kernel_uapi_headers_archive.path,
+        kernel_uapi_headers_dir = kernel_uapi_headers_dir,
     )
 
     _debug_print_scripts(ctx, command)
@@ -1282,6 +1295,7 @@ def _kernel_module_impl(ctx):
         _KernelModuleInfo(
             kernel_build = ctx.attr.kernel_build,
             modules_staging_archive = modules_staging_archive,
+            kernel_uapi_headers_archive = kernel_uapi_headers_archive,
         ),
     ]
 
