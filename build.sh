@@ -382,10 +382,20 @@
 #   DTS_EXT_DIR
 #     Set this variable to compile an out-of-tree device tree. The value of
 #     this variable is set to the kbuild variable "dtstree" which is used to
-#     compile the device tree. If this is set, then it's likely the dt-bindings
-#     are out-of-tree as well. So be sure to set DTC_INCLUDE in the
-#     BUILD_CONFIG file to the include path containing the dt-bindings.
+#     compile the device tree, it will be used to lookup files in FILES as well.
+#     If this is set, then it's likely the dt-bindings are out-of-tree as well.
+#     So be sure to set DTC_INCLUDE in the BUILD_CONFIG file to the include path
+#     containing the dt-bindings.
 #
+#     Update the MAKE_GOALS variable and the FILES variable to specify
+#     the target dtb files with the path under ${DTS_EXT_DIR}, so that they
+#     could be compiled and copied to the dist directory. Like the following:
+#         DTS_EXT_DIR=common-modules/virtual-device
+#         MAKE_GOALS="${MAKE_GOALS} k3399-rock-pi-4b.dtb"
+#         FILES="${FILES} rk3399-rock-pi-4b.dtb"
+#     where the dts file path is
+#     common-modules/virtual-device/rk3399-rock-pi-4b.dts
+
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
 # ${COMMON_OUT_DIR}/${KERNEL_DIR}. This has been done to accommodate existing
@@ -412,6 +422,7 @@ export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
 export INITRAMFS_STAGING_DIR=${MODULES_STAGING_DIR}/initramfs_staging
+export SYSTEM_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/system_dlkm_staging
 export VENDOR_DLKM_STAGING_DIR=${MODULES_STAGING_DIR}/vendor_dlkm_staging
 export MKBOOTIMG_STAGING_DIR="${MODULES_STAGING_DIR}/mkbootimg_staging"
 
@@ -466,7 +477,7 @@ if [ -n "${KCONFIG_EXT_PREFIX}" ]; then
   # KCONFIG_EXT_PREFIX needs to be relative to KERNEL_DIR but we allow one to set
   # it relative to ROOT_DIR for ease of use. So figure out what was used.
   if [ -f "${ROOT_DIR}/${KCONFIG_EXT_PREFIX}Kconfig.ext" ]; then
-    # KCONFIG_EXT_PREFIX is currently relative to ROOT_DIR. So recalcuate it to be
+    # KCONFIG_EXT_PREFIX is currently relative to ROOT_DIR. So recalculate it to be
     # relative to KERNEL_DIR
     KCONFIG_EXT_PREFIX=$(rel_path ${ROOT_DIR}/${KCONFIG_EXT_PREFIX} ${KERNEL_DIR})
   elif [ ! -f "${KERNEL_DIR}/${KCONFIG_EXT_PREFIX}Kconfig.ext" ]; then
@@ -806,10 +817,15 @@ done
 
 echo "========================================================"
 echo " Copying files"
-for FILE in $(cd ${OUT_DIR} && ls -1 ${FILES}); do
+for FILE in ${FILES}; do
   if [ -f ${OUT_DIR}/${FILE} ]; then
     echo "  $FILE"
     cp -p ${OUT_DIR}/${FILE} ${DIST_DIR}/
+  elif [[ "${FILE}" =~ \.dtb|\.dtbo ]]  && \
+      [ -n "${DTS_EXT_DIR}" ] && [ -f "${OUT_DIR}/${DTS_EXT_DIR}/${FILE}" ] ; then
+    # DTS_EXT_DIR is recalculated before to be relative to KERNEL_DIR
+    echo "  $FILE"
+    cp -p "${OUT_DIR}/${DTS_EXT_DIR}/${FILE}" "${DIST_DIR}/"
   else
     echo "  $FILE is not a file, skipping"
   fi
@@ -908,6 +924,38 @@ if [ -n "${MODULES}" ]; then
 
     mkbootfs "${INITRAMFS_STAGING_DIR}" >"${MODULES_STAGING_DIR}/initramfs.cpio"
     ${RAMDISK_COMPRESS} "${MODULES_STAGING_DIR}/initramfs.cpio" >"${DIST_DIR}/initramfs.img"
+  fi
+fi
+
+if [ -n "${MODULES_ORDER}" ]; then
+  echo "========================================================"
+  echo " Creating system_dlkm image"
+
+  rm -rf ${SYSTEM_DLKM_STAGING_DIR}
+  create_modules_staging "${MODULES_LIST}" ${MODULES_STAGING_DIR} \
+    ${SYSTEM_DLKM_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e"
+
+  SYSTEM_DLKM_ROOT_DIR=$(echo ${SYSTEM_DLKM_STAGING_DIR}/lib/modules/*)
+  # Re-sign the stripped modules using kernel build time key
+  find ${SYSTEM_DLKM_STAGING_DIR} -type f -name "*.ko" \
+    -exec ${OUT_DIR}/scripts/sign-file sha1 \
+    ${OUT_DIR}/certs/signing_key.pem \
+    ${OUT_DIR}/certs/signing_key.x509 {} \;
+
+  mkfs.erofs -zlz4hc "${DIST_DIR}/system_dlkm.img" "${SYSTEM_DLKM_STAGING_DIR}"
+  if [ $? -ne 0 ]; then
+    echo "ERROR: system_dlkm image creation failed" >&2
+    exit 1
+  fi
+
+  # Verify system_dlkm.img size is less than /system_dlkm partition size(64MB)
+  SYSTEM_DLKM_PARTITION_SIZE=67108864
+  SYSTEM_DLKM_IMAGE_SIZE=$(stat --format=%s "${DIST_DIR}/system_dlkm.img")
+  if [ "${SYSTEM_DLKM_IMAGE_SIZE}" -gt "${SYSTEM_DLKM_PARTITION_SIZE}" ]; then
+    echo "ERROR: system_dlkm image size exceed partition size" >&2
+    echo "  system_dlkm image size = ${SYSTEM_DLKM_IMAGE_SIZE}" >&2
+    echo "  system_dlkm partition size = ${SYSTEM_DLKM_PARTITION_SIZE}" >&2
+    exit 1
   fi
 fi
 
