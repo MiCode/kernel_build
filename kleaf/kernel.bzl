@@ -748,7 +748,7 @@ def _kernel_config_impl(ctx):
         # LTO configuration
         {lto_command}
         # Grab outputs
-          mv ${{OUT_DIR}}/.config {config}
+          cp -p ${{OUT_DIR}}/.config {config}
           tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
         """.format(
         config = config.path,
@@ -768,7 +768,7 @@ def _kernel_config_impl(ctx):
     setup = ctx.attr.env[_KernelEnvInfo].setup + """
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
-           cp {config} ${{OUT_DIR}}/.config
+           rsync -p -L {config} ${{OUT_DIR}}/.config
            tar xf {include_tar_gz} -C ${{OUT_DIR}}
     """.format(config = config.path, include_tar_gz = include_tar_gz.path)
 
