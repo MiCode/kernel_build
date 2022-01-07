@@ -534,8 +534,19 @@ def _kernel_env_impl(ctx):
         # error on failures
           set -e
           set -o pipefail
+    """
+
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        command += """
+          export MAKEFLAGS="${MAKEFLAGS} V=1"
+        """
+    else:
+        command += """
         # Run Make in silence mode to suppress most of the info output
-          export MAKEFLAGS="${{MAKEFLAGS}} -s"
+          export MAKEFLAGS="${MAKEFLAGS} -s"
+        """
+
+    command += """
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
           export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
         # create a build environment
