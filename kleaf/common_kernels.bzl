@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kleaf:kernel.bzl", "kernel_build")
+load(
+    "//build/kleaf:kernel.bzl",
+    "kernel_build",
+    "kernel_compile_commands",
+    "kernel_kythe",
+)
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
 _common_outs = [
@@ -48,6 +53,7 @@ def define_common_kernels(
     - `kernel_aarch64_debug`
     - `kernel_x86_64`
     - `kernel_x86_64_debug`
+    - `kernel_aarch64_kythe`
 
     In addition, `<name>_dist` targets are created that can be run to obtain a
     distribution outside the workspace.
@@ -121,4 +127,23 @@ def define_common_kernels(
     native.alias(
         name = "kernel_dist",
         actual = ":kernel_aarch64_dist",
+    )
+
+    kernel_compile_commands(
+        name = "kernel_aarch64_compile_commands",
+        kernel_build = ":kernel_aarch64",
+    )
+
+    kernel_kythe(
+        name = "kernel_aarch64_kythe",
+        kernel_build = ":kernel_aarch64",
+        compile_commands = ":kernel_aarch64_compile_commands",
+    )
+
+    copy_to_dist_dir(
+        name = "kernel_aarch64_kythe_dist",
+        data = [
+            ":kernel_aarch64_compile_commands",
+            ":kernel_aarch64_kythe",
+        ],
     )
