@@ -16,9 +16,12 @@
 #
 
 import logging
+import os
 import re
 import subprocess
 import tempfile
+
+from contextlib import nullcontext
 
 log = logging.getLogger(__name__)
 
@@ -238,22 +241,41 @@ class Stg(AbiTool):
         # shoehorn the interface
         basename = diff_report
 
-        log.info(f"stgdiff {old_dump} {new_dump} at {basename}.*")
-        command = ["stgdiff", "--abi", old_dump, new_dump]
-        for f in ["plain", "flat", "small", "viz"]:
-            command.extend(["--format", f, "--output", f"{basename}.{f}"])
+        dumps = [old_dump, new_dump]
 
-        abi_changed = False
+        # if a symbol list has been specified, we need some scratch space
+        if symbol_list:
+            context = tempfile.TemporaryDirectory()
+        else:
+            context = nullcontext()
 
-        with open(f"{basename}.errors", "w") as out:
-            try:
-                subprocess.check_call(command, stdout=out, stderr=out)
-            except subprocess.CalledProcessError as e:
-                if e.returncode & self.DIFF_ERROR:
-                    raise
-                abi_changed = True
+        with context as temp:
+            # if a symbol list has been specified, filter both input files
+            if symbol_list:
+                for ix in [0, 1]:
+                    raw = dumps[ix]
+                    cooked = os.path.join(temp, f"dump{ix}")
+                    log.info(f"filtering {raw} to {cooked}")
+                    subprocess.check_call(
+                        ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
+                    dumps[ix] = cooked
 
-        return abi_changed
+            log.info(f"stgdiff {dumps[0]} {dumps[1]} at {basename}.*")
+            command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+            for f in ["plain", "flat", "small", "viz"]:
+                command.extend(["--format", f, "--output", f"{basename}.{f}"])
+
+            abi_changed = False
+
+            with open(f"{basename}.errors", "w") as out:
+                try:
+                    subprocess.check_call(command, stdout=out, stderr=out)
+                except subprocess.CalledProcessError as e:
+                    if e.returncode & self.DIFF_ERROR:
+                        raise
+                    abi_changed = True
+
+            return abi_changed
 
 def get_abi_tool(abi_tool = "libabigail"):
     log.info(f"using {abi_tool} for abi analysis")
