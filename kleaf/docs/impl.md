@@ -154,7 +154,7 @@ named `slider_modules_install`):
 
 The `kernel_images` macro produces partition images that are ready to be flashed
 and tested immediately on your device. It can build the `initramfs`
-image, `boot` image, `vendor_boot` image, `vendor_dlkm` image, etc.
+image, `boot` image, `vendor_boot` image, `vendor_dlkm` image, `system_dlkm` image, etc.
 
 The name of the target is usually the name of your device with `_images`
 appended to it, e.g. `tuna_images`.
@@ -198,10 +198,13 @@ Example for Pixel 2021 (see the `copy_to_dist_dir` target named `slider_dist`):
 # fastboot update tuna-img.zip -w --disable-verity --disable-verification
 
 $ tools/bazel run //private/path/to/sources:tuna_dist -- --dist_dir=out/dist
+# Flash static partitions
 $ fastboot flash boot out/dist/boot.img
+$ fastboot flash system_dlkm out/dist/system_dlkm.img
 $ fastboot flash vendor_boot out/dist/vendor_boot.img
 $ fastboot flash dtbo out/dist/dtbo.img
 $ fastboot reboot fastboot
+# Flash dynamic partitions
 $ fastboot flash vendor_dlkm out/dist/vendor_dlkm.img
 $ fastboot reboot
 ```

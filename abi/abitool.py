@@ -16,14 +16,17 @@
 #
 
 import logging
+import os
 import re
 import subprocess
 import tempfile
 
+from contextlib import nullcontext
+
 log = logging.getLogger(__name__)
 
 
-def _collapse_impacted_interfaces(text):
+def _collapse_abidiff_impacted_interfaces(text):
   """Removes impacted interfaces details, leaving just the summary count."""
   return re.sub(
       r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
@@ -32,7 +35,7 @@ def _collapse_impacted_interfaces(text):
       flags=re.MULTILINE)
 
 
-def _collapse_offset_changes(text):
+def _collapse_abidiff_offset_changes(text):
   """Replaces "offset changed" lines with a one-line summary."""
   regex = re.compile(
       r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
@@ -73,7 +76,7 @@ def _collapse_offset_changes(text):
   return "".join(new_text)
 
 
-def _collapse_CRC_changes(text, limit):
+def _collapse_abidiff_CRC_changes(text, limit):
     """Preserves some CRC-only changes and summarises the rest.
 
     A CRC-only change is one like the following (indented and with a
@@ -217,9 +220,9 @@ class Libabigail(AbiTool):
             with open(diff_report) as full_report:
                 with open(short_report, "w") as out:
                     text = full_report.read()
-                    text = _collapse_impacted_interfaces(text)
-                    text = _collapse_offset_changes(text)
-                    text = _collapse_CRC_changes(text, 3)
+                    text = _collapse_abidiff_impacted_interfaces(text)
+                    text = _collapse_abidiff_offset_changes(text)
+                    text = _collapse_abidiff_CRC_changes(text, 3)
                     out.write(text)
 
         return abi_changed
@@ -238,22 +241,41 @@ class Stg(AbiTool):
         # shoehorn the interface
         basename = diff_report
 
-        log.info(f"stgdiff {old_dump} {new_dump} at {basename}.*")
-        command = ["stgdiff", "--abi", old_dump, new_dump]
-        for f in ["plain", "flat", "small", "viz"]:
-            command.extend(["--format", f, "--output", f"{basename}.{f}"])
+        dumps = [old_dump, new_dump]
 
-        abi_changed = False
+        # if a symbol list has been specified, we need some scratch space
+        if symbol_list:
+            context = tempfile.TemporaryDirectory()
+        else:
+            context = nullcontext()
 
-        with open(f"{basename}.errors", "w") as out:
-            try:
-                subprocess.check_call(command, stdout=out, stderr=out)
-            except subprocess.CalledProcessError as e:
-                if e.returncode & self.DIFF_ERROR:
-                    raise
-                abi_changed = True
+        with context as temp:
+            # if a symbol list has been specified, filter both input files
+            if symbol_list:
+                for ix in [0, 1]:
+                    raw = dumps[ix]
+                    cooked = os.path.join(temp, f"dump{ix}")
+                    log.info(f"filtering {raw} to {cooked}")
+                    subprocess.check_call(
+                        ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
+                    dumps[ix] = cooked
 
-        return abi_changed
+            log.info(f"stgdiff {dumps[0]} {dumps[1]} at {basename}.*")
+            command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+            for f in ["plain", "flat", "small", "viz"]:
+                command.extend(["--format", f, "--output", f"{basename}.{f}"])
+
+            abi_changed = False
+
+            with open(f"{basename}.errors", "w") as out:
+                try:
+                    subprocess.check_call(command, stdout=out, stderr=out)
+                except subprocess.CalledProcessError as e:
+                    if e.returncode & self.DIFF_ERROR:
+                        raise
+                    abi_changed = True
+
+            return abi_changed
 
 def get_abi_tool(abi_tool = "libabigail"):
     log.info(f"using {abi_tool} for abi analysis")
