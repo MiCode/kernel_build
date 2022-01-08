@@ -137,7 +137,8 @@ kernel_module(
 
 ### Building your kernels and drivers
 
-See instructions to build your own kernels and drivers with Bazel in [docs/impl.md](docs/impl.md).
+See instructions to build your own kernels and drivers with Bazel in
+[Build your kernels and drivers with Bazel](impl.md).
 
 ### Documentation
 
