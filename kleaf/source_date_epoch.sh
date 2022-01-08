@@ -30,12 +30,7 @@ if [ ! -z "${SOURCE_DATE_EPOCH}" ]; then
   exit 0
 fi
 
-# This script is located at ${ROOT_DIR}/build/{kernel/,}kleaf/source_date_epoch.sh.
-# TODO(b/204425264): remove hack once we cut over to build/kernel/
-ROOT_DIR=$(dirname $(dirname $(dirname $(readlink -f $0 ) ) ) )
-if [[ ! -f ${ROOT_DIR}/WORKSPACE ]]; then
-  ROOT_DIR=$(dirname ${ROOT_DIR})
-fi
+ROOT_DIR=$($(dirname $(dirname $(readlink -f $0)))/gettop.sh)
 
 # Use "git" from the environment.
 if [ -d "${ROOT_DIR}/.source_date_epoch_dir" ]; then
