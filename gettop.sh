@@ -20,9 +20,11 @@
 # This script is located at ${ROOT_DIR}/build/{kernel/,}gettop.sh.
 # TODO(b/204425264): remove hack once we cut over to build/kernel/ for branches
 
-real_this=$(readlink -f $0)
-if [[ $(basename $(dirname ${real_this})) == "kernel" ]]; then
-  echo $(dirname $(dirname $(dirname ${real_this})))
+# This is either ${ROOT_DIR}/build or ${ROOT_DIR}/build/kernel
+parent_dir=$(dirname $(readlink -f $0))
+
+if [[ $(basename ${parent_dir}) == "kernel" ]]; then
+  echo $(dirname $(dirname ${parent_dir}))
 else
-  echo $(dirname $(dirname ${real_this}))
+  echo $(dirname ${parent_dir})
 fi
