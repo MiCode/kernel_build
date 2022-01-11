@@ -1217,7 +1217,7 @@ def _kernel_module_impl(ctx):
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
                  module_strip_flag="INSTALL_MOD_STRIP=1"
                fi
-               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
+               ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
 
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
@@ -1273,7 +1273,7 @@ def _kernel_module_impl(ctx):
              # Use a new shell to avoid polluting variables
                (
              # Set variables
-               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
+               ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
              # Restore Modules.symvers
                mkdir -p ${{OUT_DIR}}/${{ext_mod_rel}}
                cp {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers
