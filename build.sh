@@ -279,6 +279,10 @@
 #     if set to "1", build a ramdisk containing all .ko files and resulting
 #     depmod artifacts
 #
+#   BUILD_SYSTEM_DLKM
+#     if set to "1", build a system_dlkm.img containing all signed GKI modules
+#     and resulting depmod artifacts
+#
 #   MODULES_OPTIONS
 #     A /lib/modules/modules.options file is created on the ramdisk containing
 #     the contents of this variable, lines should be of the form: options
@@ -927,7 +931,7 @@ if [ -n "${MODULES}" ]; then
   fi
 fi
 
-if [ -n "${MODULES_ORDER}" ]; then
+if [ "${BUILD_SYSTEM_DLKM}" = "1"  ]; then
   echo "========================================================"
   echo " Creating system_dlkm image"
 
@@ -947,6 +951,9 @@ if [ -n "${MODULES_ORDER}" ]; then
     echo "ERROR: system_dlkm image creation failed" >&2
     exit 1
   fi
+
+  # Archive system_dlkm staging directory
+  tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
 
   # Verify system_dlkm.img size is less than /system_dlkm partition size(64MB)
   SYSTEM_DLKM_PARTITION_SIZE=67108864

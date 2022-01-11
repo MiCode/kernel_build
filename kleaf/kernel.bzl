@@ -534,8 +534,19 @@ def _kernel_env_impl(ctx):
         # error on failures
           set -e
           set -o pipefail
+    """
+
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        command += """
+          export MAKEFLAGS="${MAKEFLAGS} V=1"
+        """
+    else:
+        command += """
         # Run Make in silence mode to suppress most of the info output
-          export MAKEFLAGS="${{MAKEFLAGS}} -s"
+          export MAKEFLAGS="${MAKEFLAGS} -s"
+        """
+
+    command += """
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
           export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
         # create a build environment
@@ -748,7 +759,7 @@ def _kernel_config_impl(ctx):
         # LTO configuration
         {lto_command}
         # Grab outputs
-          mv ${{OUT_DIR}}/.config {config}
+          cp -p ${{OUT_DIR}}/.config {config}
           tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
         """.format(
         config = config.path,
@@ -768,7 +779,7 @@ def _kernel_config_impl(ctx):
     setup = ctx.attr.env[_KernelEnvInfo].setup + """
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
-           cp {config} ${{OUT_DIR}}/.config
+           rsync -p -L {config} ${{OUT_DIR}}/.config
            tar xf {include_tar_gz} -C ${{OUT_DIR}}
     """.format(config = config.path, include_tar_gz = include_tar_gz.path)
 
