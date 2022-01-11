@@ -204,6 +204,7 @@ function build_vendor_dlkm() {
 
   local vendor_dlkm_modules_root_dir=$(echo ${VENDOR_DLKM_STAGING_DIR}/lib/modules/*)
   local vendor_dlkm_modules_load=${vendor_dlkm_modules_root_dir}/modules.load
+  cp ${vendor_dlkm_modules_root_dir}/modules.blocklist ${DIST_DIR}/vendor_dlkm.modules.blocklist
 
   # Modules loaded in vendor_boot should not be loaded in vendor_dlkm.
   if [ -f ${DIST_DIR}/vendor_boot.modules.load ]; then
