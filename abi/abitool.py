@@ -23,7 +23,7 @@ import tempfile
 log = logging.getLogger(__name__)
 
 
-def _collapse_impacted_interfaces(text):
+def _collapse_abidiff_impacted_interfaces(text):
   """Removes impacted interfaces details, leaving just the summary count."""
   return re.sub(
       r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
@@ -32,7 +32,7 @@ def _collapse_impacted_interfaces(text):
       flags=re.MULTILINE)
 
 
-def _collapse_offset_changes(text):
+def _collapse_abidiff_offset_changes(text):
   """Replaces "offset changed" lines with a one-line summary."""
   regex = re.compile(
       r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
@@ -73,7 +73,7 @@ def _collapse_offset_changes(text):
   return "".join(new_text)
 
 
-def _collapse_CRC_changes(text, limit):
+def _collapse_abidiff_CRC_changes(text, limit):
     """Preserves some CRC-only changes and summarises the rest.
 
     A CRC-only change is one like the following (indented and with a
@@ -216,9 +216,9 @@ class Libabigail(AbiTool):
             with open(diff_report) as full_report:
                 with open(short_report, "w") as out:
                     text = full_report.read()
-                    text = _collapse_impacted_interfaces(text)
-                    text = _collapse_offset_changes(text)
-                    text = _collapse_CRC_changes(text, 3)
+                    text = _collapse_abidiff_impacted_interfaces(text)
+                    text = _collapse_abidiff_offset_changes(text)
+                    text = _collapse_abidiff_CRC_changes(text, 3)
                     out.write(text)
 
         return rc

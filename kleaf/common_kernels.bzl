@@ -16,6 +16,8 @@ load(
     "//build/kleaf:kernel.bzl",
     "kernel_build",
     "kernel_compile_commands",
+    "kernel_images",
+    "kernel_modules_install",
     "kernel_kythe",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
@@ -50,13 +52,19 @@ def define_common_kernels(
 
     The targets declared:
     - `kernel_aarch64`
+      - `kernel_aarch64_sources`
+      - `kernel_aarch64_dist`
     - `kernel_aarch64_debug`
+      - `kernel_aarch64_debug_dist`
     - `kernel_x86_64`
+      - `kernel_x86_64_sources`
+      - `kernel_x86_64_dist`
     - `kernel_x86_64_debug`
+      - `kernel_x86_64_debug_dist`
     - `kernel_aarch64_kythe`
+      - `kernel_aarch64_kythe_dist`
 
-    In addition, `<name>_dist` targets are created that can be run to obtain a
-    distribution outside the workspace.
+    `<name>_dist` targets can be run to obtain a distribution outside the workspace.
 
     Aliases are created to refer to the GKI kernel (`kernel_aarch64`) as
     "`kernel`" and the corresponding dist target (`kernel_aarch64_dist`) as
@@ -74,27 +82,47 @@ def define_common_kernels(
         kernel_build_kwargs["toolchain_version"] = toolchain_version
 
     [[
-        kernel_build(
-            name = name,
+        native.filegroup(
+            name = name + "_sources",
             srcs = native.glob(
                 ["**"],
                 exclude = [
-                    "android/*",
                     "BUILD.bazel",
                     "**/*.bzl",
                     ".git/**",
                 ],
             ),
+        ),
+
+        kernel_build(
+            name = name,
+            srcs = [name + "_sources"],
             outs = outs,
             build_config = config,
             visibility = visibility,
             **kernel_build_kwargs
         ),
+
+        kernel_modules_install(
+            name = name + "_modules_install",
+            kernel_build = name,
+        ),
+
+        kernel_images(
+            name = name + "_system_dlkm",
+            kernel_build = name,
+            kernel_modules_install = name + "_modules_install",
+            build_system_dlkm = True,
+        ),
+
         copy_to_dist_dir(
             name = name + "_dist",
             data = [
                 name + "_for_dist",
+                name + "_modules_install",
+                name + "_system_dlkm",
             ],
+            flat = True,
         ),
     ] for name, config, outs in [
         (
@@ -146,4 +174,5 @@ def define_common_kernels(
             ":kernel_aarch64_compile_commands",
             ":kernel_aarch64_kythe",
         ],
+        flat = True,
     )

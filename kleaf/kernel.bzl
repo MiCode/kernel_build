@@ -17,7 +17,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r437112"
 
 # Outputs of a kernel_build rule needed to build kernel_module's
-_kernel_build_implicit_outs = [
+_kernel_build_internal_outs = [
     "Module.symvers",
     "include/config/kernel.release",
 ]
@@ -43,6 +43,11 @@ def _reverse_dict(d):
                 ret[v] = []
             ret[v].append(k)
     return ret
+
+def _getoptattr(thing, attr, default_value = None):
+    if hasattr(thing, attr):
+        return getattr(thing, attr)
+    return default_value
 
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
@@ -94,6 +99,8 @@ def _transform_kernel_build_outs(name, what, outs):
     - If `outs` is a dict, return `select(outs)`.
     - Otherwise fail
     """
+    if outs == None:
+        return None
     if type(outs) == type([]):
         return outs
     elif type(outs) == type({}):
@@ -113,14 +120,14 @@ def kernel_build(
         build_config,
         outs,
         srcs = None,
-        module_outs = [],
-        generate_vmlinux_btf = False,
-        deps = (),
+        module_outs = None,
+        implicit_outs = None,
+        generate_vmlinux_btf = None,
+        deps = None,
         base_kernel = None,
         kconfig_ext = None,
-        dtstree_makefile = None,
-        dtstree_srcs = [],
-        toolchain_version = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+        dtstree = None,
+        toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -134,19 +141,13 @@ def kernel_build(
 
     A few additional labels are generated.
     For example, if name is `"kernel_aarch64"`:
-    - `kernel_aarch64_env` provides a source-able build environment defined by
-      the build config.
-    - `kernel_aarch64_config` provides the kernel config.
     - `kernel_aarch64_uapi_headers` provides the UAPI kernel headers.
     - `kernel_aarch64_headers` provides the kernel headers.
-    - `kernel_for_dist` is a filegroup for all dist files
 
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
         kconfig_ext: Label of an external Kconfig.ext file sourced by the GKI kernel.
-        dtstree_makefile: Label of the external device tree Makefile.
-        dtstree_srcs: Labels of the device tree sources (a `glob()`).
         srcs: The kernel sources (a `glob()`). If unspecified or `None`, it is the following:
           ```
           glob(
@@ -171,8 +172,6 @@ def kernel_build(
           The label specified by `base_kernel` must conform to
           [`KernelFilesInfo`](#kernelfilesinfo). Usually, this points to one of the following:
           - `//common:kernel_{arch}`
-          - `//common:kernel_{arch}_for_dist`, if kernel headers are needed in
-            `KBUILD_MIXED_TREE`. This is uncommon.
           - A `kernel_filegroup` rule, e.g.
             ```
             load("//build/kleaf:common_kernels.bzl, "aarch64_outs")
@@ -188,8 +187,11 @@ def kernel_build(
 
           Requires that `"vmlinux"` is in `outs`.
         deps: Additional dependencies to build this kernel.
-        module_outs: A list of in-tree drivers. Similar to `outs`, but for `*.ko` files searched
-          from module install directory.
+        module_outs: A list of in-tree drivers. Similar to `outs`, but for `*.ko` files.
+
+          If a `*.ko` kernel module should not be copied to `${DIST_DIR}`, it must be
+          included `implicit_outs` instead of `module_outs`. The list `implicit_outs + module_outs`
+          must include **all** `*.ko` files in `${OUT_DIR}`. If not, a build error is raised.
 
           Like `outs`, `module_outs` are part of the
           [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)
@@ -288,15 +290,17 @@ def kernel_build(
             [`OR` chaining](https://docs.bazel.build/versions/main/configurable-attributes.html#selectsconfig_setting_group),
             use `selects.config_setting_group()`.
 
+        implicit_outs: Like `outs`, but not copied to the distribution directory.
+
+          Labels are created for each item in `implicit_outs` as in `outs`.
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
 
-          These arguments applies on the target with `{name}` and `{name}_for_dist`.
+          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
-    sources_target_name = name + "_sources"
     env_target_name = name + "_env"
     config_target_name = name + "_config"
     modules_prepare_target_name = name + "_modules_prepare"
@@ -314,14 +318,11 @@ def kernel_build(
             ],
         )
 
-    native.filegroup(name = sources_target_name, srcs = srcs)
-
     _kernel_env(
         name = env_target_name,
         build_config = build_config,
         kconfig_ext = kconfig_ext,
-        dtstree_makefile = dtstree_makefile,
-        dtstree_srcs = dtstree_srcs,
+        dtstree = dtstree,
         srcs = srcs,
         toolchain_version = toolchain_version,
     )
@@ -329,7 +330,7 @@ def kernel_build(
     _kernel_config(
         name = config_target_name,
         env = env_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
     )
@@ -337,27 +338,32 @@ def kernel_build(
     _modules_prepare(
         name = modules_prepare_target_name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
     )
 
     _kernel_build(
         name = name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
         outs = _transform_kernel_build_outs(name, "outs", outs),
         module_outs = _transform_kernel_build_outs(name, "module_outs", module_outs),
-        implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", _kernel_build_implicit_outs),
+        implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
+        internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
+        modules_prepare = modules_prepare_target_name,
         **kwargs
     )
 
     for out_name, out_attr_val in (
         ("outs", outs),
         ("module_outs", module_outs),
-        # implicit_outs are opaque to the user, hence we don't create a alias (filegroup) for them.
+        ("implicit_outs", implicit_outs),
+        # internal_outs are opaque to the user, hence we don't create a alias (filegroup) for them.
     ):
+        if out_attr_val == None:
+            continue
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
                 native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out)
@@ -382,7 +388,8 @@ def kernel_build(
     _kernel_uapi_headers(
         name = uapi_headers_target_name,
         config = config_target_name,
-        srcs = [sources_target_name],
+        srcs = srcs,
+        **kwargs
     )
 
     _kernel_headers(
@@ -390,7 +397,8 @@ def kernel_build(
         kernel_build = name,
         env = env_target_name,
         # TODO: We need arch/ and include/ only.
-        srcs = [sources_target_name],
+        srcs = srcs,
+        **kwargs
     )
 
     labels_for_dist = [
@@ -405,6 +413,7 @@ def kernel_build(
             name = vmlinux_btf_name,
             vmlinux = name + "/vmlinux",
             env = env_target_name,
+            **kwargs
         )
         labels_for_dist.append(vmlinux_btf_name)
 
@@ -413,6 +422,71 @@ def kernel_build(
         srcs = labels_for_dist,
         **kwargs
     )
+
+_DtsTreeInfo = provider(fields = {
+    "srcs": "DTS tree sources",
+    "makefile": "DTS tree makefile",
+})
+
+def _kernel_dtstree_impl(ctx):
+    return _DtsTreeInfo(
+        srcs = ctx.files.srcs,
+        makefile = ctx.file.makefile,
+    )
+
+_kernel_dtstree = rule(
+    implementation = _kernel_dtstree_impl,
+    attrs = {
+        "srcs": attr.label_list(doc = "kernel device tree sources", allow_files = True),
+        "makefile": attr.label(mandatory = True, allow_single_file = True),
+    },
+)
+
+def kernel_dtstree(
+        name,
+        srcs = None,
+        makefile = None,
+        **kwargs):
+    """Specify a kernel DTS tree.
+
+    Args:
+      srcs: sources of the DTS tree. Default is
+
+        ```
+        glob(["**"], exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ])
+        ```
+      makefile: Makefile of the DTS tree. Default is `:Makefile`, i.e. the `Makefile`
+        at the root of the package.
+      kwargs: Additional attributes to the internal rule, e.g.
+        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+        See complete list
+        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+    """
+    if srcs == None:
+        srcs = native.glob(
+            ["**"],
+            exclude = [
+                "**/.*",
+                "**/.*/**",
+                "**/BUILD.bazel",
+                "**/*.bzl",
+            ],
+        )
+    if makefile == None:
+        makefile = ":Makefile"
+
+    kwargs.update(
+        # This should be the exact list of arguments of kernel_dtstree.
+        name = name,
+        srcs = srcs,
+        makefile = makefile,
+    )
+    _kernel_dtstree(**kwargs)
 
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
@@ -428,8 +502,11 @@ def _kernel_env_impl(ctx):
 
     build_config = ctx.file.build_config
     kconfig_ext = ctx.file.kconfig_ext
-    dtstree_makefile = ctx.file.dtstree_makefile
-    dtstree_srcs = ctx.files.dtstree_srcs
+    dtstree_makefile = None
+    dtstree_srcs = []
+    if ctx.attr.dtstree != None:
+        dtstree_makefile = ctx.attr.dtstree[_DtsTreeInfo].makefile
+        dtstree_srcs = ctx.attr.dtstree[_DtsTreeInfo].srcs
 
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
@@ -586,18 +663,15 @@ _kernel_env = rule(
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
+            default = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
         ),
         "kconfig_ext": attr.label(
             allow_single_file = True,
             doc = "an external Kconfig.ext file sourced by the base kernel",
         ),
-        "dtstree_makefile": attr.label(
-            allow_single_file = True,
-            doc = "path to a device tree Makefile",
-        ),
-        "dtstree_srcs": attr.label_list(
-            allow_files = True,
-            doc = "device tree source files",
+        "dtstree": attr.label(
+            providers = [_DtsTreeInfo],
+            doc = "Device tree",
         ),
         "_tools": attr.label_list(default = _get_tools),
         "_host_tools": attr.label(default = "//build:host-tools"),
@@ -716,7 +790,7 @@ _kernel_config = rule(
             providers = [_KernelEnvInfo],
             doc = "environment target that defines the kernel build environment",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
         "include_tar_gz": attr.output(
             mandatory = True,
@@ -732,10 +806,40 @@ _KernelBuildInfo = provider(fields = {
                                "Does not contain the lib/modules/* suffix.",
     "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
-    "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs` and `implicit_outs`)",
+    "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs`, `implicit_outs` and `internal_outs`)",
     "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
     "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
+
+_SrcsInfo = provider(fields = {
+    "srcs": "The srcs attribute of a rule.",
+})
+
+def _srcs_aspect_impl(target, ctx):
+    return [_SrcsInfo(srcs = _getoptattr(ctx.rule.attr, "srcs"))]
+
+_srcs_aspect = aspect(
+    implementation = _srcs_aspect_impl,
+    doc = "An aspect that retrieves srcs attribute from a rule.",
+    attr_aspects = ["srcs"],
+)
+
+_KernelBuildAspectInfo = provider(fields = {
+    "modules_prepare": "The *_modules_prepare target",
+})
+
+def _kernel_build_aspect_impl(target, ctx):
+    return [_KernelBuildAspectInfo(
+        modules_prepare = _getoptattr(ctx.rule.attr, "modules_prepare"),
+    )]
+
+_kernel_build_aspect = aspect(
+    implementation = _kernel_build_aspect_impl,
+    doc = "An aspect describing attributes of a _kernel_build rule.",
+    attr_aspects = [
+        "modules_prepare",
+    ],
+)
 
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
@@ -776,11 +880,11 @@ def _kernel_build_impl(ctx):
         inputs.append(kbuild_mixed_tree)
 
     # kernel_build(name="kenrel", outs=["out"])
-    # => _kernel_build(name="kernel", outs=["kernel/out"], implicit_outs=["kernel/Module.symvers", ...])
+    # => _kernel_build(name="kernel", outs=["kernel/out"], internal_outs=["kernel/Module.symvers", ...])
     # => all_output_names = ["foo", "Module.symvers", ...]
-    #    all_output_files = {"out": {"foo": File(...)}, "implicit_outs": {"Module.symvers": File(...)}, ...}
+    #    all_output_files = {"out": {"foo": File(...)}, "internal_outs": {"Module.symvers": File(...)}, ...}
     all_output_files = {}
-    for attr in ("outs", "module_outs", "implicit_outs"):
+    for attr in ("outs", "module_outs", "implicit_outs", "internal_outs"):
         all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
     all_output_names = []
     for d in all_output_files.values():
@@ -835,6 +939,15 @@ def _kernel_build_impl(ctx):
                        --null -T -
          # Grab outputs. If unable to find from OUT_DIR, look at KBUILD_MIXED_TREE as well.
            {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names}
+         # Check if there are remaining *.ko files
+           remaining_ko_files=$(find ${{OUT_DIR}} -type f -name '*.ko')
+           if [[ ${{remaining_ko_files}} ]]; then
+             echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:"
+             for ko in ${{remaining_ko_files}}; do
+               echo '    "'"$(basename ${{ko}})"'",'
+             done
+             exit 1
+           fi
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
          # Clean up staging directories
@@ -849,6 +962,7 @@ def _kernel_build_impl(ctx):
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
         interceptor_output = interceptor_output.path,
+        label = ctx.label,
     )
 
     _debug_print_scripts(ctx, command)
@@ -860,8 +974,8 @@ def _kernel_build_impl(ctx):
         command = command,
     )
 
-    # Only outs and implicit_outs are needed. But for simplicity, copy the full {ruledir}
-    # which includes module_outs too.
+    # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
+    # which includes module_outs and implicit_outs too.
     env_info_dependencies = []
     env_info_dependencies += ctx.attr.config[_KernelEnvInfo].dependencies
     for d in all_output_files.values():
@@ -923,9 +1037,10 @@ _kernel_build = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "outs": attr.string_list(),
         "module_outs": attr.string_list(doc = "output *.ko files"),
+        "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
@@ -938,6 +1053,7 @@ _kernel_build = rule(
         "base_kernel": attr.label(
             providers = [KernelFilesInfo],
         ),
+        "modules_prepare": attr.label(),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
 )
@@ -978,7 +1094,7 @@ _modules_prepare = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources"),
+        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "outdir_tar_gz": attr.output(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
@@ -1005,12 +1121,12 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """
 
     for kernel_module in kernel_modules:
-        if kernel_module[_KernelModuleInfo].kernel_build != \
-           kernel_build:
+        if kernel_module[_KernelModuleInfo].kernel_build.label != \
+           kernel_build.label:
             fail((
                 "{this_label} refers to kernel_build {kernel_build}, but " +
                 "depended kernel_module {dep} refers to kernel_build " +
-                "{kernel_build}. They must refer to the same kernel_build."
+                "{dep_kernel_build}. They must refer to the same kernel_build."
             ).format(
                 this_label = this_label,
                 kernel_build = kernel_build.label,
@@ -1021,10 +1137,11 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
 def _kernel_module_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
     inputs = []
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
@@ -1033,26 +1150,40 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
 
-    modules_staging_archive = ctx.actions.declare_file("modules_staging_archive.tar.gz")
+    modules_staging_archive = ctx.actions.declare_file("{}/modules_staging_archive.tar.gz".format(ctx.attr.name))
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
-    outdir = modules_staging_archive.dirname
+    outdir = modules_staging_archive.dirname  # equivalent to declare_directory(ctx.attr.name)
 
     # additional_outputs: [modules_staging_archive] + [basename(out) for out in outs]
     additional_outputs = [
         modules_staging_archive,
     ]
-    for out in ctx.outputs.outs:
-        short_name = out.path[len(outdir) + 1:]
-        if "/" in short_name:
-            additional_outputs.append(ctx.actions.declare_file(out.basename))
 
-    module_symvers = ctx.actions.declare_file("Module.symvers")
+    # Original `outs` attribute of `kernel_module` macro.
+    original_outs = []
+    for out in ctx.outputs.outs:
+        # outdir includes target name at the end already. So short_name is the original
+        # token in `outs` of `kernel_module` macro.
+        # e.g. kernel_module(name = "foo", outs = ["bar"])
+        #   => _kernel_module(name = "foo", outs = ["foo/bar"])
+        #   => outdir = ".../foo"
+        #      ctx.outputs.outs = [File(".../foo/bar")]
+        #   => short_name = "bar"
+        short_name = out.path[len(outdir) + 1:]
+        original_outs.append(short_name)
+        if "/" in short_name:
+            additional_outputs.append(ctx.actions.declare_file("{name}/{basename}".format(
+                name = ctx.attr.name,
+                basename = out.basename,
+            )))
+
+    module_symvers = ctx.actions.declare_file("{}/Module.symvers".format(ctx.attr.name))
     additional_declared_outputs = [
         module_symvers,
     ]
 
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -1060,7 +1191,10 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[_KernelEnvInfo].setup
 
-    modules_staging_outs = ["lib/modules/*/extra/" + out.name for out in ctx.attr.outs]
+    modules_staging_outs = []
+    for short_name in original_outs:
+        modules_staging_outs.append("lib/modules/*/extra/" + ctx.attr.ext_mod + "/" + short_name)
+
     command += """
              # Set variables
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
@@ -1071,15 +1205,23 @@ def _kernel_module_impl(ctx):
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
              # Install into staging directory
-               make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) ${{module_strip_flag}} modules_install
+               make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} \
+                   O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}     \
+                   INSTALL_MOD_PATH=$(realpath {modules_staging_dir})          \
+                   INSTALL_MOD_DIR=extra/{ext_mod}                             \
+                   ${{module_strip_flag}} modules_install
              # Archive modules_staging_dir
                (
                  modules_staging_archive=$(realpath {modules_staging_archive})
                  cd {modules_staging_dir}
-                 tar czf ${{modules_staging_archive}} {modules_staging_outs}
+                 if ! mod_order=$(ls lib/modules/*/extra/{ext_mod}/modules.order.*); then
+                   # The modules.order.* file may not exist. Just keep it empty.
+                   mod_order=
+                 fi
+                 tar czf ${{modules_staging_archive}} {modules_staging_outs} ${{mod_order}}
                )
              # Move files into place
-               {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra --dstdir {outdir} {outs}
+               {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
              # Remove {modules_staging_dir} because they are not declared
                rm -rf {modules_staging_dir}
              # Move Module.symvers
@@ -1091,7 +1233,7 @@ def _kernel_module_impl(ctx):
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         outdir = outdir,
-        outs = " ".join([out.name for out in ctx.attr.outs]),
+        outs = " ".join(original_outs),
         modules_staging_outs = " ".join(modules_staging_outs),
     )
 
@@ -1133,9 +1275,6 @@ def _kernel_module_impl(ctx):
         ),
     ]
 
-def _get_modules_prepare(kernel_build):
-    return Label(str(kernel_build) + "_modules_prepare")
-
 _kernel_module = rule(
     implementation = _kernel_module_impl,
     doc = """
@@ -1151,6 +1290,7 @@ _kernel_module = rule(
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo, _KernelBuildInfo],
+            aspects = [_kernel_build_aspect],
         ),
         "kernel_module_deps": attr.label_list(
             providers = [_KernelEnvInfo, _KernelModuleInfo],
@@ -1163,10 +1303,6 @@ _kernel_module = rule(
             allow_single_file = True,
             default = Label("//build/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
-        ),
-        "_modules_prepare": attr.label(
-            default = _get_modules_prepare,
-            providers = [_KernelEnvInfo],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
     },
@@ -1223,7 +1359,7 @@ def kernel_module(
           For each token `out`, the build rule automatically finds a
           file named `out` in the legacy kernel modules staging
           directory. The file is copied to the output directory of
-          this package, with the label `out`.
+          this package, with the label `name/out`.
 
           - If `out` doesn't contain a slash, subdirectories are searched.
 
@@ -1241,7 +1377,7 @@ def kernel_module(
             <package output dir>/nfc.ko
             ```
 
-            `nfc.ko` is the label to the file.
+            `nfc/nfc.ko` is the label to the file.
 
           - If `out` contains slashes, its value is used. The file is
             also copied to the top of package output directory.
@@ -1260,11 +1396,11 @@ def kernel_module(
             foo/nfc.ko
             ```
 
-            `foo/nfc.ko` is the label to the file.
+            `nfc/foo/nfc.ko` is the label to the file.
 
             The file is also copied to `<package output dir>/nfc.ko`.
 
-            `nfc.ko` is the label to the file.
+            `nfc/nfc.ko` is the label to the file.
 
             See `search_and_mv_output.py` for details.
         kwargs: Additional attributes to the internal rule, e.g.
@@ -1279,7 +1415,7 @@ def kernel_module(
         srcs = srcs,
         kernel_build = kernel_build,
         kernel_module_deps = kernel_module_deps,
-        outs = outs,
+        outs = ["{name}/{out}".format(name = name, out = out) for out in outs] if outs else [],
     )
     kwargs = _kernel_module_set_defaults(kwargs)
     _kernel_module(**kwargs)
@@ -1311,12 +1447,14 @@ def _kernel_module_set_defaults(kwargs):
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
+
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
 
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
-    inputs += ctx.attr._modules_prepare[_KernelEnvInfo].dependencies
+    inputs += modules_prepare[_KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
     inputs += [
         ctx.file._search_and_mv_output,
@@ -1340,7 +1478,7 @@ def _kernel_modules_install_impl(ctx):
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
-    command += ctx.attr._modules_prepare[_KernelEnvInfo].setup
+    command += modules_prepare[_KernelEnvInfo].setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -1464,10 +1602,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
         "kernel_build": attr.label(
             providers = [_KernelEnvInfo, _KernelBuildInfo],
             doc = "Label referring to the `kernel_build` module.",
-        ),
-        "_modules_prepare": attr.label(
-            default = _get_modules_prepare,
-            providers = [_KernelEnvInfo],
+            aspects = [_kernel_build_aspect],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
@@ -1631,8 +1766,8 @@ def _build_modules_image_impl_common(
         outputs,
         build_command,
         modules_staging_dir,
-        implicit_outputs = [],
-        additional_inputs = []):
+        implicit_outputs = None,
+        additional_inputs = None):
     """Command implementation for building images that directly contain modules.
 
     Args:
@@ -1664,12 +1799,20 @@ def _build_modules_image_impl_common(
         ))
     modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
 
-    inputs = additional_inputs + [
+    inputs = []
+    if additional_inputs != None:
+        inputs += additional_inputs
+    inputs += [
         system_map,
         modules_staging_archive,
     ]
     inputs += ctx.files.deps
     inputs += kernel_build[_KernelEnvInfo].dependencies
+
+    command_outputs = []
+    command_outputs += outputs
+    if implicit_outputs != None:
+        command_outputs += implicit_outputs
 
     command = ""
     command += kernel_build[_KernelEnvInfo].setup
@@ -1697,13 +1840,13 @@ def _build_modules_image_impl_common(
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
-        outputs = outputs + implicit_outputs,
+        outputs = command_outputs,
         progress_message = "Building {} {}".format(what, ctx.label),
         command = command,
     )
     return DefaultInfo(files = depset(outputs))
 
-def _build_modules_image_attrs_common(additional = {}):
+def _build_modules_image_attrs_common(additional = None):
     """Common attrs for rules that builds images that directly contain modules."""
     ret = {
         "kernel_modules_install": attr.label(
@@ -1717,7 +1860,8 @@ def _build_modules_image_attrs_common(additional = {}):
             default = "//build/kleaf:debug_print_scripts",
         ),
     }
-    ret.update(additional)
+    if additional != None:
+        ret.update(additional)
     return ret
 
 _InitramfsInfo = provider(fields = {
@@ -1797,6 +1941,51 @@ corresponding files.
     attrs = _build_modules_image_attrs_common({
         "vendor_boot_modules_load": attr.output(),
     }),
+)
+
+def _system_dlkm_image_impl(ctx):
+    system_dlkm_img = ctx.actions.declare_file("{}/system_dlkm.img".format(ctx.label.name))
+    system_dlkm_staging_archive = ctx.actions.declare_file("{}/system_dlkm_staging_archive.tar.gz".format(ctx.label.name))
+
+    modules_staging_dir = system_dlkm_img.dirname + "/staging"
+    system_dlkm_staging_dir = modules_staging_dir + "/system_dlkm_staging"
+
+    command = """
+               mkdir -p {system_dlkm_staging_dir}
+             # Build system_dlkm.img
+               create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
+                 {system_dlkm_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
+               modules_root_dir=$(ls {system_dlkm_staging_dir}/lib/modules/*)
+             # Build system_dlkm.img with signed GKI modules
+               mkfs.erofs -zlz4hc "{system_dlkm_img}" "{system_dlkm_staging_dir}"
+             # Archive system_dlkm_staging_dir
+               tar czf {system_dlkm_staging_archive} -C {system_dlkm_staging_dir} .
+             # Remove staging directories
+               rm -rf {system_dlkm_staging_dir}
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        system_dlkm_staging_dir = system_dlkm_staging_dir,
+        system_dlkm_img = system_dlkm_img.path,
+        system_dlkm_staging_archive = system_dlkm_staging_archive.path,
+    )
+
+    default_info = _build_modules_image_impl_common(
+        ctx = ctx,
+        what = "system_dlkm",
+        outputs = [system_dlkm_img, system_dlkm_staging_archive],
+        build_command = command,
+        modules_staging_dir = modules_staging_dir,
+    )
+    return [default_info]
+
+_system_dlkm_image = rule(
+    implementation = _system_dlkm_image_impl,
+    doc = """Build system_dlkm.img an erofs image with GKI modules.
+
+When included in a `copy_to_dist_dir` rule, this rule copies the `system_dlkm.img` to `DIST_DIR`.
+
+""",
+    attrs = _build_modules_image_attrs_common(),
 )
 
 def _vendor_dlkm_image_impl(ctx):
@@ -1937,6 +2126,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
         "outs": attr.output_list(),
         "mkbootimg": attr.label(
             allow_single_file = True,
+            default = "//tools/mkbootimg:mkbootimg.py",
         ),
         "_debug_print_scripts": attr.label(
             default = "//build/kleaf:debug_print_scripts",
@@ -1997,10 +2187,11 @@ def kernel_images(
         build_initramfs = None,
         build_vendor_dlkm = None,
         build_boot_images = None,
+        build_system_dlkm = None,
         build_dtbo = None,
-        dtbo_srcs = [],
-        mkbootimg = "//tools/mkbootimg:mkbootimg.py",
-        deps = [],
+        dtbo_srcs = None,
+        mkbootimg = None,
+        deps = None,
         boot_image_outs = None):
     """Build multiple kernel images.
 
@@ -2014,7 +2205,8 @@ def kernel_images(
           `x86_64_outs` from `common_kernels.bzl`).
         kernel_build: A `kernel_build` rule. Must specify if `build_boot_images`.
         mkbootimg: Path to the mkbootimg.py script which builds boot.img.
-          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`.
+          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`. If `None`,
+          default to `//tools/mkbootimg:mkbootimg.py`.
         deps: Additional dependencies to build images.
 
           This must include the following:
@@ -2042,6 +2234,7 @@ def kernel_images(
             `VENDOR_BOOTCONFIG`
           - The list contains `dtb.img`
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
+        build_system_dlkm: Whether to build system_dlkm.img an erofs image with GKI modules.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `VENDOR_DLKM_MODULES_LIST` is non-empty.
         build_boot_images: Whether to build boot images. It must be set if either `BUILD_BOOT_IMG`
@@ -2108,6 +2301,14 @@ def kernel_images(
             vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
         )
         all_rules.append(":{}_initramfs".format(name))
+
+    if build_system_dlkm:
+        _system_dlkm_image(
+            name = "{}_system_dlkm_image".format(name),
+            kernel_modules_install = kernel_modules_install,
+            deps = deps,
+        )
+        all_rules.append(":{}_system_dlkm_image".format(name))
 
     if build_vendor_dlkm:
         _vendor_dlkm_image(
@@ -2215,8 +2416,8 @@ def _kernel_kythe_impl(ctx):
     runextractor_error = ctx.actions.declare_file(ctx.attr.name + "/runextractor_error.log")
     kzip_dir = all_kzip.dirname + "/intermediates"
     extracted_kzip_dir = all_kzip.dirname + "/extracted"
+    transitive_inputs = [src.files for src in ctx.attr.kernel_build[_SrcsInfo].srcs]
     inputs = [compile_commands]
-    inputs += ctx.files._srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     command = ctx.attr.kernel_build[_KernelEnvInfo].setup
     command += """
@@ -2248,7 +2449,7 @@ def _kernel_kythe_impl(ctx):
         runextractor_error = runextractor_error.path,
     )
     ctx.actions.run_shell(
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [all_kzip, runextractor_error],
         command = command,
         progress_message = "Building Kythe source code index (kzip) {}".format(ctx.label),
@@ -2258,9 +2459,6 @@ def _kernel_kythe_impl(ctx):
         all_kzip,
         runextractor_error,
     ]))
-
-def _get_sources(kernel_build):
-    return Label(str(kernel_build) + "_sources")
 
 kernel_kythe = rule(
     implementation = _kernel_kythe_impl,
@@ -2272,6 +2470,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
             providers = [_KernelEnvInfo, _KernelBuildInfo],
+            aspects = [_srcs_aspect],
         ),
         "compile_commands": attr.label(
             mandatory = True,
@@ -2282,6 +2481,5 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             default = "android.googlesource.com/kernel/superproject",
             doc = "The value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
         ),
-        "_srcs": attr.label(default = _get_sources),
     },
 )
