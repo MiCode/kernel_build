@@ -59,6 +59,7 @@ docs(
     srcs = [
         "common_kernels.bzl",
         "kernel.bzl",
+        "key_value_repo.bzl",
     ],
     default = "kernel.bzl",
     deps = [
