@@ -13,8 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-
-_KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION = "r437112"
+load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -137,7 +136,7 @@ def kernel_build(
     the build. The effective output file names will be
     `$(name)/$(output_file)`. Any other artifact is not guaranteed to be
     accessible after the rule has run. The default `toolchain_version` is defined
-    with a sensible default, but can be overriden.
+    with the value in `common/build.config.constants`, but can be overriden.
 
     A few additional labels are generated.
     For example, if name is `"kernel_aarch64"`:
@@ -674,7 +673,7 @@ _kernel_env = rule(
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
-            default = _KERNEL_BUILD_DEFAULT_TOOLCHAIN_VERSION,
+            default = CLANG_VERSION,
         ),
         "kconfig_ext": attr.label(
             allow_single_file = True,
