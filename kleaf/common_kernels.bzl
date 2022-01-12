@@ -17,8 +17,8 @@ load(
     "kernel_build",
     "kernel_compile_commands",
     "kernel_images",
-    "kernel_modules_install",
     "kernel_kythe",
+    "kernel_modules_install",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 
@@ -38,6 +38,29 @@ aarch64_outs = _common_outs + [
 
 # Common output files for x86_64 kernel builds.
 x86_64_outs = _common_outs + ["bzImage"]
+
+_ARCH_CONFIGS = [
+    (
+        "kernel_aarch64",
+        "build.config.gki.aarch64",
+        aarch64_outs,
+    ),
+    (
+        "kernel_aarch64_debug",
+        "build.config.gki-debug.aarch64",
+        aarch64_outs,
+    ),
+    (
+        "kernel_x86_64",
+        "build.config.gki.x86_64",
+        x86_64_outs,
+    ),
+    (
+        "kernel_x86_64_debug",
+        "build.config.gki-debug.x86_64",
+        x86_64_outs,
+    ),
+]
 
 def define_common_kernels(
         toolchain_version = None,
@@ -81,7 +104,7 @@ def define_common_kernels(
     if toolchain_version:
         kernel_build_kwargs["toolchain_version"] = toolchain_version
 
-    [[
+    for name, config, outs in _ARCH_CONFIGS:
         native.filegroup(
             name = name + "_sources",
             srcs = native.glob(
@@ -92,7 +115,7 @@ def define_common_kernels(
                     ".git/**",
                 ],
             ),
-        ),
+        )
 
         kernel_build(
             name = name,
@@ -101,19 +124,19 @@ def define_common_kernels(
             build_config = config,
             visibility = visibility,
             **kernel_build_kwargs
-        ),
+        )
 
         kernel_modules_install(
             name = name + "_modules_install",
             kernel_build = name,
-        ),
+        )
 
         kernel_images(
             name = name + "_system_dlkm",
             kernel_build = name,
             kernel_modules_install = name + "_modules_install",
             build_system_dlkm = True,
-        ),
+        )
 
         copy_to_dist_dir(
             name = name + "_dist",
@@ -123,29 +146,7 @@ def define_common_kernels(
                 name + "_system_dlkm",
             ],
             flat = True,
-        ),
-    ] for name, config, outs in [
-        (
-            "kernel_aarch64",
-            "build.config.gki.aarch64",
-            aarch64_outs,
-        ),
-        (
-            "kernel_aarch64_debug",
-            "build.config.gki-debug.aarch64",
-            aarch64_outs,
-        ),
-        (
-            "kernel_x86_64",
-            "build.config.gki.x86_64",
-            x86_64_outs,
-        ),
-        (
-            "kernel_x86_64_debug",
-            "build.config.gki-debug.x86_64",
-            x86_64_outs,
-        ),
-    ]]
+        )
 
     native.alias(
         name = "kernel",
