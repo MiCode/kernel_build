@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import os
 import subprocess
 import sys
@@ -44,6 +45,18 @@ def main(root_dir, bazel_args, env):
     bazelrc_name = "build/kernel/kleaf/common.bazelrc"
 
     absolute_out_dir = "{root_dir}/out".format(root_dir=root_dir)
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--use_prebuilt_gki")
+    known_args, bazel_args = parser.parse_known_args(bazel_args)
+    if known_args.use_prebuilt_gki:
+        # Insert before positional arguments
+        try:
+            idx = bazel_args.index("--")
+        except ValueError:
+            idx = len(bazel_args)
+        bazel_args.insert(idx, "--//common:use_prebuilt_gki")
+        env["KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = "gki_prebuilts=" + known_args.use_prebuilt_gki
 
     command_args = [
         bazel_path,

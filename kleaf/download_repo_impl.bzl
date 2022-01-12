@@ -72,6 +72,15 @@ def _download_artifact_repo_impl(repository_ctx):
 
     if not build_number:
         SAMPLE_BUILD_NUMBER = "8077484"
+        if repository_ctx.attr.parent_repo == "gki_prebuilts":
+            fail("""ERROR: {parent_repo}: No build_number specified. Fix by specifying `--use_prebuilt_gki=<build_number>"`, e.g.
+    bazel build --use_prebuilt_gki={build_number} @{parent_repo}//{filename}
+""".format(
+                filename = repository_ctx.attr.filename,
+                parent_repo = repository_ctx.attr.parent_repo,
+                build_number = SAMPLE_BUILD_NUMBER,
+            ))
+
         fail("""ERROR: {parent_repo}: No build_number specified.
 
 Fix by one of the following:
@@ -172,14 +181,11 @@ def download_artifacts_repo(
     You may leave the build_number empty. If so, you must override the build number at build time.
     See below.
 
-    You may override the build number in the command line by specifing the build number via
-    `KLEAF_DOWNLOAD_BUILD_NUMBER_MAP`. The `KLEAF_DOWNLOAD_BUILD_NUMBER_MAP` should be a
-    comma-separated list of `repo_name=build_number` pairs.
-
-    In the above example, you may override the build number to `8078291` with:
+    For the repo `gki_prebuilts`, you may override the build number with `--use_prebuilt_gki`,
+    e.g.
 
     ```
-    KLEAF_DOWNLOAD_BUILD_NUMBER_MAP="gki_prebuilts=8078291" bazel build @gki_prebuilts//vmlinux
+    bazel build --use_prebuilt_gki=8078291 @gki_prebuilts//vmlinux
     ```
 
     Args:
