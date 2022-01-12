@@ -140,6 +140,14 @@ def define_common_kernels(
             name = name,
             srcs = [name + "_sources"],
             outs = outs,
+            implicit_outs = [
+                # Kernel build time module signining utility and keys
+                # Only available during GKI builds
+                # Device fragments need to add: '# CONFIG_MODULE_SIG_ALL is not set'
+                    "scripts/sign-file",
+                    "certs/signing_key.pem",
+                    "certs/signing_key.x509"
+            ],
             build_config = config,
             visibility = visibility,
             **kernel_build_kwargs

@@ -2032,8 +2032,19 @@ def _system_dlkm_image_impl(ctx):
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
                  {system_dlkm_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
                modules_root_dir=$(ls {system_dlkm_staging_dir}/lib/modules/*)
+             # Re-sign the stripped modules using kernel build time key
+               for module in $(find {system_dlkm_staging_dir} -type f -name '*.ko'); do
+                   "${{OUT_DIR}}"/scripts/sign-file sha1 \
+                   "${{OUT_DIR}}"/certs/signing_key.pem \
+                   "${{OUT_DIR}}"/certs/signing_key.x509 "${{module}}"
+               done
              # Build system_dlkm.img with signed GKI modules
                mkfs.erofs -zlz4hc "{system_dlkm_img}" "{system_dlkm_staging_dir}"
+             # No need to sign the image as modules are signed; add hash footer
+               avbtool add_hash_footer \
+                   --partition_name system_dlkm \
+                   --partition_size $((64 << 20)) \
+                   --image "{system_dlkm_img}"
              # Archive system_dlkm_staging_dir
                tar czf {system_dlkm_staging_archive} -C {system_dlkm_staging_dir} .
              # Remove staging directories
