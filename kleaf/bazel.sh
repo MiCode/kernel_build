@@ -13,12 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script is located at ${ROOT_DIR}/build/{kernel/,}kleaf/bazel.sh.
-# TODO(b/204425264): remove hack once we cut over to build/kernel/ for branches
-ROOT_DIR=$(dirname $(dirname $(dirname $(readlink -f $0 ) ) ) )
-if [[ ! -f ${ROOT_DIR}/WORKSPACE ]]; then
-  ROOT_DIR=$(dirname ${ROOT_DIR})
-fi
+ROOT_DIR=$($(dirname $(dirname $(readlink -f $0)))/gettop.sh)
 
 BAZEL_PATH="${ROOT_DIR}/prebuilts/bazel/linux-x86_64/bazel"
 BAZEL_JDK_PATH="${ROOT_DIR}/prebuilts/jdk/jdk11/linux-x86"

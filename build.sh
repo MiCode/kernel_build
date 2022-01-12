@@ -416,7 +416,7 @@ set -e
 OLD_ENVIRONMENT=$(mktemp)
 export -p > ${OLD_ENVIRONMENT}
 
-export ROOT_DIR=$(readlink -f $(dirname $0)/..)
+export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
 source "${ROOT_DIR}/build/build_utils.sh"
 source "${ROOT_DIR}/build/_setup_env.sh"
 

@@ -20,7 +20,7 @@ set -e
 
 export STATIC_ANALYSIS_SRC_DIR=$(dirname $(readlink -f $0))
 
-ROOT_DIR="${STATIC_ANALYSIS_SRC_DIR}/../../"
+ROOT_DIR=$($(dirname $(dirname $(readlink -f $0)))/gettop.sh)
 pushd ${ROOT_DIR}
 source ${STATIC_ANALYSIS_SRC_DIR}/../_setup_env.sh
 export OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})

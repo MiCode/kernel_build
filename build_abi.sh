@@ -62,7 +62,7 @@
 #     symbols from vmlinux and GKI modules, instead of the undefined symbols
 #     from vendor modules. This property is disabled by default.
 
-export ROOT_DIR=$(readlink -f $(dirname $0)/..)
+export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
 
 function show_help {
     echo "USAGE: $0 [-u|--update] [-n|--nodiff]"
