@@ -132,7 +132,7 @@ def define_common_kernels(
         )
 
         kernel_images(
-            name = name + "_system_dlkm",
+            name = name + "_images",
             kernel_build = name,
             kernel_modules_install = name + "_modules_install",
             build_system_dlkm = True,
@@ -143,7 +143,7 @@ def define_common_kernels(
             data = [
                 name + "_for_dist",
                 name + "_modules_install",
-                name + "_system_dlkm",
+                name + "_images",
             ],
             flat = True,
         )
