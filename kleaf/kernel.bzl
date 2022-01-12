@@ -400,12 +400,6 @@ def kernel_build(
         **kwargs
     )
 
-    labels_for_dist = [
-        name,
-        uapi_headers_target_name,
-        headers_target_name,
-    ]
-
     if generate_vmlinux_btf:
         vmlinux_btf_name = name + "_vmlinux_btf"
         _vmlinux_btf(
@@ -414,13 +408,6 @@ def kernel_build(
             env = env_target_name,
             **kwargs
         )
-        labels_for_dist.append(vmlinux_btf_name)
-
-    native.filegroup(
-        name = name + "_for_dist",
-        srcs = labels_for_dist,
-        **kwargs
-    )
 
 _DtsTreeInfo = provider(fields = {
     "srcs": "DTS tree sources",
