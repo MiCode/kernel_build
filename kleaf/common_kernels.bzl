@@ -73,25 +73,44 @@ def define_common_kernels(
     kernels and their variants. They are defined based on the conventionally
     used `BUILD_CONFIG` file and produce usual output files.
 
-    The targets declared:
-    - `kernel_aarch64`
-      - `kernel_aarch64_sources`
-      - `kernel_aarch64_dist`
-    - `kernel_aarch64_debug`
-      - `kernel_aarch64_debug_dist`
-    - `kernel_x86_64`
-      - `kernel_x86_64_sources`
-      - `kernel_x86_64_dist`
-    - `kernel_x86_64_debug`
-      - `kernel_x86_64_debug_dist`
-    - `kernel_aarch64_kythe`
-      - `kernel_aarch64_kythe_dist`
+    Targets declared for kernel build (parent list item depends on child list item):
+    - `kernel_aarch64_sources`
+    - `kernel_aarch64_dist`
+      - `kernel_aarch64`
+      - `kernel_aarch64_uapi_headers`
+      - `kernel_aarch64_additional_artifacts`
+    - `kernel_aarch64_debug_dist`
+      - `kernel_aarch64_debug`
+    - `kernel_x86_64_sources`
+    - `kernel_x86_64_dist`
+      - `kernel_x86_64`
+      - `kernel_x86_64_uapi_headers`
+      - `kernel_x86_64_additional_artifacts`
+    - `kernel_x86_64_debug_dist`
+      - `kernel_x86_64_debug`
+
+    `<name>` (aka `kernel_{aarch64,x86}{_debug,}`) targets build the
+    main kernel build artifacts, e.g. `vmlinux`, etc.
+
+    `<name>_sources` are convenience filegroups that refers to all sources required to
+    build `<name>` and related targets.
+
+    `<name>_uapi_headers` targets build `kernel-uapi-headers.tar.gz`.
+
+    `<name>_additional_artifacts` contains additional artifacts that may be added to
+    a distribution. This includes:
+      - Images, including `system_dlkm`, etc.
+      - `kernel-headers.tar.gz`
 
     `<name>_dist` targets can be run to obtain a distribution outside the workspace.
 
     Aliases are created to refer to the GKI kernel (`kernel_aarch64`) as
     "`kernel`" and the corresponding dist target (`kernel_aarch64_dist`) as
     "`kernel_dist`".
+
+    Targets declared for cross referencing:
+    - `kernel_aarch64_kythe_dist`
+      - `kernel_aarch64_kythe`
 
     Args:
       toolchain_version: If not set, use default value in `kernel_build`.
@@ -138,14 +157,23 @@ def define_common_kernels(
             build_system_dlkm = True,
         )
 
+        # Everything in name + "_dist", minus UAPI headers, because
+        # device-specific external kernel modules may install different headers.
+        native.filegroup(
+            name = name + "_additional_artifacts",
+            srcs = [
+                name + "_headers",
+                name + "_modules_install",
+                name + "_images",
+            ],
+        )
+
         copy_to_dist_dir(
             name = name + "_dist",
             data = [
                 name,
-                name + "_headers",
                 name + "_uapi_headers",
-                name + "_modules_install",
-                name + "_images",
+                name + "_additional_artifacts",
             ],
             flat = True,
         )

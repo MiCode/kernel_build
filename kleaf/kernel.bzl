@@ -620,6 +620,34 @@ def _get_tools(toolchain_version):
         )
     ]
 
+_KernelToolchainInfo = provider(fields = {
+    "toolchain_version": "The toolchain version",
+})
+
+def _kernel_toolchain_aspect_impl(target, ctx):
+    if ctx.rule.kind == "_kernel_build":
+        return ctx.rule.attr.config[_KernelToolchainInfo]
+    if ctx.rule.kind == "_kernel_config":
+        return ctx.rule.attr.env[_KernelToolchainInfo]
+    if ctx.rule.kind == "_kernel_env":
+        return _KernelToolchainInfo(toolchain_version = ctx.rule.attr.toolchain_version)
+    if ctx.rule.kind == "kernel_filegroup":
+        # TODO(b/213939521): Support _KernelToolchainInfo on prebuilts
+        return _KernelToolchainInfo()
+    fail("{label}: Unable to get toolchain info because {kind} is not supported.".format(
+        kind = ctx.rule.kind,
+        label = ctx.label,
+    ))
+
+_kernel_toolchain_aspect = aspect(
+    implementation = _kernel_toolchain_aspect_impl,
+    doc = "An aspect describing the toolchain of a `_kernel_build`, `_kernel_config`, or `_kernel_env` rule.",
+    attr_aspects = [
+        "config",
+        "env",
+    ],
+)
+
 _kernel_env = rule(
     implementation = _kernel_env_impl,
     doc = """Generates a rule that generates a source-able build environment.
@@ -838,10 +866,42 @@ _kernel_build_aspect = aspect(
     ],
 )
 
+def _kernel_build_check_toolchain(ctx):
+    """
+    Check toolchain_version is the same as base_kernel.
+    """
+
+    this_toolchain = ctx.attr.config[_KernelToolchainInfo].toolchain_version
+    base_toolchain = _getoptattr(ctx.attr.base_kernel[_KernelToolchainInfo], "toolchain_version")
+
+    # TODO(b/213939521): Support _KernelToolchainInfo on kernel_filegroup and drop the None check
+    if base_toolchain == None:
+        return
+
+    if this_toolchain != base_toolchain:
+        fail("""{this_label}:
+
+ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
+       `toolchain_version` is "{base_toolchain}" for "{base_kernel}" (`base_kernel`).
+       They must use the same `toolchain_version`.
+
+       Fix by setting `toolchain_version` of "{this_label}"
+       to be the one used by "{base_kernel}".
+       If "{base_kernel}" does not set `toolchain_version` explicitly, do not set
+       `toolchain_version` for "{this_label}" either.
+""".format(
+            this_label = ctx.label,
+            this_toolchain = this_toolchain,
+            base_kernel = ctx.attr.base_kernel.label,
+            base_toolchain = base_toolchain,
+        ))
+
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
     base_kernel_files = []
     if ctx.attr.base_kernel:
+        _kernel_build_check_toolchain(ctx)
+
         # Create a directory for KBUILD_MIXED_TREE. Flatten the directory structure of the files
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
         # only change when the dependent ctx.attr.base_kernel changes.
@@ -1032,6 +1092,7 @@ _kernel_build = rule(
         "config": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo],
+            aspects = [_kernel_toolchain_aspect],
             doc = "the kernel_config target",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
@@ -1049,6 +1110,7 @@ _kernel_build = rule(
         ),
         "base_kernel": attr.label(
             providers = [KernelFilesInfo],
+            aspects = [_kernel_toolchain_aspect],
         ),
         "modules_prepare": attr.label(),
         "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
@@ -1204,7 +1266,7 @@ def _kernel_module_impl(ctx):
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
                  module_strip_flag="INSTALL_MOD_STRIP=1"
                fi
-               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
+               ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
 
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
@@ -1260,7 +1322,10 @@ def _kernel_module_impl(ctx):
              # Use a new shell to avoid polluting variables
                (
              # Set variables
-               ext_mod_rel=$(python3 -c "import os.path; print(os.path.relpath('${{ROOT_DIR}}/{ext_mod}', '${{KERNEL_DIR}}'))")
+               # rel_path requires the existence of ${{ROOT_DIR}}/{ext_mod}, which may not be the case for
+               # _kernel_modules_install. Make that.
+               mkdir -p ${{ROOT_DIR}}/{ext_mod}
+               ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
              # Restore Modules.symvers
                mkdir -p ${{OUT_DIR}}/${{ext_mod_rel}}
                cp {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers
@@ -2376,7 +2441,7 @@ This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/gener
 that gives a convenient name to a collection of targets, which can be referenced from other rules.
 
 In addition, this rule is conformed with [`KernelFilesInfo`](#kernelfilesinfo), so it can be used
-in the `base_build` attribute of a [`kernel_build`](#kernel_build).
+in the `base_kernel` attribute of a [`kernel_build`](#kernel_build).
 """,
     attrs = {
         "srcs": attr.label_list(

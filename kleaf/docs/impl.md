@@ -186,6 +186,10 @@ that the outputs are analogous to those produced by `build/build.sh`:
   This copies all external kernel modules to the distribution directory.
 * The name of the `kernel_images` target you have created in Step 4. This copies
   all partition images to the distribution directory.
+* GKI artifacts, including:
+  * `//common:kernel_aarch64`
+  * `//common:kernel_aarch64_additional_artifacts`
+* UAPI headers, e.g. `//common:kernel_aarch64_uapi_headers`
 
 Example for Pixel 2021 (see the `copy_to_dist_dir` target named `slider_dist`):
 
