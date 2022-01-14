@@ -141,7 +141,9 @@ def define_common_kernels(
         copy_to_dist_dir(
             name = name + "_dist",
             data = [
-                name + "_for_dist",
+                name,
+                name + "_headers",
+                name + "_uapi_headers",
                 name + "_modules_install",
                 name + "_images",
             ],

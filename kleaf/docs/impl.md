@@ -176,9 +176,10 @@ Set `flat = True` so the directory structure within `$DIST_DIR` is flattened.
 Add the following to the `data` attribute of the `copy_to_dist_dir` target so
 that the outputs are analogous to those produced by `build/build.sh`:
 
-* The name of the `kernel_build` you have created in Step 1 with `_for_dist`
-  appended if you have done Step 1, e.g. `:tuna_for_dist`. This adds all `outs`
+* The name of the `kernel_build` you have created in Step 1,
+  e.g. `:tuna`. This adds all `outs`
   and `module_outs` to the distribution directory.
+  * This usually includes DTB files and in-tree kernel modules.
 * The name of the `kernel_modules_install` target you have created in Step 3.
   You may skip the `kernel_modules` targets created in Step 2, because
   the `kernel_modules_install` target includes all `kernel_modules` targets.

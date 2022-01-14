@@ -955,15 +955,12 @@ if [ "${BUILD_SYSTEM_DLKM}" = "1"  ]; then
   # Archive system_dlkm staging directory
   tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
 
-  # Verify system_dlkm.img size is less than /system_dlkm partition size(64MB)
-  SYSTEM_DLKM_PARTITION_SIZE=67108864
-  SYSTEM_DLKM_IMAGE_SIZE=$(stat --format=%s "${DIST_DIR}/system_dlkm.img")
-  if [ "${SYSTEM_DLKM_IMAGE_SIZE}" -gt "${SYSTEM_DLKM_PARTITION_SIZE}" ]; then
-    echo "ERROR: system_dlkm image size exceed partition size" >&2
-    echo "  system_dlkm image size = ${SYSTEM_DLKM_IMAGE_SIZE}" >&2
-    echo "  system_dlkm partition size = ${SYSTEM_DLKM_PARTITION_SIZE}" >&2
-    exit 1
-  fi
+  # No need to sign the image as modules are signed
+  SYSTEM_DLKM_PARTITION_SIZE=$((64 << 20))
+  avbtool add_hash_footer \
+    --partition_name system_dlkm \
+    --partition_size ${SYSTEM_DLKM_PARTITION_SIZE} \
+    --image "${DIST_DIR}/system_dlkm.img"
 fi
 
 if [ -n "${VENDOR_DLKM_MODULES_LIST}" ]; then
