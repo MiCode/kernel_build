@@ -144,6 +144,7 @@ def define_common_kernels(
             name = name + "_images",
             kernel_build = name,
             kernel_modules_install = name + "_modules_install",
+            # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
             build_system_dlkm = True,
             deps = [
                 # Keep the following in sync with build.config.gki* MODULES_LIST
@@ -156,6 +157,7 @@ def define_common_kernels(
         native.filegroup(
             name = name + "_additional_artifacts",
             srcs = [
+                # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
                 name + "_headers",
                 name + "_modules_install",
                 name + "_images",
