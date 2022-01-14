@@ -35,9 +35,10 @@ filegroup(
         "_setup_env.sh",
         "build.sh",
         "build_utils.sh",
+        "//build/kernel:internal-build-tools",
     ] + glob(
-        ["build-tools/**"],
-        allow_empty = False,
+        ["build-tools/path/**"],
+        allow_empty = package_name() != "build",
     ),
 )
 
@@ -49,5 +50,19 @@ filegroup(
         "abi/process_symbols",
         "abi/symbols.allow",
         "abi/symbols.deny",
+    ],
+)
+
+# Hack for build -> build/kernel transition.
+# Rule declared as build/kernel/BUILD.bazel
+# TODO(b/204425264): Resolve kernel-build-scripts properly
+filegroup(
+    name = "internal-build-tools",
+    srcs = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = package_name() != "build/kernel",
+    ),
+    visibility = [
+        "//build:__pkg__",
     ],
 )
