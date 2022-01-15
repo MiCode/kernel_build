@@ -49,3 +49,5 @@ GKI_DOWNLOAD_CONFIGS = [
         ] + GKI_MODULES,  # corresponding to _modules_install
     },
 ]
+
+TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
