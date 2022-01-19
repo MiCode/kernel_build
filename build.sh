@@ -464,7 +464,7 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_ENVIRON+=($(export -p | sed -n -E -e 's/.* GKI_([^=]+=.*)$/\1/p' | tr '\n' ' '))
   GKI_ENVIRON+=("OUT_DIR=${GKI_OUT_DIR}")
   GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
-  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh $*" ) || exit 1
 
   # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
   MAKE_ARGS+=("KBUILD_MIXED_TREE=$(readlink -m ${GKI_DIST_DIR})")
