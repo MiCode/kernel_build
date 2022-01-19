@@ -2032,8 +2032,19 @@ def _system_dlkm_image_impl(ctx):
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
                  {system_dlkm_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
                modules_root_dir=$(ls {system_dlkm_staging_dir}/lib/modules/*)
+             # Re-sign the stripped modules using kernel build time key
+               for module in $(find {system_dlkm_staging_dir} -type f -name '*.ko'); do
+                   "${{OUT_DIR}}"/scripts/sign-file sha1 \
+                   "${{OUT_DIR}}"/certs/signing_key.pem \
+                   "${{OUT_DIR}}"/certs/signing_key.x509 "${{module}}"
+               done
              # Build system_dlkm.img with signed GKI modules
                mkfs.erofs -zlz4hc "{system_dlkm_img}" "{system_dlkm_staging_dir}"
+             # No need to sign the image as modules are signed; add hash footer
+               avbtool add_hash_footer \
+                   --partition_name system_dlkm \
+                   --partition_size $((64 << 20)) \
+                   --image "{system_dlkm_img}"
              # Archive system_dlkm_staging_dir
                tar czf {system_dlkm_staging_archive} -C {system_dlkm_staging_dir} .
              # Remove staging directories
@@ -2067,6 +2078,7 @@ When included in a `copy_to_dist_dir` rule, this rule copies the `system_dlkm.im
 def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_img = ctx.actions.declare_file("{}/vendor_dlkm.img".format(ctx.label.name))
     vendor_dlkm_modules_load = ctx.actions.declare_file("{}/vendor_dlkm.modules.load".format(ctx.label.name))
+    vendor_dlkm_modules_blocklist = ctx.actions.declare_file("{}/vendor_dlkm.modules.blocklist".format(ctx.label.name))
     modules_staging_dir = vendor_dlkm_img.dirname + "/staging"
     vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
     command = """
@@ -2082,6 +2094,11 @@ def _vendor_dlkm_image_impl(ctx):
             # Move output files into place
               mv "${{DIST_DIR}}/vendor_dlkm.img" {vendor_dlkm_img}
               mv "${{DIST_DIR}}/vendor_dlkm.modules.load" {vendor_dlkm_modules_load}
+              if [[ -f "${{DIST_DIR}}/vendor_dlkm.modules.blocklist" ]]; then
+                mv "${{DIST_DIR}}/vendor_dlkm.modules.blocklist" {vendor_dlkm_modules_blocklist}
+              else
+                : > {vendor_dlkm_modules_blocklist}
+              fi
             # Remove staging directories
               rm -rf {vendor_dlkm_staging_dir}
     """.format(
@@ -2090,12 +2107,13 @@ def _vendor_dlkm_image_impl(ctx):
         vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
         vendor_dlkm_img = vendor_dlkm_img.path,
         vendor_dlkm_modules_load = vendor_dlkm_modules_load.path,
+        vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist.path,
     )
 
     return _build_modules_image_impl_common(
         ctx = ctx,
         what = "vendor_dlkm",
-        outputs = [vendor_dlkm_img, vendor_dlkm_modules_load],
+        outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist],
         build_command = command,
         modules_staging_dir = modules_staging_dir,
         additional_inputs = [ctx.file.vendor_boot_modules_load],
@@ -2313,6 +2331,12 @@ def kernel_images(
         build_system_dlkm: Whether to build system_dlkm.img an erofs image with GKI modules.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `VENDOR_DLKM_MODULES_LIST` is non-empty.
+
+          Note: at the time of writing (Jan 2022), unlike `build.sh`,
+          `vendor_dlkm.modules.blocklist` is **always** created
+          regardless of the value of `VENDOR_DLKM_MODULES_BLOCKLIST`.
+          If `build_vendor_dlkm()` in `build_utils.sh` does not generate
+          `vendor_dlkm.modules.blocklist`, an empty file is created.
         build_boot_images: Whether to build boot images. It must be set if either `BUILD_BOOT_IMG`
           or `BUILD_VENDOR_BOOT_IMG` is set.
 

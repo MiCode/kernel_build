@@ -124,8 +124,8 @@ def download_files(url_base, files):
 
 def get_kernel_dir():
   """ Return the path of the kernel source directory in the same repo as this script."""
-  # download_from_ci lives in <ack manifest root>/build/gki
-  return pathlib.Path(os.path.abspath(__file__)).parents[2].joinpath('common')
+  # download_from_ci lives in <ack manifest root>/build/kernel/gki
+  return pathlib.Path(os.path.abspath(__file__)).parents[3].joinpath('common')
 
 def get_u_boot_dir():
   """ Return the path of the u-boot source directory in the same repo as this script."""
