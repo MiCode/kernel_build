@@ -409,7 +409,6 @@ def kernel_build(
         env = env_target_name,
         srcs = srcs,
         config = config_target_name + "/.config",
-        include_tar_gz = config_target_name + "/include.tar.gz",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if kmi_symbol_lists else None,
     )
@@ -845,7 +844,7 @@ def _kernel_config_impl(ctx):
     ]
 
     config = ctx.outputs.config
-    include_tar_gz = ctx.outputs.include_tar_gz
+    include_dir = ctx.actions.declare_directory(ctx.attr.name + "_include")
 
     lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
 
@@ -916,10 +915,10 @@ def _kernel_config_impl(ctx):
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
           cp -p ${{OUT_DIR}}/.config {config}
-          tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
+          rsync -a ${{OUT_DIR}}/include/ {include_dir}/
         """.format(
         config = config.path,
-        include_tar_gz = include_tar_gz.path,
+        include_dir = include_dir.path,
         lto_command = lto_command,
         trim_kmi_command = trim_kmi_command,
     )
@@ -928,20 +927,21 @@ def _kernel_config_impl(ctx):
     ctx.actions.run_shell(
         mnemonic = "KernelConfig",
         inputs = srcs,
-        outputs = [config, include_tar_gz],
+        outputs = [config, include_dir],
         tools = ctx.attr.env[_KernelEnvInfo].dependencies,
         progress_message = "Creating kernel config %s" % ctx.attr.name,
         command = command,
     )
 
     setup_deps = ctx.attr.env[_KernelEnvInfo].dependencies + \
-                 [config, include_tar_gz]
+                 [config, include_dir]
     setup = ctx.attr.env[_KernelEnvInfo].setup + """
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
            rsync -p -L {config} ${{OUT_DIR}}/.config
-           tar xf {include_tar_gz} -C ${{OUT_DIR}}
-    """.format(config = config.path, include_tar_gz = include_tar_gz.path)
+           rsync -a {include_dir}/ ${{OUT_DIR}}/include/
+           find ${{OUT_DIR}}/include -type d -exec chmod +w {{}} \\;
+    """.format(config = config.path, include_dir = include_dir.path)
     if ctx.file.raw_kmi_symbol_list:
         # When CONFIG_UNUSED_KSYMS_WHITELIST is a relative path, it is
         # interpreted as a path relative to $abs_srctree, which is
@@ -958,7 +958,7 @@ def _kernel_config_impl(ctx):
             dependencies = setup_deps,
             setup = setup,
         ),
-        DefaultInfo(files = depset([config, include_tar_gz])),
+        DefaultInfo(files = depset([config, include_dir])),
     ]
 
 _kernel_config = rule(
@@ -972,10 +972,6 @@ _kernel_config = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
-        "include_tar_gz": attr.output(
-            mandatory = True,
-            doc = "the packaged include/ files",
-        ),
         "lto": attr.label(default = "//build/kernel/kleaf:lto"),
         "trim_nonlisted_kmi": attr.bool(doc = "If true, modify the config to trim non-listed symbols."),
         "raw_kmi_symbol_list": attr.label(
