@@ -28,6 +28,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import urllib.request
 
@@ -251,13 +252,17 @@ def get_or_update_abi_definition(target, output_dir):
 
     shutil.copyfile(tmp / abi_xml, output_dir / "abi.xml")
 
-def download_kernel(target, version, output_dir):
+def download_kernel(target, version, output_dir, fetch_system_dlkm=False):
   if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
 
   build_is_arm64 = target in ARM64_TARGETS
   files = ["Image"] if build_is_arm64 else ["bzImage"]
   files.append("System.map")
+
+  if fetch_system_dlkm:
+    # Fetch GKI modules tarball with signed modules
+    files.append("system_dlkm_staging_archive.tar.gz")
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
   func = functools.partial(download, url_base, output_dir)
@@ -270,6 +275,15 @@ def download_kernel(target, version, output_dir):
   else:
     suffix = ""
   repackage_kernels(build_is_arm64, output_dir, version, suffix)
+
+  if fetch_system_dlkm:
+    # Extract the tarball for system_dlkm image content
+    system_dlkm_tarball = os.path.join(output_dir, "system_dlkm_staging_archive.tar.gz")
+    system_dlkm_staging = os.path.join(output_dir, "system_dlkm_staging")
+    os.mkdir(system_dlkm_staging)
+    with tarfile.open(system_dlkm_tarball) as system_dlkm_tar:
+      system_dlkm_tar.extractall(system_dlkm_staging)
+    os.remove(system_dlkm_tarball)
 
 def download_kernel_modules(target, output_dir, fetch_initramfs=False):
   if not os.path.isdir(output_dir):
@@ -417,7 +431,7 @@ def update_androidx(output_dir, version):
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
   subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_dir)
   download_kernel("kernel_debug_aarch64", version, arm64_dir)
-  download_kernel("kernel_aarch64", version, arm64_dir)
+  download_kernel("kernel_aarch64", version, arm64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_aarch64", arm64_dir)
   get_or_update_abi_definition("kernel_aarch64", arm64_dir)
   write_prebuilt_info(arm64_dir)
@@ -429,7 +443,7 @@ def update_androidx(output_dir, version):
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_dir)
   subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_dir)
   download_kernel("kernel_debug_x86_64", version, x86_64_dir)
-  download_kernel("kernel_x86_64", version, x86_64_dir)
+  download_kernel("kernel_x86_64", version, x86_64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_x86_64", x86_64_dir)
   get_or_update_abi_definition("kernel_x86_64", x86_64_dir)
   write_prebuilt_info(x86_64_dir)
@@ -445,7 +459,7 @@ def update_android_mainline(output_dir):
   (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
 
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
-  download_kernel("kernel_debug_aarch64", "mainline", arm64_dir)
+  download_kernel("kernel_debug_aarch64", "mainline", arm64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_aarch64", arm64_dir)
   write_prebuilt_info(arm64_dir)
   get_or_update_abi_definition("kernel_aarch64", arm64_dir)
