@@ -286,9 +286,6 @@ else
 fi
 
 effective_kernel_dir=$(readlink -f ${ROOT_DIR}/${KERNEL_DIR})
-if [ -n "${LLVM}" ]; then
-  CC=clang
-fi
 for f in "$abi_out_file" "$full_abi_out_file"; do
   # sanitize the abi.xml by removing any occurrences of the kernel path
   # and also do that with any left over paths sneaking in
@@ -300,7 +297,6 @@ for f in "$abi_out_file" "$full_abi_out_file"; do
   echo "
 <!--
      libabigail: $(abidw --version)
-     built with: $CC: $($CC --version | head -n1)
 -->" >> ${DIST_DIR}/$f
 done
 
