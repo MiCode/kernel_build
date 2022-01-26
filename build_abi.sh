@@ -267,22 +267,17 @@ COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
 id=${ABI_OUT_TAG:-$(git -C $KERNEL_DIR describe --dirty --always)}
 abi_out_file=abi-${id}.xml
 full_abi_out_file=abi-full-${id}.xml
-# if we have two to do, do them in parallel
 ${ROOT_DIR}/build/abi/dump_abi                \
     --linux-tree ${ABI_LINUX_TREE}            \
     ${ABI_VMLINUX_PATH}                       \
-    --out-file ${DIST_DIR}/${abi_out_file}    \
-    $KMI_SYMBOL_LIST_FLAG &
-if [ -n "$KMI_SYMBOL_LIST_FLAG" ]; then
-  ${ROOT_DIR}/build/abi/dump_abi                \
-      --linux-tree ${ABI_LINUX_TREE}            \
-      ${ABI_VMLINUX_PATH}                       \
-      --out-file ${DIST_DIR}/${full_abi_out_file} &
-  wait -n
-  wait -n
+    --out-file ${DIST_DIR}/${full_abi_out_file}
+if [ "$KMI_SYMBOL_LIST_FLAG" ]; then
+  ${ROOT_DIR}/build/abi/filter_abi               \
+      --in-file ${DIST_DIR}/${full_abi_out_file} \
+      --out-file ${DIST_DIR}/${abi_out_file}     \
+      $KMI_SYMBOL_LIST_FLAG
 else
-  wait -n
-  cp ${DIST_DIR}/${abi_out_file} ${DIST_DIR}/${full_abi_out_file}
+  cp ${DIST_DIR}/${full_abi_out_file} ${DIST_DIR}/${abi_out_file}
 fi
 
 effective_kernel_dir=$(readlink -f ${ROOT_DIR}/${KERNEL_DIR})
