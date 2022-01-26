@@ -275,6 +275,19 @@ class Stg(AbiTool):
                         raise
                     abi_changed = True
 
+            # TODO(b/214966642): Remove once ABI XML definitions are more stable.
+            if abi_changed:
+                # override this if there are only declaration <-> definition changes
+                ignorable = r"^(type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|)$"
+                override = True
+                with open(f"{basename}.small", "r") as input:
+                    for line in input:
+                        if not re.search(ignorable, line):
+                            override = False
+                            break
+                if override:
+                    abi_changed = False
+
             return abi_changed
 
 def get_abi_tool(abi_tool = "libabigail"):
