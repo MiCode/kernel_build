@@ -27,53 +27,53 @@ log = logging.getLogger(__name__)
 
 
 def _collapse_abidiff_impacted_interfaces(text):
-  """Removes impacted interfaces details, leaving just the summary count."""
-  return re.sub(
-      r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
-      r"\1\2\n",
-      text,
-      flags=re.MULTILINE)
+    """Removes impacted interfaces details, leaving just the summary count."""
+    return re.sub(
+        r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
+        r"\1\2\n",
+        text,
+        flags=re.MULTILINE)
 
 
 def _collapse_abidiff_offset_changes(text):
-  """Replaces "offset changed" lines with a one-line summary."""
-  regex = re.compile(
-      r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
-  items = []
-  indent = ""
-  offset = ""
-  new_text = []
+    """Replaces "offset changed" lines with a one-line summary."""
+    regex = re.compile(
+        r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
+    items = []
+    indent = ""
+    offset = ""
+    new_text = []
 
-  def emit_pending():
-    if not items:
-      return
-    count = len(items)
-    if count == 1:
-      only = items[0]
-      line = "{}{} offset changed {}\n".format(indent, only, offset)
-    else:
-      first = items[0]
-      last = items[-1]
-      line = "{}{} ({} .. {}) offsets changed {}\n".format(
-          indent, count, first, last, offset)
-    del items[:]
-    new_text.append(line)
+    def emit_pending():
+        if not items:
+            return
+        count = len(items)
+        if count == 1:
+            only = items[0]
+            line = "{}{} offset changed {}\n".format(indent, only, offset)
+        else:
+            first = items[0]
+            last = items[-1]
+            line = "{}{} ({} .. {}) offsets changed {}\n".format(
+                indent, count, first, last, offset)
+        del items[:]
+        new_text.append(line)
 
-  for line in text.splitlines(True):
-    match = regex.match(line)
-    if match:
-      (new_indent, item, new_offset) = match.group(1, 2, 3)
-      if new_indent != indent or new_offset != offset:
-        emit_pending()
-        indent = new_indent
-        offset = new_offset
-      items.append(item)
-    else:
-      emit_pending()
-      new_text.append(line)
+    for line in text.splitlines(True):
+        match = regex.match(line)
+        if match:
+            (new_indent, item, new_offset) = match.group(1, 2, 3)
+            if new_indent != indent or new_offset != offset:
+                emit_pending()
+                indent = new_indent
+                offset = new_offset
+            items.append(item)
+        else:
+            emit_pending()
+            new_text.append(line)
 
-  emit_pending()
-  return "".join(new_text)
+    emit_pending()
+    return "".join(new_text)
 
 
 def _collapse_abidiff_CRC_changes(text, limit):
