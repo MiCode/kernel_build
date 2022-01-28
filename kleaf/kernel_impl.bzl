@@ -126,6 +126,7 @@ def kernel_build(
         base_kernel = None,
         kconfig_ext = None,
         dtstree = None,
+        kmi_symbol_lists = None,
         toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -292,6 +293,24 @@ def kernel_build(
         implicit_outs: Like `outs`, but not copied to the distribution directory.
 
           Labels are created for each item in `implicit_outs` as in `outs`.
+        kmi_symbol_lists: A list of labels referring to the KMI symbol list files.
+
+          If `kmi_symbol_lists` is a non-empty list, `abi_symbollist` and
+          `abi_symbollist.report` are created and added to the
+          [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html),
+          and copied to `DIST_DIR` during distribution.
+
+          If `kmi_symbol_lists` is `None` or an empty list, `abi_symbollist` and
+          `abi_symbollist.report` are not created.
+
+          This is the Bazel equivalent of `KMI_SYMBOL_LIST` and `ADDTIONAL_KMI_SYMBOL_LISTS`.
+
+          It is possible to use a `glob()` to determine whether `abi_symbollist`
+          and `abi_symbollist.report` should be generated at build time.
+          For example:
+          ```
+          kmi_symbol_lists = glob(["android/abi_gki_aarch64*"]),
+          ```
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
@@ -305,6 +324,7 @@ def kernel_build(
     modules_prepare_target_name = name + "_modules_prepare"
     uapi_headers_target_name = name + "_uapi_headers"
     headers_target_name = name + "_headers"
+    kmi_symbol_list_target_name = name + "_kmi_symbol_list"
 
     if srcs == None:
         srcs = native.glob(
@@ -324,6 +344,12 @@ def kernel_build(
         dtstree = dtstree,
         srcs = srcs,
         toolchain_version = toolchain_version,
+    )
+
+    _kmi_symbol_list(
+        name = kmi_symbol_list_target_name,
+        env = env_target_name,
+        srcs = kmi_symbol_lists,
     )
 
     _kernel_config(
@@ -822,6 +848,63 @@ _kernel_config = rule(
             doc = "the packaged include/ files",
         ),
         "lto": attr.label(default = "//build/kernel/kleaf:lto"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+    },
+)
+
+def _kmi_symbol_list_impl(ctx):
+    if not ctx.files.srcs:
+        return
+
+    inputs = [] + ctx.files.srcs
+    inputs += ctx.attr.env[_KernelEnvInfo].dependencies
+    inputs += ctx.files._kernel_abi_scripts
+
+    outputs = []
+    out_file = ctx.actions.declare_file("{}/abi_symbollist".format(ctx.attr.name))
+    report_file = ctx.actions.declare_file("{}/abi_symbollist.report".format(ctx.attr.name))
+    outputs = [out_file, report_file]
+
+    command = ctx.attr.env[_KernelEnvInfo].setup + """
+        mkdir -p {out_dir}
+        {process_symbols} --out-dir={out_dir} --out-file={out_file_base} \
+            --report-file={report_file_base} --in-dir="${{ROOT_DIR}}/${{KERNEL_DIR}}" \
+            {srcs}
+    """.format(
+        process_symbols = ctx.file._process_symbols.path,
+        out_dir = out_file.dirname,
+        out_file_base = out_file.basename,
+        report_file_base = report_file.basename,
+        srcs = " ".join(["$(rel_path {} ${{ROOT_DIR}}/${{KERNEL_DIR}})".format(f.path) for f in ctx.files.srcs]),
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = outputs,
+        progress_message = "Creating abi_symbollist and report {}".format(ctx.label),
+        command = command,
+    )
+
+    return [
+        DefaultInfo(files = depset(outputs)),
+    ]
+
+_kmi_symbol_list = rule(
+    implementation = _kmi_symbol_list_impl,
+    doc = "Build abi_symbollist if there are sources, otherwise don't build anything",
+    attrs = {
+        "env": attr.label(
+            mandatory = True,
+            providers = [_KernelEnvInfo],
+            doc = "environment target that defines the kernel build environment",
+        ),
+        "srcs": attr.label_list(
+            doc = "`KMI_SYMBOL_LIST` + `ADDTIONAL_KMI_SYMBOL_LISTS`",
+            allow_files = True,
+        ),
+        "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
+        "_process_symbols": attr.label(default = "//build/kernel:abi/process_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
