@@ -127,6 +127,7 @@ def kernel_build(
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_lists = None,
+        trim_nonlisted_kmi = None,
         toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -311,6 +312,16 @@ def kernel_build(
           ```
           kmi_symbol_lists = glob(["android/abi_gki_aarch64*"]),
           ```
+        trim_nonlisted_kmi: If `True`, trim symbols not listed in
+          `kmi_symbol_lists`. This is the Bazel equivalent of
+          `TRIM_NONLISTED_KMI`.
+
+          Requires `kmi_symbol_lists` to be non-empty. If `kmi_symbol_lists`
+          is a `glob()`, it is possible to set `trim_nonlisted_kmi` to be a
+          value based on that `glob()`. For example:
+          ```
+          trim_nonlisted_kmi = len(glob(["android/abi_gki_aarch64*"])) > 0
+          ```
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
@@ -319,6 +330,9 @@ def kernel_build(
 
           These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
+    if trim_nonlisted_kmi and not kmi_symbol_lists:
+        fail("{}: trim_nonlisted_kmi requires a non-empty kmi_symbol_lists.".format(name))
+
     env_target_name = name + "_env"
     config_target_name = name + "_config"
     modules_prepare_target_name = name + "_modules_prepare"
@@ -372,6 +386,7 @@ def kernel_build(
         srcs = srcs,
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
+        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if trim_nonlisted_kmi else None,
     )
 
     _modules_prepare(
@@ -803,6 +818,22 @@ def _kernel_config_impl(ctx):
             for key, value in lto_config.items()
         ]))
 
+    trim_kmi_command = ""
+    if ctx.file.raw_kmi_symbol_list:
+        # We can't use an absolute path in CONFIG_UNUSED_KSYMS_WHITELIST.
+        # - ctx.file.raw_kmi_symbol_list is a relative path (e.g.
+        #   bazel-out/k8-fastbuild/bin/common/kernel_aarch64_raw_kmi_symbol_list/abi_symbollist.raw)
+        # - Canonicalizing the path gives an absolute path into the sandbox of
+        #   the _kernel_config rule. The sandbox is destroyed during the
+        #   execution of _kernel_build.
+        # Hence we use a relative path, the fixed value "abi_symbollist.raw".
+        trim_kmi_command = """
+            # Modify .config to trim symbols not listed in KMI
+              ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+                  -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
+                  --set-str UNUSED_KSYMS_WHITELIST abi_symbollist.raw
+        """
+
     command = ctx.attr.env[_KernelEnvInfo].setup + """
         # Pre-defconfig commands
           eval ${{PRE_DEFCONFIG_CMDS}}
@@ -812,6 +843,8 @@ def _kernel_config_impl(ctx):
           eval ${{POST_DEFCONFIG_CMDS}}
         # LTO configuration
         {lto_command}
+        # Trim nonlisted symbols
+          {trim_kmi_command}
         # Grab outputs
           cp -p ${{OUT_DIR}}/.config {config}
           tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
@@ -819,6 +852,7 @@ def _kernel_config_impl(ctx):
         config = config.path,
         include_tar_gz = include_tar_gz.path,
         lto_command = lto_command,
+        trim_kmi_command = trim_kmi_command,
     )
 
     _debug_print_scripts(ctx, command)
@@ -830,17 +864,27 @@ def _kernel_config_impl(ctx):
         command = command,
     )
 
+    setup_deps = ctx.attr.env[_KernelEnvInfo].dependencies + \
+                 [config, include_tar_gz]
     setup = ctx.attr.env[_KernelEnvInfo].setup + """
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
            rsync -p -L {config} ${{OUT_DIR}}/.config
            tar xf {include_tar_gz} -C ${{OUT_DIR}}
     """.format(config = config.path, include_tar_gz = include_tar_gz.path)
+    if ctx.file.raw_kmi_symbol_list:
+        # When CONFIG_UNUSED_KSYMS_WHITELIST is a relative path, it is
+        # interpreted as a path relative to $abs_srctree, which is
+        # ${ROOT_DIR}/${KERNEL_DIR}. See common/scripts/gen_autoksyms.sh
+        setup_deps.append(ctx.file.raw_kmi_symbol_list)
+        setup += """
+            # Restore abi_symbollist.raw to abs_srctree
+              rsync -p -L {raw_kmi_symbol_list} ${{ROOT_DIR}}/${{KERNEL_DIR}}/abi_symbollist.raw
+        """.format(raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path)
 
     return [
         _KernelEnvInfo(
-            dependencies = ctx.attr.env[_KernelEnvInfo].dependencies +
-                           [config, include_tar_gz],
+            dependencies = setup_deps,
             setup = setup,
         ),
         DefaultInfo(files = depset([config, include_tar_gz])),
@@ -862,6 +906,10 @@ _kernel_config = rule(
             doc = "the packaged include/ files",
         ),
         "lto": attr.label(default = "//build/kernel/kleaf:lto"),
+        "raw_kmi_symbol_list": attr.label(
+            doc = "Label to abi_symbollist.raw. If specified, modify the config to trim non-listed symbols.",
+            allow_single_file = True,
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
