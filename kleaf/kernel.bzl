@@ -87,7 +87,7 @@ kernel_build_config(
 
 """,
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -173,7 +173,7 @@ def kernel_build(
           - `//common:kernel_{arch}`
           - A `kernel_filegroup` rule, e.g.
             ```
-            load("//build/kleaf:common_kernels.bzl, "aarch64_outs")
+            load("//build/kernel/kleaf:common_kernels.bzl, "aarch64_outs")
             kernel_filegroup(
               name = "my_kernel_filegroup",
               srcs = aarch64_outs,
@@ -683,7 +683,7 @@ _kernel_env = rule(
         ),
         "preserve_env": attr.label(
             allow_single_file = True,
-            default = Label("//build/kleaf:preserve_env.sh"),
+            default = Label("//build/kernel/kleaf:preserve_env.sh"),
             doc = "label referring to the script capturing the environment",
         ),
         "toolchain_version": attr.string(
@@ -705,9 +705,9 @@ _kernel_env = rule(
             default = Label("//build:build_utils.sh"),
         ),
         "_debug_annotate_scripts": attr.label(
-            default = "//build/kleaf:debug_annotate_scripts",
+            default = "//build/kernel/kleaf:debug_annotate_scripts",
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
     },
 )
@@ -821,8 +821,8 @@ _kernel_config = rule(
             mandatory = True,
             doc = "the packaged include/ files",
         ),
-        "lto": attr.label(default = "//build/kleaf:lto"),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "lto": attr.label(default = "//build/kernel/kleaf:lto"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1102,7 +1102,7 @@ _kernel_build = rule(
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
             doc = "label referring to the script to process outputs",
         ),
         "deps": attr.label_list(
@@ -1113,7 +1113,7 @@ _kernel_build = rule(
             aspects = [_kernel_toolchain_aspect],
         ),
         "modules_prepare": attr.label(),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1158,7 +1158,7 @@ _modules_prepare = rule(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1377,10 +1377,10 @@ _kernel_module = rule(
         "outs": attr.output_list(),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1680,15 +1680,15 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             doc = "Label referring to the `kernel_build` module.",
             aspects = [_kernel_build_aspect],
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
             allow_single_file = True,
-            default = Label("//build/kleaf:check_duplicated_files_in_archives.py"),
+            default = Label("//build/kernel/kleaf:check_duplicated_files_in_archives.py"),
             doc = "Label referring to the script to process outputs",
         ),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
     },
@@ -1731,7 +1731,7 @@ _kernel_uapi_headers = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1789,7 +1789,7 @@ _kernel_headers = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1832,7 +1832,7 @@ _vmlinux_btf = rule(
             mandatory = True,
             providers = [_KernelEnvInfo],
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kleaf:debug_print_scripts"),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
@@ -1933,7 +1933,7 @@ def _build_modules_image_attrs_common(additional = None):
             allow_files = True,
         ),
         "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
+            default = "//build/kernel/kleaf:debug_print_scripts",
         ),
     }
     if additional != None:
@@ -2223,11 +2223,11 @@ Execute `build_boot_images` in `build_utils.sh`.""",
             default = "//tools/mkbootimg:mkbootimg.py",
         ),
         "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
+            default = "//build/kernel/kleaf:debug_print_scripts",
         ),
         "_search_and_mv_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
         ),
     },
 )
@@ -2269,7 +2269,7 @@ _dtbo = rule(
             allow_files = True,
         ),
         "_debug_print_scripts": attr.label(
-            default = "//build/kleaf:debug_print_scripts",
+            default = "//build/kernel/kleaf:debug_print_scripts",
         ),
     },
 )

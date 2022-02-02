@@ -34,7 +34,7 @@ Given a file `common/build.config.constants` with content
 
 The workspace file can instantiate a repository rule with
 ```
-load("//build/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
 
 key_value_repo(
     name = "kernel_toolchain_info",

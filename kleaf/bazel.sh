@@ -17,11 +17,11 @@ ROOT_DIR=$($(dirname $(dirname $(readlink -f $0)))/gettop.sh)
 
 BAZEL_PATH="${ROOT_DIR}/prebuilts/bazel/linux-x86_64/bazel"
 BAZEL_JDK_PATH="${ROOT_DIR}/prebuilts/jdk/jdk11/linux-x86"
-BAZELRC_NAME="build/kleaf/common.bazelrc"
+BAZELRC_NAME="build/kernel/kleaf/common.bazelrc"
 
 ABSOLUTE_OUT_DIR="${ROOT_DIR}/out"
 
-export SOURCE_DATE_EPOCH=$(${ROOT_DIR}/build/kleaf/source_date_epoch.sh)
+export SOURCE_DATE_EPOCH=$(${ROOT_DIR}/build/kernel/kleaf/source_date_epoch.sh)
 if [ -z "${SOURCE_DATE_EPOCH}" ]; then
   echo "Unable to determine SOURCE_DATE_EPOCH, fallback to 0" >&2
   export SOURCE_DATE_EPOCH=0

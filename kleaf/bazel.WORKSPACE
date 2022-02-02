@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
 
 toplevel_output_directories(paths = ["out"])
 

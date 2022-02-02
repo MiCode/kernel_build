@@ -103,7 +103,7 @@ The `kernel_build()` macro provided by this package is to be used in
 is (defining the GKI build):
 
 ```
-load("//build/kleaf:kernel.bzl", "kernel_build")
+load("//build/kernel/kleaf:kernel.bzl", "kernel_build")
 
 kernel_build(
     name = "kernel",
@@ -123,7 +123,7 @@ invocation (though limited to the currently available features in *Kleaf*):
 The `kernel_module()` macro defines a kernel module target. Example:
 
 ```
-load("//build/kleaf:kernel.bzl", "kernel_module")
+load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
 
 kernel_module(
     name = "nfc",
@@ -150,12 +150,12 @@ Android Continuous Integration:
 The link redirects to the latest documentation in the mainline branch.
 
 Alternatively, you may refer to the documentation in the source code of the
-Bazel rules in `build/kleaf/*.bzl`.
+Bazel rules in `build/kernel/kleaf/*.bzl`.
 
 Alternatively, you may build the documentation and view it locally:
 
 ```shell
-$ bazel run //build/kleaf:docs_server
+$ bazel run //build/kernel/kleaf:docs_server
 ```
 
 Then visit `http://0.0.0.0:8080/` in your browser.

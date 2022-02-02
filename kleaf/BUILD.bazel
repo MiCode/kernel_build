@@ -52,7 +52,7 @@ exports_files([
 ])
 
 # Docs. To view them:
-#   bazel run //build/kleaf:docs_server
+#   bazel run //build/kernel/kleaf:docs_server
 
 docs(
     name = "docs",
