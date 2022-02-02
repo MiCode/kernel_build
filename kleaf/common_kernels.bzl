@@ -28,26 +28,26 @@ load(
 )
 
 _ARCH_CONFIGS = [
-    (
-        "kernel_aarch64",
-        "build.config.gki.aarch64",
-        aarch64_outs,
-    ),
-    (
-        "kernel_aarch64_debug",
-        "build.config.gki-debug.aarch64",
-        aarch64_outs,
-    ),
-    (
-        "kernel_x86_64",
-        "build.config.gki.x86_64",
-        x86_64_outs,
-    ),
-    (
-        "kernel_x86_64_debug",
-        "build.config.gki-debug.x86_64",
-        x86_64_outs,
-    ),
+    {
+        "name": "kernel_aarch64",
+        "build_config": "build.config.gki.aarch64",
+        "outs": aarch64_outs,
+    },
+    {
+        "name": "kernel_aarch64_debug",
+        "build_config": "build.config.gki-debug.aarch64",
+        "outs": aarch64_outs,
+    },
+    {
+        "name": "kernel_x86_64",
+        "build_config": "build.config.gki.x86_64",
+        "outs": x86_64_outs,
+    },
+    {
+        "name": "kernel_x86_64_debug",
+        "build_config": "build.config.gki-debug.x86_64",
+        "outs": x86_64_outs,
+    },
 ]
 
 def define_common_kernels(
@@ -111,7 +111,9 @@ def define_common_kernels(
     if toolchain_version:
         kernel_build_kwargs["toolchain_version"] = toolchain_version
 
-    for name, config, outs in _ARCH_CONFIGS:
+    for arch_config in _ARCH_CONFIGS:
+        name = arch_config["name"]
+
         native.filegroup(
             name = name + "_sources",
             srcs = native.glob(
@@ -127,7 +129,7 @@ def define_common_kernels(
         kernel_build(
             name = name,
             srcs = [name + "_sources"],
-            outs = outs,
+            outs = arch_config["outs"],
             implicit_outs = [
                 # Kernel build time module signining utility and keys
                 # Only available during GKI builds
@@ -136,7 +138,7 @@ def define_common_kernels(
                 "certs/signing_key.pem",
                 "certs/signing_key.x509",
             ],
-            build_config = config,
+            build_config = arch_config["build_config"],
             visibility = visibility,
             **kernel_build_kwargs
         )
