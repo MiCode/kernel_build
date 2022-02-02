@@ -148,9 +148,6 @@ def define_common_kernels(
                     "certs/signing_key.pem",
                     "certs/signing_key.x509"
             ],
-            module_outs = [
-                    "test_stackinit.ko",
-            ],
             build_config = config,
             visibility = visibility,
             **kernel_build_kwargs
