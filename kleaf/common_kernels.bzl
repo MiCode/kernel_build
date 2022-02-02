@@ -144,9 +144,9 @@ def define_common_kernels(
                 # Kernel build time module signining utility and keys
                 # Only available during GKI builds
                 # Device fragments need to add: '# CONFIG_MODULE_SIG_ALL is not set'
-                    "scripts/sign-file",
-                    "certs/signing_key.pem",
-                    "certs/signing_key.x509"
+                "scripts/sign-file",
+                "certs/signing_key.pem",
+                "certs/signing_key.x509",
             ],
             build_config = config,
             visibility = visibility,
@@ -164,9 +164,9 @@ def define_common_kernels(
             kernel_modules_install = name + "_modules_install",
             build_system_dlkm = True,
             deps = [
-                 # Keep the following in sync with build.config.gki* MODULES_LIST
-                 "android/gki_system_dlkm_modules",
-             ],
+                # Keep the following in sync with build.config.gki* MODULES_LIST
+                "android/gki_system_dlkm_modules",
+            ],
         )
 
         # Everything in name + "_dist", minus UAPI headers, because
