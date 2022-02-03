@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load(
-    "//build/kleaf:kernel.bzl",
+    ":kernel.bzl",
     "kernel_build",
     "kernel_compile_commands",
     "kernel_images",
@@ -22,7 +22,7 @@ load(
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load(
-    "//build/kleaf:constants.bzl",
+    ":constants.bzl",
     "aarch64_outs",
     "x86_64_outs",
 )
