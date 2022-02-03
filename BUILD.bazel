@@ -43,6 +43,7 @@ filegroup(
     ),
 ) if package_name() == "build/kernel" else None
 
+# TODO(b/217630659): Once build/BUILD.bazel symlink is deleted, delete the conditional
 filegroup(
     name = "kernel-abi-scripts",
     srcs = [
@@ -52,4 +53,4 @@ filegroup(
         "abi/symbols.allow",
         "abi/symbols.deny",
     ],
-)
+) if package_name() == "build/kernel" else None
