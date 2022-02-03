@@ -699,7 +699,7 @@ _kernel_env = rule(
             doc = "Device tree",
         ),
         "_tools": attr.label_list(default = _get_tools),
-        "_host_tools": attr.label(default = "//build:host-tools"),
+        "_host_tools": attr.label(default = "//build/kernel:host-tools"),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build:build_utils.sh"),
