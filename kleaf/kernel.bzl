@@ -999,9 +999,9 @@ def _kernel_build_impl(ctx):
          # Check if there are remaining *.ko files
            remaining_ko_files=$(find ${{OUT_DIR}} -type f -name '*.ko')
            if [[ ${{remaining_ko_files}} ]]; then
-             echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:"
+             echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
-               echo '    "'"$(basename ${{ko}})"'",'
+               echo '    "'"$(basename ${{ko}})"'",' >&2
              done
              exit 1
            fi
@@ -1136,7 +1136,7 @@ def _modules_prepare_impl(ctx):
 
     setup = """
          # Restore modules_prepare outputs. Assumes env setup.
-           [ -z ${{OUT_DIR}} ] && echo "modules_prepare setup run without OUT_DIR set!" && exit 1
+           [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
            tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
            """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
 
@@ -1585,7 +1585,7 @@ def _kernel_modules_install_impl(ctx):
                {check_duplicated_files_in_archives} ${{modules_staging_archives}}
              # Set variables
                if [[ ! -f ${{OUT_DIR}}/include/config/kernel.release ]]; then
-                   echo "No ${{OUT_DIR}}/include/config/kernel.release"
+                   echo "ERROR: No ${{OUT_DIR}}/include/config/kernel.release" >&2
                    exit 1
                fi
                kernelrelease=$(cat ${{OUT_DIR}}/include/config/kernel.release 2> /dev/null)

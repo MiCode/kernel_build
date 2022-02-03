@@ -1,6 +1,4 @@
-#!/bin/sh
-#
-# Copyright (C) 2020 The Android Open Source Project
+# Copyright (C) 2022 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+_common_outs = [
+    "System.map",
+    "modules.builtin",
+    "modules.builtin.modinfo",
+    "vmlinux",
+    "vmlinux.symvers",
+]
 
-cd /b/
+# Common output files for aarch64 kernel builds.
+aarch64_outs = _common_outs + [
+    "Image",
+    "Image.lz4",
+]
 
-# uncomment for incremental builds
-#export SKIP_MRPROPER=1
-
-export PATH=/l/bin:/b/build/kernel/build-tools/path/linux-x86
-BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
+# Common output files for x86_64 kernel builds.
+x86_64_outs = _common_outs + ["bzImage"]

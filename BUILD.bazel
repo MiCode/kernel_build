@@ -36,10 +36,7 @@ filegroup(
         "build.sh",
         "build_utils.sh",
         "//build/kernel:internal-build-tools",
-    ] + glob(
-        ["build-tools/path/**"],
-        allow_empty = package_name() != "build",
-    ),
+    ],
 )
 
 filegroup(
@@ -59,7 +56,7 @@ filegroup(
 filegroup(
     name = "internal-build-tools",
     srcs = glob(
-        ["build-tools/sysroot/**"],
+        ["build-tools/**"],
         allow_empty = package_name() != "build/kernel",
     ),
     visibility = [
