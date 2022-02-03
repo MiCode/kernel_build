@@ -613,7 +613,7 @@ def _get_tools(toolchain_version):
     return [
         Label(e)
         for e in (
-            "//build:kernel-build-scripts",
+            "//build/kernel:kernel-build-scripts",
             "//prebuilts/build-tools:linux-x86",
             "//prebuilts/kernel-build-tools:linux-x86",
             "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
@@ -678,7 +678,7 @@ _kernel_env = rule(
         ),
         "setup_env": attr.label(
             allow_single_file = True,
-            default = Label("//build:_setup_env.sh"),
+            default = Label("//build/kernel:_setup_env.sh"),
             doc = "label referring to _setup_env.sh",
         ),
         "preserve_env": attr.label(
@@ -702,7 +702,7 @@ _kernel_env = rule(
         "_host_tools": attr.label(default = "//build/kernel:host-tools"),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
-            default = Label("//build:build_utils.sh"),
+            default = Label("//build/kernel:build_utils.sh"),
         ),
         "_debug_annotate_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_annotate_scripts",
