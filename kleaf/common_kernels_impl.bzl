@@ -52,9 +52,7 @@ _ARCH_CONFIGS = [
 
 def define_common_kernels(
         toolchain_version = None,
-        visibility = [
-            "//visibility:public",
-        ]):
+        visibility = None):
     """Defines common build targets for Android Common Kernels.
 
     This macro expands to the commonly defined common kernels (such as the GKI
@@ -102,10 +100,14 @@ def define_common_kernels(
 
     Args:
       toolchain_version: If not set, use default value in `kernel_build`.
-      visibility: visibility of the kernel build.
+      visibility: visibility of the kernel build. If unspecified, its default
+        value is `["//visibility:public"]`.
 
         See [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
     """
+
+    if visibility == None:
+        visibility = ["//visibility:public"]
 
     for arch_config in _ARCH_CONFIGS:
         name = arch_config["name"]
