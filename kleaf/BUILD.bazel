@@ -52,16 +52,21 @@ exports_files([
 ])
 
 # Docs. To view them:
-#   bazel run //build/kleaf:docs_server
+#   bazel run //build/kernel/kleaf:docs_server
 
+# TODO(b/217630659): Remove conditional after ci.android.com has fixed its build command
 docs(
     name = "docs",
     srcs = [
         "common_kernels.bzl",
+        "common_kernels_impl.bzl",
         "constants.bzl",
         "download_repo.bzl",
+        "download_repo_impl.bzl",
         "kernel.bzl",
+        "kernel_impl.bzl",
         "key_value_repo.bzl",
+        "key_value_repo_impl.bzl",
     ],
     default = "kernel.bzl",
     deps = [
@@ -69,6 +74,9 @@ docs(
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
     ],
+) if package_name() == "build/kernel/kleaf" else alias(
+    name = "docs_dist",
+    actual = "//build/kernel/kleaf:docs_dist",
 )
 
 #

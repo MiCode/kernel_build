@@ -16,8 +16,8 @@ Make the following changes to the kernel manifest to support Bazel build.
     See [SOURCE\_DATE\_EPOCH](https://reproducible-builds.org/docs/source-date-epoch/).
   * **NOTE**: This is subject to change. In the future, this may not be required
       any more.
-* Add `tools/bazel` symlink to `build/kleaf/build.sh`
-* Add `WORKSPACE` symlink to `build/kleaf/bazel.WORKSPACE`
+* Add `tools/bazel` symlink to `build/kernel/kleaf/build.sh`
+* Add `WORKSPACE` symlink to `build/kernel/kleaf/bazel.WORKSPACE`
 * Dependent repositories for Bazel, including:
     * [prebuilts/bazel/linux-x86\_64](https://android.googlesource.com/platform/prebuilts/bazel/linux-x86_64/)
     * [prebuilts/jdk/jdk11](https://android.googlesource.com/platform/prebuilts/jdk/jdk11/)
@@ -50,8 +50,8 @@ that you are building. See section to [build in-tree drivers (Step 1)](#step-1)
 below.
 
 ```
-load("//build/kleaf:kernel.bzl","kernel_build")
-load("//build/kleaf:common_kernels.bzl", "arm64_outs")
+load("//build/kernel/kleaf:kernel.bzl","kernel_build")
+load("//build/kernel/kleaf:common_kernels.bzl", "arm64_outs")
 kernel_build(
    name = "tuna",
    srcs = glob(
@@ -250,7 +250,7 @@ You only need to **do this once** per workspace.
 
 ```shell
 # Do this at workspace root next to the file WORKSPACE
-$ test -f WORKSPACE && echo 'build --//build/kleaf:lto=none' >> user.bazelrc
+$ test -f WORKSPACE && echo 'build --//build/kernel/kleaf:lto=none' >> user.bazelrc
 # Future builds in this workspace always disables LTO.
 $ tools/bazel build //private/path/to/sources:tuna_dist
 ```

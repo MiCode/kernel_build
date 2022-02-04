@@ -22,7 +22,7 @@ build --experimental_strict_action_env
 # common --announce_rc
 
 # Add support for remote building
-import %workspace%/build/kleaf/rbe.bazelrc
+import %workspace%/build/kernel/kleaf/rbe.bazelrc
 
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
@@ -31,8 +31,8 @@ try-import %workspace%/user.bazelrc
 build --action_env=SOURCE_DATE_EPOCH
 
 # flag aliases for build settings
-build --flag_alias=lto=//build/kleaf:lto
+build --flag_alias=lto=//build/kernel/kleaf:lto
 
 # add a flag alias to allow passing --debug_* flags
-build --flag_alias=debug_annotate_scripts=//build/kleaf:debug_annotate_scripts
-build --flag_alias=debug_print_scripts=//build/kleaf:debug_print_scripts
+build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts
+build --flag_alias=debug_print_scripts=//build/kernel/kleaf:debug_print_scripts

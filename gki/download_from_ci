@@ -130,8 +130,8 @@ def get_kernel_dir():
 
 def get_u_boot_dir():
   """ Return the path of the u-boot source directory in the same repo as this script."""
-  # download_from_ci lives in <ack manifest root>/build/gki
-  return pathlib.Path(os.path.abspath(__file__)).parents[2].joinpath('u-boot')
+  # download_from_ci lives in <ack manifest root>/build/kernel/gki
+  return pathlib.Path(os.path.abspath(__file__)).parents[3].joinpath('u-boot')
 
 def get_build_kernel_version(data):
   """Given a build's BUILD_INFO in json format, return the kernel version as a string."""
