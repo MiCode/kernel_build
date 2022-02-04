@@ -27,28 +27,24 @@ load(
     "x86_64_outs",
 )
 
-_ARCH_CONFIGS = [
-    {
-        "name": "kernel_aarch64",
+_ARCH_CONFIGS = {
+    "kernel_aarch64": {
         "build_config": "build.config.gki.aarch64",
         "outs": aarch64_outs,
     },
-    {
-        "name": "kernel_aarch64_debug",
+    "kernel_aarch64_debug": {
         "build_config": "build.config.gki-debug.aarch64",
         "outs": aarch64_outs,
     },
-    {
-        "name": "kernel_x86_64",
+    "kernel_x86_64": {
         "build_config": "build.config.gki.x86_64",
         "outs": x86_64_outs,
     },
-    {
-        "name": "kernel_x86_64_debug",
+    "kernel_x86_64_debug": {
         "build_config": "build.config.gki-debug.x86_64",
         "outs": x86_64_outs,
     },
-]
+}
 
 def define_common_kernels(
         toolchain_version = None,
@@ -109,9 +105,7 @@ def define_common_kernels(
     if visibility == None:
         visibility = ["//visibility:public"]
 
-    for arch_config in _ARCH_CONFIGS:
-        name = arch_config["name"]
-
+    for name, arch_config in _ARCH_CONFIGS.items():
         native.filegroup(
             name = name + "_sources",
             srcs = native.glob(
