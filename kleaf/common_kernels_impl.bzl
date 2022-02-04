@@ -107,10 +107,6 @@ def define_common_kernels(
         See [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
     """
 
-    kernel_build_kwargs = {}
-    if toolchain_version:
-        kernel_build_kwargs["toolchain_version"] = toolchain_version
-
     for arch_config in _ARCH_CONFIGS:
         name = arch_config["name"]
 
@@ -140,7 +136,7 @@ def define_common_kernels(
             ],
             build_config = arch_config["build_config"],
             visibility = visibility,
-            **kernel_build_kwargs
+            toolchain_version = toolchain_version,
         )
 
         kernel_modules_install(
