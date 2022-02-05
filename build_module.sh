@@ -215,6 +215,10 @@ if [ ! -e "${OUT_DIR}/Makefile" -o -z "${EXT_MODULES}" ]; then
     cd "${KERNEL_DIR}"
     make O="${OUT_DIR}" "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig
   )
+  set +x
+
+  GENERATED_CONFIG=$(mktemp)
+  cp ${OUT_DIR}/.config ${GENERATED_CONFIG}
 
   # To guard against .config silently diverging from the one kernel platform created,
   # set KCONFIG_NOSILENTUPDATE=1. If doing an incremental build, this also guards against
@@ -222,11 +226,19 @@ if [ ! -e "${OUT_DIR}/Makefile" -o -z "${EXT_MODULES}" ]; then
   # in OUT_DIR. To get around this valid change, do "make olddefconfig", copy the .config again,
   # then do the NOSILENTUPDATE check
   cp ${KERNEL_KIT}/.config ${OUT_DIR}/
-  (
-    cd "${KERNEL_DIR}"
-    KCONFIG_NOSILENTUPDATE=1 make O="${OUT_DIR}" "${TOOL_ARGS[@]}" ${MAKE_ARGS} modules_prepare
-  )
-  set +x
+
+  if ! KCONFIG_NOSILENTUPDATE=1 make -C "${KERNEL_DIR}" O="${OUT_DIR}" "${TOOL_ARGS[@]}" \
+      ${MAKE_ARGS} modules_prepare ; then
+    if [ -n "$(${ROOT_DIR}/${KERNEL_DIR}/scripts/diffconfig ${KERNEL_KIT}/.config ${GENERATED_CONFIG})" ]; then
+      echo "ERROR! Current kernel platform sources did not generate expected .config"
+      echo "Possibly kernel sources do not match those which generated kernel output?"
+      echo "Kernel platform sources differ from the prebuilt .config:"
+      ${ROOT_DIR}/${KERNEL_DIR}/scripts/diffconfig ${KERNEL_KIT}/.config ${GENERATED_CONFIG}
+    fi
+    rm ${GENERATED_CONFIG}
+    exit 1
+  fi
+  rm ${GENERATED_CONFIG}
 fi
 # Set KBUILD_MIXED_TREE in case an out-of-tree Makefile does "make all". This causes
 # kbuild to also want to compile vmlinux
