@@ -1725,7 +1725,7 @@ _kernel_uapi_headers = rule(
     implementation = _kernel_uapi_headers_impl,
     doc = """Build kernel-uapi-headers.tar.gz""",
     attrs = {
-        "srcs": attr.label_list(),
+        "srcs": attr.label_list(allow_files = True),
         "config": attr.label(
             mandatory = True,
             providers = [_KernelEnvInfo],
@@ -1780,7 +1780,7 @@ _kernel_headers = rule(
     implementation = _kernel_headers_impl,
     doc = "Build kernel-headers.tar.gz",
     attrs = {
-        "srcs": attr.label_list(),
+        "srcs": attr.label_list(allow_files = True),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelBuildInfo],  # for out_dir_kernel_headers_tar only
