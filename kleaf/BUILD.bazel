@@ -54,7 +54,6 @@ exports_files([
 # Docs. To view them:
 #   bazel run //build/kernel/kleaf:docs_server
 
-# TODO(b/217630659): Remove conditional after ci.android.com has fixed its build command
 docs(
     name = "docs",
     srcs = [
@@ -70,9 +69,6 @@ docs(
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
     ],
-) if package_name() == "build/kernel/kleaf" else alias(
-    name = "docs_dist",
-    actual = "//build/kernel/kleaf:docs_dist",
 )
 
 #
