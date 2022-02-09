@@ -15,7 +15,6 @@
 package(default_visibility = ["//visibility:public"])
 
 # Provide access to some host tools for rules wanting to restrict PATH
-# TODO(b/217630659): Once build/BUILD.bazel symlink is deleted, delete the conditional
 genrule(
     name = "host-tools",
     outs = [
@@ -28,9 +27,8 @@ genrule(
     ],
     cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
     tags = ["no-remote"],
-) if package_name() == "build/kernel" else None
+)
 
-# TODO(b/217630659): Once build/BUILD.bazel symlink is deleted, delete the conditional
 filegroup(
     name = "kernel-build-scripts",
     srcs = [
@@ -41,7 +39,7 @@ filegroup(
         ["build-tools/**"],
         allow_empty = False,
     ),
-) if package_name() == "build/kernel" else None
+)
 
 filegroup(
     name = "kernel-abi-scripts",
