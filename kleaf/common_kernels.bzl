@@ -25,6 +25,7 @@ load(
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load(
     ":constants.bzl",
+    "CI_TARGET_MAPPING",
     "GKI_DOWNLOAD_CONFIGS",
     "GKI_MODULES",
     "aarch64_outs",
@@ -468,12 +469,6 @@ def define_common_kernels(
 
     _define_prebuilts(visibility = visibility)
 
-# (Bazel target name, repo prefix in bazel.WORKSPACE, outs)
-_CI_TARGET_MAPPING = [
-    # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
-    ("kernel_aarch64", "gki_prebuilts", aarch64_outs),
-]
-
 def _define_prebuilts(**kwargs):
     # Build number for GKI prebuilts
     bool_flag(
@@ -489,12 +484,15 @@ def _define_prebuilts(**kwargs):
         },
     )
 
-    for name, repo_prefix, outs in _CI_TARGET_MAPPING:
+    for name, value in CI_TARGET_MAPPING.items():
+        repo_name = value["repo_name"]
+        main_target_outs = value["outs"]  # outs of target named {name}
+
         source_package_name = ":" + name
 
         native.filegroup(
             name = name + "_downloaded",
-            srcs = ["@{}//{}".format(repo_prefix, filename) for filename in outs],
+            srcs = ["@{}//{}".format(repo_name, filename) for filename in main_target_outs],
         )
 
         # A kernel_filegroup that:
@@ -511,9 +509,11 @@ def _define_prebuilts(**kwargs):
 
         for config in GKI_DOWNLOAD_CONFIGS:
             target_suffix = config["target_suffix"]
+            suffixed_target_outs = config["outs"]  # outs of target named {name}_{target_suffix}
+
             native.filegroup(
                 name = name + "_" + target_suffix + "_downloaded",
-                srcs = ["@{}//{}".format(repo_prefix, filename) for filename in config["outs"]],
+                srcs = ["@{}//{}".format(repo_name, filename) for filename in suffixed_target_outs],
             )
 
             # A filegroup that:

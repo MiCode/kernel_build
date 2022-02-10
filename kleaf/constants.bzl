@@ -51,3 +51,14 @@ GKI_DOWNLOAD_CONFIGS = [
 ]
 
 TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
+
+# Key: Bazel target name in common_kernels.bzl
+# repo_name: name of download_artifacts_repo in bazel.WORKSPACE
+# outs: list of outs associated with that target name
+CI_TARGET_MAPPING = {
+    # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
+    "kernel_aarch64": {
+        "repo_name": "gki_prebuilts",
+        "outs": aarch64_outs,
+    },
+}
