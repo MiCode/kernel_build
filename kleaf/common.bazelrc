@@ -24,6 +24,9 @@ build --experimental_strict_action_env
 # Add support for remote building
 import %workspace%/build/kernel/kleaf/rbe.bazelrc
 
+# Support a device-specific bazelrc file
+try-import %workspace%/device.bazelrc
+
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 

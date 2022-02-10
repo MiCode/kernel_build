@@ -266,3 +266,14 @@ of `select()` in `outs` and `module_outs` attributes. See documentations
 of `kernel_build` for details.
 
 [https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
+
+### `bazelrc` files
+
+By default, the `.bazelrc` (symlink to `build/kernel/kleaf/common.bazelrc`)
+tries to import the following two files if they exist:
+
+* `device.bazelrc`: Device-specific bazelrc file (e.g. GKI prebuilt settings)
+* `user.bazelrc`: User-specific bazelrc file (e.g. LTO settings)
+
+To add device-specific configurations, you may create a `device.bazelrc`
+file in the device kernel tree, then create a symlink at the repo root.
