@@ -3158,6 +3158,41 @@ This is usually a `glob()` of source files.
 Not to be confused with [`srcs`](#kernel_filegroup-srcs).
 """,
         ),
+        "kernel_uapi_headers": attr.label(
+            allow_files = True,
+            doc = """The label pointing to `kernel-uapi-headers.tar.gz`.
+
+This attribute should be set to the `kernel-uapi-headers.tar.gz` artifact built by the
+[`kernel_build`](#kernel_build) macro if the `kernel_filegroup` rule were a `kernel_build`.
+
+Setting this attribute allows [`merged_kernel_uapi_headers`](#merged_kernel_uapi_headers) to
+work properly when this `kernel_filegroup` is set to the `base_kernel`.
+
+For example:
+```
+kernel_filegroup(
+    name = "kernel_aarch64_prebuilts",
+    srcs = [
+        "vmlinux",
+        # ...
+    ],
+    kernel_uapi_headers = "kernel-uapi-headers.tar.gz",
+)
+
+kernel_build(
+    name = "tuna",
+    base_kernel = ":kernel_aarch64_prebuilts",
+    # ...
+)
+
+merged_kernel_uapi_headers(
+    name = "tuna_merged_kernel_uapi_headers",
+    kernel_build = "tuna",
+    # ...
+)
+```
+""",
+        ),
     },
 )
 
