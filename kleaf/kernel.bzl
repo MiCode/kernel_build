@@ -330,8 +330,6 @@ def kernel_build(
 
           These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
     """
-    if trim_nonlisted_kmi and not kmi_symbol_lists:
-        fail("{}: trim_nonlisted_kmi requires a non-empty kmi_symbol_lists.".format(name))
 
     env_target_name = name + "_env"
     config_target_name = name + "_config"
@@ -386,7 +384,8 @@ def kernel_build(
         srcs = srcs,
         config = config_target_name + "/.config",
         include_tar_gz = config_target_name + "/include.tar.gz",
-        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if trim_nonlisted_kmi else None,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
+        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if kmi_symbol_lists else None,
     )
 
     _modules_prepare(
@@ -818,8 +817,11 @@ def _kernel_config_impl(ctx):
             for key, value in lto_config.items()
         ]))
 
+    if ctx.attr.trim_nonlisted_kmi and not ctx.file.raw_kmi_symbol_list:
+        fail("{}: trim_nonlisted_kmi is set but raw_kmi_symbol_list is empty.".format(ctx.label))
+
     trim_kmi_command = ""
-    if ctx.file.raw_kmi_symbol_list:
+    if ctx.attr.trim_nonlisted_kmi:
         # We can't use an absolute path in CONFIG_UNUSED_KSYMS_WHITELIST.
         # - ctx.file.raw_kmi_symbol_list is a relative path (e.g.
         #   bazel-out/k8-fastbuild/bin/common/kernel_aarch64_raw_kmi_symbol_list/abi_symbollist.raw)
@@ -906,8 +908,9 @@ _kernel_config = rule(
             doc = "the packaged include/ files",
         ),
         "lto": attr.label(default = "//build/kernel/kleaf:lto"),
+        "trim_nonlisted_kmi": attr.bool(doc = "If true, modify the config to trim non-listed symbols."),
         "raw_kmi_symbol_list": attr.label(
-            doc = "Label to abi_symbollist.raw. If specified, modify the config to trim non-listed symbols.",
+            doc = "Label to abi_symbollist.raw.",
             allow_single_file = True,
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
