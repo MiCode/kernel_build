@@ -1051,14 +1051,20 @@ _raw_kmi_symbol_list = rule(
 )
 
 _KernelBuildInfo = provider(fields = {
-    "modules_staging_archive": "Archive containing staging kernel modules. " +
-                               "Does not contain the lib/modules/* suffix.",
-    "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
     "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs`, `implicit_outs` and `internal_outs`)",
     "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
     "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
+
+_KernelBuildExtModuleInfo = provider(
+    doc = "A provider that specifies the expectations of a `_kernel_module` (an external module) or a `kernel_modules_install` from its `kernel_build` attribute.",
+    fields = {
+        "modules_staging_archive": "Archive containing staging kernel modules. " +
+                                   "Does not contain the lib/modules/* suffix.",
+        "module_srcs": "sources for this kernel_build for building external modules",
+    },
+)
 
 _SrcsInfo = provider(fields = {
     "srcs": "The srcs attribute of a rule.",
@@ -1390,12 +1396,15 @@ def _kernel_build_impl(ctx):
         ]])
     ]
     kernel_build_info = _KernelBuildInfo(
-        modules_staging_archive = modules_staging_archive,
-        module_srcs = module_srcs,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         outs = all_output_files["outs"].values(),
         base_kernel_files = base_kernel_files,
         interceptor_output = interceptor_output,
+    )
+
+    kernel_build_module_info = _KernelBuildExtModuleInfo(
+        modules_staging_archive = modules_staging_archive,
+        module_srcs = module_srcs,
     )
 
     output_group_kwargs = {}
@@ -1412,6 +1421,7 @@ def _kernel_build_impl(ctx):
     return [
         env_info,
         kernel_build_info,
+        kernel_build_module_info,
         output_group_info,
         default_info,
     ]
@@ -1539,7 +1549,7 @@ def _kernel_module_impl(ctx):
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += modules_prepare[_KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
+    inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
         ctx.file._search_and_mv_output,
@@ -1702,7 +1712,7 @@ _kernel_module = rule(
         ),
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [_KernelEnvInfo, _KernelBuildInfo],
+            providers = [_KernelEnvInfo, _KernelBuildExtModuleInfo],
             aspects = [_kernel_build_aspect],
         ),
         "kernel_module_deps": attr.label_list(
@@ -1868,11 +1878,11 @@ def _kernel_modules_install_impl(ctx):
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += modules_prepare[_KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
+    inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].module_srcs
     inputs += [
         ctx.file._search_and_mv_output,
         ctx.file._check_duplicated_files_in_archives,
-        ctx.attr.kernel_build[_KernelBuildInfo].modules_staging_archive,
+        ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive,
     ]
     for kernel_module in ctx.attr.kernel_modules:
         inputs += kernel_module[_KernelEnvInfo].dependencies
@@ -1901,7 +1911,7 @@ def _kernel_modules_install_impl(ctx):
     """.format(
         modules_staging_dir = modules_staging_dir,
         kernel_build_modules_staging_archive =
-            ctx.attr.kernel_build[_KernelBuildInfo].modules_staging_archive.path,
+            ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive.path,
     )
     for kernel_module in ctx.attr.kernel_modules:
         command += kernel_module[_KernelEnvInfo].setup
@@ -2013,7 +2023,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             doc = "A list of labels referring to `kernel_module`s to install. Must have the same `kernel_build` as this rule.",
         ),
         "kernel_build": attr.label(
-            providers = [_KernelEnvInfo, _KernelBuildInfo],
+            providers = [_KernelEnvInfo, _KernelBuildExtModuleInfo],
             doc = "Label referring to the `kernel_build` module.",
             aspects = [_kernel_build_aspect],
         ),
