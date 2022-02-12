@@ -124,13 +124,6 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
-KernelFilesInfo = provider(doc = """Contains information of files that a kernel build produces.
-
-In particular, this is required by the `base_kernel` attribute of a `kernel_build` rule.
-""", fields = {
-    "files": "A list of files that this kernel build provides.",
-})
-
 def kernel_build(
         name,
         build_config,
@@ -181,15 +174,15 @@ def kernel_build(
           ```
         base_kernel: A label referring the base kernel build.
 
-          If set, the list of files specified in the `KernelFilesInfo` of the rule specified in
+          If set, the list of files specified in the `DefaultInfo` of the rule specified in
           `base_kernel` is copied to a directory, and `KBUILD_MIXED_TREE` is set to the directory.
           Setting `KBUILD_MIXED_TREE` effectively enables mixed build.
 
           To set additional flags for mixed build, change `build_config` to a `kernel_build_config`
           rule, with a build config fragment that contains the additional flags.
 
-          The label specified by `base_kernel` must conform to
-          [`KernelFilesInfo`](#kernelfilesinfo). Usually, this points to one of the following:
+          The label specified by `base_kernel` must produce a list of files similar
+          to what a `kernel_build` rule does. Usually, this points to one of the following:
           - `//common:kernel_{arch}`
           - A `kernel_filegroup` rule, e.g.
             ```
@@ -1238,7 +1231,7 @@ def _kernel_build_impl(ctx):
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
         # only change when the dependent ctx.attr.base_kernel changes.
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
-        base_kernel_files = ctx.attr.base_kernel[KernelFilesInfo].files
+        base_kernel_files = ctx.files.base_kernel
         kbuild_mixed_tree_command = """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
@@ -1415,14 +1408,12 @@ def _kernel_build_impl(ctx):
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
     default_info = DefaultInfo(files = depset(default_info_files))
-    kernel_files_info = KernelFilesInfo(files = default_info_files)
 
     return [
         env_info,
         kernel_build_info,
         output_group_info,
         default_info,
-        kernel_files_info,
     ]
 
 _kernel_build = rule(
@@ -1449,7 +1440,6 @@ _kernel_build = rule(
             allow_files = True,
         ),
         "base_kernel": attr.label(
-            providers = [KernelFilesInfo],
             aspects = [_kernel_toolchain_aspect],
         ),
         "modules_prepare": attr.label(),
@@ -2791,7 +2781,7 @@ def kernel_images(
 def _kernel_filegroup_impl(ctx):
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
-        KernelFilesInfo(files = ctx.files.srcs),
+        # TODO(b/218761417): implement other interfaces of _kernel_build
     ]
 
 kernel_filegroup = rule(
@@ -2801,8 +2791,7 @@ kernel_filegroup = rule(
 This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/general.html#filegroup)
 that gives a convenient name to a collection of targets, which can be referenced from other rules.
 
-In addition, this rule is conformed with [`KernelFilesInfo`](#kernelfilesinfo), so it can be used
-in the `base_kernel` attribute of a [`kernel_build`](#kernel_build).
+It can be used in the `base_kernel` attribute of a [`kernel_build`](#kernel_build).
 """,
     attrs = {
         "srcs": attr.label_list(
