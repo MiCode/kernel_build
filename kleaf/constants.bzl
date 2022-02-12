@@ -48,6 +48,15 @@ GKI_DOWNLOAD_CONFIGS = [
             "system_dlkm.img",
         ] + GKI_MODULES,  # corresponding to _modules_install
     },
+    {
+        "target_suffix": "ddk_artifacts",
+        "outs": [
+            # _modules_prepare
+            "modules_prepare_outdir.tar.gz",
+            # _modules_staging_archive
+            "modules_staging_dir.tar.gz",
+        ],
+    },
 ]
 
 TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
