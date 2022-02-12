@@ -390,6 +390,7 @@ def define_common_kernels(
                 "certs/signing_key.pem",
                 "certs/signing_key.x509",
             ],
+            module_outs = GKI_MODULES,
             build_config = arch_config["build_config"],
             visibility = visibility,
             toolchain_version = toolchain_version,
@@ -398,7 +399,7 @@ def define_common_kernels(
 
         kernel_modules_install(
             name = name + "_modules_install",
-            kernel_modules = GKI_MODULES,
+            kernel_modules = [],
             kernel_build = name,
         )
 
