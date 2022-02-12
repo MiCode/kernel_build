@@ -417,7 +417,14 @@ def define_common_kernels(
             ],
         )
 
-        # Everything in name + "_dist", minus UAPI headers, because
+        # module_staging_archive from <name>
+        native.filegroup(
+            name = name + "_modules_staging_archive",
+            srcs = [name],
+            output_group = "modules_staging_archive",
+        )
+
+        # Everything in name + "_dist", minus UAPI headers & DDK, because
         # device-specific external kernel modules may install different headers.
         native.filegroup(
             name = name + "_additional_artifacts",
@@ -430,12 +437,25 @@ def define_common_kernels(
             ],
         )
 
+        # Everything in name + "_dist" for the DDK.
+        # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
+        # development. Hence they are also added to kernel_*_dist so they can be downloaded.
+        # Note: This poke into details of kernel_build!
+        native.filegroup(
+            name = name + "_ddk_artifacts",
+            srcs = [
+                name + "_modules_prepare",
+                name + "_modules_staging_archive",
+            ],
+        )
+
         copy_to_dist_dir(
             name = name + "_dist",
             data = [
                 name,
                 name + "_uapi_headers",
                 name + "_additional_artifacts",
+                name + "_ddk_artifacts",
             ],
             flat = True,
         )

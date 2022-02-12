@@ -1395,6 +1395,7 @@ def _kernel_build_impl(ctx):
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
+    output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
