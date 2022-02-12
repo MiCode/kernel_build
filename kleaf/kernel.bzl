@@ -49,6 +49,22 @@ def _getoptattr(thing, attr, default_value = None):
         return getattr(thing, attr)
     return default_value
 
+def _find_file(name, files, what, required = False):
+    """Find a file named |name| in the list of |files|. Expect zero or one match."""
+    result = []
+    for file in files:
+        if file.basename == name:
+            result.append(file)
+    if len(result) > 1 or (not result and required):
+        fail("{what} contains {} file(s) named {name}, expected {expected_len}{files}".format(
+            what = what,
+            actual_len = len(result),
+            name = name,
+            expected_len = "1" if required else "0 or 1",
+            files = ":\n  " + ("\n  ".join(result)) if result else "",
+        ))
+    return result[0] if result else None
+
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
     command = "cat {srcs} > {out_file}".format(
@@ -2189,22 +2205,12 @@ def _build_modules_image_impl_common(
     """
     kernel_build = ctx.attr.kernel_modules_install[_KernelModuleInfo].kernel_build
     kernel_build_outs = kernel_build[_KernelBuildInfo].outs + kernel_build[_KernelBuildInfo].base_kernel_files
-    system_map = None
-    for kernel_build_out in kernel_build_outs:
-        if kernel_build_out.basename == "System.map":
-            if system_map != None:
-                fail("{}: dependent kernel_build {} has multiple System.map in outs:\n  {}\n  {}".format(
-                    ctx.label,
-                    kernel_build,
-                    system_map.path,
-                    kernel_build_out.path,
-                ))
-            system_map = kernel_build_out
-    if system_map == None:
-        fail("{}: dependent kernel_build {} has no System.map in outs".format(
-            ctx.label,
-            kernel_build,
-        ))
+    system_map = _find_file(
+        name = "System.map",
+        files = kernel_build_outs,
+        required = True,
+        what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build),
+    )
     modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
 
     inputs = []
