@@ -406,7 +406,7 @@ def kernel_build(
         name = modules_prepare_target_name,
         config = config_target_name,
         srcs = srcs,
-        outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
+        outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
     )
 
     _kernel_build(
