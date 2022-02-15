@@ -555,6 +555,12 @@ def kernel_dtstree(
     )
     _kernel_dtstree(**kwargs)
 
+def _get_stable_status_cmd(ctx, var):
+    return """$(cat {stable_status} | grep "{var}" | cut -f2 -d' ')""".format(
+        stable_status = ctx.info_file.path,
+        var = var,
+    )
+
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
     "setup": "setup script to initialize the environment",
@@ -662,6 +668,19 @@ def _kernel_env_impl(ctx):
            export PATH=$PATH:$PWD/{host_tool_path}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
+         # Set up scm version
+           (
+              # Save KLEAF_SCMVERSION to .scmversion if .scmversion does not already exist.
+              # If it does exist, then it is part of "srcs", so respect its value.
+              if [[ ! -f ${{ROOT_DIR}}/${{KERNEL_DIR}}/.scmversion ]]; then
+                KLEAF_SCMVERSION={scmversion_cmd}
+                if [[ ${{KLEAF_SCMVERSION}} ]]; then
+                    mkdir -p ${{ROOT_DIR}}/${{KERNEL_DIR}}
+                    echo $KLEAF_SCMVERSION > ${{ROOT_DIR}}/${{KERNEL_DIR}}/.scmversion
+                fi
+              fi
+           )
+         # Set up KCONFIG_EXT
            if [ -n "${{KCONFIG_EXT}}" ]; then
              export KCONFIG_EXT_PREFIX=$(rel_path $(realpath $(dirname ${{KCONFIG_EXT}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})/
            fi
@@ -673,11 +692,13 @@ def _kernel_env_impl(ctx):
         host_tool_path = host_tool_path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
+        scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION"),
     )
 
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
+        ctx.info_file,
     ]
     if kconfig_ext:
         dependencies.append(kconfig_ext)
