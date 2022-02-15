@@ -104,6 +104,7 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   for tool in \
       bash \
       git \
+      install \
       perl \
       rsync \
       sh \
@@ -119,7 +120,7 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/${KERNEL_DIR}/= -ffile-prefix-map=${ROOT_DIR}/="
 
   # set the common sysroot
-  sysroot_flags+="--sysroot=${ROOT_DIR}/build/build-tools/sysroot "
+  sysroot_flags+="--sysroot=${ROOT_DIR}/build/kernel/build-tools/sysroot "
 
   # add openssl (via boringssl) and other prebuilts into the lookup path
   cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
@@ -133,6 +134,8 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
 
   export HOSTCFLAGS="$sysroot_flags $cflags"
   export HOSTLDFLAGS="$sysroot_flags $ldflags"
+
+  export USERCFLAGS="--sysroot=/dev/null"
 fi
 
 for prebuilt_bin in "${prebuilts_paths[@]}"; do

@@ -52,18 +52,22 @@ exports_files([
 ])
 
 # Docs. To view them:
-#   bazel run //build/kleaf:docs_server
+#   bazel run //build/kernel/kleaf:docs_server
 
 docs(
     name = "docs",
     srcs = [
         "common_kernels.bzl",
+        "constants.bzl",
+        "download_repo.bzl",
         "kernel.bzl",
+        "key_value_repo.bzl",
     ],
     default = "kernel.bzl",
     deps = [
         "//build/bazel_common_rules/dist",
         "@bazel_skylib//rules:common_settings",
+        "@kernel_toolchain_info//:dict",
     ],
 )
 

@@ -16,61 +16,64 @@
 #
 
 import logging
+import os
 import re
 import subprocess
 import tempfile
+
+from contextlib import nullcontext
 
 log = logging.getLogger(__name__)
 
 
 def _collapse_abidiff_impacted_interfaces(text):
-  """Removes impacted interfaces details, leaving just the summary count."""
-  return re.sub(
-      r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
-      r"\1\2\n",
-      text,
-      flags=re.MULTILINE)
+    """Removes impacted interfaces details, leaving just the summary count."""
+    return re.sub(
+        r"^( *)([^ ]* impacted interfaces?):\n(?:^\1 .*\n)*",
+        r"\1\2\n",
+        text,
+        flags=re.MULTILINE)
 
 
 def _collapse_abidiff_offset_changes(text):
-  """Replaces "offset changed" lines with a one-line summary."""
-  regex = re.compile(
-      r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
-  items = []
-  indent = ""
-  offset = ""
-  new_text = []
+    """Replaces "offset changed" lines with a one-line summary."""
+    regex = re.compile(
+        r"^( *)('.*') offset changed from .* to .* \(in bits\) (\(by .* bits\))$")
+    items = []
+    indent = ""
+    offset = ""
+    new_text = []
 
-  def emit_pending():
-    if not items:
-      return
-    count = len(items)
-    if count == 1:
-      only = items[0]
-      line = "{}{} offset changed {}\n".format(indent, only, offset)
-    else:
-      first = items[0]
-      last = items[-1]
-      line = "{}{} ({} .. {}) offsets changed {}\n".format(
-          indent, count, first, last, offset)
-    del items[:]
-    new_text.append(line)
+    def emit_pending():
+        if not items:
+            return
+        count = len(items)
+        if count == 1:
+            only = items[0]
+            line = "{}{} offset changed {}\n".format(indent, only, offset)
+        else:
+            first = items[0]
+            last = items[-1]
+            line = "{}{} ({} .. {}) offsets changed {}\n".format(
+                indent, count, first, last, offset)
+        del items[:]
+        new_text.append(line)
 
-  for line in text.splitlines(True):
-    match = regex.match(line)
-    if match:
-      (new_indent, item, new_offset) = match.group(1, 2, 3)
-      if new_indent != indent or new_offset != offset:
-        emit_pending()
-        indent = new_indent
-        offset = new_offset
-      items.append(item)
-    else:
-      emit_pending()
-      new_text.append(line)
+    for line in text.splitlines(True):
+        match = regex.match(line)
+        if match:
+            (new_indent, item, new_offset) = match.group(1, 2, 3)
+            if new_indent != indent or new_offset != offset:
+                emit_pending()
+                indent = new_indent
+                offset = new_offset
+            items.append(item)
+        else:
+            emit_pending()
+            new_text.append(line)
 
-  emit_pending()
-  return "".join(new_text)
+    emit_pending()
+    return "".join(new_text)
 
 
 def _collapse_abidiff_CRC_changes(text, limit):
@@ -221,7 +224,70 @@ class Libabigail(AbiTool):
                     text = _collapse_abidiff_CRC_changes(text, 3)
                     out.write(text)
 
-        return rc
+        return abi_changed
+
+class Stg(AbiTool):
+    DIFF_ERROR                   = (1<<0)
+    DIFF_ABI_CHANGE              = (1<<2)
+
+    """" Concrete AbiTool implementation for STG """
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
+            vmlinux_path=None):
+        raise
+
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
+                 symbol_list=None, full_report=None):
+        # shoehorn the interface
+        basename = diff_report
+
+        dumps = [old_dump, new_dump]
+
+        # if a symbol list has been specified, we need some scratch space
+        if symbol_list:
+            context = tempfile.TemporaryDirectory()
+        else:
+            context = nullcontext()
+
+        with context as temp:
+            # if a symbol list has been specified, filter both input files
+            if symbol_list:
+                for ix in [0, 1]:
+                    raw = dumps[ix]
+                    cooked = os.path.join(temp, f"dump{ix}")
+                    log.info(f"filtering {raw} to {cooked}")
+                    subprocess.check_call(
+                        ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
+                    dumps[ix] = cooked
+
+            log.info(f"stgdiff {dumps[0]} {dumps[1]} at {basename}.*")
+            command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+            for f in ["plain", "flat", "small", "viz"]:
+                command.extend(["--format", f, "--output", f"{basename}.{f}"])
+
+            abi_changed = False
+
+            with open(f"{basename}.errors", "w") as out:
+                try:
+                    subprocess.check_call(command, stdout=out, stderr=out)
+                except subprocess.CalledProcessError as e:
+                    if e.returncode & self.DIFF_ERROR:
+                        raise
+                    abi_changed = True
+
+            # TODO(b/214966642): Remove once ABI XML definitions are more stable.
+            if abi_changed:
+                # override this if there are only declaration <-> definition changes
+                ignorable = r"^(type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|)$"
+                override = True
+                with open(f"{basename}.small", "r") as input:
+                    for line in input:
+                        if not re.search(ignorable, line):
+                            override = False
+                            break
+                if override:
+                    abi_changed = False
+
+            return abi_changed
 
 def get_abi_tool(abi_tool = "libabigail"):
     if abi_tool == "libabigail":

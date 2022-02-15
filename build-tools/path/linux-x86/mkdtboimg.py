@@ -1,1 +1,1 @@
-../../../../prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg.py
+../../../../../prebuilts/kernel-build-tools/linux-x86/bin/mkdtboimg.py

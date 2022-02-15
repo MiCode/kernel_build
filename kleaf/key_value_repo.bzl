@@ -7,7 +7,14 @@ def _impl(repository_ctx):
             key, value = line.split("=", 1)
             repository_content += '{} = "{}"'.format(key.strip(), value.strip())
 
-    repository_ctx.file("BUILD", "")
+    repository_ctx.file("BUILD", """
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+bzl_library(
+    name = "dict",
+    srcs = ["dict.bzl"],
+    visibility = ["//visibility:public"],
+)
+""")
     repository_ctx.file("dict.bzl", repository_content)
 
 key_value_repo = repository_rule(
@@ -27,7 +34,7 @@ Given a file `common/build.config.constants` with content
 
 The workspace file can instantiate a repository rule with
 ```
-load("//build/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
 
 key_value_repo(
     name = "kernel_toolchain_info",

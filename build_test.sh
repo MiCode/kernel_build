@@ -18,8 +18,8 @@
 #   build/build_test.sh
 
 export MAKE_ARGS=$@
-export ROOT_DIR=$(dirname $(readlink -f $0))
-export NET_TEST=${ROOT_DIR}/../kernel/tests/net/test
+export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
+export NET_TEST=${ROOT_DIR}/kernel/tests/net/test
 
 # if device has its own build.config.net_test in the
 # root (via manifest copy rule) then use it, otherwise
@@ -36,7 +36,7 @@ export BUILD_CONFIG
 
 test=all_tests.sh
 set -e
-source ${ROOT_DIR}/_setup_env.sh
+source ${ROOT_DIR}/build/_setup_env.sh
 export OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out/${BRANCH}})
 mkdir -p ${OUT_DIR}
 

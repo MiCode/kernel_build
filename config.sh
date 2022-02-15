@@ -24,7 +24,7 @@
 #       If desire is to let the base configuration properly control a CONFIG_
 #       option, then remove the line from FRAGMENT_CONFIG
 
-export ROOT_DIR=$(readlink -f $(dirname $0)/..)
+export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
 
 # Disable hermetic toolchain for ncurses
 # TODO: Support hermetic toolchain with ncurses menuconfig, xconfig

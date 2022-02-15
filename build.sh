@@ -279,6 +279,10 @@
 #     if set to "1", build a ramdisk containing all .ko files and resulting
 #     depmod artifacts
 #
+#   BUILD_SYSTEM_DLKM
+#     if set to "1", build a system_dlkm.img containing all signed GKI modules
+#     and resulting depmod artifacts
+#
 #   MODULES_OPTIONS
 #     A /lib/modules/modules.options file is created on the ramdisk containing
 #     the contents of this variable, lines should be of the form: options
@@ -458,7 +462,7 @@ function build_super() {
   echo "Unsparsed super image created at ${DIST_DIR}/super_unsparsed.img"
 }
 
-export ROOT_DIR=$(readlink -f $(dirname $0)/..)
+export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
 source "${ROOT_DIR}/build/build_utils.sh"
 source "${ROOT_DIR}/build/_setup_env.sh"
 
@@ -508,7 +512,7 @@ if [ -n "${GKI_BUILD_CONFIG}" ]; then
   GKI_ENVIRON+=("DIST_DIR=${GKI_DIST_DIR}")
   # Clean ABL_SRC, there is no need to compile abl for GKI_BUILD
   GKI_ENVIRON+=("ABL_SRC=")
-  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh" ) || exit 1
+  ( env -i bash -c "source ${OLD_ENVIRONMENT}; rm -f ${OLD_ENVIRONMENT}; export ${GKI_ENVIRON[*]} ; ./build/build.sh $*" ) || exit 1
 
   # Dist dir must have vmlinux.symvers, modules.builtin.modinfo, modules.builtin
   MAKE_ARGS+=("KBUILD_MIXED_TREE=$(readlink -m ${GKI_DIST_DIR})")
@@ -979,7 +983,7 @@ if [ -n "${MODULES}" ]; then
   fi
 fi
 
-if [ -n "${MODULES_ORDER}" ]; then
+if [ "${BUILD_SYSTEM_DLKM}" = "1"  ]; then
   echo "========================================================"
   echo " Creating system_dlkm image"
 
@@ -1000,15 +1004,15 @@ if [ -n "${MODULES_ORDER}" ]; then
     exit 1
   fi
 
-  # Verify system_dlkm.img size is less than /system_dlkm partition size(64MB)
-  SYSTEM_DLKM_PARTITION_SIZE=67108864
-  SYSTEM_DLKM_IMAGE_SIZE=$(stat --format=%s "${DIST_DIR}/system_dlkm.img")
-  if [ "${SYSTEM_DLKM_IMAGE_SIZE}" -gt "${SYSTEM_DLKM_PARTITION_SIZE}" ]; then
-    echo "ERROR: system_dlkm image size exceed partition size" >&2
-    echo "  system_dlkm image size = ${SYSTEM_DLKM_IMAGE_SIZE}" >&2
-    echo "  system_dlkm partition size = ${SYSTEM_DLKM_PARTITION_SIZE}" >&2
-    exit 1
-  fi
+  # Archive system_dlkm staging directory
+  tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
+
+  # No need to sign the image as modules are signed
+  SYSTEM_DLKM_PARTITION_SIZE=$((64 << 20))
+  avbtool add_hash_footer \
+    --partition_name system_dlkm \
+    --partition_size ${SYSTEM_DLKM_PARTITION_SIZE} \
+    --image "${DIST_DIR}/system_dlkm.img"
 fi
 
 # Building abl.elf

@@ -16,8 +16,8 @@ Make the following changes to the kernel manifest to support Bazel build.
     See [SOURCE\_DATE\_EPOCH](https://reproducible-builds.org/docs/source-date-epoch/).
   * **NOTE**: This is subject to change. In the future, this may not be required
       any more.
-* Add `tools/bazel` symlink to `build/kleaf/build.sh`
-* Add `WORKSPACE` symlink to `build/kleaf/bazel.WORKSPACE`
+* Add `tools/bazel` symlink to `build/kernel/kleaf/build.sh`
+* Add `WORKSPACE` symlink to `build/kernel/kleaf/bazel.WORKSPACE`
 * Dependent repositories for Bazel, including:
     * [prebuilts/bazel/linux-x86\_64](https://android.googlesource.com/platform/prebuilts/bazel/linux-x86_64/)
     * [prebuilts/jdk/jdk11](https://android.googlesource.com/platform/prebuilts/jdk/jdk11/)
@@ -50,8 +50,8 @@ that you are building. See section to [build in-tree drivers (Step 1)](#step-1)
 below.
 
 ```
-load("//build/kleaf:kernel.bzl","kernel_build")
-load("//build/kleaf:common_kernels.bzl", "arm64_outs")
+load("//build/kernel/kleaf:kernel.bzl","kernel_build")
+load("//build/kernel/kleaf:common_kernels.bzl", "arm64_outs")
 kernel_build(
    name = "tuna",
    srcs = glob(
@@ -176,15 +176,20 @@ Set `flat = True` so the directory structure within `$DIST_DIR` is flattened.
 Add the following to the `data` attribute of the `copy_to_dist_dir` target so
 that the outputs are analogous to those produced by `build/build.sh`:
 
-* The name of the `kernel_build` you have created in Step 1 with `_for_dist`
-  appended if you have done Step 1, e.g. `:tuna_for_dist`. This adds all `outs`
+* The name of the `kernel_build` you have created in Step 1,
+  e.g. `:tuna`. This adds all `outs`
   and `module_outs` to the distribution directory.
+  * This usually includes DTB files and in-tree kernel modules.
 * The name of the `kernel_modules_install` target you have created in Step 3.
   You may skip the `kernel_modules` targets created in Step 2, because
   the `kernel_modules_install` target includes all `kernel_modules` targets.
   This copies all external kernel modules to the distribution directory.
 * The name of the `kernel_images` target you have created in Step 4. This copies
   all partition images to the distribution directory.
+* GKI artifacts, including:
+  * `//common:kernel_aarch64`
+  * `//common:kernel_aarch64_additional_artifacts`
+* UAPI headers, e.g. `//common:kernel_aarch64_uapi_headers`
 
 Example for Pixel 2021 (see the `copy_to_dist_dir` target named `slider_dist`):
 
@@ -245,7 +250,7 @@ You only need to **do this once** per workspace.
 
 ```shell
 # Do this at workspace root next to the file WORKSPACE
-$ test -f WORKSPACE && echo 'build --//build/kleaf:lto=none' >> user.bazelrc
+$ test -f WORKSPACE && echo 'build --//build/kernel/kleaf:lto=none' >> user.bazelrc
 # Future builds in this workspace always disables LTO.
 $ tools/bazel build //private/path/to/sources:tuna_dist
 ```
@@ -261,3 +266,14 @@ of `select()` in `outs` and `module_outs` attributes. See documentations
 of `kernel_build` for details.
 
 [https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
+
+### `bazelrc` files
+
+By default, the `.bazelrc` (symlink to `build/kernel/kleaf/common.bazelrc`)
+tries to import the following two files if they exist:
+
+* `device.bazelrc`: Device-specific bazelrc file (e.g. GKI prebuilt settings)
+* `user.bazelrc`: User-specific bazelrc file (e.g. LTO settings)
+
+To add device-specific configurations, you may create a `device.bazelrc`
+file in the device kernel tree, then create a symlink at the repo root.
