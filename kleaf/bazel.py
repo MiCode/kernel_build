@@ -32,14 +32,6 @@ def check_output(*args, **kwargs):
 def main(root_dir, bazel_args, env):
     env = env.copy()
 
-    source_date_epoch = check_output(
-        ['{root_dir}/build/kernel/kleaf/source_date_epoch.sh'.format(root_dir=root_dir)],
-        text=True).strip()
-    if not source_date_epoch:
-        sys.stderr.write("Unable to determine SOURCE_DATE_EPOCH, fallback to 0\n")
-        source_date_epoch = "0"
-    env["SOURCE_DATE_EPOCH"] = source_date_epoch
-
     bazel_path = "{root_dir}/prebuilts/bazel/linux-x86_64/bazel".format(root_dir=root_dir)
     bazel_jdk_path = "{root_dir}/prebuilts/jdk/jdk11/linux-x86".format(root_dir=root_dir)
     bazelrc_name = "build/kernel/kleaf/common.bazelrc"

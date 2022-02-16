@@ -30,9 +30,6 @@ try-import %workspace%/device.bazelrc
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 
-# Pass through any SOURCE_DATE_EPOCH set from outside
-build --action_env=SOURCE_DATE_EPOCH
-
 # flag aliases for build settings
 build --flag_alias=lto=//build/kernel/kleaf:lto
 

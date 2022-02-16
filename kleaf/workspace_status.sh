@@ -37,4 +37,12 @@ if [[ -n "$SETLOCALVERSION" ]] && [[ -n "$KERNEL_DIR" ]] && [[ -d "$KERNEL_DIR" 
   STABLE_SCMVERSION=$(cd "$WORKING_DIR" && "$SETLOCALVERSION" "$KERNEL_DIR")
 fi
 
+STABLE_SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}
+if [[ -n "$KERNEL_DIR" ]] && [[ -d "$KERNEL_DIR" ]]; then
+  # Use "git" from the environment.
+  STABLE_SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$KERNEL_DIR" log -1 --pretty=%ct)}
+fi
+
 echo "STABLE_SCMVERSION $STABLE_SCMVERSION"
+echo "STABLE_SOURCE_DATE_EPOCH $STABLE_SOURCE_DATE_EPOCH"
+
