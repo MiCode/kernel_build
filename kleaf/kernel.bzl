@@ -26,10 +26,10 @@ def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
 
-def _debug_print_scripts(ctx, command):
+def _debug_print_scripts(ctx, command, what = None):
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
         print("""
-        # Script that runs %s:%s""" % (ctx.label, command))
+        # Script that runs %s%s:%s""" % (ctx.label, (" " + what if what else ""), command))
 
 def _reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
@@ -48,6 +48,22 @@ def _getoptattr(thing, attr, default_value = None):
     if hasattr(thing, attr):
         return getattr(thing, attr)
     return default_value
+
+def _find_file(name, files, what, required = False):
+    """Find a file named |name| in the list of |files|. Expect zero or one match."""
+    result = []
+    for file in files:
+        if file.basename == name:
+            result.append(file)
+    if len(result) > 1 or (not result and required):
+        fail("{what} contains {} file(s) named {name}, expected {expected_len}{files}".format(
+            what = what,
+            actual_len = len(result),
+            name = name,
+            expected_len = "1" if required else "0 or 1",
+            files = ":\n  " + ("\n  ".join(result)) if result else "",
+        ))
+    return result[0] if result else None
 
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
@@ -129,6 +145,7 @@ def kernel_build(
         dtstree = None,
         kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
+        kmi_symbol_list_strict_mode = None,
         toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -323,6 +340,9 @@ def kernel_build(
           ```
           trim_nonlisted_kmi = len(glob(["android/abi_gki_aarch64*"])) > 0
           ```
+        kmi_symbol_list_strict_mode: If `True`, add a build-time check between
+          the `kmi_symbol_lists` and the KMI resulting from the build, to ensure
+          they match 1-1.
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
@@ -407,6 +427,8 @@ def kernel_build(
         deps = deps,
         base_kernel = base_kernel,
         modules_prepare = modules_prepare_target_name,
+        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
+        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if kmi_symbol_lists else None,
         **kwargs
     )
 
@@ -695,10 +717,7 @@ def _kernel_toolchain_aspect_impl(target, ctx):
         # Traverse this depset and look for a file named "toolchain_version".
         # If no file matches, leave it as None so that _kernel_build_check_toolchain prints a
         # warning.
-        toolchain_version_file = None
-        for src in all_srcs.to_list():
-            if src.basename == TOOLCHAIN_VERSION_FILENAME:
-                toolchain_version_file = src
+        toolchain_version_file = _find_file(all_srcs.to_list(), TOOLCHAIN_VERSION_FILENAME, what = ctx.label)
         return _KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
 
     fail("{label}: Unable to get toolchain info because {kind} is not supported.".format(
@@ -894,6 +913,7 @@ def _kernel_config_impl(ctx):
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
         setup += """
             # Restore abi_symbollist.raw to abs_srctree
+              mkdir -p ${{ROOT_DIR}}/${{KERNEL_DIR}}
               rsync -p -L {raw_kmi_symbol_list} ${{ROOT_DIR}}/${{KERNEL_DIR}}/abi_symbollist.raw
         """.format(raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path)
 
@@ -1162,6 +1182,49 @@ def _kernel_build_dump_toolchain_version(ctx):
     )
     return out
 
+def _kmi_symbol_list_strict_mode(ctx, all_output_files):
+    """Run for `KMI_SYMBOL_LIST_STRICT_MODE`.
+    """
+    if not ctx.attr.kmi_symbol_list_strict_mode:
+        return None
+    if not ctx.file.raw_kmi_symbol_list:
+        fail("{}: kmi_symbol_list_strict_mode requires kmi_symbol_lists.")
+
+    vmlinux = all_output_files["outs"].get("vmlinux")
+    if not vmlinux:
+        fail("{}: with kmi_symbol_list_strict_mode, outs does not contain vmlinux")
+    module_symvers = all_output_files["internal_outs"].get("Module.symvers")
+    if not module_symvers:
+        fail("{}: with kmi_symbol_list_strict_mode, outs does not contain module_symvers")
+
+    modules = all_output_files["module_outs"].values()
+    objects = [f.basename for f in ([vmlinux] + modules)]
+
+    inputs = [
+        module_symvers,
+        ctx.file.raw_kmi_symbol_list,
+    ]
+    inputs += ctx.files._kernel_abi_scripts
+    inputs += ctx.attr.config[_KernelEnvInfo].dependencies
+
+    out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked")
+    command = ctx.attr.config[_KernelEnvInfo].setup + """
+        KMI_STRICT_MODE_OBJECTS="{objects}" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+    """.format(
+        objects = " ".join(objects),
+        compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
+        module_symvers = module_symvers.path,
+        raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
+    )
+    _debug_print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [out],
+        command = command,
+        progress_message = "Checking for kmi_symbol_list_strict_mode {}".format(ctx.label),
+    )
+    return out
+
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
     base_kernel_files = []
@@ -1301,6 +1364,7 @@ def _kernel_build_impl(ctx):
     )
 
     toolchain_version_out = _kernel_build_dump_toolchain_version(ctx)
+    kmi_strict_mode_out = _kmi_symbol_list_strict_mode(ctx, all_output_files)
 
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs and implicit_outs too.
@@ -1346,6 +1410,8 @@ def _kernel_build_impl(ctx):
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(toolchain_version_out)
+    if kmi_strict_mode_out:
+        default_info_files.append(kmi_strict_mode_out)
     default_info = DefaultInfo(files = depset(default_info_files))
     kernel_files_info = KernelFilesInfo(files = default_info_files)
 
@@ -1385,6 +1451,13 @@ _kernel_build = rule(
             aspects = [_kernel_toolchain_aspect],
         ),
         "modules_prepare": attr.label(),
+        "kmi_symbol_list_strict_mode": attr.bool(),
+        "raw_kmi_symbol_list": attr.label(
+            doc = "Label to abi_symbollist.raw.",
+            allow_single_file = True,
+        ),
+        "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
+        "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
@@ -2129,22 +2202,12 @@ def _build_modules_image_impl_common(
     """
     kernel_build = ctx.attr.kernel_modules_install[_KernelModuleInfo].kernel_build
     kernel_build_outs = kernel_build[_KernelBuildInfo].outs + kernel_build[_KernelBuildInfo].base_kernel_files
-    system_map = None
-    for kernel_build_out in kernel_build_outs:
-        if kernel_build_out.basename == "System.map":
-            if system_map != None:
-                fail("{}: dependent kernel_build {} has multiple System.map in outs:\n  {}\n  {}".format(
-                    ctx.label,
-                    kernel_build,
-                    system_map.path,
-                    kernel_build_out.path,
-                ))
-            system_map = kernel_build_out
-    if system_map == None:
-        fail("{}: dependent kernel_build {} has no System.map in outs".format(
-            ctx.label,
-            kernel_build,
-        ))
+    system_map = _find_file(
+        name = "System.map",
+        files = kernel_build_outs,
+        required = True,
+        what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build),
+    )
     modules_staging_archive = ctx.attr.kernel_modules_install[_KernelModuleInfo].modules_staging_archive
 
     inputs = []

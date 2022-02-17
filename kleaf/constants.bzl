@@ -59,6 +59,8 @@ CI_TARGET_MAPPING = {
     # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
     "kernel_aarch64": {
         "repo_name": "gki_prebuilts",
-        "outs": aarch64_outs,
+        "outs": aarch64_outs + [
+            TOOLCHAIN_VERSION_FILENAME,
+        ],
     },
 }
