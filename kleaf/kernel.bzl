@@ -1207,14 +1207,16 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files):
     inputs += ctx.files._kernel_abi_scripts
     inputs += ctx.attr.config[_KernelEnvInfo].dependencies
 
-    out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked")
+    out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
     command = ctx.attr.config[_KernelEnvInfo].setup + """
         KMI_STRICT_MODE_OBJECTS="{objects}" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+        touch {out}
     """.format(
         objects = " ".join(objects),
         compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
+        out = out.path,
     )
     _debug_print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
     ctx.actions.run_shell(
