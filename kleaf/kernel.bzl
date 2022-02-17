@@ -2228,10 +2228,10 @@ merged_kernel_uapi_headers = rule(
     implementation = _merged_kernel_uapi_headers_impl,
     doc = """Merge `kernel-uapi-headers.tar.gz`.
 
-On certain devices, kernel modules installs additional UAPI headers. Use this
+On certain devices, kernel modules install additional UAPI headers. Use this
 rule to add these module UAPI headers to the final `kernel-uapi-headers.tar.gz`.
 
-If there are conflict of file names in the source tarballs, files higher in
+If there are conflicts of file names in the source tarballs, files higher in
 the list have higher priority:
 1. UAPI headers from the `base_kernel` of the `kernel_build` (ususally the GKI build)
 2. UAPI headers from the `kernel_build` (usually the device build)
@@ -3116,10 +3116,14 @@ def _kernel_filegroup_impl(ctx):
         # TODO(b/211515836): module_srcs might also be downloaded
         module_srcs = _filter_module_srcs(ctx.files.kernel_srcs),
     )
+    uapi_info = _KernelBuildUapiInfo(
+        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
+    )
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
         kernel_module_dev_info,
         # TODO(b/219112010): implement _KernelEnvInfo for _kernel_build
+        uapi_info,
     ]
 
 kernel_filegroup = rule(
