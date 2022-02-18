@@ -60,11 +60,6 @@ def _parse_env(repository_ctx, var_name, expected_key):
 
 _ARTIFACT_URL_FMT = "https://androidbuildinternal.googleapis.com/android/internal/build/v3/builds/{build_number}/{target}/attempts/latest/artifacts/{filename}/url?redirect=true"
 
-# Instead of having download_artifacts_repo call download_repo directly, a
-# separate repository_rule, _download_artifact_repo, is needed because macros
-# can't access environment variables, therefore the URL cannot be constructed
-# based on environment variables in the macro. So we have to access environment
-# variables in the impl of this helper rule, then invoke _download_repo_impl.
 def _download_artifact_repo_impl(repository_ctx):
     build_number = _parse_env(repository_ctx, _BUILD_NUM_ENV_VAR, repository_ctx.attr.parent_repo)
     if not build_number:
