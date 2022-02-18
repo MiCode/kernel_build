@@ -678,7 +678,8 @@ def _kernel_env_impl(ctx):
            (
               # Save KLEAF_SCMVERSION to .scmversion if .scmversion does not already exist.
               # If it does exist, then it is part of "srcs", so respect its value.
-              if [[ ! -f ${{ROOT_DIR}}/${{KERNEL_DIR}}/.scmversion ]]; then
+              # If .git exists, we are not in sandbox. Let make calls setlocalversion.
+              if [[ ! -d ${{ROOT_DIR}}/${{KERNEL_DIR}}/.git ]] && [[ ! -f ${{ROOT_DIR}}/${{KERNEL_DIR}}/.scmversion ]]; then
                 KLEAF_SCMVERSION={scmversion_cmd}
                 if [[ ${{KLEAF_SCMVERSION}} ]]; then
                     mkdir -p ${{ROOT_DIR}}/${{KERNEL_DIR}}
