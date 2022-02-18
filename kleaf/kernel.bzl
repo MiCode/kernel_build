@@ -65,6 +65,17 @@ def _find_file(name, files, what, required = False):
         ))
     return result[0] if result else None
 
+def _filter_module_srcs(files):
+    """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
+    return [
+        s
+        for s in files
+        if s.path.endswith(".h") or any([token in s.path for token in [
+            "Makefile",
+            "scripts/",
+        ]])
+    ]
+
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
     command = "cat {srcs} > {out_file}".format(
@@ -124,13 +135,6 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
-KernelFilesInfo = provider(doc = """Contains information of files that a kernel build produces.
-
-In particular, this is required by the `base_kernel` attribute of a `kernel_build` rule.
-""", fields = {
-    "files": "A list of files that this kernel build provides.",
-})
-
 def kernel_build(
         name,
         build_config,
@@ -181,15 +185,15 @@ def kernel_build(
           ```
         base_kernel: A label referring the base kernel build.
 
-          If set, the list of files specified in the `KernelFilesInfo` of the rule specified in
+          If set, the list of files specified in the `DefaultInfo` of the rule specified in
           `base_kernel` is copied to a directory, and `KBUILD_MIXED_TREE` is set to the directory.
           Setting `KBUILD_MIXED_TREE` effectively enables mixed build.
 
           To set additional flags for mixed build, change `build_config` to a `kernel_build_config`
           rule, with a build config fragment that contains the additional flags.
 
-          The label specified by `base_kernel` must conform to
-          [`KernelFilesInfo`](#kernelfilesinfo). Usually, this points to one of the following:
+          The label specified by `base_kernel` must produce a list of files similar
+          to what a `kernel_build` rule does. Usually, this points to one of the following:
           - `//common:kernel_{arch}`
           - A `kernel_filegroup` rule, e.g.
             ```
@@ -413,7 +417,7 @@ def kernel_build(
         name = modules_prepare_target_name,
         config = config_target_name,
         srcs = srcs,
-        outdir_tar_gz = modules_prepare_target_name + "/outdir.tar.gz",
+        outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
     )
 
     _kernel_build(
@@ -1058,14 +1062,21 @@ _raw_kmi_symbol_list = rule(
 )
 
 _KernelBuildInfo = provider(fields = {
-    "modules_staging_archive": "Archive containing staging kernel modules. " +
-                               "Does not contain the lib/modules/* suffix.",
-    "module_srcs": "sources for this kernel_build for building external modules",
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
     "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs`, `implicit_outs` and `internal_outs`)",
     "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
     "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
 })
+
+_KernelBuildExtModuleInfo = provider(
+    doc = "A provider that specifies the expectations of a `_kernel_module` (an external module) or a `kernel_modules_install` from its `kernel_build` attribute.",
+    fields = {
+        "modules_staging_archive": "Archive containing staging kernel modules. " +
+                                   "Does not contain the lib/modules/* suffix.",
+        "module_srcs": "sources for this kernel_build for building external modules",
+        "modules_prepare": "The `_modules_prepare` target.",
+    },
+)
 
 _SrcsInfo = provider(fields = {
     "srcs": "The srcs attribute of a rule.",
@@ -1078,23 +1089,6 @@ _srcs_aspect = aspect(
     implementation = _srcs_aspect_impl,
     doc = "An aspect that retrieves srcs attribute from a rule.",
     attr_aspects = ["srcs"],
-)
-
-_KernelBuildAspectInfo = provider(fields = {
-    "modules_prepare": "The *_modules_prepare target",
-})
-
-def _kernel_build_aspect_impl(target, ctx):
-    return [_KernelBuildAspectInfo(
-        modules_prepare = _getoptattr(ctx.rule.attr, "modules_prepare"),
-    )]
-
-_kernel_build_aspect = aspect(
-    implementation = _kernel_build_aspect_impl,
-    doc = "An aspect describing attributes of a _kernel_build rule.",
-    attr_aspects = [
-        "modules_prepare",
-    ],
 )
 
 def _kernel_build_check_toolchain(ctx):
@@ -1207,14 +1201,16 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files):
     inputs += ctx.files._kernel_abi_scripts
     inputs += ctx.attr.config[_KernelEnvInfo].dependencies
 
-    out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked")
+    out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
     command = ctx.attr.config[_KernelEnvInfo].setup + """
         KMI_STRICT_MODE_OBJECTS="{objects}" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+        touch {out}
     """.format(
         objects = " ".join(objects),
         compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
+        out = out.path,
     )
     _debug_print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
     ctx.actions.run_shell(
@@ -1236,7 +1232,7 @@ def _kernel_build_impl(ctx):
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
         # only change when the dependent ctx.attr.base_kernel changes.
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
-        base_kernel_files = ctx.attr.base_kernel[KernelFilesInfo].files
+        base_kernel_files = ctx.files.base_kernel
         kbuild_mixed_tree_command = """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
@@ -1386,26 +1382,25 @@ def _kernel_build_impl(ctx):
         setup = env_info_setup,
     )
 
-    module_srcs = [
-        s
-        for s in ctx.files.srcs
-        if s.path.endswith(".h") or any([token in s.path for token in [
-            "Makefile",
-            "scripts/",
-        ]])
-    ]
+    module_srcs = _filter_module_srcs(ctx.files.srcs)
+
     kernel_build_info = _KernelBuildInfo(
-        modules_staging_archive = modules_staging_archive,
-        module_srcs = module_srcs,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         outs = all_output_files["outs"].values(),
         base_kernel_files = base_kernel_files,
         interceptor_output = interceptor_output,
     )
 
+    kernel_build_module_info = _KernelBuildExtModuleInfo(
+        modules_staging_archive = modules_staging_archive,
+        module_srcs = module_srcs,
+        modules_prepare = ctx.attr.modules_prepare,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
+    output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
@@ -1413,14 +1408,13 @@ def _kernel_build_impl(ctx):
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
     default_info = DefaultInfo(files = depset(default_info_files))
-    kernel_files_info = KernelFilesInfo(files = default_info_files)
 
     return [
         env_info,
         kernel_build_info,
+        kernel_build_module_info,
         output_group_info,
         default_info,
-        kernel_files_info,
     ]
 
 _kernel_build = rule(
@@ -1447,7 +1441,6 @@ _kernel_build = rule(
             allow_files = True,
         ),
         "base_kernel": attr.label(
-            providers = [KernelFilesInfo],
             aspects = [_kernel_toolchain_aspect],
         ),
         "modules_prepare": attr.label(),
@@ -1542,12 +1535,12 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
 def _kernel_module_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
-    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_prepare
     inputs = []
     inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += modules_prepare[_KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
+    inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
         ctx.file._search_and_mv_output,
@@ -1710,8 +1703,7 @@ _kernel_module = rule(
         ),
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [_KernelEnvInfo, _KernelBuildInfo],
-            aspects = [_kernel_build_aspect],
+            providers = [_KernelEnvInfo, _KernelBuildExtModuleInfo],
         ),
         "kernel_module_deps": attr.label_list(
             providers = [_KernelEnvInfo, _KernelModuleInfo],
@@ -1868,7 +1860,7 @@ def _kernel_module_set_defaults(kwargs):
 def _kernel_modules_install_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
-    modules_prepare = ctx.attr.kernel_build[_KernelBuildAspectInfo].modules_prepare
+    modules_prepare = ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_prepare
 
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
@@ -1876,11 +1868,11 @@ def _kernel_modules_install_impl(ctx):
     inputs = []
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += modules_prepare[_KernelEnvInfo].dependencies
-    inputs += ctx.attr.kernel_build[_KernelBuildInfo].module_srcs
+    inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].module_srcs
     inputs += [
         ctx.file._search_and_mv_output,
         ctx.file._check_duplicated_files_in_archives,
-        ctx.attr.kernel_build[_KernelBuildInfo].modules_staging_archive,
+        ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive,
     ]
     for kernel_module in ctx.attr.kernel_modules:
         inputs += kernel_module[_KernelEnvInfo].dependencies
@@ -1909,7 +1901,7 @@ def _kernel_modules_install_impl(ctx):
     """.format(
         modules_staging_dir = modules_staging_dir,
         kernel_build_modules_staging_archive =
-            ctx.attr.kernel_build[_KernelBuildInfo].modules_staging_archive.path,
+            ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive.path,
     )
     for kernel_module in ctx.attr.kernel_modules:
         command += kernel_module[_KernelEnvInfo].setup
@@ -2021,9 +2013,8 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             doc = "A list of labels referring to `kernel_module`s to install. Must have the same `kernel_build` as this rule.",
         ),
         "kernel_build": attr.label(
-            providers = [_KernelEnvInfo, _KernelBuildInfo],
+            providers = [_KernelEnvInfo, _KernelBuildExtModuleInfo],
             doc = "Label referring to the `kernel_build` module.",
-            aspects = [_kernel_build_aspect],
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_check_duplicated_files_in_archives": attr.label(
@@ -2787,9 +2778,18 @@ def kernel_images(
     )
 
 def _kernel_filegroup_impl(ctx):
+    all_deps = ctx.files.srcs + ctx.files.deps
+    kernel_module_dev_info = _KernelBuildExtModuleInfo(
+        modules_staging_archive = _find_file("modules_staging_dir.tar.gz", all_deps, what = ctx.label),
+        # TODO(b/219112010): implement _KernelEnvInfo for the modules_prepare target
+        modules_prepare = _find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label),
+        # TODO(b/211515836): module_srcs might also be downloaded
+        module_srcs = _filter_module_srcs(ctx.files.kernel_srcs),
+    )
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
-        KernelFilesInfo(files = ctx.files.srcs),
+        kernel_module_dev_info,
+        # TODO(b/219112010): implement _KernelEnvInfo for _kernel_build
     ]
 
 kernel_filegroup = rule(
@@ -2799,13 +2799,34 @@ kernel_filegroup = rule(
 This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/general.html#filegroup)
 that gives a convenient name to a collection of targets, which can be referenced from other rules.
 
-In addition, this rule is conformed with [`KernelFilesInfo`](#kernelfilesinfo), so it can be used
-in the `base_kernel` attribute of a [`kernel_build`](#kernel_build).
+It can be used in the `base_kernel` attribute of a [`kernel_build`](#kernel_build).
 """,
     attrs = {
         "srcs": attr.label_list(
             allow_files = True,
-            doc = "The list of labels that are members of this file group.",
+            doc = """The list of labels that are members of this file group.
+
+This usually contains a list of prebuilts, e.g. `vmlinux`, `Image.lz4`, `kernel-headers.tar.gz`,
+etc.
+
+Not to be confused with [`kernel_srcs`](#kernel_filegroup-kernel_srcs).""",
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
+            doc = """A list of additional labels that participates in implementing the providers.
+
+This usually contains a list of prebuilts.
+
+Unlike srcs, these labels are NOT added to the [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)""",
+        ),
+        "kernel_srcs": attr.label_list(
+            allow_files = True,
+            doc = """A list of files that would have been listed as `srcs` if this rule were a [`kernel_build`](#kernel_build).
+
+This is usually a `glob()` of source files.
+
+Not to be confused with [`srcs`](#kernel_filegroup-srcs).
+""",
         ),
     },
 )

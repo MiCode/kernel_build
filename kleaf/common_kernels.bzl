@@ -56,6 +56,7 @@ _ARCH_CONFIGS = {
 _KMI_CONFIG_VALID_KEYS = [
     "kmi_symbol_lists",
     "trim_nonlisted_kmi",
+    "kmi_symbol_list_strict_mode",
 ]
 
 # glob() must be executed in a BUILD thread, so this cannot be a global
@@ -76,6 +77,7 @@ def _default_kmi_configs():
             # - If there are kmi_symbol_lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
             # - If there aren't:               assume TRIM_NONLISTED_KMI unspecified
             "trim_nonlisted_kmi": len(aarch64_kmi_symbol_lists) > 0,
+            "kmi_symbol_list_strict_mode": len(aarch64_kmi_symbol_lists) > 0,
         },
         "kernel_aarch64_debug": {
             # Assume the value for KMI_SYMBOL_LIST and ADDITIONAL_KMI_SYMBOL_LISTS
@@ -415,7 +417,14 @@ def define_common_kernels(
             ],
         )
 
-        # Everything in name + "_dist", minus UAPI headers, because
+        # module_staging_archive from <name>
+        native.filegroup(
+            name = name + "_modules_staging_archive",
+            srcs = [name],
+            output_group = "modules_staging_archive",
+        )
+
+        # Everything in name + "_dist", minus UAPI headers & DDK, because
         # device-specific external kernel modules may install different headers.
         native.filegroup(
             name = name + "_additional_artifacts",
@@ -428,12 +437,25 @@ def define_common_kernels(
             ],
         )
 
+        # Everything in name + "_dist" for the DDK.
+        # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
+        # development. Hence they are also added to kernel_*_dist so they can be downloaded.
+        # Note: This poke into details of kernel_build!
+        native.filegroup(
+            name = name + "_ddk_artifacts",
+            srcs = [
+                name + "_modules_prepare",
+                name + "_modules_staging_archive",
+            ],
+        )
+
         copy_to_dist_dir(
             name = name + "_dist",
             data = [
                 name,
                 name + "_uapi_headers",
                 name + "_additional_artifacts",
+                name + "_ddk_artifacts",
             ],
             flat = True,
         )
@@ -505,6 +527,11 @@ def _define_prebuilts(**kwargs):
                 ":use_prebuilt_gki_set": [":" + name + "_downloaded"],
                 "//conditions:default": [source_package_name],
             }),
+            deps = select({
+                ":use_prebuilt_gki_set": [source_package_name + "_ddk_artifacts_downloaded"],
+                "//conditions:default": [source_package_name + "_ddk_artifacts"],
+            }),
+            kernel_srcs = [source_package_name + "_sources"],
             **kwargs
         )
 
