@@ -61,22 +61,39 @@ def _parse_env(repository_ctx, var_name, expected_key):
 _ARTIFACT_URL_FMT = "https://androidbuildinternal.googleapis.com/android/internal/build/v3/builds/{build_number}/{target}/attempts/latest/artifacts/{filename}/url?redirect=true"
 
 def _download_artifact_repo_impl(repository_ctx):
+    workspace_file = """workspace(name = "{}")
+""".format(repository_ctx.name)
+    repository_ctx.file("WORKSPACE.bazel", workspace_file)
+
     build_number = _parse_env(repository_ctx, _BUILD_NUM_ENV_VAR, repository_ctx.attr.parent_repo)
     if not build_number:
         build_number = repository_ctx.attr.build_number
 
-    if not build_number:
+    if build_number:
+        build_file = """filegroup(
+        name="file",
+        srcs=["{filename}"],
+        visibility=["@{parent_repo}//{filename}:__pkg__"],
+    )
+    """.format(
+            filename = repository_ctx.attr.filename,
+            parent_repo = repository_ctx.attr.parent_repo,
+        )
+    else:
         SAMPLE_BUILD_NUMBER = "8077484"
         if repository_ctx.attr.parent_repo == "gki_prebuilts":
-            fail("""ERROR: {parent_repo}: No build_number specified. Fix by specifying `--use_prebuilt_gki=<build_number>"`, e.g.
+            msg = """
+ERROR: {parent_repo}: No build_number specified. Fix by specifying `--use_prebuilt_gki=<build_number>"`, e.g.
     bazel build --use_prebuilt_gki={build_number} @{parent_repo}//{filename}
 """.format(
                 filename = repository_ctx.attr.filename,
                 parent_repo = repository_ctx.attr.parent_repo,
                 build_number = SAMPLE_BUILD_NUMBER,
-            ))
+            )
 
-        fail("""ERROR: {parent_repo}: No build_number specified.
+        else:
+            msg = """
+ERROR: {parent_repo}: No build_number specified.
 
 Fix by one of the following:
 - Specify `build_number` attribute in {parent_repo}
@@ -85,39 +102,34 @@ Fix by one of the following:
       --action_env={build_num_var}="{parent_repo}={build_number}" \\
       @{parent_repo}//{filename}
 """.format(
-            filename = repository_ctx.attr.filename,
-            parent_repo = repository_ctx.attr.parent_repo,
-            build_number = SAMPLE_BUILD_NUMBER,
-            build_num_var = _BUILD_NUM_ENV_VAR,
-        ))
+                filename = repository_ctx.attr.filename,
+                parent_repo = repository_ctx.attr.parent_repo,
+                build_number = SAMPLE_BUILD_NUMBER,
+                build_num_var = _BUILD_NUM_ENV_VAR,
+            )
+        build_file = """
+load("@//build/kernel/kleaf:fail.bzl", "fail_rule")
 
-    urls = [_ARTIFACT_URL_FMT.format(
-        build_number = build_number,
-        target = repository_ctx.attr.target,
-        filename = repository_ctx.attr.filename,
-    )]
-
-    workspace_file = """workspace(name = "{}")
-""".format(repository_ctx.name)
-    repository_ctx.file("WORKSPACE.bazel", workspace_file)
-
-    build_file = """filegroup(
-    name="file",
-    srcs=["{filename}"],
-    visibility=["@{parent_repo}//{filename}:__pkg__"],
+fail_rule(
+    name = "file",
+    message = \"\"\"{}\"\"\"
 )
-""".format(
-        filename = repository_ctx.attr.filename,
-        parent_repo = repository_ctx.attr.parent_repo,
-    )
+""".format(msg)
+
     repository_ctx.file("file/BUILD.bazel", build_file)
 
-    download_path = repository_ctx.path("file/{}".format(repository_ctx.attr.filename))
-    download_info = repository_ctx.download(
-        url = urls,
-        output = download_path,
-        sha256 = repository_ctx.attr.sha256,
-    )
+    if build_number:
+        urls = [_ARTIFACT_URL_FMT.format(
+            build_number = build_number,
+            target = repository_ctx.attr.target,
+            filename = repository_ctx.attr.filename,
+        )]
+        download_path = repository_ctx.path("file/{}".format(repository_ctx.attr.filename))
+        download_info = repository_ctx.download(
+            url = urls,
+            output = download_path,
+            sha256 = repository_ctx.attr.sha256,
+        )
 
 _download_artifact_repo = repository_rule(
     implementation = _download_artifact_repo_impl,

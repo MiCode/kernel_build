@@ -60,6 +60,7 @@ docs(
         "common_kernels.bzl",
         "constants.bzl",
         "download_repo.bzl",
+        "fail.bzl",
         "kernel.bzl",
         "key_value_repo.bzl",
     ],
