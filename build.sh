@@ -120,7 +120,7 @@
 #     react to it by failing if KMI differences are detected.
 #
 #   GENERATE_VMLINUX_BTF
-#     If set to "1", generate a vmlinux.btf that is stripped off any debug
+#     If set to "1", generate a vmlinux.btf that is stripped of any debug
 #     symbols, but contains type and symbol information within a .BTF section.
 #     This is suitable for ABI analysis through BTF.
 #
