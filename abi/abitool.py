@@ -60,7 +60,7 @@ def _collapse_abidiff_offset_changes(text):
         new_text.append(line)
 
     for line in text.splitlines(True):
-        match = regex.match(line)
+        match = regex.search(line)
         if match:
             (new_indent, item, new_offset) = match.group(1, 2, 3)
             if new_indent != indent or new_offset != offset:
@@ -120,10 +120,10 @@ def _collapse_abidiff_CRC_changes(text, limit):
     index = 0
     while index < len(lines):
         line = lines[index]
-        if section_regex.match(line):
+        if section_regex.search(line):
             emit_pending()
-        if (index + 2 < len(lines) and change_regex.match(line) and
-            crc_regex.match(lines[index+1]) and blank_regex.match(lines[index+2])):
+        if (index + 2 < len(lines) and change_regex.search(line) and
+            crc_regex.search(lines[index+1]) and blank_regex.search(lines[index+2])):
                 pending.append((line, lines[index+1]))
                 index += 3
                 continue
