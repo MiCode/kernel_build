@@ -204,7 +204,7 @@ def kernel_build(
             )
             ```
 
-        generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped off any debug
+        generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
           symbols, but contains type and symbol information within a .BTF section.
           This is suitable for ABI analysis through BTF.
 
@@ -1289,7 +1289,7 @@ def _kernel_build_impl(ctx):
     if kbuild_mixed_tree:
         inputs.append(kbuild_mixed_tree)
 
-    # kernel_build(name="kenrel", outs=["out"])
+    # kernel_build(name="kernel", outs=["out"])
     # => _kernel_build(name="kernel", outs=["kernel/out"], internal_outs=["kernel/Module.symvers", ...])
     # => all_output_names = ["foo", "Module.symvers", ...]
     #    all_output_files = {"out": {"foo": File(...)}, "internal_outs": {"Module.symvers": File(...)}, ...}
