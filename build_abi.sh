@@ -339,7 +339,8 @@ if [ -n "$ABI_DEFINITION" ]; then
         ${ROOT_DIR}/build/abi/diff_abi --abi-tool STG                         \
                                        --baseline $KERNEL_DIR/$ABI_DEFINITION \
                                        --new      ${DIST_DIR}/${abi_out_file} \
-                                       --report   ${abi_report}.stg
+                                       --report   ${abi_report}.stg           \
+                                       --short-report ${abi_report}.stg.short
         rc=$?
         set -e
         echo "========================================================"
