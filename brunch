@@ -27,7 +27,7 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SCRIPTS_DIR=$(dirname $(readlink -f $0))
-ROOT_DIR=${SCRIPTS_DIR}/..
+ROOT_DIR=${SCRIPTS_DIR}/../..
 
 function show_help {
     echo "USAGE: $0 [target [variant]]"

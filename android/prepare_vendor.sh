@@ -90,7 +90,7 @@ function rel_path() {
   python -c "import os.path; import sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$1" "$2"
 }
 
-ROOT_DIR=$(realpath $(dirname $(readlink -f $0))/../..) # build/android/prepare.sh -> .
+ROOT_DIR=$(realpath $(dirname $(readlink -f $0))/../../..) # build/kernel/android/prepare.sh -> .
 echo "  kernel platform root: $ROOT_DIR"
 
 ################################################################################
