@@ -304,6 +304,7 @@ class Libabigail(AbiTool):
 
             tidy_abi_command = ["abitidy",
                                 "--all",
+                                "--no-report-untyped",
                                 "--input", temp_path,
                                 "--output", dump_path]
 
@@ -397,10 +398,12 @@ class Stg(AbiTool):
                         raise
                     abi_changed = True
 
-            # TODO(b/214966642): Remove once ABI XML definitions are more stable.
+            # TODO(b/214966642): Remove once ABI XML type definitions are more stable.
+            # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
             if abi_changed:
-                # override this if there are only declaration <-> definition changes
-                ignorable = r"^(type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|)$"
+                # Override this if there are only declaration <-> definition or
+                # type added / removed changes.
+                ignorable = r"^(|type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|symbol changed from '.*' to '.*'|  type '.*' was (added|removed))$"
                 override = True
                 with open(f"{basename}.small", "r") as input:
                     for line in input:
