@@ -12,7 +12,7 @@ def handle_outputs_with_slash(srcdir, dstdir, outputs):
     for sdir in srcdir:
       if os.path.exists(os.path.join(sdir, out)):
         shutil.copy(os.path.join(sdir, out), dstdir)
-        shutil.move(os.path.join(sdir, out), os.path.join(dstdir, out))
+        shutil.copy(os.path.join(sdir, out), os.path.join(dstdir, out))
         found = True
         break
     if not found:
@@ -29,7 +29,7 @@ def handle_outputs_without_slash(srcdir, dstdir, outputs):
     found = False
     for sdir in srcdir:
       if os.path.exists(os.path.join(sdir, out)):
-        shutil.move(os.path.join(sdir, out), dstdir)
+        shutil.copy(os.path.join(sdir, out), dstdir)
         found = True
         break
       if not found:
