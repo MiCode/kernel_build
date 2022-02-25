@@ -18,7 +18,6 @@
 
 import argparse
 import enum
-import logging
 import os
 import sys
 
@@ -27,10 +26,6 @@ class Status(enum.Enum):
   UNKNOWN = 0
   ALLOWED = 1
   FORBIDDEN = 2
-
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 def _read_config(allow_file, deny_file):
@@ -50,7 +45,7 @@ def _read_config(allow_file, deny_file):
         if len(fields) > 1:
           reason = fields[1]
         if symbol in config:
-          log.warn(f'symbol \'{symbol}\' duplicate configuration')
+          print(f'symbol \'{symbol}\' duplicate configuration', file=sys.stderr)
           continue
         config[symbol] = (status, reason)
 
@@ -124,18 +119,18 @@ def main():
   symbols = _get_symbols(lines)
   report = _check_symbols(config, symbols)
 
-  log.info('========================================================')
-  log.info(f'Generating ABI symbol list definition in {out_file}')
+  print('========================================================')
+  print(f'Generating ABI symbol list definition in {out_file}')
   with open(out_file, 'w') as sl:
     sl.writelines(lines)
 
   exit_status = 0
-  log.info(f'Generating ABI symbol report {report_file}')
+  print(f'Generating ABI symbol report {report_file}')
   with open(report_file, 'w') as rf:
     for symbol, status, reason in report:
       rf.write(f'{symbol}\t{status.name}\t{reason}\n')
       if status == Status.FORBIDDEN:
-        log.error(f'symbol \'{symbol}\' is not allowed: {reason}')
+        print(f'symbol \'{symbol}\' is not allowed: {reason}', file=sys.stderr)
         exit_status = 1
 
   return exit_status
