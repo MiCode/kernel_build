@@ -84,6 +84,7 @@ def _kernel_build_config_impl(ctx):
     )
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelBuildConfig",
         inputs = ctx.files.srcs,
         outputs = [out_file],
         command = command,
@@ -641,6 +642,7 @@ def _kernel_env_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelEnv",
         inputs = srcs + [
             ctx.file._build_utils_sh,
             build_config,
@@ -920,6 +922,7 @@ def _kernel_config_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelConfig",
         inputs = srcs,
         outputs = [config, include_tar_gz],
         tools = ctx.attr.env[_KernelEnvInfo].dependencies,
@@ -1007,6 +1010,7 @@ def _kmi_symbol_list_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KmiSymbolList",
         inputs = inputs,
         outputs = outputs,
         progress_message = "Creating abi_symbollist and report {}".format(ctx.label),
@@ -1059,6 +1063,7 @@ def _raw_kmi_symbol_list_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "RawKmiSymbolList",
         inputs = inputs,
         outputs = [out_file],
         progress_message = "Creating abi_symbollist.raw {}".format(ctx.label),
@@ -1185,6 +1190,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
         )
 
         ctx.actions.run_shell(
+            mnemonic = "KernelBuildCheckToolchain",
             inputs = [base_toolchain_file],
             outputs = [out],
             command = command,
@@ -1239,6 +1245,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files):
     )
     _debug_print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
     ctx.actions.run_shell(
+        mnemonic = "KernelBuildKmiSymbolListStrictMode",
         inputs = inputs,
         outputs = [out],
         command = command,
@@ -1271,6 +1278,7 @@ def _kernel_build_impl(ctx):
             kbuild_mixed_tree = kbuild_mixed_tree.path,
         )
         ctx.actions.run_shell(
+            mnemonic = "KernelBuildKbuildMixedTree",
             inputs = base_kernel_files,
             outputs = [kbuild_mixed_tree],
             progress_message = "Creating KBUILD_MIXED_TREE",
@@ -1377,6 +1385,7 @@ def _kernel_build_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelBuild",
         inputs = inputs,
         outputs = command_outputs,
         tools = ctx.attr.config[_KernelEnvInfo].dependencies,
@@ -1490,6 +1499,7 @@ def _modules_prepare_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "ModulesPrepare",
         inputs = ctx.files.srcs,
         outputs = [ctx.outputs.outdir_tar_gz],
         tools = ctx.attr.config[_KernelEnvInfo].dependencies,
@@ -1674,6 +1684,7 @@ def _kernel_module_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelModule",
         inputs = inputs,
         outputs = ctx.outputs.outs + additional_outputs +
                   additional_declared_outputs,
@@ -1983,6 +1994,7 @@ def _kernel_modules_install_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelModulesInstall",
         inputs = inputs,
         outputs = external_modules + [
             modules_staging_archive,
@@ -2072,6 +2084,7 @@ def _kernel_uapi_headers_impl(ctx):
     )
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelUapiHeaders",
         inputs = ctx.files.srcs + ctx.attr.config[_KernelEnvInfo].dependencies,
         outputs = [out_file],
         progress_message = "Building UAPI kernel headers %s" % ctx.attr.name,
@@ -2127,6 +2140,7 @@ def _kernel_headers_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "KernelHeaders",
         inputs = inputs,
         outputs = [out_file],
         progress_message = "Building kernel headers %s" % ctx.attr.name,
@@ -2174,6 +2188,7 @@ def _vmlinux_btf_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "VmlinuxBtf",
         inputs = inputs,
         outputs = [out_file],
         progress_message = "Building vmlinux.btf {}".format(ctx.label),
@@ -2204,7 +2219,8 @@ def _build_modules_image_impl_common(
         build_command,
         modules_staging_dir,
         implicit_outputs = None,
-        additional_inputs = None):
+        additional_inputs = None,
+        mnemonic = None):
     """Command implementation for building images that directly contain modules.
 
     Args:
@@ -2266,6 +2282,7 @@ def _build_modules_image_impl_common(
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = mnemonic,
         inputs = inputs,
         outputs = command_outputs,
         progress_message = "Building {} {}".format(what, ctx.label),
@@ -2344,6 +2361,7 @@ def _initramfs_impl(ctx):
         implicit_outputs = [
             initramfs_staging_archive,
         ],
+        mnemonic = "Initramfs",
     )
     return [
         default_info,
@@ -2413,6 +2431,7 @@ def _system_dlkm_image_impl(ctx):
         outputs = [system_dlkm_img, system_dlkm_staging_archive],
         build_command = command,
         modules_staging_dir = modules_staging_dir,
+        mnemonic = "SystemDlkmImage",
     )
     return [default_info]
 
@@ -2468,6 +2487,7 @@ def _vendor_dlkm_image_impl(ctx):
         build_command = command,
         modules_staging_dir = modules_staging_dir,
         additional_inputs = [ctx.file.vendor_boot_modules_load],
+        mnemonic = "VendorDlkmImage",
     )
 
 _vendor_dlkm_image = rule(
@@ -2546,6 +2566,7 @@ def _boot_images_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "BootImages",
         inputs = inputs,
         outputs = ctx.outputs.outs + [outdir],
         progress_message = "Building boot images {}".format(ctx.label),
@@ -2601,6 +2622,7 @@ def _dtbo_impl(ctx):
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
+        mnemonic = "Dtbo",
         inputs = inputs,
         outputs = [output],
         progress_message = "Building dtbo {}".format(ctx.label),
@@ -2870,6 +2892,7 @@ def _kernel_compile_commands_impl(ctx):
         compile_commands = compile_commands.path,
     )
     ctx.actions.run_shell(
+        mnemonic = "KernelCompileCommands",
         inputs = inputs,
         outputs = [compile_commands],
         command = command,
@@ -2930,6 +2953,7 @@ def _kernel_kythe_impl(ctx):
         runextractor_error = runextractor_error.path,
     )
     ctx.actions.run_shell(
+        mnemonic = "KernelKythe",
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [all_kzip, runextractor_error],
         command = command,
