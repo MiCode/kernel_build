@@ -898,6 +898,7 @@ def _kernel_config_impl(ctx):
               ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
                   -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
                   --set-str UNUSED_KSYMS_WHITELIST abi_symbollist.raw
+              make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} olddefconfig
         """
 
     command = ctx.attr.env[_KernelEnvInfo].setup + """
