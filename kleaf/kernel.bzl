@@ -912,6 +912,8 @@ def _kernel_config_impl(ctx):
         {lto_command}
         # Trim nonlisted symbols
           {trim_kmi_command}
+        # HACK: run syncconfig to avoid re-triggerring kernel_build
+          make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
           cp -p ${{OUT_DIR}}/.config {config}
           tar czf {include_tar_gz} -C ${{OUT_DIR}} include/
