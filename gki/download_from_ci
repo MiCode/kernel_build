@@ -280,7 +280,7 @@ def download_kernel(target, version, output_dir, fetch_system_dlkm=False):
     # Extract the tarball for system_dlkm image content
     system_dlkm_tarball = os.path.join(output_dir, "system_dlkm_staging_archive.tar.gz")
     system_dlkm_staging = os.path.join(output_dir, "system_dlkm_staging")
-    os.mkdir(system_dlkm_staging)
+    os.makedirs(system_dlkm_staging, exist_ok=True)
     with tarfile.open(system_dlkm_tarball) as system_dlkm_tar:
       system_dlkm_tar.extractall(system_dlkm_staging)
     os.remove(system_dlkm_tarball)
