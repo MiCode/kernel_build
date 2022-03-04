@@ -2665,7 +2665,6 @@ def kernel_images(
         kernel_build = None,
         build_initramfs = None,
         build_vendor_dlkm = None,
-        build_boot_images = None,
         build_boot = None,
         build_vendor_boot = None,
         build_system_dlkm = None,
@@ -2727,10 +2726,6 @@ def kernel_images(
           regardless of the value of `VENDOR_DLKM_MODULES_BLOCKLIST`.
           If `build_vendor_dlkm()` in `build_utils.sh` does not generate
           `vendor_dlkm.modules.blocklist`, an empty file is created.
-        build_boot_images: Deprecated. Use `build_boot` and `build_vendor_boot` instead.
-
-          If set explicitly, it is equivalent to setting `build_boot = build_boot_images` and
-          `build_vendor_boot = build_boot_images`.
         build_boot: Whether to build boot image. It must be set if either `BUILD_BOOT_IMG`
           or `BUILD_VENDOR_BOOT_IMG` is set.
 
@@ -2771,13 +2766,6 @@ def kernel_images(
           ```
     """
     all_rules = []
-
-    # TODO(b/222587028): Remove build_boot_images once all usages are removed.
-    if build_boot_images != None:
-        if build_boot != None or build_vendor_boot != None:
-            fail("{}: build_boot_images is deprecated. It cannot be set when build_boot and/or build_vendor_boot are set.".format(name))
-        build_boot = build_boot_images
-        build_vendor_boot = build_boot_images
 
     if build_vendor_boot and not build_boot:
         fail("{}: build_vendor_boot = True requires build_boot = True.".format(name))
