@@ -3,6 +3,7 @@
 import argparse
 import os
 import shutil
+import sys
 
 
 def handle_outputs_with_slash(srcdir, dstdir, outputs):
@@ -93,9 +94,9 @@ def main(srcdir, dstdir, outputs):
   """
   for sdir in srcdir:
     if not os.path.isdir(sdir):
-      raise Exception(f"srcdir {sdir} is not a directory.")
+      sys.exit(f"ERROR: srcdir {sdir} is not a directory.")
   if not os.path.isdir(dstdir):
-    raise Exception(f"dstdir {dstdir} is not a directory.")
+    sys.exit(f"ERROR: dstdir {dstdir} is not a directory.")
 
   with_slash = [out for out in outputs if "/" in out]
   errors = handle_outputs_with_slash(srcdir, dstdir, with_slash)
@@ -104,7 +105,7 @@ def main(srcdir, dstdir, outputs):
   errors += handle_outputs_without_slash(srcdir, dstdir, without_slash)
 
   if errors:
-    raise Exception("\n".join(errors))
+    sys.exit("ERROR: " + ("\n".join(errors)))
 
 
 if __name__ == "__main__":
