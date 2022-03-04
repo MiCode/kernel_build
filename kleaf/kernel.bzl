@@ -2263,6 +2263,34 @@ def _build_modules_image_impl_common(
 
     command = ""
     command += kernel_build[_KernelEnvInfo].setup
+
+    for attr_name in (
+        "modules_list",
+        "modules_blocklist",
+        "modules_options",
+        "vendor_dlkm_modules_list",
+        "vendor_dlkm_modules_blocklist",
+        "vendor_dlkm_props",
+    ):
+        # Checks if attr_name is a valid attribute name in the current rule.
+        # If not, do not touch its value.
+        if not hasattr(ctx.file, attr_name):
+            continue
+
+        # If it is a valid attribute name, set environment variable to the path if the argument is
+        # supplied, otherwise set environment variable to empty.
+        file = getattr(ctx.file, attr_name)
+        path = ""
+        if file != None:
+            path = file.path
+            inputs.append(file)
+        command += """
+            {name}={path}
+        """.format(
+            name = attr_name.upper(),
+            path = path,
+        )
+
     command += """
              # create staging dirs
                mkdir -p {modules_staging_dir}
@@ -2389,6 +2417,9 @@ corresponding files.
 """,
     attrs = _build_modules_image_attrs_common({
         "vendor_boot_modules_load": attr.output(),
+        "modules_list": attr.label(allow_single_file = True),
+        "modules_blocklist": attr.label(allow_single_file = True),
+        "modules_options": attr.label(allow_single_file = True),
     }),
 )
 
@@ -2446,7 +2477,10 @@ _system_dlkm_image = rule(
 When included in a `copy_to_dist_dir` rule, this rule copies the `system_dlkm.img` to `DIST_DIR`.
 
 """,
-    attrs = _build_modules_image_attrs_common(),
+    attrs = _build_modules_image_attrs_common({
+        "modules_list": attr.label(allow_single_file = True),
+        "modules_blocklist": attr.label(allow_single_file = True),
+    }),
 )
 
 def _vendor_dlkm_image_impl(ctx):
@@ -2509,6 +2543,9 @@ When included in a `copy_to_dist_dir` rule, this rule copies a `vendor_dlkm.img`
 
 Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
         ),
+        "vendor_dlkm_modules_list": attr.label(allow_single_file = True),
+        "vendor_dlkm_modules_blocklist": attr.label(allow_single_file = True),
+        "vendor_dlkm_props": attr.label(allow_single_file = True),
     }),
 )
 
@@ -2534,6 +2571,7 @@ def _boot_images_impl(ctx):
     inputs += ctx.files.deps
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += kernel_build_outs
+    inputs += ctx.files.vendor_ramdisk_binaries
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
@@ -2541,6 +2579,14 @@ def _boot_images_impl(ctx):
     vendor_boot_flag_cmd = ""
     if not ctx.attr.build_vendor_boot:
         vendor_boot_flag_cmd = "SKIP_VENDOR_BOOT=1"
+
+    if ctx.files.vendor_ramdisk_binaries:
+        # build_utils.sh uses singular VENDOR_RAMDISK_BINARY
+        command += """
+            VENDOR_RAMDISK_BINARY="{vendor_ramdisk_binaries}"
+        """.format(
+            vendor_ramdisk_binaries = " ".join([file.path for file in ctx.files.vendor_ramdisk_binaries]),
+        )
 
     command += """
              # Create and restore initramfs_staging_dir
@@ -2606,6 +2652,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
             default = "//tools/mkbootimg:mkbootimg.py",
         ),
         "build_vendor_boot": attr.bool(),
+        "vendor_ramdisk_binaries": attr.label_list(allow_files = True),
         "_debug_print_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_print_scripts",
         ),
@@ -2672,7 +2719,14 @@ def kernel_images(
         dtbo_srcs = None,
         mkbootimg = None,
         deps = None,
-        boot_image_outs = None):
+        boot_image_outs = None,
+        modules_list = None,
+        modules_blocklist = None,
+        modules_options = None,
+        vendor_ramdisk_binaries = None,
+        vendor_dlkm_modules_list = None,
+        vendor_dlkm_modules_blocklist = None,
+        vendor_dlkm_props = None):
     """Build multiple kernel images.
 
     Args:
@@ -2719,7 +2773,7 @@ def kernel_images(
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
         build_system_dlkm: Whether to build system_dlkm.img an erofs image with GKI modules.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
-          `VENDOR_DLKM_MODULES_LIST` is non-empty.
+          `vendor_dlkm_modules_list` is set.
 
           Note: at the time of writing (Jan 2022), unlike `build.sh`,
           `vendor_dlkm.modules.blocklist` is **always** created
@@ -2764,6 +2818,61 @@ def kernel_images(
               ]
           )
           ```
+        modules_list: A file containing list of modules to use for `vendor_boot.modules.load`.
+
+          This corresponds to `MODULES_LIST` in `build.config` for `build.sh`.
+        modules_blocklist: A file containing a list of modules which are
+          blocked from being loaded.
+
+          This file is copied directly to staging directory, and should be in the format:
+          ```
+          blocklist module_name
+          ```
+
+          This corresponds to `MODULES_BLOCKLIST` in `build.config` for `build.sh`.
+        modules_options: A `/lib/modules/modules.options` file is created on the ramdisk containing
+          the contents of this variable.
+
+          Lines should be of the form:
+          ```
+          options <modulename> <param1>=<val> <param2>=<val> ...
+          ```
+
+          This corresponds to `MODULES_OPTIONS` in `build.config` for `build.sh`.
+        vendor_dlkm_modules_list: location of an optional file
+          containing the list of kernel modules which shall be copied into a
+          `vendor_dlkm` partition image. Any modules passed into `MODULES_LIST` which
+          become part of the `vendor_boot.modules.load` will be trimmed from the
+          `vendor_dlkm.modules.load`.
+
+          This corresponds to `VENDOR_DLKM_MODULES_LIST` in `build.config` for `build.sh`.
+        vendor_dlkm_modules_blocklist: location of an optional file containing a list of modules
+          which are blocked from being loaded.
+
+          This file is copied directly to the staging directory and should be in the format:
+          ```
+          blocklist module_name
+          ```
+
+          This corresponds to `VENDOR_DLKM_MODULES_BLOCKLIST` in `build.config` for `build.sh`.
+        vendor_dlkm_props: location of a text file containing
+          the properties to be used for creation of a `vendor_dlkm` image
+          (filesystem, partition size, etc). If this is not set (and
+          `build_vendor_dlkm` is), a default set of properties will be used
+          which assumes an ext4 filesystem and a dynamic partition.
+
+          This corresponds to `VENDOR_DLKM_PROPS` in `build.config` for `build.sh`.
+        vendor_ramdisk_binaries: List of vendor ramdisk binaries
+          which includes the device-specific components of ramdisk like the fstab
+          file and the device-specific rc files. If specifying multiple vendor ramdisks
+          and identical file paths exist in the ramdisks, the file from last ramdisk is used.
+
+          Note: **order matters**. To prevent buildifier from sorting the list, add the following:
+          ```
+          # do not sort
+          ```
+
+          This corresponds to `VENDOR_RAMDISK_BINARY` in `build.config` for `build.sh`.
     """
     all_rules = []
 
@@ -2799,6 +2908,9 @@ def kernel_images(
             kernel_modules_install = kernel_modules_install,
             deps = deps,
             vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
+            modules_list = modules_list,
+            modules_blocklist = modules_blocklist,
+            modules_options = modules_options,
         )
         all_rules.append(":{}_initramfs".format(name))
 
@@ -2807,6 +2919,8 @@ def kernel_images(
             name = "{}_system_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
             deps = deps,
+            modules_list = modules_list,
+            modules_blocklist = modules_blocklist,
         )
         all_rules.append(":{}_system_dlkm_image".format(name))
 
@@ -2816,6 +2930,9 @@ def kernel_images(
             kernel_modules_install = kernel_modules_install,
             vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
             deps = deps,
+            vendor_dlkm_modules_list = vendor_dlkm_modules_list,
+            vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
+            vendor_dlkm_props = vendor_dlkm_props,
         )
         all_rules.append(":{}_vendor_dlkm_image".format(name))
 
@@ -2828,6 +2945,7 @@ def kernel_images(
             initramfs = ":{}_initramfs".format(name),
             mkbootimg = mkbootimg,
             build_vendor_boot = build_vendor_boot,
+            vendor_ramdisk_binaries = vendor_ramdisk_binaries,
         )
         all_rules.append(":{}_boot_images".format(name))
 
