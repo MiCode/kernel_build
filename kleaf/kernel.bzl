@@ -2537,6 +2537,11 @@ def _boot_images_impl(ctx):
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
+
+    vendor_boot_flag_cmd = ""
+    if not ctx.attr.build_vendor_boot:
+        vendor_boot_flag_cmd = "SKIP_VENDOR_BOOT=1"
+
     command += """
              # Create and restore initramfs_staging_dir
                mkdir -p {initramfs_staging_dir}
@@ -2549,6 +2554,7 @@ def _boot_images_impl(ctx):
                cp {initramfs_img} ${{DIST_DIR}}/initramfs.img
              # Build boot images
                (
+                 {vendor_boot_flag_cmd}
                  INITRAMFS_STAGING_DIR={initramfs_staging_dir}
                  MKBOOTIMG_STAGING_DIR=$(realpath {mkbootimg_staging_dir})
                  build_boot_images
@@ -2566,6 +2572,7 @@ def _boot_images_impl(ctx):
         initramfs_staging_archive = initramfs_staging_archive.path,
         initramfs_img = ctx.attr.initramfs[_InitramfsInfo].initramfs_img.path,
         kernel_build_outs = " ".join([out.path for out in kernel_build_outs]),
+        vendor_boot_flag_cmd = vendor_boot_flag_cmd,
     )
 
     _debug_print_scripts(ctx, command)
@@ -2598,6 +2605,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
             allow_single_file = True,
             default = "//tools/mkbootimg:mkbootimg.py",
         ),
+        "build_vendor_boot": attr.bool(),
         "_debug_print_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_print_scripts",
         ),
@@ -2658,6 +2666,8 @@ def kernel_images(
         build_initramfs = None,
         build_vendor_dlkm = None,
         build_boot_images = None,
+        build_boot = None,
+        build_vendor_boot = None,
         build_system_dlkm = None,
         build_dtbo = None,
         dtbo_srcs = None,
@@ -2674,9 +2684,9 @@ def kernel_images(
           specified `kernel_modules_install` rule. The main kernel build must contain
           `System.map` in `outs` (which is included if you use `aarch64_outs` or
           `x86_64_outs` from `common_kernels.bzl`).
-        kernel_build: A `kernel_build` rule. Must specify if `build_boot_images`.
+        kernel_build: A `kernel_build` rule. Must specify if `build_boot`.
         mkbootimg: Path to the mkbootimg.py script which builds boot.img.
-          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot_images`. If `None`,
+          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot`. If `None`,
           default to `//tools/mkbootimg:mkbootimg.py`.
         deps: Additional dependencies to build images.
 
@@ -2691,14 +2701,17 @@ def kernel_images(
             - The file specified by `selinux_fc` in `VENDOR_DLKM_PROPS`, if set
 
         boot_image_outs: A list of output files that will be installed to `DIST_DIR` when
-          `build_boot_images` is executed.
+          `build_boot_images` in `build/kernel/build_utils.sh` is executed.
 
-          If `build_boot_images` is equal to `False`, the default is empty.
+          You may leave out `vendor_boot.img` from the list. It is automatically added when
+          `build_vendor_boot = True`.
 
-          If `build_boot_images` is equal to `True`, the default list assumes the following:
+          If `build_boot` is equal to `False`, the default is empty.
+
+          If `build_boot` is equal to `True`, the default list assumes the following:
           - `BOOT_IMAGE_FILENAME` is not set (which takes default value `boot.img`), or is set to
             `"boot.img"`
-          - `SKIP_VENDOR_BOOT` is not set, which builds `vendor_boot.img"
+          - `vendor_boot.img` if `build_vendor_boot`
           - `RAMDISK_EXT=lz4`. If the build configuration has a different value, replace
             `ramdisk.lz4` with `ramdisk.{RAMDISK_EXT}` accordingly.
           - `BOOT_IMAGE_HEADER_VERSION >= 4`, which creates `vendor-bootconfig.img` to contain
@@ -2714,11 +2727,21 @@ def kernel_images(
           regardless of the value of `VENDOR_DLKM_MODULES_BLOCKLIST`.
           If `build_vendor_dlkm()` in `build_utils.sh` does not generate
           `vendor_dlkm.modules.blocklist`, an empty file is created.
-        build_boot_images: Whether to build boot images. It must be set if either `BUILD_BOOT_IMG`
+        build_boot_images: Deprecated. Use `build_boot` and `build_vendor_boot` instead.
+
+          If set explicitly, it is equivalent to setting `build_boot = build_boot_images` and
+          `build_vendor_boot = build_boot_images`.
+        build_boot: Whether to build boot image. It must be set if either `BUILD_BOOT_IMG`
           or `BUILD_VENDOR_BOOT_IMG` is set.
 
           This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
           `build_initramfs` is implicitly true, and `kernel_build` must be set.
+        build_vendor_boot: Whether to build `vendor_boot` image. It must be set if either
+          `BUILD_BOOT_IMG` or `BUILD_VENDOR_BOOT_IMG` is set, and `SKIP_VENDOR_BOOT` is not set.
+
+          If `True`, requires `build_boot = True`.
+
+          If `True`, adds `vendor-boot.img` to `boot_image_outs` if not already in the list.
         build_dtbo: Whether to build dtbo image. Keep this in sync with `BUILD_DTBO_IMG`.
 
           If `dtbo_srcs` is non-empty, `build_dtbo` is `True` by default. Otherwise it is `False`
@@ -2749,26 +2772,38 @@ def kernel_images(
     """
     all_rules = []
 
-    if build_boot_images:
+    # TODO(b/222587028): Remove build_boot_images once all usages are removed.
+    if build_boot_images != None:
+        if build_boot != None or build_vendor_boot != None:
+            fail("{}: build_boot_images is deprecated. It cannot be set when build_boot and/or build_vendor_boot are set.".format(name))
+        build_boot = build_boot_images
+        build_vendor_boot = build_boot_images
+
+    if build_vendor_boot and not build_boot:
+        fail("{}: build_vendor_boot = True requires build_boot = True.".format(name))
+
+    if build_boot:
         if build_initramfs == None:
             build_initramfs = True
         if not build_initramfs:
-            fail("{}: Must set build_initramfs to True if build_boot_images".format(name))
+            fail("{}: Must set build_initramfs to True if build_boot".format(name))
         if kernel_build == None:
-            fail("{}: Must set kernel_build if build_boot_images".format(name))
+            fail("{}: Must set kernel_build if build_boot".format(name))
 
-    # Set default value for boot_image_outs according to build_boot_images
+    # Set default value for boot_image_outs according to build_boot
     if boot_image_outs == None:
-        if not build_boot_images:
+        if not build_boot:
             boot_image_outs = []
         else:
             boot_image_outs = [
                 "boot.img",
                 "dtb.img",
                 "ramdisk.lz4",
-                "vendor_boot.img",
                 "vendor-bootconfig.img",
             ]
+
+    if build_vendor_boot and "vendor_boot.img" not in boot_image_outs:
+        boot_image_outs.append("vendor_boot.img")
 
     if build_initramfs:
         _initramfs(
@@ -2796,8 +2831,7 @@ def kernel_images(
         )
         all_rules.append(":{}_vendor_dlkm_image".format(name))
 
-    # Assume BUILD_BOOT_IMG or BUILD_VENDOR_BOOT_IMG
-    if build_boot_images:
+    if build_boot:
         _boot_images(
             name = "{}_boot_images".format(name),
             kernel_build = kernel_build,
@@ -2805,6 +2839,7 @@ def kernel_images(
             deps = deps,
             initramfs = ":{}_initramfs".format(name),
             mkbootimg = mkbootimg,
+            build_vendor_boot = build_vendor_boot,
         )
         all_rules.append(":{}_boot_images".format(name))
 
