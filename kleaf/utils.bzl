@@ -46,3 +46,14 @@ def find_file(name, files, what, required = False):
             files = ":\n  " + ("\n  ".join(result)) if result else "",
         ))
     return result[0] if result else None
+
+def find_files(files, what, suffix = None):
+    """Find files with given condition. The following conditions are accepted:
+
+    - Looking for files ending with a given suffix.
+    """
+    result = []
+    for file in files:
+        if suffix != None and file.basename.endswith(suffix):
+            result.append(file)
+    return result

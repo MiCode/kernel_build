@@ -13,12 +13,15 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
+load(":update_source_file.bzl", "update_source_file")
 load(
     ":utils.bzl",
     "find_file",
+    "find_files",
     "getoptattr",
     "reverse_dict",
 )
@@ -1146,6 +1149,13 @@ _KernelBuildUapiInfo = provider(
     },
 )
 
+_KernelBuildAbiInfo = provider(
+    doc = "A provider that specifies the expectations of a [`kernel_abi`](#kernel_abi) on a `kernel_build`.",
+    fields = {
+        "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](#kernel_build).",
+    },
+)
+
 _SrcsInfo = provider(fields = {
     "srcs": "The srcs attribute of a rule.",
 })
@@ -1499,6 +1509,10 @@ def _kernel_build_impl(ctx):
         kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
     )
 
+    kernel_build_abi_info = _KernelBuildAbiInfo(
+        trim_nonlisted_kmi = ctx.attr.trim_nonlisted_kmi,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -1516,6 +1530,7 @@ def _kernel_build_impl(ctx):
         kernel_build_info,
         kernel_build_module_info,
         kernel_build_uapi_info,
+        kernel_build_abi_info,
         output_group_info,
         default_info,
     ]
@@ -1560,6 +1575,7 @@ _kernel_build = rule(
         # `_kernel_build` target.
         "modules_prepare": attr.label(),
         "kernel_uapi_headers": attr.label(),
+        "trim_nonlisted_kmi": attr.bool(),
     },
 )
 
@@ -3322,9 +3338,68 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
     },
 )
 
+def _kernel_extracted_symbols_impl(ctx):
+    if ctx.attr.kernel_build_notrim[_KernelBuildAbiInfo].trim_nonlisted_kmi:
+        fail("{}: Requires `kernel_build` {} to have `trim_nonlisted_kmi = False`.".format(
+            ctx.label,
+            ctx.attr.kernel_build_notrim.label,
+        ))
+
+    out = ctx.actions.declare_file("{}/extracted_symbols".format(ctx.attr.name))
+    genfiles_dir = ctx.genfiles_dir.path
+
+    vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
+    in_tree_modules = find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
+    srcs = [vmlinux] + in_tree_modules
+    srcs += ctx.files.kernel_modules  # external modules
+
+    inputs = [ctx.file._extract_symbols]
+    inputs += srcs
+    inputs += ctx.attr.kernel_build_notrim[_KernelEnvInfo].dependencies
+
+    command = ctx.attr.kernel_build_notrim[_KernelEnvInfo].setup
+    command += """
+        cp -pl {srcs} {genfiles_dir}
+        {extract_symbols} --symbol-list {out} {skip_module_grouping_flag} {genfiles_dir}
+    """.format(
+        srcs = " ".join([file.path for file in srcs]),
+        genfiles_dir = genfiles_dir,
+        extract_symbols = ctx.file._extract_symbols.path,
+        out = out.path,
+        skip_module_grouping_flag = "" if ctx.attr.module_grouping else "--skip-module-grouping",
+    )
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [out],
+        command = command,
+        progress_message = "Extracting symbols {}".format(ctx.label),
+        mnemonic = "KernelExtractedSymbols",
+    )
+
+    return DefaultInfo(files = depset([out]))
+
+_kernel_extracted_symbols = rule(
+    implementation = _kernel_extracted_symbols_impl,
+    attrs = {
+        # We can't use kernel_filegroup + hermetic_tools here because
+        # - extract_symbols depends on the clang toolchain, which requires us to
+        #   know the toolchain_version ahead of time.
+        # - We also don't have the necessity to extract symbols from prebuilts.
+        "kernel_build_notrim": attr.label(providers = [_KernelEnvInfo, _KernelBuildAbiInfo]),
+        "kernel_modules": attr.label_list(),
+        "module_grouping": attr.bool(default = True),
+        "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+    },
+)
+
 def kernel_build_abi(
         name,
         define_abi_targets = None,
+        # for kernel_abi
+        kernel_modules = None,
+        module_grouping = None,
         # for kernel_build
         **kwargs):
     """Declare multiple targets to support ABI monitoring.
@@ -3349,6 +3424,24 @@ def kernel_build_abi(
 
     See [`kernel_build`](#kernel_build) for the targets defined.
 
+    In addition, the following targets are defined if `define_abi_targets = True`:
+    - kernel_aarch64_abi_update_symbol_list
+      - Running this target updates `kmi_symbol_list`.
+
+    Assuming the above, here's a table for converting `build_abi.sh`
+    into Bazel commands. Note: it is recommended to disable the sandbox for
+    certain targets to boost incremental builds.
+
+    |build_abi.sh equivalent            |Bazel command                                          |What does the Bazel command do                                         |
+    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
+    |`build_abi.sh --update_symbol_list`|`bazel run kernel_aarch64_abi_update_symbol_list`[1]   |Update symbol list                                                     |
+
+    Notes:
+
+    1. The command updates `kmi_symbol_list` but it does not update
+      `$DIST_DIR/abi_symbollist`, unlike the `build_abi.sh --update-symbol-list`
+      command.
+
     Args:
       name: Name of the main `kernel_build`.
       define_abi_targets: Whether to create the `<name>_abi` target and
@@ -3356,6 +3449,13 @@ def kernel_build_abi(
 
         If `False`, this macro is equivalent to just calling
         `kernel_build(name, **kwargs)`.
+      kernel_modules: A list of external [`kernel_module()`](#kernel_module)s
+        to extract symbols from.
+      module_grouping: If unspecified or `None`, it is `True` by default.
+        If `True`, then the symbol list will group symbols based
+        on the kernel modules that reference the symbol. Otherwise the symbol
+        list will simply be a sorted list of symbols used by all the kernel
+        modules.
       kwargs: See [`kernel_build.kwargs`](#kernel_build-kwargs)
     """
 
@@ -3367,12 +3467,26 @@ def kernel_build_abi(
     if not define_abi_targets:
         return
 
-    notrim_outs, added_vmlinux = _kernel_build_outs_add_vmlinux(name, kwargs.get("outs"))
+    # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
+    outs_and_vmlinux, added_vmlinux = _kernel_build_outs_add_vmlinux(name, kwargs.get("outs"))
     if kwargs.get("trim_nonlisted_kmi") or added_vmlinux:
         notrim_kwargs = dict(kwargs)
-        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", notrim_outs)
+        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", outs_and_vmlinux)
         notrim_kwargs["trim_nonlisted_kmi"] = False
         notrim_kwargs["kmi_symbol_list_strict_mode"] = False
         kernel_build(name = name + "_notrim", **notrim_kwargs)
     else:
         native.alias(name = name + "_notrim", actual = name)
+
+    # extract_symbols ...
+    _kernel_extracted_symbols(
+        name = name + "_abi_extracted_symbols",
+        kernel_build_notrim = name + "_notrim",
+        kernel_modules = kernel_modules,
+        module_grouping = module_grouping,
+    )
+    update_source_file(
+        name = name + "_abi_update_symbol_list",
+        src = name + "_abi_extracted_symbols",
+        dst = kwargs.get("kmi_symbol_list"),
+    )
