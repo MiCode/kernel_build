@@ -2441,9 +2441,8 @@ def _system_dlkm_image_impl(ctx):
              # Build system_dlkm.img with signed GKI modules
                mkfs.erofs -zlz4hc "{system_dlkm_img}" "{system_dlkm_staging_dir}"
              # No need to sign the image as modules are signed; add hash footer
-               avbtool add_hash_footer \
+               avbtool add_hashtree_footer \
                    --partition_name system_dlkm \
-                   --partition_size $((64 << 20)) \
                    --image "{system_dlkm_img}"
              # Archive system_dlkm_staging_dir
                tar czf {system_dlkm_staging_archive} -C {system_dlkm_staging_dir} .
