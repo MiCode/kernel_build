@@ -956,10 +956,8 @@ if [ "${BUILD_SYSTEM_DLKM}" = "1"  ]; then
   tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
 
   # No need to sign the image as modules are signed
-  SYSTEM_DLKM_PARTITION_SIZE=$((64 << 20))
-  avbtool add_hash_footer \
+  avbtool add_hashtree_footer \
     --partition_name system_dlkm \
-    --partition_size ${SYSTEM_DLKM_PARTITION_SIZE} \
     --image "${DIST_DIR}/system_dlkm.img"
 fi
 
