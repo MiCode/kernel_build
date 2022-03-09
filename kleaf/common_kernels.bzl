@@ -125,6 +125,7 @@ def define_kernel_build_and_notrim(
         name,
         visibility,
         trim_nonlisted_kmi = None,
+        kmi_symbol_list_strict_mode = None,
         **kwargs):
     """**DO NOT INVOKE DIRECTLY!**
 
@@ -174,6 +175,7 @@ def define_kernel_build_and_notrim(
         name = name,
         visibility = visibility,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
+        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         **kwargs
     )
 
@@ -181,6 +183,7 @@ def define_kernel_build_and_notrim(
     kernel_build(
         name = name + "_notrim_internal",
         trim_nonlisted_kmi = False,
+        kmi_symbol_list_strict_mode = False,
         **kwargs
     )
 
