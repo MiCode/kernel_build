@@ -15,6 +15,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
+load(":hermetic_tools.bzl", "HermeticToolsInfo")
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -602,9 +603,9 @@ def _kernel_env_impl(ctx):
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
-    dependencies = ctx.files._tools + ctx.files._host_tools
 
     command = ""
+    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         command += _debug_trap()
 
@@ -666,16 +667,15 @@ def _kernel_env_impl(ctx):
             setup_env,
             preserve_env,
             ctx.info_file,
-        ],
+        ] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
         outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
         command = command,
         use_default_shell_env = True,
     )
 
-    host_tool_path = ctx.files._host_tools[0].dirname
-
     setup = ""
+    setup += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += _debug_trap()
 
@@ -687,8 +687,9 @@ def _kernel_env_impl(ctx):
            source {build_utils_sh}
          # source the build environment
            source {env}
-         # setup the PATH to also include the host tools
-           export PATH=$PATH:$PWD/{host_tool_path}
+         # re-setup the PATH to also include the hermetic tools, because env completely overwrites
+         # PATH with HERMETIC_TOOLCHAIN=1
+           {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
          # Set up scm version
@@ -712,13 +713,14 @@ def _kernel_env_impl(ctx):
              export dtstree=$(rel_path $(realpath $(dirname ${{DTSTREE_MAKEFILE}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})
            fi
            """.format(
+        hermetic_tools_additional_setup = ctx.attr._hermetic_tools[HermeticToolsInfo].additional_setup,
         env = out_file.path,
-        host_tool_path = host_tool_path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
         scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION"),
     )
 
+    dependencies = ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
@@ -740,8 +742,6 @@ def _get_tools(toolchain_version):
         Label(e)
         for e in (
             "//build/kernel:kernel-build-scripts",
-            "//prebuilts/build-tools:linux-x86",
-            "//prebuilts/kernel-build-tools:linux-x86",
             "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
         )
     ]
@@ -834,7 +834,7 @@ _kernel_env = rule(
             doc = "Device tree",
         ),
         "_tools": attr.label_list(default = _get_tools),
-        "_host_tools": attr.label(default = "//build/kernel:host-tools"),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils.sh"),
