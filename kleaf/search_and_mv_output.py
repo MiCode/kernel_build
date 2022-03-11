@@ -71,7 +71,7 @@ def search_and_mv_output_one(srcdir, dstdir, out):
   real_matches = set(os.path.realpath(f) for f in matches)
   ok = len(real_matches) == 1
   if ok:
-    shutil.move(next(iter(real_matches)), os.path.join(dstdir, out))
+    shutil.copy(next(iter(real_matches)), os.path.join(dstdir, out))
 
   # For readable error messages, return |matches| instead of the realpaths here.
   return ok, matches

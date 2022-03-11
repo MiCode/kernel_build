@@ -1383,11 +1383,11 @@ def _kernel_build_impl(ctx):
          # Grab in-tree modules
            {grab_intree_modules_cmd}
          # Check if there are remaining *.ko files
-           remaining_ko_files=$(find {modules_staging_dir} -type f -name '*.ko')
+           remaining_ko_files=$(comm -13 <(cat {all_module_names_file} | sort) <(find {modules_staging_dir} -type f -name '*.ko' -exec basename {{}} \\; | sort))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
-               echo '    "'"$(basename ${{ko}})"'",' >&2
+               echo '    "'"${{ko}}"'",' >&2
              done
              exit 1
            fi
@@ -1400,6 +1400,7 @@ def _kernel_build_impl(ctx):
         ruledir = ruledir.path,
         all_output_names_minus_modules = " ".join(all_output_names_minus_modules),
         grab_intree_modules_cmd = grab_intree_modules_cmd,
+        all_module_names_file = all_module_names_file.path,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
