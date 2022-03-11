@@ -1304,9 +1304,19 @@ def _kernel_build_impl(ctx):
     all_output_files = {}
     for attr in ("outs", "module_outs", "implicit_outs", "internal_outs"):
         all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
-    all_output_names = []
-    for d in all_output_files.values():
-        all_output_names += d.keys()
+    all_output_names_minus_modules = []
+    for attr, d in all_output_files.items():
+        if attr != "module_outs":
+            all_output_names_minus_modules += d.keys()
+
+    # A file containing all module_outs
+    all_module_names = all_output_files["module_outs"].keys()
+    all_module_names_file = ctx.actions.declare_file("{}_all_module_names/all_module_names.txt".format(ctx.label.name))
+    ctx.actions.write(
+        output = all_module_names_file,
+        content = "\n".join(all_module_names) + "\n",
+    )
+    inputs.append(all_module_names_file)
 
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
@@ -1337,6 +1347,17 @@ def _kernel_build_impl(ctx):
             kbuild_mixed_tree = kbuild_mixed_tree.path,
         )
 
+    grab_intree_modules_cmd = ""
+    if all_module_names:
+        grab_intree_modules_cmd = """
+            {search_and_mv_output} --srcdir {modules_staging_dir} --dstdir {ruledir} $(cat {all_module_names_file})
+        """.format(
+            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            modules_staging_dir = modules_staging_dir,
+            ruledir = ruledir.path,
+            all_module_names_file = all_module_names_file.path,
+        )
+
     command += """
          # Actual kernel build
            interceptor -r -l {interceptor_output} -- make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
@@ -1356,9 +1377,13 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs. If unable to find from OUT_DIR, look at KBUILD_MIXED_TREE as well.
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names}
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names_minus_modules}
+         # Archive modules_staging_dir
+           tar czf {modules_staging_archive} -C {modules_staging_dir} .
+         # Grab in-tree modules
+           {grab_intree_modules_cmd}
          # Check if there are remaining *.ko files
-           remaining_ko_files=$(find ${{OUT_DIR}} -type f -name '*.ko')
+           remaining_ko_files=$(find {modules_staging_dir} -type f -name '*.ko')
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
@@ -1366,8 +1391,6 @@ def _kernel_build_impl(ctx):
              done
              exit 1
            fi
-         # Archive modules_staging_dir
-           tar czf {modules_staging_archive} -C {modules_staging_dir} .
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          """.format(
@@ -1375,7 +1398,8 @@ def _kernel_build_impl(ctx):
         kbuild_mixed_tree_arg = "--srcdir ${KBUILD_MIXED_TREE}" if kbuild_mixed_tree else "",
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
-        all_output_names = " ".join(all_output_names),
+        all_output_names_minus_modules = " ".join(all_output_names_minus_modules),
+        grab_intree_modules_cmd = grab_intree_modules_cmd,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
