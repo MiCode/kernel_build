@@ -409,6 +409,7 @@ def define_common_kernels(
             define_abi_targets = kmi_config.get("kmi_symbol_list"),
             # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
             module_grouping = None,
+            collect_unstripped_modules = True,
             toolchain_version = toolchain_version,
             **kmi_config
         )
