@@ -16,6 +16,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(
     ":kernel.bzl",
     "kernel_build",
+    "kernel_build_abi",
     "kernel_compile_commands",
     "kernel_filegroup",
     "kernel_images",
@@ -141,33 +142,6 @@ def define_kernel_build_and_notrim(
 
     This macro create `kernel_build` targets with and without trimming.
 
-    If `trim_nonlisted_kmi`, also create a `{name}_notrim` target that does
-    not trim to support ABI monitoring. If not `trim_nonlisted_kmi`, the
-    `{name}_notrim` target is an alias to `{name}`.
-
-    If `kmi_configs` is not set explicitly in `define_common_kernels()`:
-
-    |                                   |trim?         |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64`                   |TRIM          |
-    |(with symbol lists)                |              |
-    |(`trim_nonlisted_kmi=default_true`)|              |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64`                   |NO TRIM       |
-    |(no symbol lists)                  |              |
-    |(`trim_nonlisted_kmi=None`)        |              |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64_notrim`            |NO TRIM       |
-    |(`trim_nonlisted_kmi=False`)       |              |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64_debug`             |NO TRIM       |
-    |(`trim_nonlisted_kmi=False`)       |              |
-    |-----------------------------------|--------------|
-    |`kernel_x86_64`                    |NO TRIM       |
-    |(`trim_nonlisted_kmi=None`)        |              |
-    |-----------------------------------|--------------|
-    |`kernel_x86_64_debug`              |NO TRIM       |
-    |(`trim_nonlisted_kmi=False`)       |              |
 
     Args:
       name: name of the main `kernel_build`
@@ -177,27 +151,12 @@ def define_kernel_build_and_notrim(
       kwargs: passthrough to `kernel_build`
     """
 
-    kernel_build(
+    kernel_build_abi(
         name = name,
         visibility = visibility,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         **kwargs
-    )
-
-    # <name>_notrim_internal target: trimming is always disabled.
-    kernel_build(
-        name = name + "_notrim_internal",
-        trim_nonlisted_kmi = False,
-        kmi_symbol_list_strict_mode = False,
-        **kwargs
-    )
-
-    # <name>_notrim target: alias to the target with no trimming. This avoids
-    # building the extra <name>_notrim_internal target when it is not necessary.
-    native.alias(
-        name = name + "_notrim",
-        actual = _select_notrim_target(name, trim_nonlisted_kmi),
     )
 
 def define_common_kernels(
@@ -363,9 +322,26 @@ def define_common_kernels(
         }
         ```
 
-        See [`define_kernel_build_and_notrim()`](#define_kernel_build_and_notrim)
-        for a table of whether trimming is enabled on a certain target
-        if `kmi_configs` is using defaults.
+        If `kmi_configs` is not set explicitly in `define_common_kernels()`:
+
+        |                                   |trim?         |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64`                   |TRIM          |
+        |(with symbol lists)                |              |
+        |(`trim_nonlisted_kmi=True`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64`                   |NO TRIM       |
+        |(no symbol lists)                  |              |
+        |(`trim_nonlisted_kmi=None`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64_debug`             |NO TRIM       |
+        |(`trim_nonlisted_kmi=False`)       |              |
+        |-----------------------------------|--------------|
+        |`kernel_x86_64`                    |NO TRIM       |
+        |(`trim_nonlisted_kmi=None`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_x86_64_debug`              |NO TRIM       |
+        |(`trim_nonlisted_kmi=False`)       |              |
 
       toolchain_version: If not set, use default value in `kernel_build`.
       visibility: visibility of the `kernel_build` and targets defined for downloaded prebuilts.
@@ -407,7 +383,7 @@ def define_common_kernels(
                 name = name,
             ),
         )
-        define_kernel_build_and_notrim(
+        kernel_build_abi(
             name = name,
             srcs = [name + "_sources"],
             outs = arch_config["outs"],
@@ -422,6 +398,7 @@ def define_common_kernels(
             module_outs = GKI_MODULES,
             build_config = arch_config["build_config"],
             visibility = visibility,
+            define_abi_targets = kmi_config.get("kmi_symbol_list"),
             toolchain_version = toolchain_version,
             **kmi_config
         )
