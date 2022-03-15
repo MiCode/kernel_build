@@ -56,7 +56,7 @@ def _find_file(name, files, what, required = False):
         if file.basename == name:
             result.append(file)
     if len(result) > 1 or (not result and required):
-        fail("{what} contains {} file(s) named {name}, expected {expected_len}{files}".format(
+        fail("{what} contains {actual_len} file(s) named {name}, expected {expected_len}{files}".format(
             what = what,
             actual_len = len(result),
             name = name,
