@@ -419,7 +419,7 @@ def kernel_build(
     _raw_kmi_symbol_list(
         name = raw_kmi_symbol_list_target_name,
         env = env_target_name,
-        src = abi_symbollist_target_name,
+        src = abi_symbollist_target_name if all_kmi_symbol_lists else None,
     )
 
     _kernel_config(
