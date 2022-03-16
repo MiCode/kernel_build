@@ -148,7 +148,8 @@ def kernel_build(
         base_kernel = None,
         kconfig_ext = None,
         dtstree = None,
-        kmi_symbol_lists = None,
+        kmi_symbol_list = None,
+        additional_kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
         kmi_symbol_list_strict_mode = None,
         toolchain_version = None,
@@ -317,36 +318,47 @@ def kernel_build(
         implicit_outs: Like `outs`, but not copied to the distribution directory.
 
           Labels are created for each item in `implicit_outs` as in `outs`.
-        kmi_symbol_lists: A list of labels referring to the KMI symbol list files.
+        kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_list`.
 
-          If `kmi_symbol_lists` is a non-empty list, `abi_symbollist` and
+          This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
+        additional_kmi_symbol_list: A list of labels referring to additional KMI symbol list files.
+
+          This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
+
+          Let
+          ```
+          all_kmi_symbol_lists = [kmi_symbol_list] + additional_kmi_symbol_list
+          ```
+
+          If `all_kmi_symbol_lists` is a non-empty list, `abi_symbollist` and
           `abi_symbollist.report` are created and added to the
           [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html),
           and copied to `DIST_DIR` during distribution.
 
-          If `kmi_symbol_lists` is `None` or an empty list, `abi_symbollist` and
+          If `all_kmi_symbol_lists` is `None` or an empty list, `abi_symbollist` and
           `abi_symbollist.report` are not created.
-
-          This is the Bazel equivalent of `KMI_SYMBOL_LIST` and `ADDTIONAL_KMI_SYMBOL_LISTS`.
 
           It is possible to use a `glob()` to determine whether `abi_symbollist`
           and `abi_symbollist.report` should be generated at build time.
           For example:
           ```
-          kmi_symbol_lists = glob(["android/abi_gki_aarch64*"]),
+          kmi_symbol_list = "android/abi_gki_aarch64",
+          additional_kmi_symbol_lists = glob(["android/abi_gki_aarch64*"], exclude = ["android/abi_gki_aarch64"]),
           ```
         trim_nonlisted_kmi: If `True`, trim symbols not listed in
-          `kmi_symbol_lists`. This is the Bazel equivalent of
-          `TRIM_NONLISTED_KMI`.
+          `kmi_symbol_list` and `additional_kmi_symbol_lists`.
+          This is the Bazel equivalent of `TRIM_NONLISTED_KMI`.
 
-          Requires `kmi_symbol_lists` to be non-empty. If `kmi_symbol_lists`
+          Requires `all_kmi_symbol_lists` to be non-empty. If `kmi_symbol_list`
+          or `additional_kmi_symbol_lists`
           is a `glob()`, it is possible to set `trim_nonlisted_kmi` to be a
           value based on that `glob()`. For example:
           ```
           trim_nonlisted_kmi = len(glob(["android/abi_gki_aarch64*"])) > 0
           ```
         kmi_symbol_list_strict_mode: If `True`, add a build-time check between
-          the `kmi_symbol_lists` and the KMI resulting from the build, to ensure
+          `[kmi_symbol_list] + additional_kmi_symbol_lists`
+          and the KMI resulting from the build, to ensure
           they match 1-1.
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
@@ -386,10 +398,16 @@ def kernel_build(
         toolchain_version = toolchain_version,
     )
 
+    all_kmi_symbol_lists = []
+    if kmi_symbol_list:
+        all_kmi_symbol_lists.append(kmi_symbol_list)
+    if additional_kmi_symbol_lists:
+        all_kmi_symbol_lists += additional_kmi_symbol_lists
+
     _kmi_symbol_list(
         name = kmi_symbol_list_target_name,
         env = env_target_name,
-        srcs = kmi_symbol_lists,
+        srcs = all_kmi_symbol_lists,
     )
 
     native.filegroup(
@@ -410,7 +428,7 @@ def kernel_build(
         srcs = srcs,
         config = config_target_name + "/.config",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
-        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if kmi_symbol_lists else None,
+        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
     )
 
     _modules_prepare(
@@ -432,7 +450,7 @@ def kernel_build(
         base_kernel = base_kernel,
         modules_prepare = modules_prepare_target_name,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
-        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if kmi_symbol_lists else None,
+        raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
         **kwargs
     )
 
@@ -1213,7 +1231,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files):
     if not ctx.attr.kmi_symbol_list_strict_mode:
         return None
     if not ctx.file.raw_kmi_symbol_list:
-        fail("{}: kmi_symbol_list_strict_mode requires kmi_symbol_lists.")
+        fail("{}: kmi_symbol_list_strict_mode requires kmi_symbol_list or additional_kmi_symbol_lists.")
 
     vmlinux = all_output_files["outs"].get("vmlinux")
     if not vmlinux:
@@ -1304,9 +1322,19 @@ def _kernel_build_impl(ctx):
     all_output_files = {}
     for attr in ("outs", "module_outs", "implicit_outs", "internal_outs"):
         all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
-    all_output_names = []
-    for d in all_output_files.values():
-        all_output_names += d.keys()
+    all_output_names_minus_modules = []
+    for attr, d in all_output_files.items():
+        if attr != "module_outs":
+            all_output_names_minus_modules += d.keys()
+
+    # A file containing all module_outs
+    all_module_names = all_output_files["module_outs"].keys()
+    all_module_names_file = ctx.actions.declare_file("{}_all_module_names/all_module_names.txt".format(ctx.label.name))
+    ctx.actions.write(
+        output = all_module_names_file,
+        content = "\n".join(all_module_names) + "\n",
+    )
+    inputs.append(all_module_names_file)
 
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
@@ -1337,6 +1365,17 @@ def _kernel_build_impl(ctx):
             kbuild_mixed_tree = kbuild_mixed_tree.path,
         )
 
+    grab_intree_modules_cmd = ""
+    if all_module_names:
+        grab_intree_modules_cmd = """
+            {search_and_mv_output} --srcdir {modules_staging_dir} --dstdir {ruledir} $(cat {all_module_names_file})
+        """.format(
+            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            modules_staging_dir = modules_staging_dir,
+            ruledir = ruledir.path,
+            all_module_names_file = all_module_names_file.path,
+        )
+
     command += """
          # Actual kernel build
            interceptor -r -l {interceptor_output} -- make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
@@ -1356,18 +1395,20 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs. If unable to find from OUT_DIR, look at KBUILD_MIXED_TREE as well.
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names}
+           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names_minus_modules}
+         # Archive modules_staging_dir
+           tar czf {modules_staging_archive} -C {modules_staging_dir} .
+         # Grab in-tree modules
+           {grab_intree_modules_cmd}
          # Check if there are remaining *.ko files
-           remaining_ko_files=$(find ${{OUT_DIR}} -type f -name '*.ko')
+           remaining_ko_files=$(comm -13 <(cat {all_module_names_file} | sort) <(find {modules_staging_dir} -type f -name '*.ko' -exec basename {{}} \\; | sort))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
-               echo '    "'"$(basename ${{ko}})"'",' >&2
+               echo '    "'"${{ko}}"'",' >&2
              done
              exit 1
            fi
-         # Archive modules_staging_dir
-           tar czf {modules_staging_archive} -C {modules_staging_dir} .
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          """.format(
@@ -1375,7 +1416,9 @@ def _kernel_build_impl(ctx):
         kbuild_mixed_tree_arg = "--srcdir ${KBUILD_MIXED_TREE}" if kbuild_mixed_tree else "",
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
-        all_output_names = " ".join(all_output_names),
+        all_output_names_minus_modules = " ".join(all_output_names_minus_modules),
+        grab_intree_modules_cmd = grab_intree_modules_cmd,
+        all_module_names_file = all_module_names_file.path,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,

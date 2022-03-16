@@ -104,13 +104,13 @@ def extract_built_files(dir):
   """
   files = set()
   src_dir = find_source_dir(dir)
-  src_dir_prefix = str(src_dir) + os.pathsep
+  src_dir_prefix = str(src_dir) + os.sep
 
   with multiprocessing.Pool() as p:
     for source, deps in p.map(parse_cmd_file, dir.glob('**/.*.cmd')):
-      if source:
+      if source and source.startswith(src_dir_prefix):
         files.add(source.removeprefix(src_dir_prefix))
-        files.update(dep.removeprefix(src_dir_prefix) for dep in deps)
+        files.update(dep.removeprefix(src_dir_prefix) for dep in deps if dep.startswith(src_dir_prefix))
 
   return BuiltFilesResult(set(f for f in files if os.path.exists(src_dir / f)),
           src_dir)
@@ -153,7 +153,7 @@ if __name__ == '__main__':
         f'in {args.gki_out_dir}.')
   if args.gki_files:
     with open(args.gki_files, mode='w') as f:
-      f.writelines(f'{file}\n' for file in built_files)
+      f.writelines(f'{file}\n' for file in sorted(built_files))
 
   if args.vendor_tree:
     match, mismatch, errors = filecmp.cmpfiles(source_dir, args.vendor_tree,
