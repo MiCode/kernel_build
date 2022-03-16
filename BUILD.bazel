@@ -59,6 +59,15 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "dump-abi-scripts",
+    srcs = [
+        "abi/abitool.py",
+        "abi/dump_abi",
+    ],
+)
+
 exports_files([
     "abi/extract_symbols",
+    "abi/filter_abi",
 ])
