@@ -3522,6 +3522,9 @@ def kernel_build_abi(
 
         If `False`, this macro is equivalent to just calling
         `kernel_build(name, **kwargs)`.
+
+        If `True`, implies `collect_unstripped_modules = True`. See
+        [`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules).
       kernel_modules: A list of external [`kernel_module()`](#kernel_module)s
         to extract symbols from.
       module_grouping: If unspecified or `None`, it is `True` by default.
@@ -3534,6 +3537,10 @@ def kernel_build_abi(
 
     if define_abi_targets == None:
         define_abi_targets = True
+
+    kwargs = dict(kwargs)
+    if define_abi_targets and kwargs.get("collect_unstripped_modules") == None:
+        kwargs["collect_unstripped_modules"] = True
 
     kernel_build(name = name, **kwargs)
 
