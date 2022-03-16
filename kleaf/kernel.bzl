@@ -1163,6 +1163,7 @@ _KernelBuildExtModuleInfo = provider(
                                    "Does not contain the lib/modules/* suffix.",
         "module_srcs": "sources for this kernel_build for building external modules",
         "modules_prepare": "The `_modules_prepare` target.",
+        "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
     },
 )
 
@@ -1547,6 +1548,7 @@ def _kernel_build_impl(ctx):
         modules_staging_archive = modules_staging_archive,
         module_srcs = module_srcs,
         modules_prepare = ctx.attr.modules_prepare,
+        collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
 
     kernel_build_uapi_info = _KernelBuildUapiInfo(
@@ -1725,14 +1727,23 @@ def _kernel_module_impl(ctx):
     kernel_uapi_headers_dir = kernel_uapi_headers_archive.dirname + "/kernel-uapi-headers.tar.gz_staging"
     outdir = modules_staging_archive.dirname  # equivalent to declare_directory(ctx.attr.name)
 
-    # additional_outputs: archives + [basename(out) for out in outs]
+    unstripped_dir = None
+    if ctx.attr.kernel_build[_KernelBuildExtModuleInfo].collect_unstripped_modules:
+        unstripped_dir = ctx.actions.declare_directory("{name}/unstripped".format(name = ctx.label.name))
+
+    # additional_outputs: archives + unstripped + [basename(out) for out in outs]
     additional_outputs = [
         modules_staging_archive,
         kernel_uapi_headers_archive,
     ]
+    if unstripped_dir:
+        additional_outputs.append(unstripped_dir)
 
     # Original `outs` attribute of `kernel_module` macro.
     original_outs = []
+
+    # apply basename to all of original_outs
+    original_outs_base = []
     for out in ctx.outputs.outs:
         # outdir includes target name at the end already. So short_name is the original
         # token in `outs` of `kernel_module` macro.
@@ -1748,6 +1759,7 @@ def _kernel_module_impl(ctx):
                 name = ctx.attr.name,
                 basename = out.basename,
             )))
+        original_outs_base.append(out.basename)
 
     module_symvers = ctx.actions.declare_file("{}/Module.symvers".format(ctx.attr.name))
     additional_declared_outputs = [
@@ -1769,6 +1781,18 @@ def _kernel_module_impl(ctx):
     modules_staging_outs = []
     for short_name in original_outs:
         modules_staging_outs.append("lib/modules/*/extra/" + ctx.attr.ext_mod + "/" + short_name)
+
+    grab_unstripped_cmd = ""
+    if unstripped_dir:
+        grab_unstripped_cmd = """
+            mkdir -p {unstripped_dir}
+            {search_and_mv_output} --srcdir ${{OUT_DIR}}/${{ext_mod_rel}} --dstdir {unstripped_dir} {outs}
+        """.format(
+            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            unstripped_dir = unstripped_dir.path,
+            # Use basenames to flatten the unstripped directory, even though outs may contain items with slash.
+            outs = " ".join(original_outs_base),
+        )
 
     command += """
              # Set variables
@@ -1799,6 +1823,8 @@ def _kernel_module_impl(ctx):
                )
              # Move files into place
                {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
+             # Grab unstripped modules
+               {grab_unstripped_cmd}
              # Create headers archive
                tar czf {kernel_uapi_headers_archive} --directory={kernel_uapi_headers_dir} usr/
              # Remove staging dirs because they are not declared
@@ -1816,6 +1842,7 @@ def _kernel_module_impl(ctx):
         modules_staging_outs = " ".join(modules_staging_outs),
         kernel_uapi_headers_archive = kernel_uapi_headers_archive.path,
         kernel_uapi_headers_dir = kernel_uapi_headers_dir,
+        grab_unstripped_cmd = grab_unstripped_cmd,
     )
 
     _debug_print_scripts(ctx, command)
