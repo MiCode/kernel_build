@@ -83,6 +83,14 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "diff-abi-scripts",
+    srcs = [
+        "abi/abitool.py",
+        "abi/diff_abi",
+    ],
+)
+
 _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
 
 _GKI_CERTIFICATION_BINARIES = [

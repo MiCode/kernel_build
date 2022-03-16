@@ -59,6 +59,8 @@ _KMI_CONFIG_VALID_KEYS = [
     "additional_kmi_symbol_lists",
     "trim_nonlisted_kmi",
     "kmi_symbol_list_strict_mode",
+    "abi_definition",
+    "kmi_enforced",
 ]
 
 # Always collect_unstripped_modules for common kernels.
@@ -76,12 +78,16 @@ def _default_kmi_configs():
         exclude = ["**/*.xml", "android/abi_gki_aarch64"],
     )
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
+    aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
+    aarch64_abi_definition = aarch64_abi_definition[0] if aarch64_abi_definition else None
     return {
         "kernel_aarch64": {
-            # Assume the value for KMI_SYMBOL_LIST and ADDITIONAL_KMI_SYMBOL_LISTS
+            # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
             # for build.config.gki.aarch64
             "kmi_symbol_list": aarch64_kmi_symbol_list,
             "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+            "abi_definition": aarch64_abi_definition,
+            "kmi_enforced": bool(aarch64_abi_definition),
             # In build.config.gki.aarch64:
             # - If there are symbol lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
             # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
@@ -89,10 +95,12 @@ def _default_kmi_configs():
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
         },
         "kernel_aarch64_debug": {
-            # Assume the value for KMI_SYMBOL_LIST and ADDITIONAL_KMI_SYMBOL_LISTS
+            # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
             # for build.config.gki-debug.aarch64
             "kmi_symbol_list": aarch64_kmi_symbol_list,
             "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+            "abi_definition": aarch64_abi_definition,
+            "kmi_enforced": bool(aarch64_abi_definition),
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
         },
