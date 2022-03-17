@@ -61,6 +61,7 @@ docs(
         "constants.bzl",
         "download_repo.bzl",
         "fail.bzl",
+        "hermetic_tools.bzl",
         "kernel.bzl",
         "key_value_repo.bzl",
     ],
