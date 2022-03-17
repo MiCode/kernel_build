@@ -559,6 +559,7 @@ def _define_prebuilts(**kwargs):
                 "//conditions:default": [source_package_name + "_ddk_artifacts"],
             }),
             kernel_srcs = [source_package_name + "_sources"],
+            kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",
             **kwargs
         )
 

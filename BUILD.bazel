@@ -14,19 +14,29 @@
 
 package(default_visibility = ["//visibility:public"])
 
-# Provide access to some host tools for rules wanting to restrict PATH
-genrule(
-    name = "host-tools",
-    outs = [
-        "host-tools/bash",
-        "host-tools/install",
-        "host-tools/perl",
-        "host-tools/rsync",
-        "host-tools/sh",
-        "host-tools/tar",
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+
+hermetic_tools(
+    name = "hermetic-tools",
+    srcs = glob(
+        ["build-tools/path/**"],
+        allow_empty = False,
+    ),
+    host_tools = [
+        "bash",
+        "install",
+        "perl",
+        "rsync",
+        "sh",
+        "tar",
     ],
-    cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
-    tags = ["no-remote"],
+    deps = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ) + [
+        "//prebuilts/build-tools:linux-x86",
+        "//prebuilts/kernel-build-tools:linux-x86",
+    ],
 )
 
 filegroup(
@@ -35,10 +45,7 @@ filegroup(
         "_setup_env.sh",
         "build.sh",
         "build_utils.sh",
-    ] + glob(
-        ["build-tools/**"],
-        allow_empty = False,
-    ),
+    ],
 )
 
 filegroup(

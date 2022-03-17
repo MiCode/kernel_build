@@ -15,6 +15,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
+load(":hermetic_tools.bzl", "HermeticToolsInfo")
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -419,7 +420,7 @@ def kernel_build(
     _raw_kmi_symbol_list(
         name = raw_kmi_symbol_list_target_name,
         env = env_target_name,
-        src = abi_symbollist_target_name,
+        src = abi_symbollist_target_name if all_kmi_symbol_lists else None,
     )
 
     _kernel_config(
@@ -451,6 +452,7 @@ def kernel_build(
         modules_prepare = modules_prepare_target_name,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
+        kernel_uapi_headers = uapi_headers_target_name,
         **kwargs
     )
 
@@ -602,9 +604,9 @@ def _kernel_env_impl(ctx):
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
-    dependencies = ctx.files._tools + ctx.files._host_tools
 
     command = ""
+    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         command += _debug_trap()
 
@@ -666,16 +668,15 @@ def _kernel_env_impl(ctx):
             setup_env,
             preserve_env,
             ctx.info_file,
-        ],
+        ] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
         outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
         command = command,
         use_default_shell_env = True,
     )
 
-    host_tool_path = ctx.files._host_tools[0].dirname
-
     setup = ""
+    setup += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += _debug_trap()
 
@@ -687,8 +688,9 @@ def _kernel_env_impl(ctx):
            source {build_utils_sh}
          # source the build environment
            source {env}
-         # setup the PATH to also include the host tools
-           export PATH=$PATH:$PWD/{host_tool_path}
+         # re-setup the PATH to also include the hermetic tools, because env completely overwrites
+         # PATH with HERMETIC_TOOLCHAIN=1
+           {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
          # Set up scm version
@@ -712,13 +714,14 @@ def _kernel_env_impl(ctx):
              export dtstree=$(rel_path $(realpath $(dirname ${{DTSTREE_MAKEFILE}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})
            fi
            """.format(
+        hermetic_tools_additional_setup = ctx.attr._hermetic_tools[HermeticToolsInfo].additional_setup,
         env = out_file.path,
-        host_tool_path = host_tool_path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
         scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION"),
     )
 
+    dependencies = ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
@@ -740,8 +743,6 @@ def _get_tools(toolchain_version):
         Label(e)
         for e in (
             "//build/kernel:kernel-build-scripts",
-            "//prebuilts/build-tools:linux-x86",
-            "//prebuilts/kernel-build-tools:linux-x86",
             "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
         )
     ]
@@ -834,7 +835,7 @@ _kernel_env = rule(
             doc = "Device tree",
         ),
         "_tools": attr.label_list(default = _get_tools),
-        "_host_tools": attr.label(default = "//build/kernel:host-tools"),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils.sh"),
@@ -1123,6 +1124,14 @@ _KernelBuildExtModuleInfo = provider(
                                    "Does not contain the lib/modules/* suffix.",
         "module_srcs": "sources for this kernel_build for building external modules",
         "modules_prepare": "The `_modules_prepare` target.",
+    },
+)
+
+_KernelBuildUapiInfo = provider(
+    doc = "A provider that specifies the expecation of a `merged_uapi_headers` rule from its `kernel_build` attribute.",
+    fields = {
+        "base_kernel": "the `base_kernel` target, if exists",
+        "kernel_uapi_headers": "the `*_kernel_uapi_headers` target",
     },
 )
 
@@ -1474,6 +1483,11 @@ def _kernel_build_impl(ctx):
         modules_prepare = ctx.attr.modules_prepare,
     )
 
+    kernel_build_uapi_info = _KernelBuildUapiInfo(
+        base_kernel = ctx.attr.base_kernel,
+        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -1490,6 +1504,7 @@ def _kernel_build_impl(ctx):
         env_info,
         kernel_build_info,
         kernel_build_module_info,
+        kernel_build_uapi_info,
         output_group_info,
         default_info,
     ]
@@ -1520,7 +1535,6 @@ _kernel_build = rule(
         "base_kernel": attr.label(
             aspects = [_kernel_toolchain_aspect],
         ),
-        "modules_prepare": attr.label(),
         "kmi_symbol_list_strict_mode": attr.bool(),
         "raw_kmi_symbol_list": attr.label(
             doc = "Label to abi_symbollist.raw.",
@@ -1529,6 +1543,12 @@ _kernel_build = rule(
         "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
         "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
+        # dependencies so _KernelBuildExtModuleInfo and _KernelBuildUapiInfo works.
+        # There are no real dependencies. Bazel does not build these targets before building the
+        # `_kernel_build` target.
+        "modules_prepare": attr.label(),
+        "kernel_uapi_headers": attr.label(),
     },
 )
 
@@ -2148,6 +2168,86 @@ _kernel_uapi_headers = rule(
             providers = [_KernelEnvInfo],
             doc = "the kernel_config target",
         ),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+    },
+)
+
+def _merged_kernel_uapi_headers_impl(ctx):
+    kernel_build = ctx.attr.kernel_build
+    base_kernel = kernel_build[_KernelBuildUapiInfo].base_kernel
+
+    # Early elements = higher priority
+    srcs = []
+    if base_kernel:
+        srcs += base_kernel[_KernelBuildUapiInfo].kernel_uapi_headers.files.to_list()
+    srcs += kernel_build[_KernelBuildUapiInfo].kernel_uapi_headers.files.to_list()
+    for kernel_module in ctx.attr.kernel_modules:
+        srcs.append(kernel_module[_KernelModuleInfo].kernel_uapi_headers_archive)
+
+    inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + srcs
+
+    out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.attr.name))
+    intermediates_dir = out_file.dirname + "/intermediates"
+
+    command = ""
+    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    command += """
+        mkdir -p {intermediates_dir}
+    """.format(
+        intermediates_dir = intermediates_dir,
+    )
+
+    # Extract the source tarballs in low to high priority order.
+    for src in reversed(srcs):
+        command += """
+            tar xf {src} -C {intermediates_dir}
+        """.format(
+            src = src.path,
+            intermediates_dir = intermediates_dir,
+        )
+
+    command += """
+        tar czf {out_file} -C {intermediates_dir} usr/
+        rm -rf {intermediates_dir}
+    """.format(
+        out_file = out_file.path,
+        intermediates_dir = intermediates_dir,
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [out_file],
+        progress_message = "Merging kernel-uapi-headers.tar.gz {}".format(ctx.label),
+        command = command,
+        mnemonic = "MergedKernelUapiHeaders",
+    )
+    return DefaultInfo(files = depset([out_file]))
+
+merged_kernel_uapi_headers = rule(
+    implementation = _merged_kernel_uapi_headers_impl,
+    doc = """Merge `kernel-uapi-headers.tar.gz`.
+
+On certain devices, kernel modules install additional UAPI headers. Use this
+rule to add these module UAPI headers to the final `kernel-uapi-headers.tar.gz`.
+
+If there are conflicts of file names in the source tarballs, files higher in
+the list have higher priority:
+1. UAPI headers from the `base_kernel` of the `kernel_build` (ususally the GKI build)
+2. UAPI headers from the `kernel_build` (usually the device build)
+3. UAPI headers from ``kernel_modules`. Order among the modules are undetermined.
+""",
+    attrs = {
+        "kernel_build": attr.label(
+            doc = "The `kernel_build`",
+            mandatory = True,
+            providers = [_KernelBuildUapiInfo],
+        ),
+        "kernel_modules": attr.label_list(
+            doc = """A list of external `kernel_module`s to merge `kernel-uapi-headers.tar.gz`""",
+            providers = [_KernelModuleInfo],
+        ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
@@ -3016,10 +3116,14 @@ def _kernel_filegroup_impl(ctx):
         # TODO(b/211515836): module_srcs might also be downloaded
         module_srcs = _filter_module_srcs(ctx.files.kernel_srcs),
     )
+    uapi_info = _KernelBuildUapiInfo(
+        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
+    )
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
         kernel_module_dev_info,
         # TODO(b/219112010): implement _KernelEnvInfo for _kernel_build
+        uapi_info,
     ]
 
 kernel_filegroup = rule(
@@ -3056,6 +3160,41 @@ Unlike srcs, these labels are NOT added to the [`DefaultInfo`](https://docs.baze
 This is usually a `glob()` of source files.
 
 Not to be confused with [`srcs`](#kernel_filegroup-srcs).
+""",
+        ),
+        "kernel_uapi_headers": attr.label(
+            allow_files = True,
+            doc = """The label pointing to `kernel-uapi-headers.tar.gz`.
+
+This attribute should be set to the `kernel-uapi-headers.tar.gz` artifact built by the
+[`kernel_build`](#kernel_build) macro if the `kernel_filegroup` rule were a `kernel_build`.
+
+Setting this attribute allows [`merged_kernel_uapi_headers`](#merged_kernel_uapi_headers) to
+work properly when this `kernel_filegroup` is set to the `base_kernel`.
+
+For example:
+```
+kernel_filegroup(
+    name = "kernel_aarch64_prebuilts",
+    srcs = [
+        "vmlinux",
+        # ...
+    ],
+    kernel_uapi_headers = "kernel-uapi-headers.tar.gz",
+)
+
+kernel_build(
+    name = "tuna",
+    base_kernel = ":kernel_aarch64_prebuilts",
+    # ...
+)
+
+merged_kernel_uapi_headers(
+    name = "tuna_merged_kernel_uapi_headers",
+    kernel_build = "tuna",
+    # ...
+)
+```
 """,
         ),
     },
