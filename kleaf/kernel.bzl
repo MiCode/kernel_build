@@ -3744,6 +3744,9 @@ def kernel_build_abi(
 
     ```
     kernel_build_abi(name = "kernel_aarch64", **kwargs)
+    _dist_targets = ["kernel_aarch64", ...]
+    copy_to_dist_dir(name = "kernel_aarch64_dist", data = _dist_targets)
+    copy_to_dist_dir(name = "kernel_aarch64_abi_dist", data = _dist_targets + ["kernel_aarch64_abi"])
     ```
 
     The `kernel_build_abi` invocation is equivalent to the following:
@@ -3764,6 +3767,14 @@ def kernel_build_abi(
         ABI dump to `--dist-dir`.
     - kernel_aarch64_abi_update
       - Running this target updates `abi_definition`.
+    - kernel_aarch64_abi_dump
+      - Building this target extracts the ABI.
+      - Include this target in a `copy_to_dist_dir` target to copy
+        ABI dump to `--dist-dir`.
+    - kernel_aarch64_abi (if `abi_definition` is not `None`)
+      - Building this target compares the ABI with `abi_definition`.
+      - Include this target in a `copy_to_dist_dir` target to copy
+        ABI dump and diff report to `--dist-dir`.
 
     Assuming the above, here's a table for converting `build_abi.sh`
     into Bazel commands. Note: it is recommended to disable the sandbox for
@@ -3781,6 +3792,10 @@ def kernel_build_abi(
     |`build_abi.sh --update`            |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
     |                                   |`    bazel build kernel_aarch64_abi && \\`             |Extract the ABI and compare it,                                        |
     |                                   |`    bazel run kernel_aarch64_abi_update` [1][2][3]    |then update `abi_definition`                                           |
+    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
+    |`build_abi.sh`                     |`bazel build kernel_aarch64_abi` [2]                   |Extract the ABI and compare it                                         |
+    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
+    |`build_abi.sh`                     |`bazel run kernel_aarch64_abi_dist -- --dist_dir=...`  |Extract the ABI and compare it, then copy artifacts to `--dist_dir`    |
 
     Notes:
 
@@ -3850,6 +3865,8 @@ def kernel_build_abi(
     else:
         native.alias(name = name + "_with_vmlinux", actual = name)
 
+    default_outputs = []
+
     # extract_symbols ...
     _kernel_extracted_symbols(
         name = name + "_abi_extracted_symbols",
@@ -3868,6 +3885,8 @@ def kernel_build_abi(
         kernel_build = name + "_with_vmlinux",
         kernel_modules = kernel_modules,
     )
+    default_outputs.append(name + "_abi_dump")
+
     if abi_definition:
         native.filegroup(
             name = name + "_abi_out_file",
@@ -3881,12 +3900,18 @@ def kernel_build_abi(
             new = name + "_abi_out_file",
             kmi_enforced = kmi_enforced,
         )
+        default_outputs.append(name + "_abi_diff")
 
         update_source_file(
             name = name + "_abi_update",
             src = name + "_abi_out_file",
             dst = abi_definition,
         )
+
+    native.filegroup(
+        name = name + "_abi",
+        srcs = default_outputs,
+    )
 
 def _kernel_abi_diff_impl(ctx):
     inputs = [

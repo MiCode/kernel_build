@@ -429,14 +429,22 @@ def define_common_kernels(
             ],
         )
 
+        dist_targets = [
+            name,
+            name + "_uapi_headers",
+            name + "_additional_artifacts",
+            name + "_ddk_artifacts",
+        ]
+
         copy_to_dist_dir(
             name = name + "_dist",
-            data = [
-                name,
-                name + "_uapi_headers",
-                name + "_additional_artifacts",
-                name + "_ddk_artifacts",
-            ],
+            data = dist_targets,
+            flat = True,
+        )
+
+        copy_to_dist_dir(
+            name = name + "_abi_dist",
+            data = dist_targets + [name + "_abi"],
             flat = True,
         )
 
