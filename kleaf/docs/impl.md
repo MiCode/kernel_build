@@ -16,7 +16,7 @@ Make the following changes to the kernel manifest to support Bazel build.
     See [SOURCE\_DATE\_EPOCH](https://reproducible-builds.org/docs/source-date-epoch/).
   * **NOTE**: This is subject to change. In the future, this may not be required
       any more.
-* Add `tools/bazel` symlink to `build/kernel/kleaf/build.sh`
+* Add `tools/bazel` symlink to `build/kernel/kleaf/bazel.sh`
 * Add `WORKSPACE` symlink to `build/kernel/kleaf/bazel.WORKSPACE`
 * Dependent repositories for Bazel, including:
     * [prebuilts/bazel/linux-x86\_64](https://android.googlesource.com/platform/prebuilts/bazel/linux-x86_64/)
