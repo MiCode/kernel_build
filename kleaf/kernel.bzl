@@ -54,14 +54,16 @@ def _filter_module_srcs(files):
 
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
-    command = "cat {srcs} > {out_file}".format(
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        cat {srcs} > {out_file}
+    """.format(
         srcs = " ".join([src.path for src in ctx.files.srcs]),
         out_file = out_file.path,
     )
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuildConfig",
-        inputs = ctx.files.srcs,
+        inputs = ctx.files.srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
         outputs = [out_file],
         command = command,
         progress_message = "Generating build config {}".format(ctx.label),
@@ -92,6 +94,7 @@ kernel_build_config(
 
 """,
         ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
@@ -1248,7 +1251,8 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             base_kernel = base_kernel.label,
             base_toolchain = base_toolchain,
         )
-        command = """
+        _debug_print_scripts(ctx, command, what = "check_toolchain")
+        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
                 # Check toolchain_version against base kernel
                   if ! diff <(cat {base_toolchain_file}) <(echo "{this_toolchain}") > /dev/null; then
                     echo "{msg}" >&2
@@ -1264,7 +1268,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
 
         ctx.actions.run_shell(
             mnemonic = "KernelBuildCheckToolchain",
-            inputs = [base_toolchain_file],
+            inputs = [base_toolchain_file] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
             outputs = [out],
             command = command,
             progress_message = "Checking toolchain version against base kernel {}".format(ctx.label),
@@ -1338,7 +1342,7 @@ def _kernel_build_impl(ctx):
         # only change when the dependent ctx.attr.base_kernel changes.
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
         base_kernel_files = ctx.files.base_kernel
-        kbuild_mixed_tree_command = """
+        kbuild_mixed_tree_command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
             rm -rf ${{KBUILD_MIXED_TREE}}
@@ -1350,9 +1354,10 @@ def _kernel_build_impl(ctx):
             base_kernel_files = " ".join([file.path for file in base_kernel_files]),
             kbuild_mixed_tree = kbuild_mixed_tree.path,
         )
+        _debug_print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildKbuildMixedTree",
-            inputs = base_kernel_files,
+            inputs = base_kernel_files + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
             outputs = [kbuild_mixed_tree],
             progress_message = "Creating KBUILD_MIXED_TREE",
             command = kbuild_mixed_tree_command,
@@ -1615,6 +1620,7 @@ _kernel_build = rule(
         "collect_unstripped_modules": attr.bool(),
         "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
         "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so _KernelBuildExtModuleInfo and _KernelBuildUapiInfo works.
