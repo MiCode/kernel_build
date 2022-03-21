@@ -802,7 +802,7 @@ def _kernel_env_impl(ctx):
          # PATH with HERMETIC_TOOLCHAIN=1
            {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
-           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
+           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
            {set_up_scmversion_cmd}
          # Set up KCONFIG_EXT
            if [ -n "${{KCONFIG_EXT}}" ]; then

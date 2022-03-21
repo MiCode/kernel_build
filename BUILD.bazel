@@ -51,6 +51,7 @@ hermetic_tools(
     ) + [
         "//prebuilts/build-tools:linux-x86",
         "//prebuilts/kernel-build-tools:linux-x86",
+        "@prebuilt_ndk//:sysroot",
     ],
 )
 
