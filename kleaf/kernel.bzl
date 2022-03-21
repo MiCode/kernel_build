@@ -717,7 +717,6 @@ def _kernel_env_impl(ctx):
         outputs = [out_file],
         progress_message = "Creating build environment for %s" % ctx.attr.name,
         command = command,
-        use_default_shell_env = True,
     )
 
     setup = ""
