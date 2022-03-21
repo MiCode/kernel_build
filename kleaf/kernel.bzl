@@ -3723,6 +3723,45 @@ _kernel_abi_dump = rule(
     },
 )
 
+def _kernel_abi_prop_impl(ctx):
+    content = []
+    if ctx.file.kmi_definition:
+        content.append("KMI_DEFINITION={}".format(ctx.file.kmi_definition.basename))
+        content.append("KMI_MONITORED=1")
+
+        if ctx.attr.kmi_enforced:
+            content.append("KMI_ENFORCED=1")
+
+    combined_abi_symbollist = ctx.attr.kernel_build[_KernelBuildAbiInfo].combined_abi_symbollist
+    if combined_abi_symbollist:
+        content.append("KMI_SYMBOL_LIST={}".format(combined_abi_symbollist.basename))
+
+    # This just appends `KERNEL_BINARY=vmlinux`, but find_file additionally ensures that
+    # we are building vmlinux.
+    vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build, what = "{}: kernel_build".format(ctx.attr.name), required = True)
+    content.append("KERNEL_BINARY={}".format(vmlinux.basename))
+
+    if ctx.file.modules_archive:
+        content.append("MODULES_ARCHIVE={}".format(ctx.file.modules_archive.basename))
+
+    out = ctx.actions.declare_file("{}/abi.prop".format(ctx.attr.name))
+    ctx.actions.write(
+        output = out,
+        content = "\n".join(content) + "\n",
+    )
+    return DefaultInfo(files = depset([out]))
+
+_kernel_abi_prop = rule(
+    implementation = _kernel_abi_prop_impl,
+    doc = "Create `abi.prop`",
+    attrs = {
+        "kernel_build": attr.label(providers = [_KernelBuildAbiInfo]),
+        "modules_archive": attr.label(allow_single_file = True),
+        "kmi_definition": attr.label(allow_single_file = True),
+        "kmi_enforced": attr.bool(),
+    },
+)
+
 def kernel_build_abi(
         name,
         define_abi_targets = None,
@@ -3731,6 +3770,7 @@ def kernel_build_abi(
         module_grouping = None,
         abi_definition = None,
         kmi_enforced = None,
+        unstripped_modules_archive = None,
         # for kernel_build
         **kwargs):
     """Declare multiple targets to support ABI monitoring.
@@ -3831,6 +3871,8 @@ def kernel_build_abi(
       kmi_enforced: This is an indicative option to signal that KMI is enforced.
         If set to `True`, KMI checking tools respects it and
         reacts to it by failing if KMI differences are detected.
+      unstripped_modules_archive: A [`kernel_unstripped_modules_archive`](#kernel_unstripped_modules_archive)
+        which name is specified in `abi.prop`.
       kwargs: See [`kernel_build.kwargs`](#kernel_build-kwargs)
     """
 
@@ -3907,6 +3949,15 @@ def kernel_build_abi(
             src = name + "_abi_out_file",
             dst = abi_definition,
         )
+
+    _kernel_abi_prop(
+        name = name + "_abi_prop",
+        kmi_definition = name + "_abi_out_file" if abi_definition else None,
+        kmi_enforced = kmi_enforced,
+        kernel_build = name + "_with_vmlinux",
+        modules_archive = unstripped_modules_archive,
+    )
+    default_outputs.append(name + "_abi_prop")
 
     native.filegroup(
         name = name + "_abi",
