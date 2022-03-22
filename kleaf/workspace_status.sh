@@ -22,27 +22,4 @@ if [[ ! -f "WORKSPACE" ]]; then
   exit 1
 fi
 
-KERNEL_DIR=$(readlink -f ".source_date_epoch_dir")
-
-# Find scripts/setlocalversion.
-# .source_date_epoch_dir should be where KERNEL_DIR is. Look for setlocalversion there.
-SETLOCALVERSION=""
-if [[ -n "$KERNEL_DIR" ]] && [[ -x "$KERNEL_DIR/scripts/setlocalversion" ]]; then
-  SETLOCALVERSION=$(readlink -f "$KERNEL_DIR/scripts/setlocalversion")
-fi
-
-STABLE_SCMVERSION=
-if [[ -n "$SETLOCALVERSION" ]] && [[ -n "$KERNEL_DIR" ]] && [[ -d "$KERNEL_DIR" ]]; then
-  WORKING_DIR=build/kernel/kleaf/workspace_status_dir
-  STABLE_SCMVERSION=$(cd "$WORKING_DIR" && "$SETLOCALVERSION" "$KERNEL_DIR")
-fi
-
-STABLE_SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}
-if [[ -n "$KERNEL_DIR" ]] && [[ -d "$KERNEL_DIR" ]]; then
-  # Use "git" from the environment.
-  STABLE_SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$KERNEL_DIR" log -1 --pretty=%ct)}
-fi
-
-echo "STABLE_SCMVERSION $STABLE_SCMVERSION"
-echo "STABLE_SOURCE_DATE_EPOCH $STABLE_SOURCE_DATE_EPOCH"
-
+build/kernel/build-tools/path/linux-x86/python3 build/kernel/kleaf/workspace_status.py
