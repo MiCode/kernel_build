@@ -574,7 +574,7 @@ def kernel_dtstree(
     _kernel_dtstree(**kwargs)
 
 def _get_stable_status_cmd(ctx, var):
-    return """$(cat {stable_status} | grep "{var}" | cut -f2 -d' ')""".format(
+    return """cat {stable_status} | grep -e "^{var} " | cut -f2- -d' '""".format(
         stable_status = ctx.info_file.path,
         var = var,
     )
@@ -683,7 +683,7 @@ def _kernel_env_impl(ctx):
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
           export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
         # Set the value of SOURCE_DATE_EPOCH
-          export SOURCE_DATE_EPOCH={source_date_epoch_cmd}
+          export SOURCE_DATE_EPOCH=$({source_date_epoch_cmd})
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
@@ -723,7 +723,7 @@ def _kernel_env_impl(ctx):
     scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
     set_up_scmversion_cmd = _get_scmversion_cmd(
         srctree = "${ROOT_DIR}/${KERNEL_DIR}",
-        scmversion = scmversion_cmd,
+        scmversion = "$({})".format(scmversion_cmd),
     )
 
     setup += """
