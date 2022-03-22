@@ -63,6 +63,24 @@ def main():
   if setlocalversion and has_kernel_dir:
     stable_scmversion_obj = call_setlocalversion(setlocalversion, kernel_dir)
 
+  ext_modules = []
+  stable_scmversion_extmod_objs = []
+  if setlocalversion:
+    ext_modules = []
+    try:
+      ext_modules = subprocess.check_output("""
+        source build/build_utils.sh
+        source build/_setup_env.sh
+        echo $EXT_MODULES
+        """, shell=True, text=True, stderr=subprocess.PIPE).split()
+    except subprocess.CalledProcessError as e:
+      msg = "WARNING: Unable to determine EXT_MODULES; scmversion for external modules may be incorrect. code={}, stderr={}\n".format(
+          e.returncode, e.stderr.strip())
+      sys.stderr.write(msg)
+    stable_scmversion_extmod_objs = [
+        call_setlocalversion(setlocalversion, os.path.realpath(ext_mod))
+        for ext_mod in ext_modules]
+
   stable_source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH")
   stable_source_date_epoch_obj = None
   if not stable_source_date_epoch and has_kernel_dir and shutil.which("git"):
@@ -80,6 +98,14 @@ def main():
   if stable_source_date_epoch_obj:
     stable_source_date_epoch = collect(stable_source_date_epoch_obj)
   print("STABLE_SOURCE_DATE_EPOCH", stable_source_date_epoch)
+
+  # If the list is empty, this prints "STABLE_SCMVERSION_EXT_MOD", and is
+  # filtered by Bazel.
+  print("STABLE_SCMVERSION_EXT_MOD", " ".join(
+      "{}:{}".format(ext_mod, result) for ext_mod, result in zip(ext_modules,
+                                                                 [collect(obj)
+                                                                  for obj in
+                                                                  stable_scmversion_extmod_objs])))
 
   return 0
 

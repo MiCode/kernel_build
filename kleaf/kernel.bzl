@@ -1827,6 +1827,21 @@ def _kernel_module_impl(ctx):
             outs = " ".join(original_outs_base),
         )
 
+    # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
+    scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
+    scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ctx.attr.ext_mod)
+
+    # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
+    # should not run on KERNEL_DIR. However, for STABLE_SCMVERSION_EXT_MOD,
+    # we may have a missing item if setlocalversion should not run in
+    # a certain directory. Hence, be lenient about failures.
+    scmversion_cmd += " || true"
+
+    command += _get_scmversion_cmd(
+        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ctx.attr.ext_mod),
+        scmversion = "$({})".format(scmversion_cmd),
+    )
+
     command += """
              # Set variables
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
