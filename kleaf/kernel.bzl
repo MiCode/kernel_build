@@ -579,6 +579,32 @@ def _get_stable_status_cmd(ctx, var):
         var = var,
     )
 
+def _get_scmversion_cmd(srctree, scmversion):
+    """Return a shell script that sets up .scmversion file in the source tree conditionally.
+
+    Args:
+      srctree: Path to the source tree where `setlocalversion` were supposed to run with.
+      scmversion: The result of executing `setlocalversion` if it were executed on `srctree`.
+    """
+    return """
+         # Set up scm version
+           (
+              # Save scmversion to .scmversion if .scmversion does not already exist.
+              # If it does exist, then it is part of "srcs", so respect its value.
+              # If .git exists, we are not in sandbox. Let make calls setlocalversion.
+              if [[ ! -d {srctree}/.git ]] && [[ ! -f {srctree}/.scmversion ]]; then
+                scmversion={scmversion}
+                if [[ -n "${{scmversion}}" ]]; then
+                    mkdir -p {srctree}
+                    echo $scmversion > {srctree}/.scmversion
+                fi
+              fi
+           )
+""".format(
+        srctree = srctree,
+        scmversion = scmversion,
+    )
+
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
     "setup": "setup script to initialize the environment",
@@ -694,6 +720,12 @@ def _kernel_env_impl(ctx):
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += _debug_trap()
 
+    scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+    set_up_scmversion_cmd = _get_scmversion_cmd(
+        srctree = "${ROOT_DIR}/${KERNEL_DIR}",
+        scmversion = scmversion_cmd,
+    )
+
     setup += """
          # error on failures
            set -e
@@ -707,19 +739,7 @@ def _kernel_env_impl(ctx):
            {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/{linux_x86_libs_path}
-         # Set up scm version
-           (
-              # Save KLEAF_SCMVERSION to .scmversion if .scmversion does not already exist.
-              # If it does exist, then it is part of "srcs", so respect its value.
-              # If .git exists, we are not in sandbox. Let make calls setlocalversion.
-              if [[ ! -d ${{ROOT_DIR}}/${{KERNEL_DIR}}/.git ]] && [[ ! -f ${{ROOT_DIR}}/${{KERNEL_DIR}}/.scmversion ]]; then
-                KLEAF_SCMVERSION={scmversion_cmd}
-                if [[ ${{KLEAF_SCMVERSION}} ]]; then
-                    mkdir -p ${{ROOT_DIR}}/${{KERNEL_DIR}}
-                    echo $KLEAF_SCMVERSION > ${{ROOT_DIR}}/${{KERNEL_DIR}}/.scmversion
-                fi
-              fi
-           )
+           {set_up_scmversion_cmd}
          # Set up KCONFIG_EXT
            if [ -n "${{KCONFIG_EXT}}" ]; then
              export KCONFIG_EXT_PREFIX=$(rel_path $(realpath $(dirname ${{KCONFIG_EXT}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})/
@@ -732,7 +752,7 @@ def _kernel_env_impl(ctx):
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
-        scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION"),
+        set_up_scmversion_cmd = set_up_scmversion_cmd,
     )
 
     dependencies = ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
