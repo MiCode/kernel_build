@@ -16,6 +16,12 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
+load(
+    ":utils.bzl",
+    "find_file",
+    "getoptattr",
+    "reverse_dict",
+)
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -31,40 +37,6 @@ def _debug_print_scripts(ctx, command, what = None):
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
         print("""
         # Script that runs %s%s:%s""" % (ctx.label, (" " + what if what else ""), command))
-
-def _reverse_dict(d):
-    """Reverse a dictionary of {key: [value, ...]}
-
-    Return {value: [key, ...]}.
-    """
-    ret = {}
-    for k, values in d.items():
-        for v in values:
-            if v not in ret:
-                ret[v] = []
-            ret[v].append(k)
-    return ret
-
-def _getoptattr(thing, attr, default_value = None):
-    if hasattr(thing, attr):
-        return getattr(thing, attr)
-    return default_value
-
-def _find_file(name, files, what, required = False):
-    """Find a file named |name| in the list of |files|. Expect zero or one match."""
-    result = []
-    for file in files:
-        if file.basename == name:
-            result.append(file)
-    if len(result) > 1 or (not result and required):
-        fail("{what} contains {actual_len} file(s) named {name}, expected {expected_len}{files}".format(
-            what = what,
-            actual_len = len(result),
-            name = name,
-            expected_len = "1" if required else "0 or 1",
-            files = ":\n  " + ("\n  ".join(result)) if result else "",
-        ))
-    return result[0] if result else None
 
 def _filter_module_srcs(files):
     """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
@@ -493,7 +465,7 @@ def kernel_build(
         elif type(out_attr_val) == type({}):
             # out_attr_val = {config_setting: [out, ...], ...}
             # => reverse_dict = {out: [config_setting, ...], ...}
-            for out, config_settings in _reverse_dict(out_attr_val).items():
+            for out, config_settings in reverse_dict(out_attr_val).items():
                 native.filegroup(
                     name = name + "/" + out,
                     # Use a select() to prevent this rule to build when config_setting is not fulfilled.
@@ -806,7 +778,7 @@ def _kernel_toolchain_aspect_impl(target, ctx):
         # Traverse this depset and look for a file named "toolchain_version".
         # If no file matches, leave it as None so that _kernel_build_check_toolchain prints a
         # warning.
-        toolchain_version_file = _find_file(name = TOOLCHAIN_VERSION_FILENAME, files = all_srcs.to_list(), what = ctx.label)
+        toolchain_version_file = find_file(name = TOOLCHAIN_VERSION_FILENAME, files = all_srcs.to_list(), what = ctx.label)
         return _KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
 
     fail("{label}: Unable to get toolchain info because {kind} is not supported.".format(
@@ -1179,7 +1151,7 @@ _SrcsInfo = provider(fields = {
 })
 
 def _srcs_aspect_impl(target, ctx):
-    return [_SrcsInfo(srcs = _getoptattr(ctx.rule.attr, "srcs"))]
+    return [_SrcsInfo(srcs = getoptattr(ctx.rule.attr, "srcs"))]
 
 _srcs_aspect = aspect(
     implementation = _srcs_aspect_impl,
@@ -1194,8 +1166,8 @@ def _kernel_build_check_toolchain(ctx):
 
     base_kernel = ctx.attr.base_kernel
     this_toolchain = ctx.attr.config[_KernelToolchainInfo].toolchain_version
-    base_toolchain = _getoptattr(base_kernel[_KernelToolchainInfo], "toolchain_version")
-    base_toolchain_file = _getoptattr(base_kernel[_KernelToolchainInfo], "toolchain_version_file")
+    base_toolchain = getoptattr(base_kernel[_KernelToolchainInfo], "toolchain_version")
+    base_toolchain_file = getoptattr(base_kernel[_KernelToolchainInfo], "toolchain_version_file")
 
     if base_toolchain == None and base_toolchain_file == None:
         print(("\nWARNING: {this_label}: No check is performed between the toolchain " +
@@ -2416,7 +2388,7 @@ def _build_modules_image_impl_common(
     """
     kernel_build = ctx.attr.kernel_modules_install[_KernelModuleInfo].kernel_build
     kernel_build_outs = kernel_build[_KernelBuildInfo].outs + kernel_build[_KernelBuildInfo].base_kernel_files
-    system_map = _find_file(
+    system_map = find_file(
         name = "System.map",
         files = kernel_build_outs,
         required = True,
@@ -3149,9 +3121,9 @@ def kernel_images(
 def _kernel_filegroup_impl(ctx):
     all_deps = ctx.files.srcs + ctx.files.deps
     kernel_module_dev_info = _KernelBuildExtModuleInfo(
-        modules_staging_archive = _find_file("modules_staging_dir.tar.gz", all_deps, what = ctx.label),
+        modules_staging_archive = find_file("modules_staging_dir.tar.gz", all_deps, what = ctx.label),
         # TODO(b/219112010): implement _KernelEnvInfo for the modules_prepare target
-        modules_prepare = _find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label),
+        modules_prepare = find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label),
         # TODO(b/211515836): module_srcs might also be downloaded
         module_srcs = _filter_module_srcs(ctx.files.kernel_srcs),
     )
