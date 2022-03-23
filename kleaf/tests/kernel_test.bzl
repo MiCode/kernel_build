@@ -39,3 +39,27 @@ def kernel_module_test(
         data = data,
         args = args,
     )
+
+def kernel_build_test(
+        name,
+        target = None):
+    """A test on artifacts produced by [kernel_build](#kernel_build).
+
+    Args:
+        name: name of test
+        target: The [`kernel_build()`](#kernel_build).
+    """
+    script = "//build/kernel/kleaf/tests:kernel_build_test.py"
+    strings = "//build/kernel:hermetic-tools/strings"
+    args = ["--strings", "$(location {})".format(strings)]
+    if target:
+        args += ["--artifacts", "$(locations {})".format(target)]
+
+    native.py_test(
+        name = name,
+        main = script,
+        srcs = [script],
+        python_version = "PY3",
+        data = [target, strings],
+        args = args,
+    )

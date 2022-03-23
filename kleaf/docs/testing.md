@@ -13,6 +13,14 @@ For the GKI `kernel_build()` `kernel_aarch64`, the following targets are
 created.
 
 ```shell
+$ bazel test kernel_aarch64_test
+```
+
+This command checks the following on the GKI binary:
+
+- scmversion
+
+```shell
 $ bazel test kernel_aarch64_module_test
 ```
 
@@ -25,6 +33,14 @@ This command checks the following on the in-tree GKI modules:
 
 For your `kernel_build()` named `tuna`, the following targets are
 created.
+
+```shell
+$ bazel test tuna_test
+```
+
+This command checks the following on the kernel binary, if it exists:
+
+- scmversion
 
 ```shell
 $ bazel test tuna_module_test
