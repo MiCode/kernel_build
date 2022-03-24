@@ -19,6 +19,7 @@ $ bazel test kernel_aarch64_module_test
 This command checks the following on the in-tree GKI modules:
 
 - scmversion
+- vermagic
 
 ### Device kernel
 
@@ -32,6 +33,7 @@ $ bazel test tuna_module_test
 This command checks the following on the in-tree modules:
 
 - scmversion
+- vermagic
 
 ## External `kernel_module`
 
@@ -44,3 +46,4 @@ $ bazel test nfc_test
 This command checks the following on the external module:
 
 - scmversion
+- vermagic
