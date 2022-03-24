@@ -61,6 +61,9 @@ _KMI_CONFIG_VALID_KEYS = [
     "kmi_symbol_list_strict_mode",
 ]
 
+# Always collect_unstripped_modules for common kernels.
+_COLLECT_UNSTRIPPED_MODULES = True
+
 # glob() must be executed in a BUILD thread, so this cannot be a global
 # variable.
 def _default_kmi_configs():
@@ -409,7 +412,7 @@ def define_common_kernels(
             define_abi_targets = bool(kmi_config.get("kmi_symbol_list")),
             # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
             module_grouping = None,
-            collect_unstripped_modules = True,
+            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             toolchain_version = toolchain_version,
             **kmi_config
         )
@@ -548,6 +551,7 @@ def _define_prebuilts(**kwargs):
             }),
             kernel_srcs = [source_package_name + "_sources"],
             kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",
+            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             **kwargs
         )
 

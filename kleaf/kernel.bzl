@@ -3259,6 +3259,7 @@ def _kernel_filegroup_impl(ctx):
         modules_prepare_deps = modules_prepare_deps,
         # TODO(b/211515836): module_srcs might also be downloaded
         module_srcs = _filter_module_srcs(ctx.files.kernel_srcs),
+        collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
     uapi_info = _KernelBuildUapiInfo(
         kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
@@ -3339,6 +3340,16 @@ merged_kernel_uapi_headers(
     # ...
 )
 ```
+""",
+        ),
+        "collect_unstripped_modules": attr.bool(
+            default = True,
+            doc = """See [`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules).
+
+Unlike `kernel_build`, this has default value `True` because
+[`kernel_build_abi`](#kernel_build_abi) sets
+[`define_abi_targets`](#kernel_build_abi-define_abi_targets) to `True` by
+default, which in turn sets `collect_unstripped_modules` to `True` by default.
 """,
         ),
     },
