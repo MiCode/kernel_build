@@ -1251,7 +1251,6 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             base_kernel = base_kernel.label,
             base_toolchain = base_toolchain,
         )
-        _debug_print_scripts(ctx, command, what = "check_toolchain")
         command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
                 # Check toolchain_version against base kernel
                   if ! diff <(cat {base_toolchain_file}) <(echo "{this_toolchain}") > /dev/null; then
@@ -1266,6 +1265,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             out = out.path,
         )
 
+        _debug_print_scripts(ctx, command, what = "check_toolchain")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildCheckToolchain",
             inputs = [base_toolchain_file] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
