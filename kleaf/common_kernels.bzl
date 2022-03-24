@@ -406,7 +406,7 @@ def define_common_kernels(
             module_outs = GKI_MODULES,
             build_config = arch_config["build_config"],
             visibility = visibility,
-            define_abi_targets = kmi_config.get("kmi_symbol_list"),
+            define_abi_targets = bool(kmi_config.get("kmi_symbol_list")),
             # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
             module_grouping = None,
             collect_unstripped_modules = True,
