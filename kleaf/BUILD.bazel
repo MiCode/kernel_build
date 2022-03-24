@@ -70,6 +70,7 @@ docs(
     deps = [
         "utils.bzl",
         "//build/bazel_common_rules/dist",
+        "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
     ],

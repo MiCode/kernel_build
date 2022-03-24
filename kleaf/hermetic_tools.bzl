@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
+
 HermeticToolsInfo = provider(
     doc = "Information provided by [hermetic_tools](#hermetic_tools).",
     fields = {
@@ -78,16 +80,9 @@ def _hermetic_tools_impl(ctx):
     additional_setup = """
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = all_outputs[0].dirname)
-
-    # path = root + short_path.
-    # Hence, dirname(short_path) = dirname.remove_prefix(root + "/")
-    dirname = all_outputs[0].dirname
-    root_and_slash = all_outputs[0].root.path + "/"
-    if not dirname.startswith(root_and_slash):
-        fail("{} does not start with {}!".format(dirname, root_and_slash))
     run_setup = """
                 export PATH=$({path}/readlink -m {path})
-""".format(path = dirname[len(root_and_slash):])
+""".format(path = paths.dirname(all_outputs[0].short_path))
 
     return [
         DefaultInfo(files = depset(all_outputs)),
