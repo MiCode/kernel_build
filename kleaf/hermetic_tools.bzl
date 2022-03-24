@@ -24,6 +24,9 @@ back on tools from the original `PATH` if a tool cannot be found.
 
 Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
 """,
+        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
+[execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
+e.g. for generated executables.""",
     },
 )
 
@@ -76,12 +79,23 @@ def _hermetic_tools_impl(ctx):
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = all_outputs[0].dirname)
 
+    # path = root + short_path.
+    # Hence, dirname(short_path) = dirname.remove_prefix(root + "/")
+    dirname = all_outputs[0].dirname
+    root_and_slash = all_outputs[0].root.path + "/"
+    if not dirname.startswith(root_and_slash):
+        fail("{} does not start with {}!".format(dirname, root_and_slash))
+    run_setup = """
+                export PATH=$({path}/readlink -m {path})
+""".format(path = dirname[len(root_and_slash):])
+
     return [
         DefaultInfo(files = depset(all_outputs)),
         HermeticToolsInfo(
             deps = deps,
             setup = setup,
             additional_setup = additional_setup,
+            run_setup = run_setup,
         ),
     ]
 

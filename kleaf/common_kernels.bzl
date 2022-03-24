@@ -208,6 +208,14 @@ def define_common_kernels(
     - `kernel_aarch64_kythe_dist`
       - `kernel_aarch64_kythe`
 
+    **ABI monitoring**
+    On branches with ABI monitoring turned on (aka KMI symbol lists are checked
+    in; see argument `kmi_configs`), the following targets are declared:
+
+    - `kernel_aarch64_abi`
+
+    See [`kernel_build_abi()`](#kernel_build_abi) for details.
+
     **Prebuilts**
 
     You may set the argument `--use_prebuilt_gki` to a GKI prebuilt build number
@@ -399,6 +407,9 @@ def define_common_kernels(
             build_config = arch_config["build_config"],
             visibility = visibility,
             define_abi_targets = kmi_config.get("kmi_symbol_list"),
+            # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
+            module_grouping = None,
+            collect_unstripped_modules = True,
             toolchain_version = toolchain_version,
             **kmi_config
         )
