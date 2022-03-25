@@ -294,118 +294,144 @@ class AbiTool(object):
                  symbol_list, full_report):
         raise NotImplementedError()
 
+
 ABIDIFF_ERROR                   = (1<<0)
 ABIDIFF_USAGE_ERROR             = (1<<1)
 ABIDIFF_ABI_CHANGE              = (1<<2)
 ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 
+
+def _run_abidiff(old_dump, new_dump, diff_report, symbol_list, full_report):
+    log.info("libabigail diffing: {} and {} at {}".format(old_dump,
+                                                          new_dump,
+                                                          diff_report))
+    diff_abi_cmd = ["abidiff", old_dump, new_dump]
+
+    if not full_report:
+        diff_abi_cmd.extend([
+            "--leaf-changes-only",
+            "--impacted-interfaces",
+        ])
+
+    if symbol_list is not None:
+        diff_abi_cmd.extend(["--kmi-whitelist", symbol_list])
+
+    abi_changed = False
+
+    with open(diff_report, "w") as out:
+        try:
+            subprocess.check_call(diff_abi_cmd, stdout=out, stderr=out)
+        except subprocess.CalledProcessError as e:
+            if e.returncode & (ABIDIFF_ERROR | ABIDIFF_USAGE_ERROR):
+                raise
+            abi_changed = True  # actual abi change
+
+    return abi_changed
+
+
+def _shorten_abidiff(diff_report, short_report):
+    with open(diff_report) as input:
+        text = input.read()
+        text = _collapse_abidiff_impacted_interfaces(text)
+        text = _collapse_abidiff_offset_changes(text)
+        text = _collapse_abidiff_CRC_changes(text, 3)
+        with open(short_report, "w") as output:
+            output.write(text)
+
+
+STGDIFF_ERROR      = (1<<0)
+STGDIFF_ABI_CHANGE = (1<<1)
+
+
+def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
+    dumps = [old_dump, new_dump]
+
+    # if a symbol list has been specified, we need some scratch space
+    if symbol_list:
+        context = tempfile.TemporaryDirectory()
+    else:
+        context = nullcontext()
+
+    with context as temp:
+        # if a symbol list has been specified, filter both input files
+        if symbol_list:
+            for ix in [0, 1]:
+                raw = dumps[ix]
+                cooked = os.path.join(temp, f"dump{ix}")
+                log.info(f"filtering {raw} to {cooked}")
+                subprocess.check_call(
+                    ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
+                dumps[ix] = cooked
+
+        log.info(f"stgdiff {dumps[0]} {dumps[1]} at {basename}.*")
+        command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+        for f in ["plain", "flat", "small", "viz"]:
+            command.extend(["--format", f, "--output", f"{basename}.{f}"])
+
+        abi_changed = False
+
+        with open(f"{basename}.errors", "w") as out:
+            try:
+                subprocess.check_call(command, stdout=out, stderr=out)
+            except subprocess.CalledProcessError as e:
+                if e.returncode & STGDIFF_ERROR:
+                    raise
+                abi_changed = True
+
+        return abi_changed
+
+
+def _reinterpret_stgdiff(abi_changed, report):
+    # TODO(b/214966642): Remove once ABI XML type definitions are more stable.
+    # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
+    if abi_changed:
+        # Override this if there are only declaration <-> definition or
+        # type added / removed changes.
+        ignorable = r"^(|type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|symbol changed from '.*' to '.*'|  type '.*' was (added|removed))$"
+        override = True
+        with open(report) as input:
+            for line in input:
+                if not re.search(ignorable, line):
+                    override = False
+                    break
+        if override:
+            abi_changed = False
+    return abi_changed
+
+
+def _shorten_stgdiff(diff_report, short_report):
+    with open(diff_report) as input:
+        text = input.read()
+        text = _collapse_stgdiff_offset_changes(text)
+        text = _collapse_stgdiff_CRC_changes(text, 3)
+        with open(short_report, "w") as output:
+            output.write(text)
+
+
 class Libabigail(AbiTool):
     """Concrete AbiTool implementation for libabigail"""
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):
-        log.info("libabigail diffing: {} and {} at {}".format(old_dump,
-                                                                new_dump,
-                                                                diff_report))
-        diff_abi_cmd = ["abidiff", old_dump, new_dump]
-
-        if not full_report:
-            diff_abi_cmd.extend([
-                "--leaf-changes-only",
-                "--impacted-interfaces",
-            ])
-
-        if symbol_list is not None:
-            diff_abi_cmd.extend(["--kmi-whitelist", symbol_list])
-
-        abi_changed = False
-
-        with open(diff_report, "w") as out:
-            try:
-                subprocess.check_call(diff_abi_cmd, stdout=out, stderr=out)
-            except subprocess.CalledProcessError as e:
-                if e.returncode & (ABIDIFF_ERROR | ABIDIFF_USAGE_ERROR):
-                    raise
-                abi_changed = True  # actual abi change
-
+        abi_changed = _run_abidiff(
+            old_dump, new_dump, diff_report, symbol_list, full_report)
         if short_report is not None:
-            with open(diff_report) as full_report:
-                with open(short_report, "w") as out:
-                    text = full_report.read()
-                    text = _collapse_abidiff_impacted_interfaces(text)
-                    text = _collapse_abidiff_offset_changes(text)
-                    text = _collapse_abidiff_CRC_changes(text, 3)
-                    out.write(text)
-
+            _shorten_abidiff(diff_report, short_report)
         return abi_changed
 
-class Stg(AbiTool):
-    DIFF_ERROR                   = (1<<0)
-    DIFF_ABI_CHANGE              = (1<<2)
 
+class Stg(AbiTool):
     """" Concrete AbiTool implementation for STG """
     def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
                  symbol_list=None, full_report=None):
         # shoehorn the interface
         basename = diff_report
+        abi_changed = _run_stgdiff(old_dump, new_dump, basename, symbol_list)
+        small_report = f"{basename}.small"
+        abi_changed = _reinterpret_stgdiff(abi_changed, small_report)
+        if short_report is not None:
+            _shorten_stgdiff(small_report, short_report)
+        return abi_changed
 
-        dumps = [old_dump, new_dump]
-
-        # if a symbol list has been specified, we need some scratch space
-        if symbol_list:
-            context = tempfile.TemporaryDirectory()
-        else:
-            context = nullcontext()
-
-        with context as temp:
-            # if a symbol list has been specified, filter both input files
-            if symbol_list:
-                for ix in [0, 1]:
-                    raw = dumps[ix]
-                    cooked = os.path.join(temp, f"dump{ix}")
-                    log.info(f"filtering {raw} to {cooked}")
-                    subprocess.check_call(
-                        ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
-                    dumps[ix] = cooked
-
-            log.info(f"stgdiff {dumps[0]} {dumps[1]} at {basename}.*")
-            command = ["stgdiff", "--abi", dumps[0], dumps[1]]
-            for f in ["plain", "flat", "small", "viz"]:
-                command.extend(["--format", f, "--output", f"{basename}.{f}"])
-
-            abi_changed = False
-
-            with open(f"{basename}.errors", "w") as out:
-                try:
-                    subprocess.check_call(command, stdout=out, stderr=out)
-                except subprocess.CalledProcessError as e:
-                    if e.returncode & self.DIFF_ERROR:
-                        raise
-                    abi_changed = True
-
-            # TODO(b/214966642): Remove once ABI XML type definitions are more stable.
-            # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
-            if abi_changed:
-                # Override this if there are only declaration <-> definition or
-                # type added / removed changes.
-                ignorable = r"^(|type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|symbol changed from '.*' to '.*'|  type '.*' was (added|removed))$"
-                override = True
-                with open(f"{basename}.small", "r") as input:
-                    for line in input:
-                        if not re.search(ignorable, line):
-                            override = False
-                            break
-                if override:
-                    abi_changed = False
-
-            if short_report is not None:
-                with open(f"{basename}.small") as full_report:
-                    with open(short_report, "w") as out:
-                        text = full_report.read()
-                        text = _collapse_stgdiff_offset_changes(text)
-                        text = _collapse_stgdiff_CRC_changes(text, 3)
-                        out.write(text)
-
-            return abi_changed
 
 def get_abi_tool(abi_tool = "libabigail"):
     log.info(f"using {abi_tool} for abi analysis")
