@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import concurrent.futures
 import os
 import re
 import subprocess
@@ -335,6 +336,7 @@ def _shorten_abidiff(diff_report, short_report):
 
 STGDIFF_ERROR      = (1<<0)
 STGDIFF_ABI_CHANGE = (1<<1)
+STGDIFF_FORMATS    = ["plain", "flat", "small", "viz"]
 
 
 def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
@@ -357,7 +359,7 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
                 dumps[ix] = cooked
 
         command = ["stgdiff", "--abi", dumps[0], dumps[1]]
-        for f in ["plain", "flat", "small", "viz"]:
+        for f in STGDIFF_FORMATS:
             command.extend(["--format", f, "--output", f"{basename}.{f}"])
 
         abi_changed = False
@@ -425,10 +427,90 @@ class Stg(AbiTool):
         return abi_changed
 
 
+def _line_count(path):
+    with open(path) as input:
+        count = sum(1 for _ in input)
+        return count
+
+
+class Delegated(AbiTool):
+    """" Concrete AbiTool implementation"""
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
+                 symbol_list=None, full_report=None):
+        # shoehorn the interface
+        basename = diff_report
+        abg_leaf = basename + ".leaf"
+        abg_full = basename + ".full"
+        stg_basename = basename + ".stg"
+        stg_small = stg_basename + ".small"
+        links = {
+            basename: abg_leaf,
+            basename + ".short": abg_leaf + ".short",
+        }
+
+        abidiff_leaf_changed = None
+        abidiff_full_changed = None
+        stgdiff_changed = None
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # fork
+            abidiff_leaf = executor.submit(
+                _run_abidiff, old_dump, new_dump, abg_leaf, symbol_list, False)
+            abidiff_full = executor.submit(
+                _run_abidiff, old_dump, new_dump, abg_full, symbol_list, True)
+            stgdiff = executor.submit(
+                _run_stgdiff, old_dump, new_dump, stg_basename, symbol_list)
+            # join
+            abidiff_leaf_changed = abidiff_leaf.result()
+            abidiff_full_changed = abidiff_full.result()
+            stgdiff_changed = stgdiff.result()
+
+        # post-process
+        for report in [abg_leaf, abg_full]:
+           _shorten_abidiff(report, report + ".short")
+        _shorten_stgdiff(stg_small, stg_small + ".short")
+
+        # reinterpret exit status
+        stgdiff_changed = _reinterpret_stgdiff(stgdiff_changed, stg_small)
+
+        print("ABI diff reports have been created")
+        paths = [abg_leaf, abg_full,
+                 *(f"{stg_basename}.{format}" for format in STGDIFF_FORMATS),
+                 *(f"{path}.short" for path in [abg_leaf, abg_full, stg_small])]
+        for path in paths:
+            count = _line_count(path)
+            print(f" {path} [{count} lines]")
+        for link, target in links.items():
+            try:
+                os.unlink(link)
+            except FileNotFoundError:
+                pass
+            os.link(target, link)
+
+        changed = []
+        if abidiff_leaf_changed:
+            changed.append(("abidiff (leaf changes)", abg_leaf))
+        if abidiff_full_changed:
+            changed.append(("abidiff (full)", abg_full))
+        if stgdiff_changed:
+            changed.append(("stgdiff", stg_small))
+        if changed:
+            print()
+            print("ABI DIFFERENCES HAVE BEEN DETECTED!")
+            for which, _ in changed:
+                print(f" by {which}")
+            print()
+            with open(changed[0][1] + ".short") as input:
+                print(input.read(), end="")
+            return True
+        return False
+
+
 def get_abi_tool(abi_tool = "libabigail"):
     if abi_tool == "libabigail":
         return Libabigail()
     if abi_tool == "STG":
         return Stg()
+    if abi_tool == "delegated":
+        return Delegated()
 
     raise ValueError("not a valid abi_tool: %s" % abi_tool)
