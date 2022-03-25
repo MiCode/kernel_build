@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019 The Android Open Source Project
+# Copyright (C) 2019-2022 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -264,9 +264,6 @@ class AbiTool(object):
 
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):
-        raise NotImplementedError()
-
-    def name(self):
         raise NotImplementedError()
 
 ABIDIFF_ERROR                   = (1<<0)
