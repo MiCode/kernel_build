@@ -306,10 +306,7 @@ class Libabigail(AbiTool):
         log.info("libabigail diffing: {} and {} at {}".format(old_dump,
                                                                 new_dump,
                                                                 diff_report))
-        diff_abi_cmd = ["abidiff",
-                        "--flag-indirect",
-                        old_dump,
-                        new_dump]
+        diff_abi_cmd = ["abidiff", old_dump, new_dump]
 
         if not full_report:
             diff_abi_cmd.extend([
