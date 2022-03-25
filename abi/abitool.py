@@ -256,12 +256,40 @@ def _collapse_stgdiff_CRC_changes(text: str, limit: int) -> str:
     return "".join(new_lines)
 
 
+def dump_kernel_abi(linux_tree, dump_path, symbol_list, vmlinux_path=None):
+    with tempfile.NamedTemporaryFile() as temp_file:
+        temp_path = temp_file.name
+
+        dump_abi_cmd = [
+            "abidw",
+            # omit various sources of indeterministic abidw output
+            "--no-corpus-path",
+            "--no-comp-dir-path",
+            # use (more) stable type ids
+            "--type-id-style", "hash",
+            # the path containing vmlinux and *.ko
+            "--linux-tree", linux_tree,
+            "--out-file", temp_path
+        ]
+
+        if vmlinux_path is not None:
+            dump_abi_cmd.extend(["--vmlinux", vmlinux_path])
+
+        if symbol_list is not None:
+            dump_abi_cmd.extend(["--kmi-whitelist", symbol_list])
+
+        subprocess.check_call(dump_abi_cmd)
+
+        tidy_abi_command = ["abitidy",
+                            "--all",
+                            "--no-report-untyped",
+                            "--input", temp_path,
+                            "--output", dump_path]
+
+        subprocess.check_call(tidy_abi_command)
+
 class AbiTool(object):
     """Base class for different kinds of abi analysis tools"""
-    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
-            vmlinux_path=None):
-        raise NotImplementedError()
-
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):
         raise NotImplementedError()
@@ -273,40 +301,6 @@ ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 
 class Libabigail(AbiTool):
     """Concrete AbiTool implementation for libabigail"""
-    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
-            vmlinux_path=None):
-        with tempfile.NamedTemporaryFile() as temp_file:
-            temp_path = temp_file.name
-
-            dump_abi_cmd = ["abidw",
-                            # omit various sources of indeterministic abidw output
-                            "--no-corpus-path",
-                            "--no-comp-dir-path",
-                            # use (more) stable type ids
-                            "--type-id-style",
-                            "hash",
-                            # the path containing vmlinux and *.ko
-                            "--linux-tree",
-                            linux_tree,
-                            "--out-file",
-                            temp_path]
-
-            if vmlinux_path is not None:
-                dump_abi_cmd.extend(["--vmlinux", vmlinux_path])
-
-            if symbol_list is not None:
-                dump_abi_cmd.extend(["--kmi-whitelist", symbol_list])
-
-            subprocess.check_call(dump_abi_cmd)
-
-            tidy_abi_command = ["abitidy",
-                                "--all",
-                                "--no-report-untyped",
-                                "--input", temp_path,
-                                "--output", dump_path]
-
-            subprocess.check_call(tidy_abi_command)
-
     def diff_abi(self, old_dump, new_dump, diff_report, short_report,
                  symbol_list, full_report):
         log.info("libabigail diffing: {} and {} at {}".format(old_dump,
@@ -352,10 +346,6 @@ class Stg(AbiTool):
     DIFF_ABI_CHANGE              = (1<<2)
 
     """" Concrete AbiTool implementation for STG """
-    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
-            vmlinux_path=None):
-        raise
-
     def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
                  symbol_list=None, full_report=None):
         # shoehorn the interface

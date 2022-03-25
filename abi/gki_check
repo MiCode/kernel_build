@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020 The Android Open Source Project
+# Copyright (C) 2020-2022 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import subprocess
 import sys
 import urllib.request
 
-from abitool import get_abi_tool
+from abitool import dump_kernel_abi, get_abi_tool
 
 _BASE_URL_ABI_XML = ('https://android.googlesource.com/kernel/common/'
                      '+/refs/heads/android-{}/abi_gki_aarch64.xml?format={}')
@@ -102,7 +102,7 @@ def main():
       reference_xml.write(base64.b64decode(data))
 
   logger.info('Extracting ABI information from your local build ...')
-  abi_tool.dump_kernel_abi(args.linux_tree, local_xml, args.kmi_symbol_list)
+  dump_kernel_abi(args.linux_tree, local_xml, args.kmi_symbol_list)
 
   logger.info('Comparing ABI information to reference ...')
   abi_tool.diff_abi(local_xml, upstream_xml, abi_report, abi_report_short,
