@@ -14,19 +14,7 @@
 
 import argparse
 import os
-import subprocess
 import sys
-
-
-def check_output(*args, **kwargs):
-    """
-    Pass to subprocess.check_output. On CalledProcessError, exit with return
-    code immediately, but don't print Python stack traces.
-    """
-    try:
-        return subprocess.check_output(*args, **kwargs)
-    except subprocess.CalledProcessError as e:
-        sys.exit(e.returncode)
 
 
 def main(root_dir, bazel_args, env):

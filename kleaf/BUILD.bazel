@@ -64,6 +64,7 @@ docs(
         "hermetic_tools.bzl",
         "kernel.bzl",
         "key_value_repo.bzl",
+        "update_source_file.bzl",
     ],
     default = "kernel.bzl",
     deps = [
