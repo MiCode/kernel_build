@@ -281,7 +281,8 @@
 #
 #   BUILD_SYSTEM_DLKM
 #     if set to "1", build a system_dlkm.img containing all signed GKI modules
-#     and resulting depmod artifacts
+#     and resulting depmod artifacts. GKI build exclusive; DO NOT USE with device
+#     build configs files.
 #
 #   MODULES_OPTIONS
 #     A /lib/modules/modules.options file is created on the ramdisk containing
