@@ -19,7 +19,7 @@ def handle_outputs_with_slash(srcdir, dstdir, outputs):
     if not found:
       errors.append(
         f"Unable to find {out} in any of the following directories:\n  " + (
-          "\n  ".join([os.path.realpath(sdir) for sdir in srcdir])))
+          "\n  ".join(srcdir)))
 
   return errors
 
@@ -41,13 +41,13 @@ def handle_outputs_without_slash(srcdir, dstdir, outputs):
         if len(matches) > 1:
           found = True
           errors.append(
-            f"In {os.path.realpath(sdir)}, multiple files match '{out}', expected at most 1:\n  " + (
+            f"In {sdir}, multiple files match '{out}', expected at most 1:\n  " + (
               "\n  ".join(matches)))
           break
     if not found:
       errors.append(
         f"Unable to find {out} in any of the following directories:\n  " + (
-          "\n  ".join([os.path.realpath(sdir) for sdir in srcdir])))
+          "\n  ".join(srcdir)))
 
   return errors
 
