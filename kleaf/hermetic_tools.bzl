@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
+
 HermeticToolsInfo = provider(
     doc = "Information provided by [hermetic_tools](#hermetic_tools).",
     fields = {
@@ -34,16 +36,16 @@ def _hermetic_tools_impl(ctx):
     deps = [] + ctx.files.srcs + ctx.files.deps
     all_outputs = []
 
-    hermetic_outs = []
+    hermetic_outs_dict = {out.basename: out for out in ctx.outputs.outs}
     for src in ctx.files.srcs:
-        out = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, src.basename))
-        hermetic_outs.append(out)
+        out = hermetic_outs_dict[src.basename]
         ctx.actions.symlink(
             output = out,
             target_file = src,
             is_executable = True,
             progress_message = "Creating symlinks to in-tree tools",
         )
+    hermetic_outs = hermetic_outs_dict.values()
     all_outputs += hermetic_outs
     deps += hermetic_outs
 
@@ -78,16 +80,9 @@ def _hermetic_tools_impl(ctx):
     additional_setup = """
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = all_outputs[0].dirname)
-
-    # path = root + short_path.
-    # Hence, dirname(short_path) = dirname.remove_prefix(root + "/")
-    dirname = all_outputs[0].dirname
-    root_and_slash = all_outputs[0].root.path + "/"
-    if not dirname.startswith(root_and_slash):
-        fail("{} does not start with {}!".format(dirname, root_and_slash))
     run_setup = """
                 export PATH=$({path}/readlink -m {path})
-""".format(path = dirname[len(root_and_slash):])
+""".format(path = paths.dirname(all_outputs[0].short_path))
 
     return [
         DefaultInfo(files = depset(all_outputs)),
@@ -104,6 +99,7 @@ _hermetic_tools = rule(
     doc = "",
     attrs = {
         "host_tools": attr.output_list(),
+        "outs": attr.output_list(),
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
     },
@@ -130,9 +126,14 @@ def hermetic_tools(
     if host_tools:
         host_tools = ["{}/{}".format(name, tool) for tool in host_tools]
 
+    outs = None
+    if srcs:
+        outs = ["{}/{}".format(name, paths.basename(src)) for src in srcs]
+
     _hermetic_tools(
         name = name,
         srcs = srcs,
+        outs = outs,
         host_tools = host_tools,
         deps = deps,
     )
