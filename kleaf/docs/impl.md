@@ -218,6 +218,10 @@ $ fastboot reboot
 
 See [errors.md](errors.md).
 
+## Handling SCM version
+
+See [scmversion.md](scmversion.md).
+
 ## Advanced usage
 
 ### Disable LTO during development
