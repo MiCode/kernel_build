@@ -796,7 +796,7 @@ if [ "${BUILD_GKI_CERTIFICATION_TOOLS}" = "1"  ]; then
   GKI_CERTIFICATION_TOOLS_TAR="gki_certification_tools.tar.gz"
   echo "========================================================"
   echo " Generating ${GKI_CERTIFICATION_TOOLS_TAR}"
-  GKI_CERTIFICATION_BINARIES=(avbtool certify_bootimg)
+  GKI_CERTIFICATION_BINARIES=(avbtool certify_bootimg unpack_bootimg)
   GKI_CERTIFICATION_TOOLS_ROOT="${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86"
   GKI_CERTIFICATION_FILES="${GKI_CERTIFICATION_BINARIES[@]/#/bin/}"
   tar -czf ${DIST_DIR}/${GKI_CERTIFICATION_TOOLS_TAR} \
