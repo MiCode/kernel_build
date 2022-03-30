@@ -890,7 +890,7 @@ _kernel_env = rule(
 )
 
 def _kernel_config_impl(ctx):
-    srcs = [
+    inputs = [
         s
         for s in ctx.files.srcs
         if any([token in s.path for token in [
@@ -951,14 +951,21 @@ def _kernel_config_impl(ctx):
         # - Canonicalizing the path gives an absolute path into the sandbox of
         #   the _kernel_config rule. The sandbox is destroyed during the
         #   execution of _kernel_build.
-        # Hence we use a relative path, the fixed value "abi_symbollist.raw".
+        # Hence we use a relative path. In this case, it is
+        # interpreted as a path relative to $abs_srctree, which is
+        # ${ROOT_DIR}/${KERNEL_DIR}. See common/scripts/gen_autoksyms.sh.
+        # Hence we set CONFIG_UNUSED_KSYMS_WHITELIST to the path of abi_symobllist.raw
+        # relative to ${KERNEL_DIR}.
         trim_kmi_command = """
             # Modify .config to trim symbols not listed in KMI
-              ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+              ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config \
                   -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
-                  --set-str UNUSED_KSYMS_WHITELIST abi_symbollist.raw
-              make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} olddefconfig
-        """
+                  --set-str UNUSED_KSYMS_WHITELIST $(rel_path {raw_kmi_symbol_list} ${{KERNEL_DIR}})
+              make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+        """.format(raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path)
+
+        # rel_path requires the file to exist.
+        inputs.append(ctx.file.raw_kmi_symbol_list)
 
     command = ctx.attr.env[_KernelEnvInfo].setup + """
         # Pre-defconfig commands
@@ -986,7 +993,7 @@ def _kernel_config_impl(ctx):
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelConfig",
-        inputs = srcs,
+        inputs = inputs,
         outputs = [config, include_dir],
         tools = ctx.attr.env[_KernelEnvInfo].dependencies,
         progress_message = "Creating kernel config %s" % ctx.attr.name,
@@ -1003,15 +1010,7 @@ def _kernel_config_impl(ctx):
            find ${{OUT_DIR}}/include -type d -exec chmod +w {{}} \\;
     """.format(config = config.path, include_dir = include_dir.path)
     if ctx.file.raw_kmi_symbol_list:
-        # When CONFIG_UNUSED_KSYMS_WHITELIST is a relative path, it is
-        # interpreted as a path relative to $abs_srctree, which is
-        # ${ROOT_DIR}/${KERNEL_DIR}. See common/scripts/gen_autoksyms.sh
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
-        setup += """
-            # Restore abi_symbollist.raw to abs_srctree
-              mkdir -p ${{ROOT_DIR}}/${{KERNEL_DIR}}
-              rsync -aL {raw_kmi_symbol_list} ${{ROOT_DIR}}/${{KERNEL_DIR}}/abi_symbollist.raw
-        """.format(raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path)
 
     return [
         _KernelEnvInfo(
