@@ -15,15 +15,12 @@
 # limitations under the License.
 #
 
-import logging
 import os
 import re
 import subprocess
 import tempfile
 
 from contextlib import nullcontext
-
-log = logging.getLogger(__name__)
 
 
 def _collapse_abidiff_impacted_interfaces(text):
@@ -302,9 +299,6 @@ ABIDIFF_ABI_INCOMPATIBLE_CHANGE = (1<<3)
 
 
 def _run_abidiff(old_dump, new_dump, diff_report, symbol_list, full_report):
-    log.info("libabigail diffing: {} and {} at {}".format(old_dump,
-                                                          new_dump,
-                                                          diff_report))
     diff_abi_cmd = ["abidiff", old_dump, new_dump]
 
     if not full_report:
@@ -358,12 +352,10 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
             for ix in [0, 1]:
                 raw = dumps[ix]
                 cooked = os.path.join(temp, f"dump{ix}")
-                log.info(f"filtering {raw} to {cooked}")
                 subprocess.check_call(
                     ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
                 dumps[ix] = cooked
 
-        log.info(f"stgdiff {dumps[0]} {dumps[1]} at {basename}.*")
         command = ["stgdiff", "--abi", dumps[0], dumps[1]]
         for f in ["plain", "flat", "small", "viz"]:
             command.extend(["--format", f, "--output", f"{basename}.{f}"])
@@ -434,7 +426,6 @@ class Stg(AbiTool):
 
 
 def get_abi_tool(abi_tool = "libabigail"):
-    log.info(f"using {abi_tool} for abi analysis")
     if abi_tool == "libabigail":
         return Libabigail()
     if abi_tool == "STG":
