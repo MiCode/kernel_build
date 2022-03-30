@@ -728,10 +728,47 @@ def _kernel_env_impl(ctx):
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += _debug_trap()
 
-    scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
-    set_up_scmversion_cmd = _get_scmversion_cmd(
-        srctree = "${ROOT_DIR}/${KERNEL_DIR}",
-        scmversion = "$({})".format(scmversion_cmd),
+    # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
+    # STABLE_SCMVERSION because their values aren't known at that point.
+    # Hence, mimic the logic in setlocalversion to prepend them.
+    stable_scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+
+    # TODO(b/227520025): Deduplicate logic with setlocalversion.
+    # Right now, we need this logic for sandboxed builds, and the logic in
+    # setlocalversion for non-sandboxed builds.
+    set_up_scmversion_cmd = """
+        (
+            # Extract the Android release version. If there is no match, then return 255
+            # and clear the variable $android_release
+            set +e
+            android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
+            if [[ $? -ne 0 ]]; then
+                android_release=
+            fi
+            set -e
+            if [[ -n "$KMI_GENERATION" ]] && [[ $(expr $KMI_GENERATION : '^[0-9]\\+$') -eq 0 ]]; then
+                echo "Invalid KMI_GENERATION $KMI_GENERATION" >&2
+                exit 1
+            fi
+            scmversion=""
+            stable_scmversion=$({stable_scmversion_cmd})
+            if [[ -n "$stable_scmversion" ]]; then
+                scmversion_prefix=
+                if [[ -n "$android_release" ]] && [[ -n "$KMI_GENERATION" ]]; then
+                    scmversion_prefix="-$android_release-$KMI_GENERATION"
+                elif [[ -n "$android_release" ]]; then
+                    scmversion_prefix="-$android_release"
+                fi
+                scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
+            fi
+            {setup_cmd}
+        )
+    """.format(
+        stable_scmversion_cmd = stable_scmversion_cmd,
+        setup_cmd = _get_scmversion_cmd(
+            srctree = "${ROOT_DIR}/${KERNEL_DIR}",
+            scmversion = "${scmversion}",
+        ),
     )
 
     setup += """
