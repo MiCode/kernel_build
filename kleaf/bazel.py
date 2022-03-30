@@ -28,6 +28,8 @@ def main(root_dir, bazel_args, env):
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--use_prebuilt_gki")
+    parser.add_argument("--experimental_strip_sandbox_path",
+                        action='store_true')
     known_args, bazel_args = parser.parse_known_args(bazel_args)
     if known_args.use_prebuilt_gki:
         # Insert before positional arguments
@@ -50,7 +52,38 @@ def main(root_dir, bazel_args, env):
     ]
     command_args += bazel_args
 
-    os.execve(path=bazel_path, argv=command_args, env=env)
+    if known_args.experimental_strip_sandbox_path:
+        import asyncio
+        import re
+        filter_regex=re.compile(absolute_out_dir+"/\S+?/sandbox/.*?/__main__/")
+        asyncio.run(run(command_args, env, filter_regex))
+    else:
+        os.execve(path=bazel_path, argv=command_args, env=env)
+
+
+async def output_filter(input_stream, output_stream, filter_regex):
+    import re
+    while not input_stream.at_eof():
+        output = await input_stream.readline()
+        output = re.sub(filter_regex, "", output.decode())
+        output_stream.buffer.write(output.encode())
+        output_stream.flush()
+
+
+async def run(command, env, filter_regex):
+    import asyncio
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=env,
+    )
+
+    await asyncio.gather(
+        output_filter(process.stderr, sys.stderr, filter_regex),
+        output_filter(process.stdout, sys.stdout, filter_regex),
+    )
+    await process.wait()
 
 
 if __name__ == "__main__":
