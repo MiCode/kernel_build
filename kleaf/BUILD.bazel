@@ -45,6 +45,16 @@ bool_flag(
     build_setting_default = False,
 )
 
+# The value of --config, as passed by common.bazelrc
+string_flag(
+    name = "config",
+    build_setting_default = "",
+    values = [
+        "",
+        "release",
+    ],
+)
+
 exports_files([
     "preserve_env.sh",
     "search_and_mv_output.py",
