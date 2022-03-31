@@ -1651,7 +1651,11 @@ def _kernel_build_impl(ctx):
     default_info_files.append(toolchain_version_out)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
-    default_info = DefaultInfo(files = depset(default_info_files))
+    default_info = DefaultInfo(
+        files = depset(default_info_files),
+        # For kernel_build_test
+        runfiles = ctx.runfiles(files = default_info_files),
+    )
 
     return [
         env_info,
