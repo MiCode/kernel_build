@@ -79,7 +79,7 @@ def _default_kmi_configs():
             # for build.config.gki.aarch64
             "kmi_symbol_list": aarch64_kmi_symbol_list,
             "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-            # In build.config.gki-debug.aarch64:
+            # In build.config.gki.aarch64:
             # - If there are symbol lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
             # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
             "trim_nonlisted_kmi": aarch64_trim_and_check,
