@@ -74,13 +74,19 @@ def _hermetic_tools_impl(ctx):
     all_outputs += ctx.outputs.host_tools
     deps += ctx.outputs.host_tools
 
-    setup = """
+    fail_hard = """
+         # error on failures
+           set -e
+           set -o pipefail
+    """
+
+    setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
 """.format(path = all_outputs[0].dirname)
     additional_setup = """
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = all_outputs[0].dirname)
-    run_setup = """
+    run_setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
 """.format(path = paths.dirname(all_outputs[0].short_path))
 
