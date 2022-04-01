@@ -582,7 +582,7 @@ def kernel_dtstree(
     _kernel_dtstree(**kwargs)
 
 def _get_stable_status_cmd(ctx, var):
-    return """cat {stable_status} | grep -e "^{var} " | cut -f2- -d' '""".format(
+    return """cat {stable_status} | ( grep -e "^{var} " || true ) | cut -f2- -d' '""".format(
         stable_status = ctx.info_file.path,
         var = var,
     )
