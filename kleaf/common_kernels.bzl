@@ -116,52 +116,6 @@ def _filter_keys(d, valid_keys, what):
         ))
     return ret
 
-def _select_notrim_target(name, build_value):
-    """ Select the correct alias for `<name>_notrim`.
-
-    `<name>_notrim` is an alias to either `<name>_notrim_internal` or `<name>`
-    depending on whether `<name>` trims. This avoids building
-    `<name>_notrim_internal` when it is not necessary.
-
-    Args:
-        name: root name of target
-        build_value: value of `trim_nonlisted_kmi` in `BUILD` files
-    """
-    if build_value:
-        return ":" + name + "_notrim_internal"
-    return ":" + name
-
-def define_kernel_build_and_notrim(
-        name,
-        visibility,
-        trim_nonlisted_kmi = None,
-        kmi_symbol_list_strict_mode = None,
-        **kwargs):
-    """**DO NOT INVOKE DIRECTLY!**
-
-    Helper function of [`define_common_kernels()`](#define_common_kernels).
-    Macro is exposed so its documentation is emitted in
-    `//build/kernel/kleaf:docs`.
-
-    This macro create `kernel_build` targets with and without trimming.
-
-
-    Args:
-      name: name of the main `kernel_build`
-      visibility: visibility of the main `kernel_build`.
-        Does not apply to `{name}_notrim`.
-      trim_nonlisted_kmi: whether `name` trims non-listed KMI
-      kwargs: passthrough to `kernel_build`
-    """
-
-    kernel_build_abi(
-        name = name,
-        visibility = visibility,
-        trim_nonlisted_kmi = trim_nonlisted_kmi,
-        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
-        **kwargs
-    )
-
 def define_common_kernels(
         kmi_configs = None,
         toolchain_version = None,
