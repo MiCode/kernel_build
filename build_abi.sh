@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2019 The Android Open Source Project
+# Copyright (C) 2019-2022 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 #     will, in addition to extracting the ABI representation from the currently
 #     built kernel, compare the extracted ABI to the expected one. In case of
 #     any significant differences, it will exit with the return code of
-#     diff_abi and optionally (-r) print a report.
+#     diff_abi.
 #     ABI_DEFINITION is supposed to be defined relative to $KERNEL_DIR/
 #
 #   KMI_SYMBOL_LIST
@@ -70,15 +70,11 @@ function show_help {
     echo "  -u | --update                Update ABI representation and main symbol list in the source directory"
     echo "  -s | --update-symbol-list    Update main symbol list in the source directory"
     echo "  -n | --nodiff                Do not generate an ABI report with diff_abi"
-    echo "  -r | --print-report          Print ABI short report in case of any differences"
-    echo "  -a | --full-report           Create a detailed ABI report"
 }
 
 UPDATE=0
 UPDATE_SYMBOL_LIST=0
 DIFF=1
-PRINT_REPORT=0
-FULL_REPORT=0
 
 if [[ -z "${KMI_SYMBOL_LIST_MODULE_GROUPING}" ]]; then
   KMI_SYMBOL_LIST_MODULE_GROUPING=1
@@ -107,11 +103,11 @@ case $i in
     shift # past argument=value
     ;;
     -r|--print-report)
-    PRINT_REPORT=1
+    # ignored
     shift # past argument=value
     ;;
     -a|--full-report)
-    FULL_REPORT=1
+    # ignored
     shift # past argument=value
     ;;
     -h|--help)
@@ -306,49 +302,13 @@ if [ -n "$ABI_DEFINITION" ]; then
     if [ $DIFF -eq 1 ]; then
         echo "========================================================"
         echo " Comparing ABI against expected definition ($ABI_DEFINITION)"
-        abi_report=${DIST_DIR}/abi.report
-
-        FULL_REPORT_FLAG=
-        if [ $FULL_REPORT -eq 1 ]; then
-            FULL_REPORT_FLAG="--full-report"
-        fi
-
         set +e
-        ${ROOT_DIR}/build/abi/diff_abi --baseline $KERNEL_DIR/$ABI_DEFINITION \
-                                       --new      ${DIST_DIR}/${abi_out_file} \
-                                       --report   ${abi_report}               \
-                                       --short-report ${abi_report}.short     \
-                                       $FULL_REPORT_FLAG
-        rc=$?
-        set -e
-        echo "========================================================"
-        echo " A brief ABI report has been created at ${abi_report}.short"
-        echo
-        echo " The detailed report is available in the same directory."
-
-        if [ $rc -ne 0 ]; then
-            echo " ABI DIFFERENCES HAVE BEEN DETECTED!" 1>&2
-        fi
-
-        if [ $PRINT_REPORT -eq 1 ] && [ $rc -ne 0 ] ; then
-            echo "========================================================" 1>&2
-            cat ${abi_report}.short 1>&2
-        fi
-
-        set +e
-        ${ROOT_DIR}/build/abi/diff_abi --abi-tool STG                         \
+        ${ROOT_DIR}/build/abi/diff_abi --abi-tool delegated                   \
                                        --baseline $KERNEL_DIR/$ABI_DEFINITION \
                                        --new      ${DIST_DIR}/${abi_out_file} \
-                                       --report   ${abi_report}.stg           \
-                                       --short-report ${abi_report}.stg.short
+                                       --report   ${DIST_DIR}/abi.report
         rc=$?
         set -e
-        echo "========================================================"
-        echo " stgdiff reports have been created at ${abi_report}.stg.*"
-
-        if [ $rc -ne 0 ]; then
-            echo " stgdiff has reported ABI differences" 1>&2
-        fi
     fi
     if [ $UPDATE -eq 1 ] ; then
         echo "========================================================"

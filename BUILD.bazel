@@ -67,6 +67,37 @@ filegroup(
     ],
 )
 
+_GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
+
+_GKI_CERTIFICATION_BINARIES = [
+    "avbtool",
+    "certify_bootimg",
+    "unpack_bootimg",
+]
+
+genrule(
+    name = "gki_certification_tools",
+    srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
+    outs = ["gki_certification_tools.tar.gz"],
+    # Clear PATH to ensure hermeticity.
+    cmd = """
+        PATH=
+        $(location :hermetic-tools/tar) -c \\
+            -C $$($(location :hermetic-tools/dirname) $$($(location :hermetic-tools/dirname) $(location {prefix}{first}))) \\
+            {files} | \\
+          $(location :hermetic-tools/gzip) > $@
+    """.format(
+        files = " ".join(["bin/" + tool for tool in _GKI_CERTIFICATION_BINARIES]),
+        first = _GKI_CERTIFICATION_BINARIES[0],
+        prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
+    ),
+    tools = [
+        ":hermetic-tools/dirname",
+        ":hermetic-tools/gzip",
+        ":hermetic-tools/tar",
+    ],
+)
+
 exports_files([
     "abi/extract_symbols",
     "abi/filter_abi",
