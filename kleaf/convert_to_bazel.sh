@@ -87,6 +87,7 @@ EOF
 
         let py_binaries_with_abi_without_kythe = \$py_binaries_with_abi_dep intersect \$py_binaries_without_kythe_dep in
         let py_binaries_without_abi_without_kythe = \$py_binaries_without_abi_dep intersect \$py_binaries_without_kythe_dep in
+        let abi_targets_on_build_config = \$abi_targets intersect allpaths(\$abi_targets, \$build_config_rdeps) in
         $result_var
 "
 
@@ -121,8 +122,33 @@ if [[ $my_dist_dir_code != 0 ]]; then
 fi
 
 if [[ "$ABI" == "1" ]]; then
-    # TODO(b/223403673): support build_abi.sh
-    :
+    if [[ "$UPDATE" == "1" ]] || [[ "$UPDATE_SYMBOL_LIST" == "1" ]] || [[ "$DIFF" == 0 ]]; then
+        abi_targets=$(determine_targets "\$abi_targets_on_build_config")
+    fi
+
+    if [[ "$UPDATE" == "1" ]] && [[ "$DIFF" == "1" ]]; then
+        for target in $abi_targets; do
+            echo "$BAZEL run" $flags "${target}_update_symbol_list &&
+        $BAZEL build" $flags "$target &&
+        $BAZEL run" $flags "${target}_update"
+        done
+    elif [[ "$UPDATE" == "1" ]] && [[ "$DIFF" == "0" ]]; then
+        for target in $abi_targets; do
+            echo "$BAZEL run" $flags "${target}_update_symbol_list &&
+        $BAZEL run" $flags "${target}_update"
+        done
+    elif [[ "$UPDATE_SYMBOL_LIST" == "1" ]]; then
+        for target in $abi_targets; do
+            echo "$BAZEL run" $flags "${target}_update_symbol_list"
+        done
+    elif [[ "$DIFF" == "0" ]]; then
+        echo "$BAZEL build" $flags $(for target in $abi_targets; do echo ${target}_dump; done)
+    else
+        dist_targets=$(determine_targets "\$py_binaries_with_abi_without_kythe")
+        for target in $dist_targets; do
+            echo "$BAZEL run" $flags "$target -- --dist_dir=$my_dist_dir"
+        done
+    fi
 else
     dist_targets=$(determine_targets "\$py_binaries_without_abi_without_kythe")
     for target in $dist_targets; do
