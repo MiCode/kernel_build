@@ -877,6 +877,13 @@ for FILE in ${FILES}; do
   fi
 done
 
+if [ -f ${OUT_DIR}/vmlinux-gdb.py ]; then
+  echo "========================================================"
+  KERNEL_GDB_SCRIPTS_TAR=${DIST_DIR}/kernel-gdb-scripts.tar.gz
+  echo " Copying kernel gdb scripts to $KERNEL_GDB_SCRIPTS_TAR"
+  (cd $OUT_DIR && tar -czf $KERNEL_GDB_SCRIPTS_TAR --dereference vmlinux-gdb.py scripts/gdb/linux/*.py)
+fi
+
 for FILE in ${OVERLAYS_OUT}; do
   OVERLAY_DIST_DIR=${DIST_DIR}/$(dirname ${FILE#${OUT_DIR}/overlays/})
   echo "  ${FILE#${OUT_DIR}/}"
