@@ -57,7 +57,7 @@ string_flag(
 
 exports_files([
     "preserve_env.sh",
-    "search_and_mv_output.py",
+    "search_and_cp_output.py",
     "check_duplicated_files_in_archives.py",
     "no_host_tool.sh",
 ])

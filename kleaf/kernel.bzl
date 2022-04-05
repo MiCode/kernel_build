@@ -283,7 +283,7 @@ def kernel_build(
               - `kernel_aarch64/vmlinux`
             They are also the labels to the output files, respectively.
 
-            See `search_and_mv_output.py` for details.
+            See `search_and_cp_output.py` for details.
 
           Files in `outs` are part of the
           [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)
@@ -1442,7 +1442,7 @@ def _kernel_build_impl(ctx):
     ruledir = ctx.actions.declare_directory(ctx.label.name)
 
     inputs = [
-        ctx.file._search_and_mv_output,
+        ctx.file._search_and_cp_output,
     ]
     inputs += ctx.files.srcs
     inputs += ctx.files.deps
@@ -1510,9 +1510,9 @@ def _kernel_build_impl(ctx):
     grab_intree_modules_cmd = ""
     if all_module_names:
         grab_intree_modules_cmd = """
-            {search_and_mv_output} --srcdir {modules_staging_dir} --dstdir {ruledir} $(cat {all_module_names_file})
+            {search_and_cp_output} --srcdir {modules_staging_dir} --dstdir {ruledir} $(cat {all_module_names_file})
         """.format(
-            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            search_and_cp_output = ctx.file._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
             ruledir = ruledir.path,
             all_module_names_file = all_module_names_file.path,
@@ -1522,9 +1522,9 @@ def _kernel_build_impl(ctx):
     if all_module_names and unstripped_dir:
         grab_unstripped_intree_modules_cmd = """
             mkdir -p {unstripped_dir}
-            {search_and_mv_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_names_file})
+            {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_names_file})
         """.format(
-            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            search_and_cp_output = ctx.file._search_and_cp_output.path,
             unstripped_dir = unstripped_dir.path,
             all_module_names_file = all_module_names_file.path,
         )
@@ -1548,7 +1548,7 @@ def _kernel_build_impl(ctx):
                        --transform "s,^/,,"                             \
                        --null -T -
          # Grab outputs. If unable to find from OUT_DIR, look at KBUILD_MIXED_TREE as well.
-           {search_and_mv_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names_minus_modules}
+           {search_and_cp_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names_minus_modules}
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
          # Grab in-tree modules
@@ -1567,7 +1567,7 @@ def _kernel_build_impl(ctx):
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          """.format(
-        search_and_mv_output = ctx.file._search_and_mv_output.path,
+        search_and_cp_output = ctx.file._search_and_cp_output.path,
         kbuild_mixed_tree_arg = "--srcdir ${KBUILD_MIXED_TREE}" if kbuild_mixed_tree else "",
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
@@ -1688,9 +1688,9 @@ _kernel_build = rule(
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
-        "_search_and_mv_output": attr.label(
+        "_search_and_cp_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
             doc = "label referring to the script to process outputs",
         ),
         "deps": attr.label_list(
@@ -1808,7 +1808,7 @@ def _kernel_module_impl(ctx):
     inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
-        ctx.file._search_and_mv_output,
+        ctx.file._search_and_cp_output,
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
@@ -1879,9 +1879,9 @@ def _kernel_module_impl(ctx):
     if unstripped_dir:
         grab_unstripped_cmd = """
             mkdir -p {unstripped_dir}
-            {search_and_mv_output} --srcdir ${{OUT_DIR}}/${{ext_mod_rel}} --dstdir {unstripped_dir} {outs}
+            {search_and_cp_output} --srcdir ${{OUT_DIR}}/${{ext_mod_rel}} --dstdir {unstripped_dir} {outs}
         """.format(
-            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            search_and_cp_output = ctx.file._search_and_cp_output.path,
             unstripped_dir = unstripped_dir.path,
             # Use basenames to flatten the unstripped directory, even though outs may contain items with slash.
             outs = " ".join(original_outs_base),
@@ -1930,7 +1930,7 @@ def _kernel_module_impl(ctx):
                  tar czf ${{modules_staging_archive}} {modules_staging_outs} ${{mod_order}}
                )
              # Move files into place
-               {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
+               {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
              # Grab unstripped modules
                {grab_unstripped_cmd}
              # Create headers archive
@@ -1941,7 +1941,7 @@ def _kernel_module_impl(ctx):
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
         ext_mod = ctx.attr.ext_mod,
-        search_and_mv_output = ctx.file._search_and_mv_output.path,
+        search_and_cp_output = ctx.file._search_and_cp_output.path,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
@@ -2026,9 +2026,9 @@ _kernel_module = rule(
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
-        "_search_and_mv_output": attr.label(
+        "_search_and_cp_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
@@ -2129,7 +2129,7 @@ def kernel_module(
 
             `nfc/nfc.ko` is the label to the file.
 
-            See `search_and_mv_output.py` for details.
+            See `search_and_cp_output.py` for details.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -2187,7 +2187,7 @@ def _kernel_modules_install_impl(ctx):
     inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_prepare_deps
     inputs += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].module_srcs
     inputs += [
-        ctx.file._search_and_mv_output,
+        ctx.file._search_and_cp_output,
         ctx.file._check_duplicated_files_in_archives,
         ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive,
     ]
@@ -2265,12 +2265,12 @@ def _kernel_modules_install_impl(ctx):
         external_module_dir = external_modules[0].dirname
         command += """
                  # Move external modules to declared output location
-                   {search_and_mv_output} --srcdir {modules_staging_dir}/lib/modules/*/extra --dstdir {outdir} {filenames}
+                   {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra --dstdir {outdir} {filenames}
         """.format(
             modules_staging_dir = modules_staging_dir,
             outdir = external_module_dir,
             filenames = " ".join([declared_file.basename for declared_file in external_modules]),
-            search_and_mv_output = ctx.file._search_and_mv_output.path,
+            search_and_cp_output = ctx.file._search_and_cp_output.path,
         )
 
     _debug_print_scripts(ctx, command)
@@ -2340,9 +2340,9 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             default = Label("//build/kernel/kleaf:check_duplicated_files_in_archives.py"),
             doc = "Label referring to the script to process outputs",
         ),
-        "_search_and_mv_output": attr.label(
+        "_search_and_cp_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
     },
@@ -2922,7 +2922,7 @@ def _boot_images_impl(ctx):
         ctx.attr.initramfs[_InitramfsInfo].initramfs_img,
         initramfs_staging_archive,
         ctx.file.mkbootimg,
-        ctx.file._search_and_mv_output,
+        ctx.file._search_and_cp_output,
     ]
     inputs += ctx.files.deps
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
@@ -2961,13 +2961,13 @@ def _boot_images_impl(ctx):
                  MKBOOTIMG_STAGING_DIR=$(realpath {mkbootimg_staging_dir})
                  build_boot_images
                )
-               {search_and_mv_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
+               {search_and_cp_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
              # Remove staging directories
                rm -rf {modules_staging_dir}
     """.format(
         initramfs_staging_dir = initramfs_staging_dir,
         mkbootimg_staging_dir = mkbootimg_staging_dir,
-        search_and_mv_output = ctx.file._search_and_mv_output.path,
+        search_and_cp_output = ctx.file._search_and_cp_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
         modules_staging_dir = modules_staging_dir,
@@ -3012,9 +3012,9 @@ Execute `build_boot_images` in `build_utils.sh`.""",
         "_debug_print_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_print_scripts",
         ),
-        "_search_and_mv_output": attr.label(
+        "_search_and_cp_output": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_mv_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
         ),
     },
 )
