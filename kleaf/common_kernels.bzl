@@ -489,6 +489,8 @@ def define_common_kernels(
             name + "_uapi_headers",
             name + "_additional_artifacts",
             name + "_ddk_artifacts",
+            # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
+            "//build/kernel:gki_certification_tools",
         ]
 
         copy_to_dist_dir(
