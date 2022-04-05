@@ -25,6 +25,11 @@ load(
     "getoptattr",
     "reverse_dict",
 )
+load(
+    "//build/kernel/kleaf/tests:kernel_test.bzl",
+    "kernel_build_test",
+    "kernel_module_test",
+)
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -463,6 +468,9 @@ def kernel_build(
         **kwargs
     )
 
+    # key = attribute name, value = a list of labels for that attribute
+    real_outs = {}
+
     for out_name, out_attr_val in (
         ("outs", outs),
         ("module_outs", module_outs),
@@ -474,6 +482,7 @@ def kernel_build(
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
                 native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out)
+            real_outs[out_name] = [name + "/" + out for out in out_attr_val]
         elif type(out_attr_val) == type({}):
             # out_attr_val = {config_setting: [out, ...], ...}
             # => reverse_dict = {out: [config_setting, ...], ...}
@@ -489,6 +498,7 @@ def kernel_build(
                     # Use "manual" tags to prevent it to be built with ...
                     tags = ["manual"],
                 )
+            real_outs[out_name] = [name + "/" + out for out, _ in reverse_dict(out_attr_val).items()]
         else:
             fail("Unexpected type {} for {}: {}".format(type(out_attr_val), out_name, out_attr_val))
 
@@ -516,6 +526,15 @@ def kernel_build(
             env = env_target_name,
             **kwargs
         )
+
+    kernel_build_test(
+        name = name + "_test",
+        target = name,
+    )
+    kernel_module_test(
+        name = name + "_modules_test",
+        modules = real_outs.get("module_outs"),
+    )
 
 _DtsTreeInfo = provider(fields = {
     "srcs": "DTS tree sources",
@@ -728,10 +747,47 @@ def _kernel_env_impl(ctx):
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += _debug_trap()
 
-    scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
-    set_up_scmversion_cmd = _get_scmversion_cmd(
-        srctree = "${ROOT_DIR}/${KERNEL_DIR}",
-        scmversion = "$({})".format(scmversion_cmd),
+    # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
+    # STABLE_SCMVERSION because their values aren't known at that point.
+    # Hence, mimic the logic in setlocalversion to prepend them.
+    stable_scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+
+    # TODO(b/227520025): Deduplicate logic with setlocalversion.
+    # Right now, we need this logic for sandboxed builds, and the logic in
+    # setlocalversion for non-sandboxed builds.
+    set_up_scmversion_cmd = """
+        (
+            # Extract the Android release version. If there is no match, then return 255
+            # and clear the variable $android_release
+            set +e
+            android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
+            if [[ $? -ne 0 ]]; then
+                android_release=
+            fi
+            set -e
+            if [[ -n "$KMI_GENERATION" ]] && [[ $(expr $KMI_GENERATION : '^[0-9]\\+$') -eq 0 ]]; then
+                echo "Invalid KMI_GENERATION $KMI_GENERATION" >&2
+                exit 1
+            fi
+            scmversion=""
+            stable_scmversion=$({stable_scmversion_cmd})
+            if [[ -n "$stable_scmversion" ]]; then
+                scmversion_prefix=
+                if [[ -n "$android_release" ]] && [[ -n "$KMI_GENERATION" ]]; then
+                    scmversion_prefix="-$android_release-$KMI_GENERATION"
+                elif [[ -n "$android_release" ]]; then
+                    scmversion_prefix="-$android_release"
+                fi
+                scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
+            fi
+            {setup_cmd}
+        )
+    """.format(
+        stable_scmversion_cmd = stable_scmversion_cmd,
+        setup_cmd = _get_scmversion_cmd(
+            srctree = "${ROOT_DIR}/${KERNEL_DIR}",
+            scmversion = "${scmversion}",
+        ),
     )
 
     setup += """
@@ -1600,7 +1656,11 @@ def _kernel_build_impl(ctx):
     default_info_files.append(toolchain_version_out)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
-    default_info = DefaultInfo(files = depset(default_info_files))
+    default_info = DefaultInfo(
+        files = depset(default_info_files),
+        # For kernel_build_test
+        runfiles = ctx.runfiles(files = default_info_files),
+    )
 
     return [
         env_info,
@@ -1827,6 +1887,21 @@ def _kernel_module_impl(ctx):
             outs = " ".join(original_outs_base),
         )
 
+    # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
+    scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
+    scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ctx.attr.ext_mod)
+
+    # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
+    # should not run on KERNEL_DIR. However, for STABLE_SCMVERSION_EXT_MOD,
+    # we may have a missing item if setlocalversion should not run in
+    # a certain directory. Hence, be lenient about failures.
+    scmversion_cmd += " || true"
+
+    command += _get_scmversion_cmd(
+        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ctx.attr.ext_mod),
+        scmversion = "$({})".format(scmversion_cmd),
+    )
+
     command += """
              # Set variables
                if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
@@ -1909,7 +1984,11 @@ def _kernel_module_impl(ctx):
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
     return [
-        DefaultInfo(files = depset(ctx.outputs.outs)),
+        DefaultInfo(
+            files = depset(ctx.outputs.outs),
+            # For kernel_module_test
+            runfiles = ctx.runfiles(files = ctx.outputs.outs),
+        ),
         _KernelEnvInfo(
             dependencies = additional_declared_outputs,
             setup = setup,
@@ -2067,6 +2146,11 @@ def kernel_module(
     )
     kwargs = _kernel_module_set_defaults(kwargs)
     _kernel_module(**kwargs)
+
+    kernel_module_test(
+        name = name + "_test",
+        modules = [name],
+    )
 
 def _kernel_module_set_defaults(kwargs):
     """

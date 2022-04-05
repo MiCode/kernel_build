@@ -59,6 +59,7 @@ exports_files([
     "preserve_env.sh",
     "search_and_mv_output.py",
     "check_duplicated_files_in_archives.py",
+    "no_host_tool.sh",
 ])
 
 # Docs. To view them:
@@ -80,6 +81,7 @@ docs(
     deps = [
         "utils.bzl",
         "//build/bazel_common_rules/dist",
+        "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
