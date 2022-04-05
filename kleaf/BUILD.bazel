@@ -82,6 +82,7 @@ docs(
     srcs = [
         "common_kernels.bzl",
         "constants.bzl",
+        "directory_with_structure.bzl",
         "download_repo.bzl",
         "fail.bzl",
         "hermetic_tools.bzl",
