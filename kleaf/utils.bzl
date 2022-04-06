@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
+
 def reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
 
@@ -57,3 +59,36 @@ def find_files(files, what, suffix = None):
         if suffix != None and file.basename.endswith(suffix):
             result.append(file)
     return result
+
+def _intermediates_dir(ctx):
+    """Return a good directory for intermediates.
+
+    This generally ensures that different targets have their own intermediates
+    dir. This is similar to
+
+    ```
+    ctx.actions.declare_directory(ctx.attr.name + "_intermediates")
+    ```
+
+    ... but not actually declaring the directory, so there's no `File` object
+    and no need to add it to the list of outputs of an action. It also won't
+    conflict with any other actions that generates outputs of
+    `declare_file(ctx.attr.name + "_intermediates/" + file_name)`.
+
+    For sandboxed actions, this means the intermediates dir does not need to be
+    cleaned up. However, for local actions, the result of intermediates dir from
+    a previous build may remain and affect a later build. Use with caution.
+    """
+    return paths.join(
+        ctx.genfiles_dir.path,
+        paths.dirname(ctx.build_file_path),
+        ctx.attr.name + "_intermediates",
+    )
+
+utils = struct(
+    intermediates_dir = _intermediates_dir,
+    reverse_dict = reverse_dict,
+    getoptattr = getoptattr,
+    find_file = find_file,
+    find_files = find_files,
+)
