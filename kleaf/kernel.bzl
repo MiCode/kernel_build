@@ -2295,7 +2295,6 @@ def _kernel_modules_install_impl(ctx):
         ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive,
     ]
     for kernel_module in ctx.attr.kernel_modules:
-        inputs += kernel_module[_KernelEnvInfo].dependencies
         inputs += dws.files(kernel_module[_KernelModuleInfo].modules_staging_dws)
 
         # Intentionally expand depset.to_list() to figure out what module files
@@ -2320,8 +2319,6 @@ def _kernel_modules_install_impl(ctx):
             ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_staging_archive.path,
     )
     for kernel_module in ctx.attr.kernel_modules:
-        command += kernel_module[_KernelEnvInfo].setup
-
         # Allow directories to be written because we are merging multiple directories into one.
         # However, don't allow files to be written because we don't expect modules to produce
         # conflicting files. check_duplicated_files_in_archives further enforces this.
