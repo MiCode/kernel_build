@@ -24,6 +24,7 @@ load(
     "find_files",
     "getoptattr",
     "reverse_dict",
+    "utils",
 )
 load(
     "//build/kernel/kleaf/tests:kernel_test.bzl",
@@ -2421,7 +2422,7 @@ def _merged_kernel_uapi_headers_impl(ctx):
     inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + srcs
 
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.attr.name))
-    intermediates_dir = out_file.dirname + "/intermediates"
+    intermediates_dir = utils.intermediates_dir(ctx)
 
     command = ""
     command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
@@ -3522,8 +3523,9 @@ def _kernel_kythe_impl(ctx):
     compile_commands = ctx.file.compile_commands
     all_kzip = ctx.actions.declare_file(ctx.attr.name + "/all.kzip")
     runextractor_error = ctx.actions.declare_file(ctx.attr.name + "/runextractor_error.log")
-    kzip_dir = all_kzip.dirname + "/intermediates"
-    extracted_kzip_dir = all_kzip.dirname + "/extracted"
+    intermediates_dir = utils.intermediates_dir(ctx)
+    kzip_dir = intermediates_dir + "/kzip"
+    extracted_kzip_dir = intermediates_dir + "/extracted"
     transitive_inputs = [src.files for src in ctx.attr.kernel_build[_SrcsInfo].srcs]
     inputs = [compile_commands]
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
@@ -3601,7 +3603,7 @@ def _kernel_extracted_symbols_impl(ctx):
         ))
 
     out = ctx.actions.declare_file("{}/extracted_symbols".format(ctx.attr.name))
-    genfiles_dir = ctx.genfiles_dir.path
+    intermediates_dir = utils.intermediates_dir(ctx)
 
     vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
     in_tree_modules = find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
@@ -3614,11 +3616,13 @@ def _kernel_extracted_symbols_impl(ctx):
 
     command = ctx.attr.kernel_build_notrim[_KernelEnvInfo].setup
     command += """
-        cp -pl {srcs} {genfiles_dir}
-        {extract_symbols} --symbol-list {out} {skip_module_grouping_flag} {genfiles_dir}
+        mkdir -p {intermediates_dir}
+        cp -pl {srcs} {intermediates_dir}
+        {extract_symbols} --symbol-list {out} {skip_module_grouping_flag} {intermediates_dir}
+        rm -rf {intermediates_dir}
     """.format(
         srcs = " ".join([file.path for file in srcs]),
-        genfiles_dir = genfiles_dir,
+        intermediates_dir = intermediates_dir,
         extract_symbols = ctx.file._extract_symbols.path,
         out = out.path,
         skip_module_grouping_flag = "" if ctx.attr.module_grouping else "--skip-module-grouping",
@@ -3670,7 +3674,7 @@ def _kernel_abi_dump_epilog_cmd(path, append_version):
     return ret
 
 def _kernel_abi_dump_full(ctx):
-    abi_linux_tree = ctx.genfiles_dir.path + "/abi_linux_tree"
+    abi_linux_tree = utils.intermediates_dir(ctx) + "/abi_linux_tree"
     full_abi_out_file = ctx.actions.declare_file("{}/abi-full.xml".format(ctx.attr.name))
     vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build, what = "{}: kernel_build".format(ctx.attr.name), required = True)
 
@@ -3694,6 +3698,7 @@ def _kernel_abi_dump_full(ctx):
         cp -pl {vmlinux} {abi_linux_tree}
         {dump_abi} --linux-tree {abi_linux_tree} --out-file {full_abi_out_file}
         {epilog}
+        rm -rf {abi_linux_tree}
     """.format(
         abi_linux_tree = abi_linux_tree,
         unstripped_dirs = " ".join([unstripped_dir.path for unstripped_dir in unstripped_dirs]),
