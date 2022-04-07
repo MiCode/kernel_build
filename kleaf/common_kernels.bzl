@@ -62,6 +62,7 @@ _TARGET_CONFIG_VALID_KEYS = [
     "kmi_symbol_list_strict_mode",
     "abi_definition",
     "kmi_enforced",
+    "module_outs",
 ]
 
 # Always collect_unstripped_modules for common kernels.
@@ -94,6 +95,7 @@ def _default_target_configs():
             # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
             "trim_nonlisted_kmi": aarch64_trim_and_check,
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+            "module_outs": GKI_MODULES,
         },
         "kernel_aarch64_debug": {
             # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
@@ -104,10 +106,15 @@ def _default_target_configs():
             "kmi_enforced": bool(aarch64_abi_definition),
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
+            "module_outs": GKI_MODULES,
+        },
+        "kernel_x86_64": {
+            "module_outs": GKI_MODULES,
         },
         "kernel_x86_64_debug": {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.x86_64
             "trim_nonlisted_kmi": False,
+            "module_outs": GKI_MODULES,
         },
     }
 
@@ -236,6 +243,7 @@ def define_common_kernels(
         - `ADDITIONAL_KMI_SYMBOL_LISTS`
         - `TRIM_NONLISTED_KMI`
         - `KMI_SYMBOL_LIST_STRICT_MODE`
+        - `GKI_MODULES_LIST` (corresponds to [`kernel_build.module_outs`](#kernel_build-module_outs))
 
         The keys of the `target_configs` may be one of the following:
         - `kernel_aarch64`
@@ -250,6 +258,7 @@ def define_common_kernels(
         - `additional_kmi_symbol_lists`
         - `trim_nonlisted_kmi`
         - `kmi_symbol_list_strict_mode`
+        - `module_outs` (corresponds to `GKI_MODULES_LIST`)
 
         A target is configured as follows. A configuration item for this target
         is determined by the following, in the following order:
@@ -309,14 +318,20 @@ def define_common_kernels(
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
                 "trim_nonlisted_kmi": aarch64_trim_and_check,
                 "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+                "module_outs": GKI_MODULES,
             },
             "kernel_aarch64_debug": {
                 "kmi_symbol_list": aarch64_kmi_symbol_list,
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
                 "trim_nonlisted_kmi": False,
+                "module_outs": GKI_MODULES,
+            },
+            "kernel_x86_64": {
+                "module_outs": GKI_MODULES,
             },
             "kernel_x86_64_debug": {
                 "trim_nonlisted_kmi": False,
+                "module_outs": GKI_MODULES,
             },
         }
         ```
@@ -409,7 +424,6 @@ def define_common_kernels(
                 "certs/signing_key.pem",
                 "certs/signing_key.x509",
             ],
-            module_outs = GKI_MODULES,
             build_config = arch_config["build_config"],
             visibility = visibility,
             define_abi_targets = bool(target_config.get("kmi_symbol_list")),
