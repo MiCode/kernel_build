@@ -1361,7 +1361,7 @@ def _kernel_build_dump_toolchain_version(ctx):
     )
     return out
 
-def _kmi_symbol_list_strict_mode(ctx, all_output_files):
+def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     """Run for `KMI_SYMBOL_LIST_STRICT_MODE`.
     """
     if not ctx.attr.kmi_symbol_list_strict_mode:
@@ -1376,22 +1376,21 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files):
     if not module_symvers:
         fail("{}: with kmi_symbol_list_strict_mode, outs does not contain module_symvers")
 
-    modules = all_output_files["module_outs"].values()
-    objects = [f.basename for f in ([vmlinux] + modules)]
-
     inputs = [
         module_symvers,
         ctx.file.raw_kmi_symbol_list,
+        all_module_names_file,
     ]
     inputs += ctx.files._kernel_abi_scripts
     inputs += ctx.attr.config[_KernelEnvInfo].dependencies
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
     command = ctx.attr.config[_KernelEnvInfo].setup + """
-        KMI_STRICT_MODE_OBJECTS="{objects}" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+        KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
         touch {out}
     """.format(
-        objects = " ".join(objects),
+        vmlinux_base = vmlinux.basename,  # A fancy way of saying "vmlinux"
+        all_module_names_file = all_module_names_file.path,
         compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
@@ -1598,7 +1597,7 @@ def _kernel_build_impl(ctx):
     )
 
     toolchain_version_out = _kernel_build_dump_toolchain_version(ctx)
-    kmi_strict_mode_out = _kmi_symbol_list_strict_mode(ctx, all_output_files)
+    kmi_strict_mode_out = _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file)
 
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs and implicit_outs too.
