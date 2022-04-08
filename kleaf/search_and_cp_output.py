@@ -13,6 +13,7 @@ def handle_outputs_with_slash(srcdir, dstdir, outputs):
     for sdir in srcdir:
       if os.path.exists(os.path.join(sdir, out)):
         shutil.copy(os.path.join(sdir, out), dstdir)
+        os.makedirs(os.path.dirname(os.path.join(dstdir, out)), exist_ok=True)
         shutil.copy(os.path.join(sdir, out), os.path.join(dstdir, out))
         found = True
         break
