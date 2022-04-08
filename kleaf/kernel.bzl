@@ -1444,6 +1444,7 @@ def _kernel_build_impl(ctx):
 
     inputs = [
         ctx.file._search_and_cp_output,
+        ctx.file._check_declared_output_list,
     ]
     inputs += ctx.files.srcs
     inputs += ctx.files.deps
@@ -1511,7 +1512,7 @@ def _kernel_build_impl(ctx):
     grab_intree_modules_cmd = ""
     if all_module_names:
         grab_intree_modules_cmd = """
-            {search_and_cp_output} --srcdir {modules_staging_dir} --dstdir {ruledir} $(cat {all_module_names_file})
+            {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/kernel --dstdir {ruledir} $(cat {all_module_names_file})
         """.format(
             search_and_cp_output = ctx.file._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
@@ -1557,7 +1558,9 @@ def _kernel_build_impl(ctx):
          # Grab unstripped in-tree modules
            {grab_unstripped_intree_modules_cmd}
          # Check if there are remaining *.ko files
-           remaining_ko_files=$(comm -13 <(cat {all_module_names_file} | sort) <(find {modules_staging_dir} -type f -name '*.ko' -exec basename {{}} \\; | sort))
+           remaining_ko_files=$({check_declared_output_list} \\
+                --declared $(cat {all_module_names_file}) \\
+                --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^./::'))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
@@ -1568,6 +1571,7 @@ def _kernel_build_impl(ctx):
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          """.format(
+        check_declared_output_list = ctx.file._check_declared_output_list.path,
         search_and_cp_output = ctx.file._search_and_cp_output.path,
         kbuild_mixed_tree_arg = "--srcdir ${KBUILD_MIXED_TREE}" if kbuild_mixed_tree else "",
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
@@ -1690,6 +1694,10 @@ _kernel_build = rule(
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
+        "_check_declared_output_list": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
+        ),
         "_search_and_cp_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel/kleaf:search_and_cp_output.py"),

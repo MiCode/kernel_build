@@ -58,6 +58,7 @@ string_flag(
 exports_files([
     "preserve_env.sh",
     "search_and_cp_output.py",
+    "check_declared_output_list.py",
     "check_duplicated_files_in_archives.py",
     "no_host_tool.sh",
 ])
@@ -107,4 +108,12 @@ platform(
         "OSFamily": "Linux",
     },
     parents = ["@local_config_platform//:host"],
+)
+
+# tests
+
+py_test(
+    name = "check_declared_output_list_test",
+    srcs = ["check_declared_output_list_test.py"],
+    python_version = "PY3",
 )
