@@ -3815,19 +3815,19 @@ def kernel_build_abi(
     See [`kernel_build`](#kernel_build) for the targets defined.
 
     In addition, the following targets are defined if `define_abi_targets = True`:
-    - kernel_aarch64_abi_update_symbol_list
+    - `kernel_aarch64_abi_update_symbol_list`
       - Running this target updates `kmi_symbol_list`.
-    - kernel_aarch64_abi_dump
+    - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
       - Include this target in a `copy_to_dist_dir` target to copy
         ABI dump to `--dist-dir`.
-    - kernel_aarch64_abi_update
+    - `kernel_aarch64_abi_update`
       - Running this target updates `abi_definition`.
-    - kernel_aarch64_abi_dump
+    - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
       - Include this target in a `copy_to_dist_dir` target to copy
         ABI dump to `--dist-dir`.
-    - kernel_aarch64_abi (if `abi_definition` is not `None`)
+    - `kernel_aarch64_abi` (if `abi_definition` is not `None`)
       - Building this target compares the ABI with `abi_definition`.
       - Include this target in a `copy_to_dist_dir` target to copy
         ABI dump and diff report to `--dist-dir`.
