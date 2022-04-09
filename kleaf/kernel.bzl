@@ -811,6 +811,13 @@ def _kernel_env_impl(ctx):
            if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
              export dtstree=$(rel_path $(realpath $(dirname ${{DTSTREE_MAKEFILE}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})
            fi
+         # Set up KCPPFLAGS
+         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
+         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
+         # workspace root, making $abs_srctree not under $ROOT_DIR.
+           if [[ "$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})" != "${{ROOT_DIR}}/${{KERNEL_DIR}}" ]]; then
+             export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
+           fi
            """.format(
         hermetic_tools_additional_setup = ctx.attr._hermetic_tools[HermeticToolsInfo].additional_setup,
         env = out_file.path,
