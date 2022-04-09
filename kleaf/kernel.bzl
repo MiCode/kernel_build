@@ -1245,6 +1245,7 @@ _KernelBuildAbiInfo = provider(
 _KernelUnstrippedModulesInfo = provider(
     doc = "A provider that provides unstripped modules",
     fields = {
+        "base_kernel": "the `base_kernel` target, if exists",
         "directory": """A [`File`](https://bazel.build/rules/lib/File) that
 points to a directory containing unstripped modules.
 
@@ -1360,7 +1361,7 @@ def _kernel_build_dump_toolchain_version(ctx):
     )
     return out
 
-def _kmi_symbol_list_strict_mode(ctx, all_output_files):
+def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     """Run for `KMI_SYMBOL_LIST_STRICT_MODE`.
     """
     if not ctx.attr.kmi_symbol_list_strict_mode:
@@ -1375,22 +1376,21 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files):
     if not module_symvers:
         fail("{}: with kmi_symbol_list_strict_mode, outs does not contain module_symvers")
 
-    modules = all_output_files["module_outs"].values()
-    objects = [f.basename for f in ([vmlinux] + modules)]
-
     inputs = [
         module_symvers,
         ctx.file.raw_kmi_symbol_list,
+        all_module_names_file,
     ]
     inputs += ctx.files._kernel_abi_scripts
     inputs += ctx.attr.config[_KernelEnvInfo].dependencies
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
     command = ctx.attr.config[_KernelEnvInfo].setup + """
-        KMI_STRICT_MODE_OBJECTS="{objects}" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+        KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
         touch {out}
     """.format(
-        objects = " ".join(objects),
+        vmlinux_base = vmlinux.basename,  # A fancy way of saying "vmlinux"
+        all_module_names_file = all_module_names_file.path,
         compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
@@ -1443,6 +1443,7 @@ def _kernel_build_impl(ctx):
 
     inputs = [
         ctx.file._search_and_cp_output,
+        ctx.file._check_declared_output_list,
     ]
     inputs += ctx.files.srcs
     inputs += ctx.files.deps
@@ -1510,7 +1511,7 @@ def _kernel_build_impl(ctx):
     grab_intree_modules_cmd = ""
     if all_module_names:
         grab_intree_modules_cmd = """
-            {search_and_cp_output} --srcdir {modules_staging_dir} --dstdir {ruledir} $(cat {all_module_names_file})
+            {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/kernel --dstdir {ruledir} $(cat {all_module_names_file})
         """.format(
             search_and_cp_output = ctx.file._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
@@ -1556,7 +1557,9 @@ def _kernel_build_impl(ctx):
          # Grab unstripped in-tree modules
            {grab_unstripped_intree_modules_cmd}
          # Check if there are remaining *.ko files
-           remaining_ko_files=$(comm -13 <(cat {all_module_names_file} | sort) <(find {modules_staging_dir} -type f -name '*.ko' -exec basename {{}} \\; | sort))
+           remaining_ko_files=$({check_declared_output_list} \\
+                --declared $(cat {all_module_names_file}) \\
+                --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^./::'))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
@@ -1567,6 +1570,7 @@ def _kernel_build_impl(ctx):
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          """.format(
+        check_declared_output_list = ctx.file._check_declared_output_list.path,
         search_and_cp_output = ctx.file._search_and_cp_output.path,
         kbuild_mixed_tree_arg = "--srcdir ${KBUILD_MIXED_TREE}" if kbuild_mixed_tree else "",
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
@@ -1593,7 +1597,7 @@ def _kernel_build_impl(ctx):
     )
 
     toolchain_version_out = _kernel_build_dump_toolchain_version(ctx)
-    kmi_strict_mode_out = _kmi_symbol_list_strict_mode(ctx, all_output_files)
+    kmi_strict_mode_out = _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file)
 
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs and implicit_outs too.
@@ -1643,6 +1647,7 @@ def _kernel_build_impl(ctx):
     )
 
     kernel_unstripped_modules_info = _KernelUnstrippedModulesInfo(
+        base_kernel = ctx.attr.base_kernel,
         directory = unstripped_dir,
     )
 
@@ -1688,6 +1693,10 @@ _kernel_build = rule(
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
+        "_check_declared_output_list": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
+        ),
         "_search_and_cp_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
@@ -4023,6 +4032,94 @@ _kernel_abi_diff = rule(
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_diff_abi_scripts": attr.label(default = "//build/kernel:diff-abi-scripts"),
         "_diff_abi": attr.label(default = "//build/kernel:abi/diff_abi", allow_single_file = True),
+        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+    },
+)
+
+def _kernel_unstripped_modules_archive_impl(ctx):
+    kernel_build = ctx.attr.kernel_build
+    base_kernel = kernel_build[_KernelUnstrippedModulesInfo].base_kernel if kernel_build else None
+
+    # Early elements = higher priority. In-tree modules from base_kernel has highest priority,
+    # then in-tree modules of the device kernel_build, then external modules (in an undetermined
+    # order).
+    # TODO(b/228557644): kernel module names should not collide. Detect collsions.
+    srcs = []
+    for kernel_build_object in (base_kernel, kernel_build):
+        if not kernel_build_object:
+            continue
+        directory = kernel_build_object[_KernelUnstrippedModulesInfo].directory
+        if not directory:
+            fail("{} does not have collect_unstripped_modules = True.".format(kernel_build_object.label))
+        srcs.append(directory)
+    for kernel_module in ctx.attr.kernel_modules:
+        srcs.append(kernel_module[_KernelUnstrippedModulesInfo].directory)
+
+    inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + srcs
+
+    out_file = ctx.actions.declare_file("{}/unstripped_modules.tar.gz".format(ctx.attr.name))
+    unstripped_dir = ctx.genfiles_dir.path + "/unstripped"
+
+    command = ""
+    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    command += """
+        mkdir -p {unstripped_dir}
+    """.format(unstripped_dir = unstripped_dir)
+
+    # Copy the source ko files in low to high priority order.
+    for src in reversed(srcs):
+        # src could be empty, so use find + cp
+        command += """
+            find {src} -name '*.ko' -exec cp -l -t {unstripped_dir} {{}} +
+        """.format(
+            src = src.path,
+            unstripped_dir = unstripped_dir,
+        )
+
+    command += """
+        tar -czhf {out_file} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
+    """.format(
+        out_file = out_file.path,
+        unstripped_dir = unstripped_dir,
+    )
+
+    _debug_print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [out_file],
+        progress_message = "Compressing unstripped modules {}".format(ctx.label),
+        command = command,
+        mnemonic = "KernelUnstrippedModulesArchive",
+    )
+    return DefaultInfo(files = depset([out_file]))
+
+kernel_unstripped_modules_archive = rule(
+    implementation = _kernel_unstripped_modules_archive_impl,
+    doc = """Compress the unstripped modules into a tarball.
+
+This is the equivalent of `COMPRESS_UNSTRIPPED_MODULES=1` in `build.sh`.
+
+Add this target to a `copy_to_dist_dir` rule to copy it to the distribution
+directory, or `DIST_DIR`.
+""",
+    attrs = {
+        "kernel_build": attr.label(
+            doc = """A [`kernel_build`](#kernel_build) to retrieve unstripped in-tree modules from.
+
+It requires `collect_unstripped_modules = True`. If the `kernel_build` has a `base_kernel`, the rule
+also retrieves unstripped in-tree modules from the `base_kernel`, and requires the
+`base_kernel` has `collect_unstripped_modules = True`.
+""",
+            providers = [_KernelUnstrippedModulesInfo],
+        ),
+        "kernel_modules": attr.label_list(
+            doc = """A list of external [`kernel_module`](#kernel_module)s to retrieve unstripped external modules from.
+
+It requires that the base `kernel_build` has `collect_unstripped_modules = True`.
+""",
+            providers = [_KernelUnstrippedModulesInfo],
+        ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
