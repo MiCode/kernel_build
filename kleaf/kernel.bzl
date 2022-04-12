@@ -4070,36 +4070,8 @@ def kernel_build_abi(
       - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
         target to copy ABI dump to `--dist-dir`.
 
-    Assuming the above, here's a table for converting `build_abi.sh`
-    into Bazel commands. Note: it is recommended to disable the sandbox for
-    certain targets to boost incremental builds.
-
-    |build_abi.sh equivalent            |Bazel command                                          |What does the Bazel command do                                         |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh --update_symbol_list`|`bazel run kernel_aarch64_abi_update_symbol_list`[1]   |Update symbol list                                                     |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh --nodiff`            |`bazel build kernel_aarch64_abi_dump` [2]              |Extract the ABI (but do not compare it)                                |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh --nodiff --update`   |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
-    |                                   |`bazel run kernel_aarch64_abi_nodiff_update` [1][2][3] |Extract the ABI (but do not compare it), then update `abi_definition`  |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh --update`            |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
-    |                                   |`bazel run kernel_aarch64_abi_update` [1][2][3]        |Extract the ABI and compare it, then update `abi_definition`           |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh`                     |`bazel run kernel_aarch64_abi_dist -- --dist_dir=...`  |Extract the ABI and compare it, then copy artifacts to `--dist_dir`    |
-
-    Notes:
-
-    1. The command updates `kmi_symbol_list` but it does not update
-      `$DIST_DIR/abi_symbollist`, unlike the `build_abi.sh --update-symbol-list`
-      command.
-    2. The Bazel command extracts the ABI and/or compares the ABI like the
-       `build_abi.sh` command, but it does not copy the ABI dump and/or the diff
-       report to `$DIST_DIR` like the `build_abi.sh` command. You may find the
-       ABI dump in Bazel's output directory under `bazel-bin/`.
-    3. Order matters, and the two commands cannot run in parallel. This is
-       because updating the ABI definition requires the **source**
-       `kmi_symbol_list` to be updated first.
+    See build/kernel/kleaf/abi.md for a conversion chart from `build_abi.sh`
+    commands to Bazel commands.
 
     Args:
       name: Name of the main `kernel_build`.
