@@ -22,6 +22,8 @@ build --experimental_strict_action_env
 # common --announce_rc
 
 # Add support for various configs
+import %workspace%/build/kernel/kleaf/bazelrc/local.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/fast.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/rbe.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/release.bazelrc
 

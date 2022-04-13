@@ -278,6 +278,9 @@ $ test -f WORKSPACE && echo 'build --lto=none' >> user.bazelrc
 $ tools/bazel build //private/path/to/sources:tuna_dist
 ```
 
+If you are using `--config=fast`, you need to add `build:fast --lto=none` as
+well, because `--config=fast` implies thin LTO. See [fast.md](fast.md#lto).
+
 #### Confirming the value of --lto
 
 You may build the following to confirm the value of LTO setting:
