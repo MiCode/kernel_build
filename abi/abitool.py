@@ -489,8 +489,6 @@ class Delegated(AbiTool):
         changed = []
         if abidiff_leaf_changed:
             changed.append(("abidiff (leaf changes)", abg_leaf))
-        if abidiff_full_changed:
-            changed.append(("abidiff (full)", abg_full))
         if stgdiff_changed:
             changed.append(("stgdiff", stg_small))
         if changed:
