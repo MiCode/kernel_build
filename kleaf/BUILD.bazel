@@ -48,6 +48,7 @@ bool_flag(
 # The values of --config, as passed by command line and bazelrc files.
 _config_values = (
     "release",
+    "remote",
 )
 
 [bool_flag(
