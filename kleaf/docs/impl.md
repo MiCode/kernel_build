@@ -273,7 +273,7 @@ You only need to **do this once** per workspace.
 
 ```shell
 # Do this at workspace root next to the file WORKSPACE
-$ test -f WORKSPACE && echo 'build --//build/kernel/kleaf:lto=none' >> user.bazelrc
+$ test -f WORKSPACE && echo 'build --lto=none' >> user.bazelrc
 # Future builds in this workspace always disables LTO.
 $ tools/bazel build //private/path/to/sources:tuna_dist
 ```
