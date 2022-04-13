@@ -278,6 +278,14 @@ $ test -f WORKSPACE && echo 'build --lto=none' >> user.bazelrc
 $ tools/bazel build //private/path/to/sources:tuna_dist
 ```
 
+#### Confirming the value of --lto
+
+You may build the following to confirm the value of LTO setting:
+
+```shell
+$ tools/bazel build //build/kernel/kleaf:print_flags
+```
+
 ### Using configurable build attributes `select()`
 
 See official Bazel documentation for `select()`

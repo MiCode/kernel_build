@@ -17,6 +17,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
+load(":print_flags.bzl", "print_flags")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -55,6 +56,13 @@ _config_values = (
     name = "config_" + value,
     build_setting_default = False,
 ) for value in _config_values]
+
+print_flags(
+    name = "print_flags",
+    flags = [
+        ":lto",
+    ] + [":config_" + value for value in _config_values],
+)
 
 exports_files([
     "preserve_env.sh",
