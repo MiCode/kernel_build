@@ -1322,7 +1322,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
         ))
 
     if base_toolchain_file != None:
-        out = ctx.actions.declare_file("{}_toolchain_version/toolchain_version_checked")
+        out = ctx.actions.declare_file("{}_toolchain_version/toolchain_version_checked".format(ctx.label.name))
         base_toolchain = "$(cat {})".format(base_toolchain_file.path)
         msg = """ERROR: toolchain_version is {this_toolchain} for {this_label}, but
        toolchain_version is {base_toolchain} for {base_kernel} (base_kernel).
