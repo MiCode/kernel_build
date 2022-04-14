@@ -73,7 +73,7 @@ this will usually be an alias for `kernel_aarch64`. Further targets can be
 discovered via bazel's `query` subcommand:
 
 ```shell
-$ bazel query "kind('genrule', //common:*)"
+$ bazel query "kind('py_binary', //common:*)"
 ```
 
 ### Distribution
