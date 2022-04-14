@@ -11,7 +11,7 @@ $ tools/bazel build //common:kernel_aarch64
 ### All GKI artifacts for distribution ( = `build/build.sh`)
 
 ```shell
-$ tools/bazel run //common:kernel_aarch64_dist -- --dist_dir=out/dist
+$ tools/bazel run //common:kernel_aarch64_dist
 ```
 
 ## ABI monitoring
@@ -19,7 +19,7 @@ $ tools/bazel run //common:kernel_aarch64_dist -- --dist_dir=out/dist
 ### Building all artifacts
 
 ```shell
-$ tools/bazel run //common:kernel_aarch64_abi -- --dist_dir=out/dist
+$ tools/bazel run //common:kernel_aarch64_abi
 ```
 
 ### Update symbol list
@@ -41,7 +41,7 @@ $ tools/bazel run //common:kernel_aarch64_abi_update
 ```
 
 ```shell
-$ bazel run --lto=none //common:kernel_aarch64_dist -- --dist_dir=out/dist
+$ bazel run --lto=none //common:kernel_aarch64_dist
 ```
 
 ## Mnemonic
