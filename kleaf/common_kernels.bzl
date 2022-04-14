@@ -461,6 +461,11 @@ def define_common_kernels(
             kernel_build = name,
         )
 
+        kernel_unstripped_modules_archive(
+            name = name + "_unstripped_modules_archive",
+            kernel_build = name,
+        )
+
         kernel_images(
             name = name + "_images",
             kernel_build = name,
