@@ -418,6 +418,16 @@ def define_common_kernels(
         )
 
         target_config = target_configs[name]
+
+        all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
+        all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
+        if target_config.get("kmi_symbol_list"):
+            all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
+        native.filegroup(
+            name = name + "_all_kmi_symbol_lists",
+            srcs = all_kmi_symbol_lists,
+        )
+
         print_debug(
             name = name + "_print_configs",
             content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
