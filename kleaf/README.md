@@ -17,3 +17,7 @@
 [Kleaf testing](docs/testing.md)
 
 [Cheatsheet](docs/cheatsheet.md)
+
+### Configurations
+
+`--config=release`: [Release builds](docs/release.md)
