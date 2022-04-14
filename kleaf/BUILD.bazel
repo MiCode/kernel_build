@@ -45,15 +45,15 @@ bool_flag(
     build_setting_default = False,
 )
 
-# The value of --config, as passed by common.bazelrc
-string_flag(
-    name = "config",
-    build_setting_default = "",
-    values = [
-        "",
-        "release",
-    ],
+# The values of --config, as passed by command line and bazelrc files.
+_config_values = (
+    "release",
 )
+
+[bool_flag(
+    name = "config_" + value,
+    build_setting_default = False,
+) for value in _config_values]
 
 exports_files([
     "preserve_env.sh",
