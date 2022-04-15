@@ -1322,7 +1322,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
         ))
 
     if base_toolchain_file != None:
-        out = ctx.actions.declare_file("{}_toolchain_version/toolchain_version_checked")
+        out = ctx.actions.declare_file("{}_toolchain_version/toolchain_version_checked".format(ctx.label.name))
         base_toolchain = "$(cat {})".format(base_toolchain_file.path)
         msg = """ERROR: toolchain_version is {this_toolchain} for {this_label}, but
        toolchain_version is {base_toolchain} for {base_kernel} (base_kernel).
@@ -3814,21 +3814,27 @@ def kernel_build_abi(
 
     See [`kernel_build`](#kernel_build) for the targets defined.
 
-    In addition, the following targets are defined if `define_abi_targets = True`:
-    - `kernel_aarch64_abi_update_symbol_list`
-      - Running this target updates `kmi_symbol_list`.
+    In addition, the following targets are defined:
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
       - Include this target in a `copy_to_dist_dir` target to copy
         ABI dump to `--dist-dir`.
+    - `kernel_aarch64_abi`
+      - A filegroup that contains `kernel_aarch64_abi_dump`. It also contains other targets
+        if `define_abi_targets = True`; see below.
+
+    In addition, the following targets are defined if `define_abi_targets = True`:
+    - `kernel_aarch64_abi_update_symbol_list`
+      - Running this target updates `kmi_symbol_list`.
     - `kernel_aarch64_abi_update`
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
       - Include this target in a `copy_to_dist_dir` target to copy
         ABI dump to `--dist-dir`.
-    - `kernel_aarch64_abi` (if `abi_definition` is not `None`)
-      - Building this target compares the ABI with `abi_definition`.
+    - `kernel_aarch64_abi`
+      - If `abi_definition` is not `None`, building this target compares the ABI with
+        `abi_definition`.
       - Include this target in a `copy_to_dist_dir` target to copy
         ABI dump and diff report to `--dist-dir`.
 
@@ -3868,11 +3874,14 @@ def kernel_build_abi(
 
     Args:
       name: Name of the main `kernel_build`.
-      define_abi_targets: Whether to create the `<name>_abi` target and
-        targets to support it. If `None`, defaults to `True`.
+      define_abi_targets: Whether the `<name>_abi` target contains other
+        files to support ABI monitoring. If `None`, defaults to `True`.
 
         If `False`, this macro is equivalent to just calling
-        `kernel_build(name, **kwargs)`.
+        ```
+        kernel_build(name = name, **kwargs)
+        filegroup(name = name + "_abi", data = [name, abi_dump_target])
+        ```
 
         If `True`, implies `collect_unstripped_modules = True`. See
         [`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules).
@@ -3901,19 +3910,7 @@ def kernel_build_abi(
 
     kernel_build(name = name, **kwargs)
 
-    if not define_abi_targets:
-        return
-
-    # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
     outs_and_vmlinux, added_vmlinux = _kernel_build_outs_add_vmlinux(name, kwargs.get("outs"))
-    if kwargs.get("trim_nonlisted_kmi") or added_vmlinux:
-        notrim_kwargs = dict(kwargs)
-        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", outs_and_vmlinux)
-        notrim_kwargs["trim_nonlisted_kmi"] = False
-        notrim_kwargs["kmi_symbol_list_strict_mode"] = False
-        kernel_build(name = name + "_notrim", **notrim_kwargs)
-    else:
-        native.alias(name = name + "_notrim", actual = name)
 
     # with_vmlinux: outs += [vmlinux]
     if added_vmlinux:
@@ -3924,6 +3921,30 @@ def kernel_build_abi(
         native.alias(name = name + "_with_vmlinux", actual = name)
 
     default_outputs = []
+
+    _kernel_abi_dump(
+        name = name + "_abi_dump",
+        kernel_build = name + "_with_vmlinux",
+        kernel_modules = kernel_modules,
+    )
+    default_outputs.append(name + "_abi_dump")
+
+    if not define_abi_targets:
+        native.filegroup(
+            name = name + "_abi",
+            srcs = default_outputs,
+        )
+        return
+
+    # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
+    if kwargs.get("trim_nonlisted_kmi") or added_vmlinux:
+        notrim_kwargs = dict(kwargs)
+        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", outs_and_vmlinux)
+        notrim_kwargs["trim_nonlisted_kmi"] = False
+        notrim_kwargs["kmi_symbol_list_strict_mode"] = False
+        kernel_build(name = name + "_notrim", **notrim_kwargs)
+    else:
+        native.alias(name = name + "_notrim", actual = name)
 
     # extract_symbols ...
     _kernel_extracted_symbols(
@@ -3937,13 +3958,6 @@ def kernel_build_abi(
         src = name + "_abi_extracted_symbols",
         dst = kwargs.get("kmi_symbol_list"),
     )
-
-    _kernel_abi_dump(
-        name = name + "_abi_dump",
-        kernel_build = name + "_with_vmlinux",
-        kernel_modules = kernel_modules,
-    )
-    default_outputs.append(name + "_abi_dump")
 
     if abi_definition:
         native.filegroup(

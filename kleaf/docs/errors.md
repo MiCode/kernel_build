@@ -217,6 +217,18 @@ There should not be any output files in the source tree, other than in `out/`.
 To properly fix this, investigate the Kbuild definition to see why `O=` is not
 respected. Output files should be contained into the directory pointed at `O=`.
 
+## WARNING: Unable to determine EXT_MODULES; scmversion for external modules may be incorrect. [...] <workspace_root>/build.config: No such file or directory
+
+If your device builds external modules, create the top-level `build.config`
+symlink to point to the `build.config` file so scmversions for external
+modules are inferred correctly.
+
+You may ignore this warning:
+- if your device does not build external modules;
+- if you are building GKI.
+
+For details, see [scmversion.md](scmversion.md).
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.

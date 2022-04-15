@@ -80,20 +80,24 @@ $ bazel query "kind('py_binary', //common:*)"
 
 Copy build artifacts to `DIST_DIR` for distribution by running the following
 command.
-* The `--dist_dir` are arguments to the `copy_to_dist_dir` script,
-  not to Bazel. Hence, put them after the `--` delimiter.
 
 ```shell
-$ DIST_DIR=out/dist
-$ tools/bazel run //common:kernel_dist -- --dist_dir=$DIST_DIR
+$ tools/bazel run //common:kernel_dist
+```
+
+You may override the destination of distribution directory in the command line
+via the `--dist_dir` argument. The `--dist_dir` is an
+argument to the `copy_to_dist_dir` script, not to Bazel. Hence, put them after 
+the `--` delimiter.
+
+```shell
+$ tools/bazel run //common:kernel_dist -- --dist_dir=out/dist
 ```
 
 #### Cloud Android
 
 ```shell
-$ DIST_DIR=out/dist
-$ tools/bazel run //common-modules/virtual-device:virtual_device_x86_64_dist -- \
-  --dist_dir=$DIST_DIR
+$ tools/bazel run //common-modules/virtual-device:virtual_device_x86_64_dist
 ```
 
 ## Build definitions

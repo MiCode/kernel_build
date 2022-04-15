@@ -96,7 +96,6 @@ _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/b
 _GKI_CERTIFICATION_BINARIES = [
     "avbtool",
     "certify_bootimg",
-    "unpack_bootimg",
 ]
 
 genrule(

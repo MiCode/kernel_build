@@ -33,6 +33,7 @@ load(
     "x86_64_outs",
 )
 load(":print_debug.bzl", "print_debug")
+load("@kernel_toolchain_info//:dict.bzl", "BRANCH")
 
 _ARCH_CONFIGS = {
     "kernel_aarch64": {
@@ -133,6 +134,7 @@ def _filter_keys(d, valid_keys, what):
     return ret
 
 def define_common_kernels(
+        branch = None,
         target_configs = None,
         toolchain_version = None,
         visibility = None):
@@ -233,6 +235,10 @@ def define_common_kernels(
     This is equivalent to specifying `--use_prebuilt_gki=8077484` for all Bazel commands.
 
     Args:
+      branch: The value of `BRANCH` in `build.config`. If not set, it is loaded
+        from `common/build.config.constants` **in package `//common`**. Hence,
+        if `define_common_kernels()` is called in a different package, it must
+        be supplied.
       target_configs: A dictionary, where keys are target names, and
         values are a dictionary of configurations to override the default
         configuration for this target.
@@ -371,6 +377,11 @@ def define_common_kernels(
         See [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
     """
 
+    if branch == None and native.package_name() == "common":
+        branch = BRANCH
+    if branch == None:
+        fail("//{package}: define_common_kernels() must have branch argument.")
+
     if visibility == None:
         visibility = ["//visibility:public"]
 
@@ -497,12 +508,14 @@ def define_common_kernels(
             name = name + "_dist",
             data = dist_targets,
             flat = True,
+            dist_dir = "out/{branch}/dist".format(branch = BRANCH),
         )
 
         copy_to_dist_dir(
             name = name + "_abi_dist",
             data = dist_targets + [name + "_abi"],
             flat = True,
+            dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
         )
 
     native.alias(
