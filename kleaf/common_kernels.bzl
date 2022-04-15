@@ -22,6 +22,7 @@ load(
     "kernel_images",
     "kernel_kythe",
     "kernel_modules_install",
+    "kernel_unstripped_modules_archive",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load(
@@ -513,6 +514,7 @@ def define_common_kernels(
         dist_targets = [
             name,
             name + "_uapi_headers",
+            name + "_unstripped_modules_archive",
             name + "_additional_artifacts",
             name + "_ddk_artifacts",
             # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
@@ -601,8 +603,14 @@ def _define_prebuilts(**kwargs):
                 "//conditions:default": [source_package_name],
             }),
             deps = select({
-                ":use_prebuilt_gki_set": [source_package_name + "_ddk_artifacts_downloaded"],
-                "//conditions:default": [source_package_name + "_ddk_artifacts"],
+                ":use_prebuilt_gki_set": [
+                    source_package_name + "_ddk_artifacts_downloaded",
+                    source_package_name + "_unstripped_modules_archive_download",
+                ],
+                "//conditions:default": [
+                    source_package_name + "_ddk_artifacts",
+                    # unstripped modules come from {name} in srcs
+                ],
             }),
             kernel_srcs = [source_package_name + "_sources"],
             kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",

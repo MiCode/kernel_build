@@ -40,6 +40,12 @@ GKI_DOWNLOAD_CONFIGS = [
         ],
     },
     {
+        "target_suffix": "unstripped_modules_archive",
+        "outs": [
+            "unstripped_modules.tar.gz",
+        ],
+    },
+    {
         "target_suffix": "additional_artifacts",
         "outs": [
             # _headers

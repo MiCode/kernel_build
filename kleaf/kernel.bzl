@@ -3364,11 +3364,37 @@ def _kernel_filegroup_impl(ctx):
     uapi_info = _KernelBuildUapiInfo(
         kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
     )
+
+    unstripped_modules_info = None
+    for target in ctx.attr.srcs:
+        if _KernelUnstrippedModulesInfo in target:
+            unstripped_modules_info = target[_KernelUnstrippedModulesInfo]
+            break
+    if unstripped_modules_info == None:
+        # Reverse of kernel_unstripped_modules_archive
+        unstripped_modules_archive = find_file("unstripped_modules.tar.gz", all_deps, what = ctx.label, required = True)
+        unstripped_dir = ctx.actions.declare_directory("{}/unstripped".format(ctx.label.name))
+        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+            tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
+        """
+        _debug_print_scripts(ctx, command, what = "unstripped_modules_archive")
+        ctx.actions.run_shell(
+            command = command,
+            inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+                unstripped_modules_archive,
+            ],
+            outputs = [unstripped_dir],
+            progress_message = "Extracting unstripped_modules_archive {}".format(ctx.label),
+            mnemonic = "KernelFilegroupUnstrippedModulesArchive",
+        )
+        unstripped_modules_info = _KernelUnstrippedModulesInfo(directory = unstripped_dir)
+
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
         kernel_module_dev_info,
         # TODO(b/219112010): implement _KernelEnvInfo for _kernel_build
         uapi_info,
+        unstripped_modules_info,
     ]
 
 kernel_filegroup = rule(
@@ -3452,6 +3478,7 @@ Unlike `kernel_build`, this has default value `True` because
 default, which in turn sets `collect_unstripped_modules` to `True` by default.
 """,
         ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     },
 )
 
