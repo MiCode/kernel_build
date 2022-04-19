@@ -72,7 +72,6 @@ exports_files([
     "search_and_cp_output.py",
     "check_declared_output_list.py",
     "check_duplicated_files_in_archives.py",
-    "no_host_tool.sh",
 ])
 
 # Docs. To view them:
