@@ -437,6 +437,12 @@ function build_boot_images() {
     MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
   fi
 
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ] \
+     && [ -n "${BUILD_INIT_BOOT_IMG}" ]; then
+    INIT_BOOT_IMAGE_FILENAME="init_boot.img"
+    MKINITBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${INIT_BOOT_IMAGE_FILENAME}")
+  fi
+
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
     if [ -n "${VENDOR_BOOTCONFIG}" ]; then
       for PARAM in ${VENDOR_BOOTCONFIG}; do
@@ -449,7 +455,13 @@ function build_boot_images() {
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
     if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
-      MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+      if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ] \
+         && [ -n "${BUILD_INIT_BOOT_IMG}" ]; then
+        MKINITBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+        MKINITBOOTIMG_ARGS+=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
+      else
+        MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+      fi
     fi
 
     if [ "${BUILD_VENDOR_KERNEL_BOOT}" = "1" ]; then
@@ -493,6 +505,16 @@ function build_boot_images() {
   done
 
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ] \
+     && [ -n "${BUILD_INIT_BOOT_IMG}" ]; then
+    "${MKBOOTIMG_PATH}" "${MKINITBOOTIMG_ARGS[@]}"
+  fi
+
+  if [ -n "${BUILD_INIT_BOOT_IMG}" ] \
+      && [ -f "${DIST_DIR}/${INIT_BOOT_IMAGE_FILENAME}" ]; then
+    echo "init_boot image created at ${DIST_DIR}/${INIT_BOOT_IMAGE_FILENAME}"
+  fi
 
   if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
     echo "boot image created at ${DIST_DIR}/${BOOT_IMAGE_FILENAME}"
