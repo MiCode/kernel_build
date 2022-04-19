@@ -23,3 +23,5 @@
 `--config=fast`: [Make local builds faster](docs/fast.md)
 
 `--config=local`: [Sandboxing](docs/sandbox.md)
+
+`--config=stamp`: [Handling SCM version](docs/scmversion.md)

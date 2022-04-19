@@ -50,6 +50,7 @@ bool_flag(
 _config_values = (
     "local",
     "fast",
+    "stamp",
     "release",
     "remote",
 )
