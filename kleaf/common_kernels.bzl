@@ -22,6 +22,7 @@ load(
     "kernel_images",
     "kernel_kythe",
     "kernel_modules_install",
+    "kernel_unstripped_modules_archive",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load(
@@ -418,6 +419,16 @@ def define_common_kernels(
         )
 
         target_config = target_configs[name]
+
+        all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
+        all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
+        if target_config.get("kmi_symbol_list"):
+            all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
+        native.filegroup(
+            name = name + "_all_kmi_symbol_lists",
+            srcs = all_kmi_symbol_lists,
+        )
+
         print_debug(
             name = name + "_print_configs",
             content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
@@ -448,6 +459,11 @@ def define_common_kernels(
         kernel_modules_install(
             name = name + "_modules_install",
             kernel_modules = [],
+            kernel_build = name,
+        )
+
+        kernel_unstripped_modules_archive(
+            name = name + "_unstripped_modules_archive",
             kernel_build = name,
         )
 
@@ -498,6 +514,7 @@ def define_common_kernels(
         dist_targets = [
             name,
             name + "_uapi_headers",
+            name + "_unstripped_modules_archive",
             name + "_additional_artifacts",
             name + "_ddk_artifacts",
             # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
@@ -586,8 +603,14 @@ def _define_prebuilts(**kwargs):
                 "//conditions:default": [source_package_name],
             }),
             deps = select({
-                ":use_prebuilt_gki_set": [source_package_name + "_ddk_artifacts_downloaded"],
-                "//conditions:default": [source_package_name + "_ddk_artifacts"],
+                ":use_prebuilt_gki_set": [
+                    source_package_name + "_ddk_artifacts_downloaded",
+                    source_package_name + "_unstripped_modules_archive_download",
+                ],
+                "//conditions:default": [
+                    source_package_name + "_ddk_artifacts",
+                    # unstripped modules come from {name} in srcs
+                ],
             }),
             kernel_srcs = [source_package_name + "_sources"],
             kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",

@@ -31,3 +31,6 @@ build:remote --remote_timeout=3600
 # default. You can use --google_credentials=some_file.json to use a service
 # account credential instead.
 build:remote --google_default_credentials=true
+
+# Let rules know what configs we are using now
+build:remote --//build/kernel/kleaf:config_remote

@@ -273,9 +273,20 @@ You only need to **do this once** per workspace.
 
 ```shell
 # Do this at workspace root next to the file WORKSPACE
-$ test -f WORKSPACE && echo 'build --//build/kernel/kleaf:lto=none' >> user.bazelrc
+$ test -f WORKSPACE && echo 'build --lto=none' >> user.bazelrc
 # Future builds in this workspace always disables LTO.
 $ tools/bazel build //private/path/to/sources:tuna_dist
+```
+
+If you are using `--config=fast`, you need to add `build:fast --lto=none` as
+well, because `--config=fast` implies thin LTO. See [fast.md](fast.md#lto).
+
+#### Confirming the value of --lto
+
+You may build the following to confirm the value of LTO setting:
+
+```shell
+$ tools/bazel build //build/kernel/kleaf:print_flags
 ```
 
 ### Using configurable build attributes `select()`
