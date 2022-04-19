@@ -253,8 +253,7 @@ function build_vendor_dlkm() {
     "${DIST_DIR}/vendor_dlkm.img" /dev/null
 }
 
-function build_boot_images() {
-  BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
+function check_mkbootimg_path() {
   if [ -z "${MKBOOTIMG_PATH}" ]; then
     MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
   fi
@@ -262,7 +261,12 @@ function build_boot_images() {
     echo "mkbootimg.py script not found. MKBOOTIMG_PATH = ${MKBOOTIMG_PATH}"
     exit 1
   fi
+}
 
+function build_boot_images() {
+  check_mkbootimg_path
+
+  BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-3}
   MKBOOTIMG_ARGS=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
   if [ -n  "${BASE_ADDRESS}" ]; then
     MKBOOTIMG_ARGS+=("--base" "${BASE_ADDRESS}")
@@ -469,4 +473,73 @@ function make_dtbo() {
     cd ${OUT_DIR}
     mkdtimg create "${DIST_DIR}"/dtbo.img ${MKDTIMG_FLAGS} ${MKDTIMG_DTBOS}
   )
+}
+
+# gki_get_boot_img_size <compression method>.
+# The function echoes the value of the preconfigured size variable
+# based on the input compression method.
+#   - (empty): echo ${BUILD_GKI_BOOT_IMG_SIZE}
+#   -      gz: echo ${BUILD_GKI_BOOT_IMG_GZ_SIZE}
+#   -     lz4: echo ${BUILD_GKI_BOOT_IMG_LZ4_SIZE}
+function gki_get_boot_img_size() {
+  local compression
+
+  if [ -z "$1" ]; then
+    boot_size_var="BUILD_GKI_BOOT_IMG_SIZE"
+  else
+    compression=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+    boot_size_var="BUILD_GKI_BOOT_IMG_${compression}_SIZE"
+  fi
+
+  if [ -z "${!boot_size_var}" ]; then
+    echo "ERROR: ${boot_size_var} is not set." >&2
+    exit 1
+  fi
+
+  echo "${!boot_size_var}"
+}
+
+# gki_add_avb_footer <image> <partition_size>
+function gki_add_avb_footer() {
+  avbtool add_hash_footer --image "$1" \
+    --partition_name boot --partition_size "$2"
+}
+
+function build_gki_artifacts() {
+  check_mkbootimg_path
+
+  if ! [ -f "${DIST_DIR}/Image" ]; then
+    echo "ERROR: '${DIST_DIR}/Image' doesn't exist" >&2
+    exit 1
+  fi
+
+  DEFAULT_MKBOOTIMG_ARGS=("--header_version" "4")
+  if [ -n "${GKI_KERNEL_CMDLINE}" ]; then
+    DEFAULT_MKBOOTIMG_ARGS+=("--cmdline" "${GKI_KERNEL_CMDLINE}")
+  fi
+
+  local built_boot_images=()
+  for kernel_path in "${DIST_DIR}"/Image*; do
+    GKI_MKBOOTIMG_ARGS=("${DEFAULT_MKBOOTIMG_ARGS[@]}")
+    GKI_MKBOOTIMG_ARGS+=("--kernel" "${kernel_path}")
+
+    kernel_image="$(basename "${kernel_path}")"
+    if [ "${kernel_image}" == "Image" ]; then
+        boot_image="boot.img"
+    else
+        compression="${kernel_image#Image.}"
+        boot_image="boot-${compression}.img"
+    fi
+
+    GKI_MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${boot_image}")
+    "${MKBOOTIMG_PATH}" "${GKI_MKBOOTIMG_ARGS[@]}"
+
+    gki_add_avb_footer "${DIST_DIR}/${boot_image}" \
+      "$(gki_get_boot_img_size "${compression}")"
+    built_boot_images+=("${boot_image}")
+  done
+
+  GKI_BOOT_IMG_ARCHIVE="boot-img.tar.gz"
+  echo "Creating ${GKI_BOOT_IMG_ARCHIVE} for" "${built_boot_images[@]}"
+  tar -czf "${DIST_DIR}/${GKI_BOOT_IMG_ARCHIVE}" -C "${DIST_DIR}" "${built_boot_images[@]}"
 }

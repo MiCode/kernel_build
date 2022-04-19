@@ -409,6 +409,31 @@
 #   BUILD_GKI_CERTIFICATION_TOOLS
 #     if set to "1", build a gki_certification_tools.tar.gz, which contains
 #     the utilities used to certify GKI boot-*.img files.
+#
+#   BUILD_GKI_ARTIFACTS
+#     if defined, build a boot-img.tar.gz archive that contains several GKI
+#     boot-*.img files with different kernel compression format.
+#     Each boot image contains a boot header v4 as per the format defined by
+#     https://source.android.com/devices/bootloader/boot-image-header,
+#     followed by a kernel (no ramdisk). The kernel binaries are from
+#     ${DIST_DIR}, e.g., Image, Image.gz, Image.lz4, etc. Individual
+#     boot-*.img files are also generated, e.g., boot.img, boot-gz.img and
+#     boot-lz4.img. It is expected that all components are present in
+#     ${DIST_DIR}.
+#
+#     When the BUILD_GKI_ARTIFACTS flag is defined, the following flags also
+#     need to be defined.
+#     - MKBOOTIMG_PATH=<path to the mkbootimg.py script which builds boot.img>
+#       (defaults to tools/mkbootimg/mkbootimg.py)
+#     - BUILD_GKI_BOOT_IMG_SIZE=<The size of the boot.img to build>
+#       This is required, and the file ${DIST_DIR}/Image must exist.
+#     - BUILD_GKI_BOOT_IMG_GZ_SIZE=<The size of the boot-gz.img to build>
+#       This is required only when ${DIST_DIR}/Image.gz is present.
+#     - BUILD_GKI_BOOT_IMG_LZ4_SIZE=<The size of the boot-lz4.img to build>
+#       This is required only when ${DIST_DIR}/Image.lz4 is present.
+#     - BUILD_GKI_BOOT_IMG_<COMPRESSION>_SIZE=<The size of the
+#       boot-${compression}.img to build> This is required
+#       only when ${DIST_DIR}/Image.${compression} is present.
 
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
@@ -1041,6 +1066,10 @@ echo " Files copied to ${DIST_DIR}"
 
 if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
   build_boot_images
+fi
+
+if [ -n "${BUILD_GKI_ARTIFACTS}" ] ; then
+  build_gki_artifacts
 fi
 
 if [ -n "${BUILD_DTBO_IMG}" ]; then
