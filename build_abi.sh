@@ -140,8 +140,7 @@ done
         echo "*   \$ $eq_bazel_command" >&2
         echo "*" >&2
     else
-        echo "WARNING: Unable to infer an equivalent Bazel command:" >&2
-        echo "$eq_bazel_command" >&2
+        echo "WARNING: Unable to infer an equivalent Bazel command." >&2
     fi
     echo     "* To suppress this warning, set KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1"
     echo     "************************************************************************" >&2
