@@ -4074,9 +4074,33 @@ def kernel_build_abi(
         )
 
         update_source_file(
-            name = name + "_abi_nodiff_update",
+            name = name + "_abi_update_definition",
             src = name + "_abi_out_file",
             dst = abi_definition,
+        )
+
+        exec(
+            name = name + "_abi_nodiff_update",
+            data = [
+                name + "_abi_extracted_symbols",
+                name + "_abi_update_definition",
+                kwargs.get("kmi_symbol_list"),
+            ],
+            script = """
+              # Ensure that symbol list is updated
+                if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
+                  echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                  exit 1
+                fi
+              # Update abi_definition
+                $(rootpath {update_definition})
+            """.format(
+                src_symbol_list = name + "_abi_extracted_symbols",
+                dst_symbol_list = kwargs.get("kmi_symbol_list"),
+                package = native.package_name(),
+                update_symbol_list_label = name + "_abi_update_symbol_list",
+                update_definition = name + "_abi_update_definition",
+            ),
         )
 
         exec(
