@@ -4094,33 +4094,39 @@ def _kernel_abi_diff_impl(ctx):
     inputs += ctx.files._diff_abi_scripts
 
     output_dir = ctx.actions.declare_directory("{}/abi_diff".format(ctx.attr.name))
-    error_msg_file = "{}/error.txt".format(ctx.genfiles_dir.path)
+    error_msg_file = ctx.actions.declare_file("{}/error_msg_file".format(ctx.attr.name))
+    exit_code_file = ctx.actions.declare_file("{}/exit_code_file".format(ctx.attr.name))
     default_outputs = [output_dir]
 
-    command_outputs = default_outputs
+    command_outputs = default_outputs + [
+        error_msg_file,
+        exit_code_file,
+    ]
 
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         set +e
         {diff_abi} --baseline {baseline}                \\
                    --new      {new}                     \\
                    --report   {output_dir}/abi.report   \\
-                   --abi-tool delegated 2> {error_msg_file}
+                   --abi-tool delegated > {error_msg_file} 2>&1
         rc=$?
         set -e
-        if [ $rc -ne 0 ]; then
+        echo $rc > {exit_code_file}
+        if [[ $rc == 0 ]]; then
+            echo "INFO: $(cat {error_msg_file})"
+        else
             echo "ERROR: $(cat {error_msg_file})" >&2
+            echo "INFO: exit code is not checked. 'tools/bazel run {label}' to check the exit code." >&2
         fi
     """.format(
         diff_abi = ctx.file._diff_abi.path,
         baseline = ctx.file.baseline.path,
         new = ctx.file.new.path,
         output_dir = output_dir.path,
-        error_msg_file = error_msg_file,
+        exit_code_file = exit_code_file.path,
+        error_msg_file = error_msg_file.path,
+        label = ctx.label,
     )
-    if ctx.attr.kmi_enforced:
-        command += """
-            exit $rc
-        """
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
@@ -4131,7 +4137,29 @@ def _kernel_abi_diff_impl(ctx):
         progress_message = "Comparing ABI {}".format(ctx.label),
     )
 
-    return DefaultInfo(files = depset(default_outputs))
+    script = ctx.actions.declare_file("{}/print_results.sh".format(ctx.attr.name))
+    script_content = """#!/bin/bash -e
+        rc=$(cat {exit_code_file})
+        if [[ $rc == 0 ]]; then
+            echo "INFO: $(cat {error_msg_file})"
+        else
+            echo "ERROR: $(cat {error_msg_file})" >&2
+        fi
+""".format(
+        exit_code_file = exit_code_file.short_path,
+        error_msg_file = error_msg_file.short_path,
+    )
+    if ctx.attr.kmi_enforced:
+        script_content += """
+            exit $rc
+        """
+    ctx.actions.write(script, script_content, is_executable = True)
+
+    return DefaultInfo(
+        files = depset(default_outputs),
+        executable = script,
+        runfiles = ctx.runfiles(files = command_outputs),
+    )
 
 _kernel_abi_diff = rule(
     implementation = _kernel_abi_diff_impl,
@@ -4145,6 +4173,7 @@ _kernel_abi_diff = rule(
         "_diff_abi": attr.label(default = "//build/kernel:abi/diff_abi", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
+    executable = True,
 )
 
 def _kernel_unstripped_modules_archive_impl(ctx):

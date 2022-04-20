@@ -528,6 +528,7 @@ def define_common_kernels(
             dist_dir = "out/{branch}/dist".format(branch = BRANCH),
         )
 
+        # TODO(b/229350514): run _abi_diff to check KMI_ENFORCED as well.
         copy_to_dist_dir(
             name = name + "_abi_dist",
             data = dist_targets + [name + "_abi"],
