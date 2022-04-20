@@ -16,6 +16,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
+load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
@@ -3939,11 +3940,10 @@ def kernel_build_abi(
     |`build_abi.sh --nodiff`            |`bazel build kernel_aarch64_abi_dump` [2]              |Extract the ABI (but do not compare it)                                |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh --nodiff --update`   |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
-    |                                   |`    bazel run kernel_aarch64_abi_update` [1][2][3]    |Extract the ABI (but do not compare it), then update `abi_definition`  |
+    |                                   |`bazel run kernel_aarch64_abi_nodiff_update` [1][2][3] |Extract the ABI (but do not compare it), then update `abi_definition`  |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh --update`            |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
-    |                                   |`    bazel build kernel_aarch64_abi && \\`             |Extract the ABI and compare it,                                        |
-    |                                   |`    bazel run kernel_aarch64_abi_update` [1][2][3]    |then update `abi_definition`                                           |
+    |                                   |`bazel run kernel_aarch64_abi_update` [1][2][3]        |Extract the ABI and compare it, then update `abi_definition`           |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh`                     |`bazel build kernel_aarch64_abi` [2]                   |Extract the ABI and compare it                                         |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
@@ -4064,10 +4064,36 @@ def kernel_build_abi(
         )
         default_outputs.append(name + "_abi_diff")
 
+        # The default outputs of _abi_diff does not contain the executable,
+        # but the reports. Use this filegroup to select the executable
+        # so rootpath in _abi_update works.
+        native.filegroup(
+            name = name + "_abi_diff_executable",
+            srcs = [name + "_abi_diff"],
+            output_group = "executable",
+        )
+
         update_source_file(
-            name = name + "_abi_update",
+            name = name + "_abi_nodiff_update",
             src = name + "_abi_out_file",
             dst = abi_definition,
+        )
+
+        exec(
+            name = name + "_abi_update",
+            data = [
+                name + "_abi_diff_executable",
+                name + "_abi_nodiff_update",
+            ],
+            script = """
+              # Update abi_definition
+                $(rootpath {nodiff_update})
+              # Check return code of diff_abi and kmi_enforced
+                $(rootpath {diff})
+            """.format(
+                diff = name + "_abi_diff_executable",
+                nodiff_update = name + "_abi_nodiff_update",
+            ),
         )
 
     _kernel_abi_prop(
@@ -4155,11 +4181,14 @@ def _kernel_abi_diff_impl(ctx):
         """
     ctx.actions.write(script, script_content, is_executable = True)
 
-    return DefaultInfo(
-        files = depset(default_outputs),
-        executable = script,
-        runfiles = ctx.runfiles(files = command_outputs),
-    )
+    return [
+        DefaultInfo(
+            files = depset(default_outputs),
+            executable = script,
+            runfiles = ctx.runfiles(files = command_outputs),
+        ),
+        OutputGroupInfo(executable = depset([script])),
+    ]
 
 _kernel_abi_diff = rule(
     implementation = _kernel_abi_diff_impl,
