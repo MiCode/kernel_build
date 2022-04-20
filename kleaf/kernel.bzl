@@ -16,6 +16,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
@@ -3893,7 +3894,11 @@ def kernel_build_abi(
     kernel_build_abi(name = "kernel_aarch64", **kwargs)
     _dist_targets = ["kernel_aarch64", ...]
     copy_to_dist_dir(name = "kernel_aarch64_dist", data = _dist_targets)
-    copy_to_dist_dir(name = "kernel_aarch64_abi_dist", data = _dist_targets + ["kernel_aarch64_abi"])
+    kernel_build_abi_dist(
+        name = "kernel_aarch64_abi_dist",
+        kernel_build_abi = "kernel_aarch64",
+        data = _dist_targets,
+    )
     ```
 
     The `kernel_build_abi` invocation is equivalent to the following:
@@ -3908,8 +3913,8 @@ def kernel_build_abi(
     In addition, the following targets are defined:
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
-      - Include this target in a `copy_to_dist_dir` target to copy
-        ABI dump to `--dist-dir`.
+      - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
+        target to copy ABI dump to `--dist-dir`.
     - `kernel_aarch64_abi`
       - A filegroup that contains `kernel_aarch64_abi_dump`. It also contains other targets
         if `define_abi_targets = True`; see below.
@@ -3921,13 +3926,8 @@ def kernel_build_abi(
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
-      - Include this target in a `copy_to_dist_dir` target to copy
-        ABI dump to `--dist-dir`.
-    - `kernel_aarch64_abi`
-      - If `abi_definition` is not `None`, building this target compares the ABI with
-        `abi_definition`.
-      - Include this target in a `copy_to_dist_dir` target to copy
-        ABI dump and diff report to `--dist-dir`.
+      - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
+        target to copy ABI dump to `--dist-dir`.
 
     Assuming the above, here's a table for converting `build_abi.sh`
     into Bazel commands. Note: it is recommended to disable the sandbox for
@@ -3944,8 +3944,6 @@ def kernel_build_abi(
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh --update`            |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
     |                                   |`bazel run kernel_aarch64_abi_update` [1][2][3]        |Extract the ABI and compare it, then update `abi_definition`           |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh`                     |`bazel build kernel_aarch64_abi` [2]                   |Extract the ABI and compare it                                         |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh`                     |`bazel run kernel_aarch64_abi_dist -- --dist_dir=...`  |Extract the ABI and compare it, then copy artifacts to `--dist_dir`    |
 
@@ -4132,6 +4130,46 @@ def kernel_build_abi(
     native.filegroup(
         name = name + "_abi",
         srcs = default_outputs,
+    )
+
+def kernel_build_abi_dist(
+        name,
+        kernel_build_abi,
+        **kwargs):
+    """A wrapper over `copy_to_dist_dir` for [`kernel_build_abi`](#kernel_build_abi).
+
+    After copying all files to dist dir, return the exit code from `diff_abi`.
+
+    Args:
+      name: name of the dist target
+      kernel_build_abi: name of the [`kernel_build_abi`](#kernel_build_abi)
+        invocation.
+    """
+
+    if kwargs.get("data") == None:
+        kwargs["data"] = []
+    kwargs["data"] += [kernel_build_abi + "_abi"]
+
+    copy_to_dist_dir(
+        name = name + "_copy_to_dist_dir",
+        **kwargs
+    )
+
+    exec(
+        name = name,
+        data = [
+            name + "_copy_to_dist_dir",
+            kernel_build_abi + "_abi_diff_executable",
+        ],
+        script = """
+          # Copy to dist dir
+            $(rootpath {copy_to_dist_dir}) $@
+          # Check return code of diff_abi and kmi_enforced
+            $(rootpath {diff})
+        """.format(
+            copy_to_dist_dir = name + "_copy_to_dist_dir",
+            diff = kernel_build_abi + "_abi_diff_executable",
+        ),
     )
 
 def _kernel_abi_diff_impl(ctx):
