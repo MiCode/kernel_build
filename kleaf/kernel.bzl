@@ -16,6 +16,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
+load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
 load(":update_source_file.bzl", "update_source_file")
 load(
@@ -1787,7 +1788,7 @@ _KernelModuleInfo = provider(fields = {
     "kernel_build": "kernel_build attribute of this module",
     "modules_staging_archive": "Archive containing staging kernel modules. " +
                                "Contains the lib/modules/* suffix.",
-    "kernel_uapi_headers_archive": "Archive containing UAPI headers to use the module.",
+    "kernel_uapi_headers_dws": "`directory_with_structure` containing UAPI headers to use the module.",
 })
 
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
@@ -1831,28 +1832,20 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
 
     modules_staging_archive = ctx.actions.declare_file("{}/modules_staging_archive.tar.gz".format(ctx.attr.name))
-    modules_staging_dir = modules_staging_archive.dirname + "/staging"
-    kernel_uapi_headers_archive = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.attr.name))
-    kernel_uapi_headers_dir = kernel_uapi_headers_archive.dirname + "/kernel-uapi-headers.tar.gz_staging"
-    outdir = modules_staging_archive.dirname  # equivalent to declare_directory(ctx.attr.name)
+    modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
+    kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
+    outdir = modules_staging_dws.directory.dirname
 
     unstripped_dir = None
     if ctx.attr.kernel_build[_KernelBuildExtModuleInfo].collect_unstripped_modules:
         unstripped_dir = ctx.actions.declare_directory("{name}/unstripped".format(name = ctx.label.name))
-
-    # additional_outputs: archives + unstripped + [basename(out) for out in outs]
-    additional_outputs = [
-        modules_staging_archive,
-        kernel_uapi_headers_archive,
-    ]
-    if unstripped_dir:
-        additional_outputs.append(unstripped_dir)
 
     # Original `outs` attribute of `kernel_module` macro.
     original_outs = []
 
     # apply basename to all of original_outs
     original_outs_base = []
+
     for out in ctx.outputs.outs:
         # outdir includes target name at the end already. So short_name is the original
         # token in `outs` of `kernel_module` macro.
@@ -1863,27 +1856,26 @@ def _kernel_module_impl(ctx):
         #   => short_name = "bar"
         short_name = out.path[len(outdir) + 1:]
         original_outs.append(short_name)
-        if "/" in short_name:
-            additional_outputs.append(ctx.actions.declare_file("{name}/{basename}".format(
-                name = ctx.attr.name,
-                basename = out.basename,
-            )))
         original_outs_base.append(out.basename)
 
     module_symvers = ctx.actions.declare_file("{}/Module.symvers".format(ctx.attr.name))
-    additional_declared_outputs = [
+    command_outputs = [
+        modules_staging_archive,
         module_symvers,
     ]
+    command_outputs += dws.files(modules_staging_dws)
+    command_outputs += dws.files(kernel_uapi_headers_dws)
+    if unstripped_dir:
+        command_outputs.append(unstripped_dir)
 
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
     command += ctx.attr.kernel_build[_KernelBuildExtModuleInfo].modules_prepare_setup
     command += """
              # create dirs for modules
-               mkdir -p {modules_staging_dir} {kernel_uapi_headers_dir}/usr
+               mkdir -p {kernel_uapi_headers_dir}/usr
     """.format(
-        modules_staging_dir = modules_staging_dir,
-        kernel_uapi_headers_dir = kernel_uapi_headers_dir,
+        kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
     )
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         command += kernel_module_dep[_KernelEnvInfo].setup
@@ -1946,38 +1938,65 @@ def _kernel_module_impl(ctx):
                  fi
                  tar czf ${{modules_staging_archive}} {modules_staging_outs} ${{mod_order}}
                )
-             # Move files into place
-               {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
              # Grab unstripped modules
                {grab_unstripped_cmd}
-             # Create headers archive
-               tar czf {kernel_uapi_headers_archive} --directory={kernel_uapi_headers_dir} usr/
-             # Remove staging dirs because they are not declared
-               rm -rf {modules_staging_dir} {kernel_uapi_headers_dir}
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
         ext_mod = ctx.attr.ext_mod,
-        search_and_cp_output = ctx.file._search_and_cp_output.path,
         module_symvers = module_symvers.path,
-        modules_staging_dir = modules_staging_dir,
+        modules_staging_dir = modules_staging_dws.directory.path,
         modules_staging_archive = modules_staging_archive.path,
         outdir = outdir,
-        outs = " ".join(original_outs),
         modules_staging_outs = " ".join(modules_staging_outs),
-        kernel_uapi_headers_archive = kernel_uapi_headers_archive.path,
-        kernel_uapi_headers_dir = kernel_uapi_headers_dir,
+        kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
         grab_unstripped_cmd = grab_unstripped_cmd,
     )
+
+    command += dws.record(modules_staging_dws)
+    command += dws.record(kernel_uapi_headers_dws)
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModule",
         inputs = inputs,
-        outputs = ctx.outputs.outs + additional_outputs +
-                  additional_declared_outputs,
+        outputs = command_outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),
+    )
+
+    # Additional outputs because of the value in outs. This is
+    # [basename(out) for out in outs] - outs
+    additional_declared_outputs = []
+    for short_name, out in zip(original_outs, ctx.outputs.outs):
+        if "/" in short_name:
+            additional_declared_outputs.append(ctx.actions.declare_file("{name}/{basename}".format(
+                name = ctx.attr.name,
+                basename = out.basename,
+            )))
+        original_outs_base.append(out.basename)
+
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+         # Copy files into place
+           {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
+    """.format(
+        search_and_cp_output = ctx.file._search_and_cp_output.path,
+        modules_staging_dir = modules_staging_dws.directory.path,
+        ext_mod = ctx.attr.ext_mod,
+        outdir = outdir,
+        outs = " ".join(original_outs),
+    )
+    _debug_print_scripts(ctx, command, what = "cp_outputs")
+    ctx.actions.run_shell(
+        mnemonic = "KernelModuleCpOutputs",
+        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+            # We don't need structure_file here because we only care about files in the directory.
+            modules_staging_dws.directory,
+            ctx.file._search_and_cp_output,
+        ],
+        outputs = ctx.outputs.outs + additional_declared_outputs,
+        command = command,
+        progress_message = "Copying outputs {}".format(ctx.label),
     )
 
     setup = """
@@ -2007,13 +2026,13 @@ def _kernel_module_impl(ctx):
             runfiles = ctx.runfiles(files = ctx.outputs.outs),
         ),
         _KernelEnvInfo(
-            dependencies = additional_declared_outputs,
+            dependencies = [module_symvers],
             setup = setup,
         ),
         _KernelModuleInfo(
             kernel_build = ctx.attr.kernel_build,
             modules_staging_archive = modules_staging_archive,
-            kernel_uapi_headers_archive = kernel_uapi_headers_archive,
+            kernel_uapi_headers_dws = kernel_uapi_headers_dws,
         ),
         _KernelUnstrippedModulesInfo(
             directory = unstripped_dir,
@@ -2043,6 +2062,7 @@ _kernel_module = rule(
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_search_and_cp_output": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
@@ -2411,15 +2431,17 @@ def _merged_kernel_uapi_headers_impl(ctx):
     kernel_build = ctx.attr.kernel_build
     base_kernel = kernel_build[_KernelBuildUapiInfo].base_kernel
 
-    # Early elements = higher priority
+    # srcs and dws_srcs are the list of sources to merge.
+    # Early elements = higher priority. srcs has higher priority than dws_srcs.
     srcs = []
     if base_kernel:
         srcs += base_kernel[_KernelBuildUapiInfo].kernel_uapi_headers.files.to_list()
     srcs += kernel_build[_KernelBuildUapiInfo].kernel_uapi_headers.files.to_list()
-    for kernel_module in ctx.attr.kernel_modules:
-        srcs.append(kernel_module[_KernelModuleInfo].kernel_uapi_headers_archive)
+    dws_srcs = [kernel_module[_KernelModuleInfo].kernel_uapi_headers_dws for kernel_module in ctx.attr.kernel_modules]
 
-    inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + srcs
+    inputs = srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    for dws_src in dws_srcs:
+        inputs += dws.files(dws_src)
 
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
@@ -2433,6 +2455,15 @@ def _merged_kernel_uapi_headers_impl(ctx):
     )
 
     # Extract the source tarballs in low to high priority order.
+    for dws_src in reversed(dws_srcs):
+        # Copy the directory over, overwriting existing files. Add write permission
+        # targets with higher priority can overwrite existing files.
+        command += dws.restore(
+            dws_src,
+            dst = intermediates_dir,
+            options = "-aL --chmod=+w",
+        )
+
     for src in reversed(srcs):
         command += """
             tar xf {src} -C {intermediates_dir}
