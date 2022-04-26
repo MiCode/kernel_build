@@ -51,3 +51,7 @@ download_artifacts_repo(
             [out for config in GKI_DOWNLOAD_CONFIGS for out in config["outs"]],
     target = "kernel_kleaf",
 )
+
+register_toolchains(
+    "//prebuilts/build-tools:py_toolchain"
+)
