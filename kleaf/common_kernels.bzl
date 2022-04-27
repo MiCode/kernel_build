@@ -638,3 +638,65 @@ def _define_prebuilts(**kwargs):
                 }),
                 **kwargs
             )
+
+def define_db845c(
+        name,
+        outs,
+        build_config = None,
+        module_outs = None,
+        kmi_symbol_list = None,
+        dist_dir = None):
+    """Define target for db845c.
+
+    Note: This does not use mixed builds.
+
+    Args:
+        name: name of target. Usually `"db845c"`.
+        build_config: See [kernel_build.build_config](#kernel_build-build_config). If `None`,
+          default to `"build.config.db845c"`.
+        outs: See [kernel_build.outs](#kernel_build-outs).
+        module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
+          in-tree kernel modules.
+        kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
+        dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{BRANCH}/dist"`.
+    """
+
+    if build_config == None:
+        build_config = "build.config.db845c"
+
+    if dist_dir == None:
+        dist_dir = "out/{branch}/dist".format(branch = BRANCH)
+
+    kernel_build(
+        name = name,
+        outs = outs,
+        # List of in-tree kernel modules.
+        module_outs = module_outs,
+        build_config = build_config,
+        kmi_symbol_list = kmi_symbol_list,
+    )
+
+    kernel_modules_install(
+        name = name + "_modules_install",
+        kernel_build = name,
+        # List of external modules.
+        kernel_modules = [],
+    )
+
+    kernel_images(
+        name = name + "_images",
+        build_initramfs = True,
+        kernel_build = name,
+        kernel_modules_install = name + "_modules_install",
+    )
+
+    copy_to_dist_dir(
+        name = name + "_dist",
+        data = [
+            name,
+            name + "_images",
+            name + "_modules_install",
+        ],
+        dist_dir = dist_dir,
+        flat = True,
+    )

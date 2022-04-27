@@ -25,6 +25,11 @@ aarch64_outs = _common_outs + [
     "Image.lz4",
 ]
 
+aarch64_gz_outs = _common_outs + [
+    "Image",
+    "Image.gz",
+]
+
 # Common output files for x86_64 kernel builds.
 x86_64_outs = _common_outs + ["bzImage"]
 
