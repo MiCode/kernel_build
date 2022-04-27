@@ -72,21 +72,21 @@ EOF
 
     script="
         let pkg_targets = siblings($build_config_label) in
-        let py_binaries = kind(py_binary, \$pkg_targets) in
+        let dists = filter(\"_dist\$\", \$pkg_targets) except kind(alias, \$pkg_targets) in
 
         let build_config_rdeps = attr(build_config, \"$build_config_label\", \$pkg_targets) in
-        let py_binaries_on_build_config = \$py_binaries intersect allpaths(\$py_binaries, \$build_config_rdeps) in
+        let dists_on_build_config = \$dists intersect allpaths(\$dists, \$build_config_rdeps) in
 
-        let abi_targets = kind(filegroup, filter(\"_abi$\", \$pkg_targets)) in
-        let py_binaries_with_abi_dep = \$py_binaries_on_build_config intersect allpaths(\$py_binaries_on_build_config, \$abi_targets) in
-        let py_binaries_without_abi_dep = \$py_binaries_on_build_config except \$py_binaries_with_abi_dep in
+        let abi_targets = kind(filegroup, filter(\"_abi\$\", \$pkg_targets)) in
+        let dists_with_abi_dep = \$dists_on_build_config intersect allpaths(\$dists_on_build_config, \$abi_targets) in
+        let dists_without_abi_dep = \$dists_on_build_config except \$dists_with_abi_dep in
 
         let kythe = kind(kernel_kythe, \$pkg_targets) in
-        let py_binaries_with_kythe_dep = \$py_binaries_on_build_config intersect allpaths(\$py_binaries_on_build_config, \$kythe) in
-        let py_binaries_without_kythe_dep = \$py_binaries_on_build_config except \$py_binaries_with_kythe_dep in
+        let dists_with_kythe_dep = \$dists_on_build_config intersect allpaths(\$dists_on_build_config, \$kythe) in
+        let dists_without_kythe_dep = \$dists_on_build_config except \$dists_with_kythe_dep in
 
-        let py_binaries_with_abi_without_kythe = \$py_binaries_with_abi_dep intersect \$py_binaries_without_kythe_dep in
-        let py_binaries_without_abi_without_kythe = \$py_binaries_without_abi_dep intersect \$py_binaries_without_kythe_dep in
+        let dists_with_abi_without_kythe = \$dists_with_abi_dep intersect \$dists_without_kythe_dep in
+        let dists_without_abi_without_kythe = \$dists_without_abi_dep intersect \$dists_without_kythe_dep in
         let abi_targets_on_build_config = \$abi_targets intersect allpaths(\$abi_targets, \$build_config_rdeps) in
         $result_var
 "
@@ -144,13 +144,13 @@ if [[ "$ABI" == "1" ]]; then
     elif [[ "$DIFF" == "0" ]]; then
         echo "$BAZEL build" $flags $(for target in $abi_targets; do echo ${target}_dump; done)
     else
-        dist_targets=$(determine_targets "\$py_binaries_with_abi_without_kythe")
+        dist_targets=$(determine_targets "\$dists_with_abi_without_kythe")
         for target in $dist_targets; do
             echo "$BAZEL run" $flags "$target -- --dist_dir=$my_dist_dir"
         done
     fi
 else
-    dist_targets=$(determine_targets "\$py_binaries_without_abi_without_kythe")
+    dist_targets=$(determine_targets "\$dists_without_abi_without_kythe")
     for target in $dist_targets; do
         echo "$BAZEL run" $flags "$target -- --dist_dir=$my_dist_dir"
     done

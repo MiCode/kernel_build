@@ -955,6 +955,48 @@ _kernel_env = rule(
     },
 )
 
+def _determine_raw_symbollist_path(ctx):
+    """A local action that stores the path to `abi_symbollist.raw` to a file object."""
+
+    # Use a local action so we get an absolute path in the execroot that
+    # does not tear down as sandbxes. Then write the absolute path into the
+    # abi_symbollist.raw.abspath.
+    #
+    # In practice, the absolute path looks something like:
+    #    /<workspace_root>/out/bazel/output_user_root/<hash>/execroot/__main__/bazel-out/k8-fastbuild/bin/common/kernel_aarch64_raw_kmi_symbol_list/abi_symbollist.raw
+    #
+    # Alternatively, we could use a relative path. However, gen_autoksyms.sh
+    # interprets relative paths as paths relative to $abs_srctree, which
+    # is $(realpath $ROOT_DIR/$KERNEL_DIR). The $abs_srctree is:
+    # - A path within the sandbox for sandbox actions
+    # - /<workspace_root>/$KERNEL_DIR for local actions
+    # Whether KernelConfig is executed in a sandbox may not be consistent with
+    # whether a dependant action is executed in a sandbox. This causes the
+    # interpretation of CONFIG_UNUSED_KSYMS_WHITELIST inconsistent in the
+    # two actions. Hence, we stick with absolute paths.
+    #
+    # NOTE: This may hurt remote caching for developer builds. We may want to
+    # re-visit this when we implement remote caching for developers.
+    abspath = ctx.actions.declare_file("{}/abi_symbollist.raw.abspath".format(ctx.attr.name))
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+      # Record the absolute path so we can use in .config
+        readlink -e {raw_kmi_symbol_list} > {abspath}
+    """.format(
+        abspath = abspath.path,
+        raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
+    )
+    ctx.actions.run_shell(
+        command = command,
+        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [ctx.file.raw_kmi_symbol_list],
+        outputs = [abspath],
+        mnemonic = "KernelConfigLocalRawSymbolList",
+        progress_message = "Determining raw symbol list path for trimming {}".format(ctx.label),
+        execution_requirements = {
+            "local": "1",
+        },
+    )
+    return abspath
+
 def _kernel_config_impl(ctx):
     inputs = [
         s
@@ -1011,27 +1053,17 @@ def _kernel_config_impl(ctx):
 
     trim_kmi_command = ""
     if ctx.attr.trim_nonlisted_kmi:
-        # We can't use an absolute path in CONFIG_UNUSED_KSYMS_WHITELIST.
-        # - ctx.file.raw_kmi_symbol_list is a relative path (e.g.
-        #   bazel-out/k8-fastbuild/bin/common/kernel_aarch64_raw_kmi_symbol_list/abi_symbollist.raw)
-        # - Canonicalizing the path gives an absolute path into the sandbox of
-        #   the _kernel_config rule. The sandbox is destroyed during the
-        #   execution of _kernel_build.
-        # Hence we use a relative path. In this case, it is
-        # interpreted as a path relative to $abs_srctree, which is
-        # ${ROOT_DIR}/${KERNEL_DIR}. See common/scripts/gen_autoksyms.sh.
-        # Hence we set CONFIG_UNUSED_KSYMS_WHITELIST to the path of abi_symobllist.raw
-        # relative to ${KERNEL_DIR}.
+        raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
         trim_kmi_command = """
             # Modify .config to trim symbols not listed in KMI
-              ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config \
-                  -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \
-                  --set-str UNUSED_KSYMS_WHITELIST $(rel_path {raw_kmi_symbol_list} ${{KERNEL_DIR}})
+              ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config \\
+                  -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \\
+                  --set-str UNUSED_KSYMS_WHITELIST $(cat {raw_symbol_list_path_file})
               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
-        """.format(raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path)
-
-        # rel_path requires the file to exist.
-        inputs.append(ctx.file.raw_kmi_symbol_list)
+        """.format(
+            raw_symbol_list_path_file = raw_symbol_list_path_file.path,
+        )
+        inputs.append(raw_symbol_list_path_file)
 
     command = ctx.attr.env[_KernelEnvInfo].setup + """
         # Pre-defconfig commands
@@ -1075,7 +1107,10 @@ def _kernel_config_impl(ctx):
            rsync -aL {include_dir}/ ${{OUT_DIR}}/include/
            find ${{OUT_DIR}}/include -type d -exec chmod +w {{}} \\;
     """.format(config = config.path, include_dir = include_dir.path)
-    if ctx.file.raw_kmi_symbol_list:
+
+    if ctx.attr.trim_nonlisted_kmi:
+        # Ensure the dependent action uses the up-to-date abi_symbollist.raw
+        # at the absolute path specified in abi_symbollist.raw.abspath
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
 
     return [
@@ -1103,6 +1138,7 @@ _kernel_config = rule(
             doc = "Label to abi_symbollist.raw.",
             allow_single_file = True,
         ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
