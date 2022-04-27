@@ -140,7 +140,8 @@ class AbiTool(object):
             vmlinux_path=None):
         raise NotImplementedError()
 
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report, symbol_list):
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report,
+                 symbol_list, full_report):
         raise NotImplementedError()
 
     def name(self):
@@ -289,9 +290,42 @@ class Stg(AbiTool):
 
             return abi_changed
 
+class Stg(AbiTool):
+    DIFF_ERROR                   = (1<<0)
+    DIFF_ABI_CHANGE              = (1<<2)
+
+    """" Concrete AbiTool implementation for STG """
+    def dump_kernel_abi(self, linux_tree, dump_path, symbol_list,
+            vmlinux_path=None):
+        raise
+
+    def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
+                 symbol_list=None, full_report=None):
+        # shoehorn the interface
+        basename = diff_report
+
+        log.info(f"stgdiff {old_dump} {new_dump} at {basename}.*")
+        command = ["stgdiff", "--abi", old_dump, new_dump]
+        for f in ["plain", "flat", "small", "viz"]:
+            command.extend(["--format", f, "--output", f"{basename}.{f}"])
+
+        abi_changed = False
+
+        with open(f"{basename}.errors", "w") as out:
+            try:
+                subprocess.check_call(command, stdout=out, stderr=out)
+            except subprocess.CalledProcessError as e:
+                if e.returncode & self.DIFF_ERROR:
+                    raise
+                abi_changed = True
+
+        return abi_changed
+
 def get_abi_tool(abi_tool = "libabigail"):
+    log.info(f"using {abi_tool} for abi analysis")
     if abi_tool == "libabigail":
-        log.info("using libabigail for abi analysis")
         return Libabigail()
+    if abi_tool == "STG":
+        return Stg()
 
     raise ValueError("not a valid abi_tool: %s" % abi_tool)

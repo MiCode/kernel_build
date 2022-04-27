@@ -335,6 +335,20 @@ if [ -n "$ABI_DEFINITION" ]; then
             echo "========================================================" 1>&2
             cat ${abi_report}.short 1>&2
         fi
+
+        set +e
+        ${ROOT_DIR}/build/abi/diff_abi --abi-tool STG                         \
+                                       --baseline $KERNEL_DIR/$ABI_DEFINITION \
+                                       --new      ${DIST_DIR}/${abi_out_file} \
+                                       --report   ${abi_report}.stg
+        rc=$?
+        set -e
+        echo "========================================================"
+        echo " stgdiff reports have been created at ${abi_report}.stg.*"
+
+        if [ $rc -ne 0 ]; then
+            echo " stgdiff has reported ABI differences" 1>&2
+        fi
     fi
     if [ $UPDATE -eq 1 ] ; then
         echo "========================================================"
