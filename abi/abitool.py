@@ -206,7 +206,7 @@ class Libabigail(AbiTool):
         if symbol_list is not None:
             diff_abi_cmd.extend(["--kmi-whitelist", symbol_list])
 
-        rc = 0
+        abi_changed = False
 
         with open(diff_report, "w") as out:
             try:
@@ -214,7 +214,7 @@ class Libabigail(AbiTool):
             except subprocess.CalledProcessError as e:
                 if e.returncode & (ABIDIFF_ERROR | ABIDIFF_USAGE_ERROR):
                     raise
-                rc = e.returncode  # actual abi change
+                abi_changed = True  # actual abi change
 
         if short_report is not None:
             with open(diff_report) as full_report:
