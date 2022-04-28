@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
@@ -1518,6 +1519,12 @@ def _kernel_build_impl(ctx):
     )
     inputs.append(all_module_names_file)
 
+    all_module_basenames_file = ctx.actions.declare_file("{}_all_module_names/all_module_basenames.txt".format(ctx.label.name))
+    ctx.actions.write(
+        output = all_module_basenames_file,
+        content = "\n".join([paths.basename(filename) for filename in all_module_names]) + "\n",
+    )
+
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
     )
@@ -1566,13 +1573,14 @@ def _kernel_build_impl(ctx):
 
     grab_unstripped_intree_modules_cmd = ""
     if all_module_names and unstripped_dir:
+        inputs.append(all_module_basenames_file)
         grab_unstripped_intree_modules_cmd = """
             mkdir -p {unstripped_dir}
-            {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_names_file})
+            {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_basenames_file})
         """.format(
             search_and_cp_output = ctx.file._search_and_cp_output.path,
             unstripped_dir = unstripped_dir.path,
-            all_module_names_file = all_module_names_file.path,
+            all_module_basenames_file = all_module_basenames_file.path,
         )
 
     command += """
