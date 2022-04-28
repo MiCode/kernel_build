@@ -35,7 +35,7 @@ load(
     "x86_64_outs",
 )
 load(":print_debug.bzl", "print_debug")
-load("@kernel_toolchain_info//:dict.bzl", "BRANCH")
+load("@kernel_toolchain_info//:dict.bzl", "BRANCH", "common_kernel_package")
 
 _ARCH_CONFIGS = {
     "kernel_aarch64": {
@@ -379,10 +379,13 @@ def define_common_kernels(
         See [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
     """
 
-    if branch == None and native.package_name() == "common":
+    if branch == None and native.package_name() == common_kernel_package:
         branch = BRANCH
     if branch == None:
-        fail("//{package}: define_common_kernels() must have branch argument.")
+        fail("//{package}: define_common_kernels() must have branch argument because @kernel_toolchain_info reads value from //{common_kernel_package}".format(
+            package = native.package_name(),
+            common_kernel_package = common_kernel_package,
+        ))
 
     if visibility == None:
         visibility = ["//visibility:public"]
