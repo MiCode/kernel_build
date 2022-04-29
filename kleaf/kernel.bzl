@@ -1883,6 +1883,7 @@ _KernelModuleInfo = provider(fields = {
     "modules_staging_dws": "`directory_with_structure` containing staging kernel modules. " +
                            "Contains the lib/modules/* suffix.",
     "kernel_uapi_headers_dws": "`directory_with_structure` containing UAPI headers to use the module.",
+    "files": "The list of output `*.ko` files.",
 })
 
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
@@ -1962,8 +1963,10 @@ def _kernel_module_impl(ctx):
     inputs.append(all_module_names_file)
 
     module_symvers = ctx.actions.declare_file("{}/Module.symvers".format(ctx.attr.name))
+    check_no_remaining = ctx.actions.declare_file("{name}/{name}.check_no_remaining".format(name = ctx.attr.name))
     command_outputs = [
         module_symvers,
+        check_no_remaining,
     ]
     command_outputs += dws.files(modules_staging_dws)
     command_outputs += dws.files(kernel_uapi_headers_dws)
@@ -2039,6 +2042,7 @@ def _kernel_module_impl(ctx):
                  done
                  exit 1
                fi
+               touch {check_no_remaining}
 
              # Grab unstripped modules
                {grab_unstripped_cmd}
@@ -2054,6 +2058,7 @@ def _kernel_module_impl(ctx):
         check_declared_output_list = ctx.file._check_declared_output_list.path,
         all_module_names_file = all_module_names_file.path,
         grab_unstripped_cmd = grab_unstripped_cmd,
+        check_no_remaining = check_no_remaining.path,
     )
 
     command += dws.record(modules_staging_dws)
@@ -2124,9 +2129,12 @@ def _kernel_module_impl(ctx):
 
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
+    # Also add check_no_remaining in the list of default outputs so that, when
+    # outs is empty, the KernelModule action is still executed, and so
+    # is check_declared_output_list.
     return [
         DefaultInfo(
-            files = depset(ctx.outputs.outs),
+            files = depset(ctx.outputs.outs + [check_no_remaining]),
             # For kernel_module_test
             runfiles = ctx.runfiles(files = ctx.outputs.outs),
         ),
@@ -2138,6 +2146,7 @@ def _kernel_module_impl(ctx):
             kernel_build = ctx.attr.kernel_build,
             modules_staging_dws = modules_staging_dws,
             kernel_uapi_headers_dws = kernel_uapi_headers_dws,
+            files = ctx.outputs.outs,
         ),
         _KernelUnstrippedModulesInfo(
             directory = unstripped_dir,
@@ -2341,9 +2350,7 @@ def _kernel_modules_install_impl(ctx):
     for kernel_module in ctx.attr.kernel_modules:
         inputs += dws.files(kernel_module[_KernelModuleInfo].modules_staging_dws)
 
-        # Intentionally expand depset.to_list() to figure out what module files
-        # will be installed to module install directory.
-        for module_file in kernel_module[DefaultInfo].files.to_list():
+        for module_file in kernel_module[_KernelModuleInfo].files:
             declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
             external_modules.append(declared_file)
 

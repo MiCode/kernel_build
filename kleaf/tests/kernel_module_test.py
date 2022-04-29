@@ -44,6 +44,8 @@ class ScmVersionTestCase(unittest.TestCase):
 
     def _assert_contains_scmversion(self, module):
         basename = os.path.basename(module)
+        if os.path.splitext(basename)[1] != ".ko":
+            self.skipTest("{} is not a kernel module".format(basename))
         try:
             scmversion = subprocess.check_output(
                 [arguments.modinfo, module, "-F", "scmversion"],
