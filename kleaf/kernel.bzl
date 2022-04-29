@@ -2054,29 +2054,31 @@ def _kernel_module_impl(ctx):
                 basename = out.basename,
             )))
         original_outs_base.append(out.basename)
+    cp_cmd_outputs = ctx.outputs.outs + additional_declared_outputs
 
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
-         # Copy files into place
-           {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
-    """.format(
-        search_and_cp_output = ctx.file._search_and_cp_output.path,
-        modules_staging_dir = modules_staging_dws.directory.path,
-        ext_mod = ctx.attr.ext_mod,
-        outdir = outdir,
-        outs = " ".join(original_outs),
-    )
-    _debug_print_scripts(ctx, command, what = "cp_outputs")
-    ctx.actions.run_shell(
-        mnemonic = "KernelModuleCpOutputs",
-        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
-            # We don't need structure_file here because we only care about files in the directory.
-            modules_staging_dws.directory,
-            ctx.file._search_and_cp_output,
-        ],
-        outputs = ctx.outputs.outs + additional_declared_outputs,
-        command = command,
-        progress_message = "Copying outputs {}".format(ctx.label),
-    )
+    if cp_cmd_outputs:
+        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+             # Copy files into place
+               {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
+        """.format(
+            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            modules_staging_dir = modules_staging_dws.directory.path,
+            ext_mod = ctx.attr.ext_mod,
+            outdir = outdir,
+            outs = " ".join(original_outs),
+        )
+        _debug_print_scripts(ctx, command, what = "cp_outputs")
+        ctx.actions.run_shell(
+            mnemonic = "KernelModuleCpOutputs",
+            inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+                # We don't need structure_file here because we only care about files in the directory.
+                modules_staging_dws.directory,
+                ctx.file._search_and_cp_output,
+            ],
+            outputs = cp_cmd_outputs,
+            command = command,
+            progress_message = "Copying outputs {}".format(ctx.label),
+        )
 
     setup = """
              # Use a new shell to avoid polluting variables
