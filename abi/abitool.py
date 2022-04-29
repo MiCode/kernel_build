@@ -22,6 +22,7 @@ import subprocess
 import tempfile
 
 from contextlib import nullcontext
+from typing import List
 
 
 def _collapse_abidiff_impacted_interfaces(text):
@@ -254,6 +255,30 @@ def _collapse_stgdiff_CRC_changes(text: str, limit: int) -> str:
     return "".join(new_lines)
 
 
+def _remove_matching_lines(regexes: List[str], text: str) -> str:
+    """Removes consecutive lines matching consecutive regexes."""
+    if not regexes:
+        return text
+    num_regexes = len(regexes)
+    lines = text.splitlines(keepends=True)
+    num_lines = len(lines)
+    new_lines = []
+    index = 0
+    while index < num_lines:
+        match = True
+        for offset in range(0, num_regexes):
+            i = index + offset
+            if i == num_lines or not re.search(regexes[offset], lines[i]):
+                match = False
+                break
+        if match:
+            index += num_regexes
+        else:
+            new_lines.append(lines[index])
+            index += 1
+    return "".join(new_lines)
+
+
 def dump_kernel_abi(linux_tree, dump_path, symbol_list, vmlinux_path=None):
     with tempfile.NamedTemporaryFile() as temp_file:
         temp_path = temp_file.name
@@ -375,31 +400,28 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
         return abi_changed
 
 
-def _reinterpret_stgdiff(abi_changed, report):
-    # TODO(b/214966642): Remove once ABI XML type definitions are more stable.
-    # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
-    if abi_changed:
-        # Override this if there are only declaration <-> definition or
-        # type added / removed changes.
-        ignorable = r"^(|type '.*' changed|  (was fully defined, is now only declared|was only declared, is now fully defined)|symbol changed from '.*' to '.*'|  type '.*' was (added|removed))$"
-        override = True
-        with open(report) as input:
-            for line in input:
-                if not re.search(ignorable, line):
-                    override = False
-                    break
-        if override:
-            abi_changed = False
-    return abi_changed
-
-
-def _shorten_stgdiff(diff_report, short_report):
+def _shorten_stgdiff(changed, diff_report, short_report):
     with open(diff_report) as input:
         text = input.read()
+        # TODO(b/214966642): Remove once ABI XML type definitions are more stable.
+        text = _remove_matching_lines([
+            r"^type '.*' changed$",
+            r"^  was (fully defined|only declared), is now (fully defined|only declared)$",
+            r"^$",
+        ], text)
+        # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
+        text = _remove_matching_lines([
+            r"^symbol changed from '.*' to '.*'$",
+            r"^  type '.*' was (added|removed)$",
+            r"^$",
+        ], text)
+        if not text:
+            changed = False
         text = _collapse_stgdiff_offset_changes(text)
         text = _collapse_stgdiff_CRC_changes(text, 3)
         with open(short_report, "w") as output:
             output.write(text)
+        return changed
 
 
 class Libabigail(AbiTool):
@@ -467,10 +489,8 @@ class Delegated(AbiTool):
         # post-process
         for report in [abg_leaf, abg_full]:
            _shorten_abidiff(report, report + ".short")
-        _shorten_stgdiff(stg_small, stg_small + ".short")
-
-        # reinterpret exit status
-        stgdiff_changed = _reinterpret_stgdiff(stgdiff_changed, stg_small)
+        stgdiff_changed = _shorten_stgdiff(stgdiff_changed, stg_small,
+                                           stg_small + ".short")
 
         print("ABI diff reports have been created")
         paths = [abg_leaf, abg_full,
