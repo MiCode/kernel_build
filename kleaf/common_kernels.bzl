@@ -17,6 +17,7 @@ load(
     ":kernel.bzl",
     "kernel_build",
     "kernel_build_abi",
+    "kernel_build_abi_dist",
     "kernel_compile_commands",
     "kernel_filegroup",
     "kernel_images",
@@ -528,9 +529,10 @@ def define_common_kernels(
             dist_dir = "out/{branch}/dist".format(branch = BRANCH),
         )
 
-        copy_to_dist_dir(
+        kernel_build_abi_dist(
             name = name + "_abi_dist",
-            data = dist_targets + [name + "_abi"],
+            kernel_build_abi = name,
+            data = dist_targets,
             flat = True,
             dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
         )

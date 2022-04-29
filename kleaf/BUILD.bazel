@@ -95,6 +95,7 @@ docs(
     deps = [
         "utils.bzl",
         "//build/bazel_common_rules/dist",
+        "//build/bazel_common_rules/exec:exec",
         "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",

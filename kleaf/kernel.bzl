@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
@@ -1518,6 +1521,12 @@ def _kernel_build_impl(ctx):
     )
     inputs.append(all_module_names_file)
 
+    all_module_basenames_file = ctx.actions.declare_file("{}_all_module_names/all_module_basenames.txt".format(ctx.label.name))
+    ctx.actions.write(
+        output = all_module_basenames_file,
+        content = "\n".join([paths.basename(filename) for filename in all_module_names]) + "\n",
+    )
+
     modules_staging_archive = ctx.actions.declare_file(
         "{name}/modules_staging_dir.tar.gz".format(name = ctx.label.name),
     )
@@ -1566,13 +1575,14 @@ def _kernel_build_impl(ctx):
 
     grab_unstripped_intree_modules_cmd = ""
     if all_module_names and unstripped_dir:
+        inputs.append(all_module_basenames_file)
         grab_unstripped_intree_modules_cmd = """
             mkdir -p {unstripped_dir}
-            {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_names_file})
+            {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_basenames_file})
         """.format(
             search_and_cp_output = ctx.file._search_and_cp_output.path,
             unstripped_dir = unstripped_dir.path,
-            all_module_names_file = all_module_names_file.path,
+            all_module_basenames_file = all_module_basenames_file.path,
         )
 
     command += """
@@ -3884,7 +3894,11 @@ def kernel_build_abi(
     kernel_build_abi(name = "kernel_aarch64", **kwargs)
     _dist_targets = ["kernel_aarch64", ...]
     copy_to_dist_dir(name = "kernel_aarch64_dist", data = _dist_targets)
-    copy_to_dist_dir(name = "kernel_aarch64_abi_dist", data = _dist_targets + ["kernel_aarch64_abi"])
+    kernel_build_abi_dist(
+        name = "kernel_aarch64_abi_dist",
+        kernel_build_abi = "kernel_aarch64",
+        data = _dist_targets,
+    )
     ```
 
     The `kernel_build_abi` invocation is equivalent to the following:
@@ -3899,8 +3913,8 @@ def kernel_build_abi(
     In addition, the following targets are defined:
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
-      - Include this target in a `copy_to_dist_dir` target to copy
-        ABI dump to `--dist-dir`.
+      - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
+        target to copy ABI dump to `--dist-dir`.
     - `kernel_aarch64_abi`
       - A filegroup that contains `kernel_aarch64_abi_dump`. It also contains other targets
         if `define_abi_targets = True`; see below.
@@ -3912,13 +3926,8 @@ def kernel_build_abi(
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
-      - Include this target in a `copy_to_dist_dir` target to copy
-        ABI dump to `--dist-dir`.
-    - `kernel_aarch64_abi`
-      - If `abi_definition` is not `None`, building this target compares the ABI with
-        `abi_definition`.
-      - Include this target in a `copy_to_dist_dir` target to copy
-        ABI dump and diff report to `--dist-dir`.
+      - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
+        target to copy ABI dump to `--dist-dir`.
 
     Assuming the above, here's a table for converting `build_abi.sh`
     into Bazel commands. Note: it is recommended to disable the sandbox for
@@ -3931,13 +3940,10 @@ def kernel_build_abi(
     |`build_abi.sh --nodiff`            |`bazel build kernel_aarch64_abi_dump` [2]              |Extract the ABI (but do not compare it)                                |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh --nodiff --update`   |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
-    |                                   |`    bazel run kernel_aarch64_abi_update` [1][2][3]    |Extract the ABI (but do not compare it), then update `abi_definition`  |
+    |                                   |`bazel run kernel_aarch64_abi_nodiff_update` [1][2][3] |Extract the ABI (but do not compare it), then update `abi_definition`  |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh --update`            |`bazel run kernel_aarch64_abi_update_symbol_list && \\`|Update symbol list,                                                    |
-    |                                   |`    bazel build kernel_aarch64_abi && \\`             |Extract the ABI and compare it,                                        |
-    |                                   |`    bazel run kernel_aarch64_abi_update` [1][2][3]    |then update `abi_definition`                                           |
-    |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
-    |`build_abi.sh`                     |`bazel build kernel_aarch64_abi` [2]                   |Extract the ABI and compare it                                         |
+    |                                   |`bazel run kernel_aarch64_abi_update` [1][2][3]        |Extract the ABI and compare it, then update `abi_definition`           |
     |-----------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------|
     |`build_abi.sh`                     |`bazel run kernel_aarch64_abi_dist -- --dist_dir=...`  |Extract the ABI and compare it, then copy artifacts to `--dist_dir`    |
 
@@ -4056,10 +4062,60 @@ def kernel_build_abi(
         )
         default_outputs.append(name + "_abi_diff")
 
+        # The default outputs of _abi_diff does not contain the executable,
+        # but the reports. Use this filegroup to select the executable
+        # so rootpath in _abi_update works.
+        native.filegroup(
+            name = name + "_abi_diff_executable",
+            srcs = [name + "_abi_diff"],
+            output_group = "executable",
+        )
+
         update_source_file(
-            name = name + "_abi_update",
+            name = name + "_abi_update_definition",
             src = name + "_abi_out_file",
             dst = abi_definition,
+        )
+
+        exec(
+            name = name + "_abi_nodiff_update",
+            data = [
+                name + "_abi_extracted_symbols",
+                name + "_abi_update_definition",
+                kwargs.get("kmi_symbol_list"),
+            ],
+            script = """
+              # Ensure that symbol list is updated
+                if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
+                  echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                  exit 1
+                fi
+              # Update abi_definition
+                $(rootpath {update_definition})
+            """.format(
+                src_symbol_list = name + "_abi_extracted_symbols",
+                dst_symbol_list = kwargs.get("kmi_symbol_list"),
+                package = native.package_name(),
+                update_symbol_list_label = name + "_abi_update_symbol_list",
+                update_definition = name + "_abi_update_definition",
+            ),
+        )
+
+        exec(
+            name = name + "_abi_update",
+            data = [
+                name + "_abi_diff_executable",
+                name + "_abi_nodiff_update",
+            ],
+            script = """
+              # Update abi_definition
+                $(rootpath {nodiff_update})
+              # Check return code of diff_abi and kmi_enforced
+                $(rootpath {diff})
+            """.format(
+                diff = name + "_abi_diff_executable",
+                nodiff_update = name + "_abi_nodiff_update",
+            ),
         )
 
     _kernel_abi_prop(
@@ -4076,6 +4132,46 @@ def kernel_build_abi(
         srcs = default_outputs,
     )
 
+def kernel_build_abi_dist(
+        name,
+        kernel_build_abi,
+        **kwargs):
+    """A wrapper over `copy_to_dist_dir` for [`kernel_build_abi`](#kernel_build_abi).
+
+    After copying all files to dist dir, return the exit code from `diff_abi`.
+
+    Args:
+      name: name of the dist target
+      kernel_build_abi: name of the [`kernel_build_abi`](#kernel_build_abi)
+        invocation.
+    """
+
+    if kwargs.get("data") == None:
+        kwargs["data"] = []
+    kwargs["data"] += [kernel_build_abi + "_abi"]
+
+    copy_to_dist_dir(
+        name = name + "_copy_to_dist_dir",
+        **kwargs
+    )
+
+    exec(
+        name = name,
+        data = [
+            name + "_copy_to_dist_dir",
+            kernel_build_abi + "_abi_diff_executable",
+        ],
+        script = """
+          # Copy to dist dir
+            $(rootpath {copy_to_dist_dir}) $@
+          # Check return code of diff_abi and kmi_enforced
+            $(rootpath {diff})
+        """.format(
+            copy_to_dist_dir = name + "_copy_to_dist_dir",
+            diff = kernel_build_abi + "_abi_diff_executable",
+        ),
+    )
+
 def _kernel_abi_diff_impl(ctx):
     inputs = [
         ctx.file._diff_abi,
@@ -4086,33 +4182,39 @@ def _kernel_abi_diff_impl(ctx):
     inputs += ctx.files._diff_abi_scripts
 
     output_dir = ctx.actions.declare_directory("{}/abi_diff".format(ctx.attr.name))
-    error_msg_file = "{}/error.txt".format(ctx.genfiles_dir.path)
+    error_msg_file = ctx.actions.declare_file("{}/error_msg_file".format(ctx.attr.name))
+    exit_code_file = ctx.actions.declare_file("{}/exit_code_file".format(ctx.attr.name))
     default_outputs = [output_dir]
 
-    command_outputs = default_outputs
+    command_outputs = default_outputs + [
+        error_msg_file,
+        exit_code_file,
+    ]
 
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         set +e
         {diff_abi} --baseline {baseline}                \\
                    --new      {new}                     \\
                    --report   {output_dir}/abi.report   \\
-                   --abi-tool delegated 2> {error_msg_file}
+                   --abi-tool delegated > {error_msg_file} 2>&1
         rc=$?
         set -e
-        if [ $rc -ne 0 ]; then
+        echo $rc > {exit_code_file}
+        if [[ $rc == 0 ]]; then
+            echo "INFO: $(cat {error_msg_file})"
+        else
             echo "ERROR: $(cat {error_msg_file})" >&2
+            echo "INFO: exit code is not checked. 'tools/bazel run {label}' to check the exit code." >&2
         fi
     """.format(
         diff_abi = ctx.file._diff_abi.path,
         baseline = ctx.file.baseline.path,
         new = ctx.file.new.path,
         output_dir = output_dir.path,
-        error_msg_file = error_msg_file,
+        exit_code_file = exit_code_file.path,
+        error_msg_file = error_msg_file.path,
+        label = ctx.label,
     )
-    if ctx.attr.kmi_enforced:
-        command += """
-            exit $rc
-        """
 
     _debug_print_scripts(ctx, command)
     ctx.actions.run_shell(
@@ -4123,7 +4225,32 @@ def _kernel_abi_diff_impl(ctx):
         progress_message = "Comparing ABI {}".format(ctx.label),
     )
 
-    return DefaultInfo(files = depset(default_outputs))
+    script = ctx.actions.declare_file("{}/print_results.sh".format(ctx.attr.name))
+    script_content = """#!/bin/bash -e
+        rc=$(cat {exit_code_file})
+        if [[ $rc == 0 ]]; then
+            echo "INFO: $(cat {error_msg_file})"
+        else
+            echo "ERROR: $(cat {error_msg_file})" >&2
+        fi
+""".format(
+        exit_code_file = exit_code_file.short_path,
+        error_msg_file = error_msg_file.short_path,
+    )
+    if ctx.attr.kmi_enforced:
+        script_content += """
+            exit $rc
+        """
+    ctx.actions.write(script, script_content, is_executable = True)
+
+    return [
+        DefaultInfo(
+            files = depset(default_outputs),
+            executable = script,
+            runfiles = ctx.runfiles(files = command_outputs),
+        ),
+        OutputGroupInfo(executable = depset([script])),
+    ]
 
 _kernel_abi_diff = rule(
     implementation = _kernel_abi_diff_impl,
@@ -4137,6 +4264,7 @@ _kernel_abi_diff = rule(
         "_diff_abi": attr.label(default = "//build/kernel:abi/diff_abi", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
+    executable = True,
 )
 
 def _kernel_unstripped_modules_archive_impl(ctx):

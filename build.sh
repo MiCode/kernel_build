@@ -401,6 +401,11 @@
 #     where the dts file path is
 #     common-modules/virtual-device/rk3399-rock-pi-4b.dts
 #
+#   BUILD_VENDOR_KERNEL_BOOT
+#     if set to "1", build a vendor_kernel_boot for kernel artifacts, such as kernel modules.
+#     Since we design this partition to isolate kernel artifacts from vendor_boot image,
+#     vendor_boot would not be repack and built if we set this property to "1".
+#
 #   BUILD_GKI_CERTIFICATION_TOOLS
 #     if set to "1", build a gki_certification_tools.tar.gz, which contains
 #     the utilities used to certify GKI boot-*.img files.

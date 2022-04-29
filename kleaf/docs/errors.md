@@ -229,6 +229,19 @@ You may ignore this warning:
 
 For details, see [scmversion.md](scmversion.md).
 
+## rm: cannot remove 'out/bazel/output_user_root/<hash>/execroot/\_\_main\_\_/bazel-out/k8-fastbuild/bin/<...>
+
+If you try to `rm -rf out/` and get the above message, this is because Bazel
+removes the write permission on output binaries.
+
+Unlike with `build.sh`, it is no longer needed to clean the output
+directory for consistency of build results.
+
+However, if you need to clean the `out/` directory to
+save disk space, you may run `bazel clean`. See
+documentation for the `clean` command
+[here](https://bazel.build/docs/user-manual#cleaning-build-outputs).
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.
