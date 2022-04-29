@@ -1921,6 +1921,7 @@ def _kernel_module_impl(ctx):
     inputs += ctx.files.makefile
     inputs += [
         ctx.file._search_and_cp_output,
+        ctx.file._check_declared_output_list,
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
@@ -1952,6 +1953,13 @@ def _kernel_module_impl(ctx):
         short_name = out.path[len(outdir) + 1:]
         original_outs.append(short_name)
         original_outs_base.append(out.basename)
+
+    all_module_names_file = ctx.actions.declare_file("{}/all_module_names.txt".format(ctx.label.name))
+    ctx.actions.write(
+        output = all_module_names_file,
+        content = "\n".join(original_outs) + "\n",
+    )
+    inputs.append(all_module_names_file)
 
     module_symvers = ctx.actions.declare_file("{}/Module.symvers".format(ctx.attr.name))
     command_outputs = [
@@ -2019,16 +2027,32 @@ def _kernel_module_impl(ctx):
                    KERNEL_UAPI_HEADERS_DIR=$(realpath {kernel_uapi_headers_dir}) \
                    INSTALL_HDR_PATH=$(realpath {kernel_uapi_headers_dir}/usr)  \
                    ${{module_strip_flag}} modules_install
+
+             # Check if there are remaining *.ko files
+               remaining_ko_files=$({check_declared_output_list} \\
+                    --declared $(cat {all_module_names_file}) \\
+                    --actual $(cd {modules_staging_dir}/lib/modules/*/extra/{ext_mod} && find . -type f -name '*.ko' | sed 's:^[.]/::'))
+               if [[ ${{remaining_ko_files}} ]]; then
+                 echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
+                 for ko in ${{remaining_ko_files}}; do
+                   echo '    "'"${{ko}}"'",' >&2
+                 done
+                 exit 1
+               fi
+
              # Grab unstripped modules
                {grab_unstripped_cmd}
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
+        label = ctx.label,
         ext_mod = ctx.attr.ext_mod,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dws.directory.path,
         outdir = outdir,
         kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
+        check_declared_output_list = ctx.file._check_declared_output_list.path,
+        all_module_names_file = all_module_names_file.path,
         grab_unstripped_cmd = grab_unstripped_cmd,
     )
 
@@ -2148,6 +2172,10 @@ _kernel_module = rule(
             allow_single_file = True,
             default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
             doc = "Label referring to the script to process outputs",
+        ),
+        "_check_declared_output_list": attr.label(
+            allow_single_file = True,
+            default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
         ),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
