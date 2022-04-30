@@ -254,6 +254,28 @@ save disk space, you may run `bazel clean`. See
 documentation for the `clean` command
 [here](https://bazel.build/docs/user-manual#cleaning-build-outputs).
 
+## cp: <workspace\_root>/out/bazel/output\_user\_root/[...]/execroot/\_\_main\_\_/[...]/[...]_defconfig: Read-only file system
+
+This is likely because a previous build from one of the following does not clean
+up the `$ROOT_DIR/$KERNEL_DIR/$DEFCONFIG` file:
+
+- A `build.sh` build is interrupted
+- A `--config=local` Bazel build is interrupted
+
+These may cause `POST_DEFCONFIG_CMDS` to not being executed. Or
+`POST_DEFCONFIG_CMDS` is not defined to clean up `$DEFCONFIG`.
+
+A temporary workaround is to manually delete the generated
+`$DEFCONFIG` file in the source tree. After cleaning up the file,
+you may also stick with sandboxed builds (i.e. not using `--config=local`)
+to prevent this in the future. See [sandbox.md](sandbox.md).
+
+**HINT**: You may execute the Bazel command with
+`--experimental_strip_sandbox_path` to get a cleaner path of the file that needs
+to be deleted.
+
+[comment]: <> (Bug 229309039)
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.

@@ -67,3 +67,10 @@ See [scmversion.md](scmversion.md).
 The flag `--config=local` is also implied by other flags, e.g.:
 
 * `--config=fast`. See [fast.md](fast.md).
+
+## Known issues
+
+[comment]: <> (Bug 229309039)
+
+It is possible to see `Read-only file system` errors if a `--config=local` build
+was interrupted. See [errors.md](errors.md) for solutions.
