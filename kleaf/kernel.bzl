@@ -4022,6 +4022,11 @@ def kernel_build_abi(
             name = name + "_abi",
             srcs = default_outputs,
         )
+        # For kernel_build_abi_dist to use when define_abi_targets is not set.
+        exec(
+            name = name + "_abi_diff_executable",
+            script = "",
+        )
         return
 
     # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
@@ -4116,6 +4121,12 @@ def kernel_build_abi(
                 diff = name + "_abi_diff_executable",
                 nodiff_update = name + "_abi_nodiff_update",
             ),
+        )
+    else:
+        # For kernel_build_abi_dist to use when abi_definition is empty.
+        exec(
+            name = name + "_abi_diff_executable",
+            script = "",
         )
 
     _kernel_abi_prop(
