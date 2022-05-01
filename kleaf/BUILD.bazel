@@ -17,6 +17,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
+load(":print_flags.bzl", "print_flags")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -45,10 +46,32 @@ bool_flag(
     build_setting_default = False,
 )
 
+# The values of --config, as passed by command line and bazelrc files.
+_config_values = (
+    "local",
+    "fast",
+    "release",
+    "remote",
+)
+
+[bool_flag(
+    name = "config_" + value,
+    build_setting_default = False,
+) for value in _config_values]
+
+print_flags(
+    name = "print_flags",
+    flags = [
+        ":lto",
+    ] + [":config_" + value for value in _config_values],
+)
+
 exports_files([
     "preserve_env.sh",
-    "search_and_mv_output.py",
+    "search_and_cp_output.py",
+    "check_declared_output_list.py",
     "check_duplicated_files_in_archives.py",
+    "no_host_tool.sh",
 ])
 
 # Docs. To view them:
@@ -60,12 +83,19 @@ docs(
         "common_kernels.bzl",
         "constants.bzl",
         "download_repo.bzl",
+        "fail.bzl",
+        "hermetic_tools.bzl",
         "kernel.bzl",
         "key_value_repo.bzl",
+        "print_debug.bzl",
+        "update_source_file.bzl",
     ],
     default = "kernel.bzl",
     deps = [
+        "utils.bzl",
         "//build/bazel_common_rules/dist",
+        "//build/kernel/kleaf/tests",
+        "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
     ],
@@ -89,4 +119,12 @@ platform(
         "OSFamily": "Linux",
     },
     parents = ["@local_config_platform//:host"],
+)
+
+# tests
+
+py_test(
+    name = "check_declared_output_list_test",
+    srcs = ["check_declared_output_list_test.py"],
+    python_version = "PY3",
 )

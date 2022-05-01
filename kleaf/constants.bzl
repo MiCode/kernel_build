@@ -40,6 +40,12 @@ GKI_DOWNLOAD_CONFIGS = [
         ],
     },
     {
+        "target_suffix": "unstripped_modules_archive",
+        "outs": [
+            "unstripped_modules.tar.gz",
+        ],
+    },
+    {
         "target_suffix": "additional_artifacts",
         "outs": [
             # _headers
@@ -47,6 +53,15 @@ GKI_DOWNLOAD_CONFIGS = [
             # _images
             "system_dlkm.img",
         ] + GKI_MODULES,  # corresponding to _modules_install
+    },
+    {
+        "target_suffix": "ddk_artifacts",
+        "outs": [
+            # _modules_prepare
+            "modules_prepare_outdir.tar.gz",
+            # _modules_staging_archive
+            "modules_staging_dir.tar.gz",
+        ],
     },
 ]
 
@@ -59,6 +74,8 @@ CI_TARGET_MAPPING = {
     # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
     "kernel_aarch64": {
         "repo_name": "gki_prebuilts",
-        "outs": aarch64_outs,
+        "outs": aarch64_outs + [
+            TOOLCHAIN_VERSION_FILENAME,
+        ],
     },
 }

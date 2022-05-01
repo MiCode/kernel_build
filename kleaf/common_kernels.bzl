@@ -16,11 +16,13 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(
     ":kernel.bzl",
     "kernel_build",
+    "kernel_build_abi",
     "kernel_compile_commands",
     "kernel_filegroup",
     "kernel_images",
     "kernel_kythe",
     "kernel_modules_install",
+    "kernel_unstripped_modules_archive",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load(
@@ -31,6 +33,8 @@ load(
     "aarch64_outs",
     "x86_64_outs",
 )
+load(":print_debug.bzl", "print_debug")
+load("@kernel_toolchain_info//:dict.bzl", "BRANCH")
 
 _ARCH_CONFIGS = {
     "kernel_aarch64": {
@@ -51,42 +55,68 @@ _ARCH_CONFIGS = {
     },
 }
 
-# Valid configs of the value of the kmi_config argument in
+# Valid configs of the value of the target_config argument in
 # `define_common_kernels`
-_KMI_CONFIG_VALID_KEYS = [
-    "kmi_symbol_lists",
+_TARGET_CONFIG_VALID_KEYS = [
+    "kmi_symbol_list",
+    "additional_kmi_symbol_lists",
     "trim_nonlisted_kmi",
+    "kmi_symbol_list_strict_mode",
+    "abi_definition",
+    "kmi_enforced",
+    "module_outs",
 ]
+
+# Always collect_unstripped_modules for common kernels.
+_COLLECT_UNSTRIPPED_MODULES = True
 
 # glob() must be executed in a BUILD thread, so this cannot be a global
 # variable.
-def _default_kmi_configs():
-    """Return the default value of `kmi_configs` of [`define_common_kernels()`](#define_common_kernels).
+def _default_target_configs():
+    """Return the default value of `target_configs` of [`define_common_kernels()`](#define_common_kernels).
     """
-    aarch64_kmi_symbol_lists = native.glob(
+    aarch64_kmi_symbol_list = native.glob(["android/abi_gki_aarch64"])
+    aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
+    aarch64_additional_kmi_symbol_lists = native.glob(
         ["android/abi_gki_aarch64*"],
-        exclude = ["**/*.xml"],
+        exclude = ["**/*.xml", "android/abi_gki_aarch64"],
     )
+    aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
+    aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
+    aarch64_abi_definition = aarch64_abi_definition[0] if aarch64_abi_definition else None
     return {
         "kernel_aarch64": {
-            # Assume the value for KMI_SYMBOL_LIST and ADDITIONAL_KMI_SYMBOL_LISTS
+            # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
             # for build.config.gki.aarch64
-            "kmi_symbol_lists": aarch64_kmi_symbol_lists,
-            # In build.config.gki-debug.aarch64:
-            # - If there are kmi_symbol_lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
-            # - If there aren't:               assume TRIM_NONLISTED_KMI unspecified
-            "trim_nonlisted_kmi": len(aarch64_kmi_symbol_lists) > 0,
+            "kmi_symbol_list": aarch64_kmi_symbol_list,
+            "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+            "abi_definition": aarch64_abi_definition,
+            "kmi_enforced": bool(aarch64_abi_definition),
+            # In build.config.gki.aarch64:
+            # - If there are symbol lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
+            # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
+            "trim_nonlisted_kmi": aarch64_trim_and_check,
+            "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+            "module_outs": GKI_MODULES,
         },
         "kernel_aarch64_debug": {
-            # Assume the value for KMI_SYMBOL_LIST and ADDITIONAL_KMI_SYMBOL_LISTS
+            # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
             # for build.config.gki-debug.aarch64
-            "kmi_symbol_lists": aarch64_kmi_symbol_lists,
+            "kmi_symbol_list": aarch64_kmi_symbol_list,
+            "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+            "abi_definition": aarch64_abi_definition,
+            "kmi_enforced": bool(aarch64_abi_definition),
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
+            "module_outs": GKI_MODULES,
+        },
+        "kernel_x86_64": {
+            "module_outs": GKI_MODULES,
         },
         "kernel_x86_64_debug": {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.x86_64
             "trim_nonlisted_kmi": False,
+            "module_outs": GKI_MODULES,
         },
     }
 
@@ -104,93 +134,9 @@ def _filter_keys(d, valid_keys, what):
         ))
     return ret
 
-def _select_notrim_target(name, build_value):
-    """ Select the correct alias for `<name>_notrim`.
-
-    `<name>_notrim` is an alias to either `<name>_notrim_internal` or `<name>`
-    depending on whether `<name>` trims. This avoids building
-    `<name>_notrim_internal` when it is not necessary.
-
-    Args:
-        name: root name of target
-        build_value: value of `trim_nonlisted_kmi` in `BUILD` files
-    """
-    if build_value:
-        return ":" + name + "_notrim_internal"
-    return ":" + name
-
-def define_kernel_build_and_notrim(
-        name,
-        visibility,
-        trim_nonlisted_kmi = None,
-        **kwargs):
-    """**DO NOT INVOKE DIRECTLY!**
-
-    Helper function of [`define_common_kernels()`](#define_common_kernels).
-    Macro is exposed so its documentation is emitted in
-    `//build/kernel/kleaf:docs`.
-
-    This macro create `kernel_build` targets with and without trimming.
-
-    If `trim_nonlisted_kmi`, also create a `{name}_notrim` target that does
-    not trim to support ABI monitoring. If not `trim_nonlisted_kmi`, the
-    `{name}_notrim` target is an alias to `{name}`.
-
-    If `kmi_configs` is not set explicitly in `define_common_kernels()`:
-
-    |                                   |trim?         |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64`                   |TRIM          |
-    |(with symbol lists)                |              |
-    |(`trim_nonlisted_kmi=default_true`)|              |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64`                   |NO TRIM       |
-    |(no symbol lists)                  |              |
-    |(`trim_nonlisted_kmi=None`)        |              |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64_notrim`            |NO TRIM       |
-    |(`trim_nonlisted_kmi=False`)       |              |
-    |-----------------------------------|--------------|
-    |`kernel_aarch64_debug`             |NO TRIM       |
-    |(`trim_nonlisted_kmi=False`)       |              |
-    |-----------------------------------|--------------|
-    |`kernel_x86_64`                    |NO TRIM       |
-    |(`trim_nonlisted_kmi=None`)        |              |
-    |-----------------------------------|--------------|
-    |`kernel_x86_64_debug`              |NO TRIM       |
-    |(`trim_nonlisted_kmi=False`)       |              |
-
-    Args:
-      name: name of the main `kernel_build`
-      visibility: visibility of the main `kernel_build`.
-        Does not apply to `{name}_notrim`.
-      trim_nonlisted_kmi: whether `name` trims non-listed KMI
-      kwargs: passthrough to `kernel_build`
-    """
-
-    kernel_build(
-        name = name,
-        visibility = visibility,
-        trim_nonlisted_kmi = trim_nonlisted_kmi,
-        **kwargs
-    )
-
-    # <name>_notrim_internal target: trimming is always disabled.
-    kernel_build(
-        name = name + "_notrim_internal",
-        trim_nonlisted_kmi = False,
-        **kwargs
-    )
-
-    # <name>_notrim target: alias to the target with no trimming. This avoids
-    # building the extra <name>_notrim_internal target when it is not necessary.
-    native.alias(
-        name = name + "_notrim",
-        actual = _select_notrim_target(name, trim_nonlisted_kmi),
-    )
-
 def define_common_kernels(
-        kmi_configs = None,
+        branch = None,
+        target_configs = None,
         toolchain_version = None,
         visibility = None):
     """Defines common build targets for Android Common Kernels.
@@ -238,6 +184,20 @@ def define_common_kernels(
     - `kernel_aarch64_kythe_dist`
       - `kernel_aarch64_kythe`
 
+    Targets declared for Bazel rules analysis for debugging purposes:
+    - `kernel_aarch64_print_configs`
+    - `kernel_aarch64_debug_print_configs`
+    - `kernel_x86_64_print_configs`
+    - `kernel_x86_64_debug_print_configs`
+
+    **ABI monitoring**
+    On branches with ABI monitoring turned on (aka KMI symbol lists are checked
+    in; see argument `target_configs`), the following targets are declared:
+
+    - `kernel_aarch64_abi`
+
+    See [`kernel_build_abi()`](#kernel_build_abi) for details.
+
     **Prebuilts**
 
     You may set the argument `--use_prebuilt_gki` to a GKI prebuilt build number
@@ -276,67 +236,140 @@ def define_common_kernels(
     This is equivalent to specifying `--use_prebuilt_gki=8077484` for all Bazel commands.
 
     Args:
-      kmi_configs: A dictionary, where keys are target names, and
-        values are a dictionary of configurations on the KMI.
+      branch: The value of `BRANCH` in `build.config`. If not set, it is loaded
+        from `common/build.config.constants` **in package `//common`**. Hence,
+        if `define_common_kernels()` is called in a different package, it must
+        be supplied.
+      target_configs: A dictionary, where keys are target names, and
+        values are a dictionary of configurations to override the default
+        configuration for this target.
 
-        The content of `kmi_configs` should match the following variables in
+        The content of `target_configs` should match the following variables in
         `build.config.gki{,-debug}.{aarch64,x86_64}`:
         - `KMI_SYMBOL_LIST`
         - `ADDITIONAL_KMI_SYMBOL_LISTS`
         - `TRIM_NONLISTED_KMI`
+        - `KMI_SYMBOL_LIST_STRICT_MODE`
+        - `GKI_MODULES_LIST` (corresponds to [`kernel_build.module_outs`](#kernel_build-module_outs))
 
-        The keys of the `kmi_configs` may be one of the following:
+        The keys of the `target_configs` may be one of the following:
         - `kernel_aarch64`
         - `kernel_aarch64_debug`
         - `kernel_x86_64`
         - `kernel_x86_64_debug`
 
-        The values of the `kmi_configs` should be a dictionary, where keys
+        The values of the `target_configs` should be a dictionary, where keys
         are one of the following, and values are passed to the corresponding
         argument in [`kernel_build`](#kernel_build):
-        - `kmi_symbol_lists`
+        - `kmi_symbol_list`
+        - `additional_kmi_symbol_lists`
         - `trim_nonlisted_kmi`
+        - `kmi_symbol_list_strict_mode`
+        - `module_outs` (corresponds to `GKI_MODULES_LIST`)
 
-        If an architecture or configuration is not specified in `kmi_configs`,
-        its value is passed to `kernel_build` as `None`, so `kernel_build`
-        decides its default value. See [`kernel_build`](#kernel_build) for
-        the default value of each configuration.
+        A target is configured as follows. A configuration item for this target
+        is determined by the following, in the following order:
 
-        If `kmi_configs` is unspecified or `None`, use sensible defaults:
+        1. `target_configs[target_name][configuration_item]`, if it exists;
+        2. `default_target_configs[target_name][configuration_item]`, if it exists, where
+           `default_target_configs` contains sensible defaults. See below.
+        3. `None`
+
+        For example, to determine the value of `kmi_symbol_list` of `kernel_aarch64`:
+
+        ```
+        if "kernel_aarch64" in target_configs and "kmi_symbol_list" in target_configs["kernel_aarch64"]:
+            value = target_configs["kernel_aarch64"]["kmi_symbol_list"]
+            # Note: if `target_configs["kernel_aarch64"]["kmi_symbol_list"] == None`, it'll be passed
+            # as None, regardless of value in default_target_configs
+        elif "kernel_aarch64" in default_target_configs and "kmi_symbol_list" in default_target_configs["kernel_aarch64"]:
+            value = default_target_configs["kernel_aarch64"]["kmi_symbol_list"]
+        else:
+            value = None
+
+        kernel_build(..., kmi_symbol_list = value)
+        ```
+
+        The `default_target_configs` above contains sensible defaults:
         - `kernel_aarch64`:
-          - `kmi_symbol_lists = glob(["android/abi_gki_aarch64*"])`
-          - `TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}` in `build.config`
+          - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
+          - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
+          - `TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}` in `build.config` if there are symbol lists, else empty
+          - `KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}` in `build.config` if there are symbol lists, else empty
         - `kernel_aarch64_debug`:
-          - `kmi_symbol_lists = glob(["android/abi_gki_aarch64*"])`
+          - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
+          - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
           - `TRIM_NONLISTED_KMI=""` in `build.config`
+          - `KMI_SYMBOL_LIST_STRICT_MODE=""` in `build.config`
         - `kernel_x86_64`:
-          - No `kmi_symbol_lists`
+          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
           - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
         - `kernel_x86_64_debug`:
-          - No `kmi_symbol_lists`
+          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
           - `TRIM_NONLISTED_KMI=""` in `build.config`
+          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
 
         That is, the default value is:
         ```
-        aarch64_kmi_symbol_lists = native.glob(["android/abi_gki_aarch64*"])
-        kmi_configs = {
+        aarch64_kmi_symbol_list = glob(["android/abi_gki_aarch64"])
+        aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
+        aarch64_additional_kmi_symbol_lists = glob(
+            ["android/abi_gki_aarch64*"],
+            exclude = ["**/*.xml", "android/abi_gki_aarch64"],
+        )
+        aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
+        default_target_configs = {
             "kernel_aarch64": {
-                "kmi_symbol_lists": aarch64_kmi_symbol_lists,
-                "trim_nonlisted_kmi": len(aarch64_kmi_symbol_lists) > 0,
+                "kmi_symbol_list": aarch64_kmi_symbol_list,
+                "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+                "trim_nonlisted_kmi": aarch64_trim_and_check,
+                "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+                "module_outs": GKI_MODULES,
             },
             "kernel_aarch64_debug": {
-                "kmi_symbol_lists": aarch64_kmi_symbol_lists,
+                "kmi_symbol_list": aarch64_kmi_symbol_list,
+                "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
                 "trim_nonlisted_kmi": False,
+                "module_outs": GKI_MODULES,
+            },
+            "kernel_x86_64": {
+                "module_outs": GKI_MODULES,
             },
             "kernel_x86_64_debug": {
                 "trim_nonlisted_kmi": False,
+                "module_outs": GKI_MODULES,
             },
         }
         ```
 
-        See [`define_kernel_build_and_notrim()`](#define_kernel_build_and_notrim)
-        for a table of whether trimming is enabled on a certain target
-        if `kmi_configs` is using defaults.
+        If `target_configs` is not set explicitly in `define_common_kernels()`:
+
+        |                                   |trim?         |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64`                   |TRIM          |
+        |(with symbol lists)                |              |
+        |(`trim_nonlisted_kmi=True`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64`                   |NO TRIM       |
+        |(no symbol lists)                  |              |
+        |(`trim_nonlisted_kmi=None`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64_debug`             |NO TRIM       |
+        |(`trim_nonlisted_kmi=False`)       |              |
+        |-----------------------------------|--------------|
+        |`kernel_x86_64`                    |NO TRIM       |
+        |(`trim_nonlisted_kmi=None`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_x86_64_debug`              |NO TRIM       |
+        |(`trim_nonlisted_kmi=False`)       |              |
+
+        To print the actual configurations for debugging purposes for e.g.
+        `//common:kernel_aarch64`:
+
+        ```
+        bazel build //common:kernel_aarch64_print_configs
+        ```
 
       toolchain_version: If not set, use default value in `kernel_build`.
       visibility: visibility of the `kernel_build` and targets defined for downloaded prebuilts.
@@ -345,17 +378,32 @@ def define_common_kernels(
         See [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
     """
 
+    if branch == None and native.package_name() == "common":
+        branch = BRANCH
+    if branch == None:
+        fail("//{package}: define_common_kernels() must have branch argument.")
+
     if visibility == None:
         visibility = ["//visibility:public"]
 
-    if kmi_configs == None:
-        kmi_configs = _default_kmi_configs()
-    if kmi_configs:
-        kmi_configs = _filter_keys(
-            kmi_configs,
-            valid_keys = _ARCH_CONFIGS.keys(),
-            what = "//{package}: kmi_configs".format(package = native.package_name()),
+    default_target_configs = None  # _default_target_configs is lazily evaluated.
+    if target_configs == None:
+        target_configs = {}
+    for name in _ARCH_CONFIGS.keys():
+        target_configs[name] = _filter_keys(
+            target_configs.get(name, {}),
+            valid_keys = _TARGET_CONFIG_VALID_KEYS,
+            what = '//{package}:{name}: target_configs["{name}"]'.format(
+                package = native.package_name(),
+                name = name,
+            ),
         )
+        for key in _TARGET_CONFIG_VALID_KEYS:
+            if key not in target_configs[name]:
+                # Lazily evaluate default_target_configs
+                if default_target_configs == None:
+                    default_target_configs = _default_target_configs()
+                target_configs[name][key] = default_target_configs.get(name, {}).get(key)
 
     for name, arch_config in _ARCH_CONFIGS.items():
         native.filegroup(
@@ -370,15 +418,23 @@ def define_common_kernels(
             ),
         )
 
-        kmi_config = _filter_keys(
-            kmi_configs.get(name, {}),
-            valid_keys = _KMI_CONFIG_VALID_KEYS,
-            what = '//{package}:{name}: kmi_configs["{name}"]'.format(
-                package = native.package_name(),
-                name = name,
-            ),
+        target_config = target_configs[name]
+
+        all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
+        all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
+        if target_config.get("kmi_symbol_list"):
+            all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
+        native.filegroup(
+            name = name + "_all_kmi_symbol_lists",
+            srcs = all_kmi_symbol_lists,
         )
-        define_kernel_build_and_notrim(
+
+        print_debug(
+            name = name + "_print_configs",
+            content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
+        )
+
+        kernel_build_abi(
             name = name,
             srcs = [name + "_sources"],
             outs = arch_config["outs"],
@@ -390,16 +446,24 @@ def define_common_kernels(
                 "certs/signing_key.pem",
                 "certs/signing_key.x509",
             ],
-            module_outs = GKI_MODULES,
             build_config = arch_config["build_config"],
             visibility = visibility,
+            define_abi_targets = bool(target_config.get("kmi_symbol_list")),
+            # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
+            module_grouping = None,
+            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             toolchain_version = toolchain_version,
-            **kmi_config
+            **target_config
         )
 
         kernel_modules_install(
             name = name + "_modules_install",
             kernel_modules = [],
+            kernel_build = name,
+        )
+
+        kernel_unstripped_modules_archive(
+            name = name + "_unstripped_modules_archive",
             kernel_build = name,
         )
 
@@ -415,7 +479,14 @@ def define_common_kernels(
             ],
         )
 
-        # Everything in name + "_dist", minus UAPI headers, because
+        # module_staging_archive from <name>
+        native.filegroup(
+            name = name + "_modules_staging_archive",
+            srcs = [name],
+            output_group = "modules_staging_archive",
+        )
+
+        # Everything in name + "_dist", minus UAPI headers & DDK, because
         # device-specific external kernel modules may install different headers.
         native.filegroup(
             name = name + "_additional_artifacts",
@@ -428,14 +499,40 @@ def define_common_kernels(
             ],
         )
 
+        # Everything in name + "_dist" for the DDK.
+        # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
+        # development. Hence they are also added to kernel_*_dist so they can be downloaded.
+        # Note: This poke into details of kernel_build!
+        native.filegroup(
+            name = name + "_ddk_artifacts",
+            srcs = [
+                name + "_modules_prepare",
+                name + "_modules_staging_archive",
+            ],
+        )
+
+        dist_targets = [
+            name,
+            name + "_uapi_headers",
+            name + "_unstripped_modules_archive",
+            name + "_additional_artifacts",
+            name + "_ddk_artifacts",
+            # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
+            "//build/kernel:gki_certification_tools",
+        ]
+
         copy_to_dist_dir(
             name = name + "_dist",
-            data = [
-                name,
-                name + "_uapi_headers",
-                name + "_additional_artifacts",
-            ],
+            data = dist_targets,
             flat = True,
+            dist_dir = "out/{branch}/dist".format(branch = BRANCH),
+        )
+
+        copy_to_dist_dir(
+            name = name + "_abi_dist",
+            data = dist_targets + [name + "_abi"],
+            flat = True,
+            dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
         )
 
     native.alias(
@@ -505,6 +602,19 @@ def _define_prebuilts(**kwargs):
                 ":use_prebuilt_gki_set": [":" + name + "_downloaded"],
                 "//conditions:default": [source_package_name],
             }),
+            deps = select({
+                ":use_prebuilt_gki_set": [
+                    source_package_name + "_ddk_artifacts_downloaded",
+                    source_package_name + "_unstripped_modules_archive_download",
+                ],
+                "//conditions:default": [
+                    source_package_name + "_ddk_artifacts",
+                    # unstripped modules come from {name} in srcs
+                ],
+            }),
+            kernel_srcs = [source_package_name + "_sources"],
+            kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",
+            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             **kwargs
         )
 
