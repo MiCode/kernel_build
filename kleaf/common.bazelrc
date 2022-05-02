@@ -23,6 +23,7 @@ build --experimental_strict_action_env
 
 # Add support for various configs
 import %workspace%/build/kernel/kleaf/bazelrc/ants.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/android_ci.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/local.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/fast.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/rbe.bazelrc
