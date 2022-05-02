@@ -540,6 +540,14 @@ def define_common_kernels(
             dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
         )
 
+        native.test_suite(
+            name = name + "_tests",
+            tests = [
+                name + "_test",
+                name + "_modules_test",
+            ],
+        )
+
     native.alias(
         name = "kernel",
         actual = ":kernel_aarch64",
