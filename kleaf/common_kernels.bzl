@@ -42,6 +42,11 @@ _ARCH_CONFIGS = {
         "build_config": "build.config.gki.aarch64",
         "outs": aarch64_outs,
     },
+    "kernel_aarch64_interceptor": {
+        "build_config": "build.config.gki.aarch64",
+        "outs": aarch64_outs,
+        "enable_interceptor": True,
+    },
     "kernel_aarch64_debug": {
         "build_config": "build.config.gki-debug.aarch64",
         "outs": aarch64_outs,
@@ -451,6 +456,7 @@ def define_common_kernels(
                 "certs/signing_key.x509",
             ],
             build_config = arch_config["build_config"],
+            enable_interceptor = arch_config.get("enable_interceptor"),
             visibility = visibility,
             define_abi_targets = bool(target_config.get("kmi_symbol_list")),
             # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
@@ -459,6 +465,9 @@ def define_common_kernels(
             toolchain_version = toolchain_version,
             **target_config
         )
+
+        if arch_config.get("enable_interceptor"):
+            continue
 
         kernel_modules_install(
             name = name + "_modules_install",
@@ -560,12 +569,12 @@ def define_common_kernels(
 
     kernel_compile_commands(
         name = "kernel_aarch64_compile_commands",
-        kernel_build = ":kernel_aarch64",
+        kernel_build = ":kernel_aarch64_interceptor",
     )
 
     kernel_kythe(
         name = "kernel_aarch64_kythe",
-        kernel_build = ":kernel_aarch64",
+        kernel_build = ":kernel_aarch64_interceptor",
         compile_commands = ":kernel_aarch64_compile_commands",
     )
 

@@ -166,6 +166,7 @@ def kernel_build(
         trim_nonlisted_kmi = None,
         kmi_symbol_list_strict_mode = None,
         collect_unstripped_modules = None,
+        enable_interceptor = None,
         toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -377,6 +378,8 @@ def kernel_build(
         collect_unstripped_modules: If `True`, provide all unstripped in-tree.
 
           Approximately equivalent to `UNSTRIPPED_MODULES=*` in `build.sh`.
+        enable_interceptor: If set to `True`, enable interceptor so it can be
+          used in [`kernel_compile_commands`](#kernel_compile_commands).
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
@@ -470,6 +473,7 @@ def kernel_build(
         kernel_uapi_headers = uapi_headers_target_name,
         collect_unstripped_modules = collect_unstripped_modules,
         combined_abi_symbollist = abi_symbollist_target_name if all_kmi_symbol_lists else None,
+        enable_interceptor = enable_interceptor,
         **kwargs
     )
 
@@ -1567,7 +1571,9 @@ def _kernel_build_impl(ctx):
     out_dir_kernel_headers_tar = ctx.actions.declare_file(
         "{name}/out-dir-kernel-headers.tar.gz".format(name = ctx.label.name),
     )
-    interceptor_output = ctx.actions.declare_file("{name}/interceptor_output.bin".format(name = ctx.label.name))
+    interceptor_output = None
+    if ctx.attr.enable_interceptor:
+        interceptor_output = ctx.actions.declare_file("{name}/interceptor_output.bin".format(name = ctx.label.name))
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
 
     unstripped_dir = None
@@ -1579,8 +1585,9 @@ def _kernel_build_impl(ctx):
         ruledir,
         modules_staging_archive,
         out_dir_kernel_headers_tar,
-        interceptor_output,
     ]
+    if interceptor_output:
+        command_outputs.append(interceptor_output)
     for d in all_output_files.values():
         command_outputs += d.values()
     if unstripped_dir:
@@ -1588,6 +1595,12 @@ def _kernel_build_impl(ctx):
 
     command = ""
     command += ctx.attr.config[_KernelEnvInfo].setup
+
+    interceptor_command_prefix = ""
+    if interceptor_output:
+        interceptor_command_prefix = "interceptor -r -l {interceptor_output} --".format(
+            interceptor_output = interceptor_output.path,
+        )
 
     if kbuild_mixed_tree:
         command += """
@@ -1621,7 +1634,7 @@ def _kernel_build_impl(ctx):
 
     command += """
          # Actual kernel build
-           interceptor -r -l {interceptor_output} -- make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
+           {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
          # Set variables and create dirs for modules
            if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
              module_strip_flag="INSTALL_MOD_STRIP=1"
@@ -1671,7 +1684,7 @@ def _kernel_build_impl(ctx):
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
-        interceptor_output = interceptor_output.path,
+        interceptor_command_prefix = interceptor_command_prefix,
         label = ctx.label,
     )
 
@@ -1803,6 +1816,7 @@ _kernel_build = rule(
             allow_single_file = True,
         ),
         "collect_unstripped_modules": attr.bool(),
+        "enable_interceptor": attr.bool(),
         "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
         "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
@@ -3632,6 +3646,8 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
 
 def _kernel_compile_commands_impl(ctx):
     interceptor_output = ctx.attr.kernel_build[_KernelBuildInfo].interceptor_output
+    if not interceptor_output:
+        fail("{}: kernel_build {} does not have enable_interceptor = True.".format(ctx.label, ctx.attr.kernel_build.label))
     compile_commands = ctx.actions.declare_file(ctx.attr.name + "/compile_commands.json")
     inputs = [interceptor_output]
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
@@ -4109,6 +4125,7 @@ def kernel_build_abi(
             name = name + "_abi",
             srcs = default_outputs,
         )
+
         # For kernel_build_abi_dist to use when define_abi_targets is not set.
         exec(
             name = name + "_abi_diff_executable",
