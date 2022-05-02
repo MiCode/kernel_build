@@ -95,7 +95,7 @@ docs(
     deps = [
         "utils.bzl",
         "//build/bazel_common_rules/dist",
-        "//build/bazel_common_rules/exec:exec",
+        "//build/bazel_common_rules/exec",
         "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
@@ -129,4 +129,13 @@ py_test(
     name = "check_declared_output_list_test",
     srcs = ["check_declared_output_list_test.py"],
     python_version = "PY3",
+)
+
+# Quick test on Kleaf static definitions and scripts, but not built artifacts
+test_suite(
+    name = "quick_tests",
+    tests = [
+        "//build/bazel_common_rules/exec/tests",
+        "//prebuilts/build-tools/tests",
+    ],
 )
