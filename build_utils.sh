@@ -380,7 +380,7 @@ function build_boot_images() {
     elif [ -z "${SKIP_VENDOR_BOOT}" ]; then
       VENDOR_BOOT_NAME="vendor_boot.img"
     fi
-    if [ -n ${VENDOR_BOOT_NAME} ]; then
+    if [ -n "${VENDOR_BOOT_NAME}" ]; then
       MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/${VENDOR_BOOT_NAME}")
       if [ -n "${KERNEL_VENDOR_CMDLINE}" ]; then
         MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
