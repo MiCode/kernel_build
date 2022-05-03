@@ -254,7 +254,7 @@ save disk space, you may run `bazel clean`. See
 documentation for the `clean` command
 [here](https://bazel.build/docs/user-manual#cleaning-build-outputs).
 
-## cp: <workspace\_root>/out/bazel/output\_user\_root/[...]/execroot/\_\_main\_\_/[...]/[...]_defconfig: Read-only file system
+## cp: <workspace\_root>/out/bazel/output\_user\_root/[...]/execroot/\_\_main\_\_/[...]/[...]_defconfig: Read-only file system {#defconfig-readonly}
 
 This is likely because a previous build from one of the following does not clean
 up the `$ROOT_DIR/$KERNEL_DIR/$DEFCONFIG` file:
@@ -265,16 +265,24 @@ up the `$ROOT_DIR/$KERNEL_DIR/$DEFCONFIG` file:
 These may cause `POST_DEFCONFIG_CMDS` to not being executed. Or
 `POST_DEFCONFIG_CMDS` is not defined to clean up `$DEFCONFIG`.
 
-A temporary workaround is to manually delete the generated
-`$DEFCONFIG` file in the source tree. After cleaning up the file,
-you may also stick with sandboxed builds (i.e. not using `--config=local`)
-to prevent this in the future. See [sandbox.md](sandbox.md).
+To restore the workspace to a build-able state, manually delete the generated
+`$DEFCONFIG` file in the source tree.
 
 **HINT**: You may execute the Bazel command with
 `--experimental_strip_sandbox_path` to get a cleaner path of the file that needs
 to be deleted.
 
-[comment]: <> (Bug 229309039)
+To prevent `--config=local` builds from writing `$DEFCONFIG` into
+the source tree in the future, you may modify `PRE_DEFCONFIG_CMDS` to
+write to `\${OUT_DIR}` instead. Note that because `${OUT_DIR}` is not
+defined when `build.config` is loaded, the preceding `$` must be escaped
+so `$OUT_DIR` is evaluated properly when `$PRE_DEFCONFIG_CMDS` are executed.
+
+You may also stick with sandboxed builds (i.e. not using `--config=local`)
+to prevent this in the future. See [sandbox.md](sandbox.md).
+
+See
+[CL:2082199](https://android-review.googlesource.com/2082199) for an example.
 
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
