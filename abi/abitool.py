@@ -216,7 +216,7 @@ def _collapse_stgdiff_CRC_changes(text: str, limit: int) -> str:
         Updated report text.
     """
     section_regex = re.compile(r"^[^ \n]")
-    symbol_regex = re.compile(r"^symbol '[^']*' ")
+    symbol_regex = re.compile(r"^symbol ")
     symbol_changed_regex = re.compile(r"^symbol '[^']*' changed$")
     crc_regex = re.compile(r"^  CRC changed from [^ ]* to [^ ]*$")
     blank_regex = re.compile(r"^$")
