@@ -87,6 +87,7 @@ _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 * [`BUILD_DTBO_IMG`](#build_dtbo_img)
 * [`DTS_EXT_DIR`](#dts_ext_dir)
 * [`BUILD_GKI_CERTIFICATION_TOOLS`](#build_gki_certification_tools)
+* [`BUILD_VENDOR_KERNEL_BOOT`](#build_vendor_kernel_boot)
 
 ## BUILD\_CONFIG
 
@@ -627,6 +628,14 @@ Add `//build/kernel:gki_certification_tools` to your `copy_to_dist_dir()` macro
 invocation.
 
 See [build/kernel/BUILD.bazel](../../BUILD.bazel).
+
+## BUILD\_VENDOR\_KERNEL\_BOOT
+
+```python
+kernel_images(build_vendor_kernel_boot=...)
+```
+
+See [documentation for all rules].
 
 [documentation for all rules]: https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html
 
