@@ -51,6 +51,17 @@ The name of the config `local` comes from the value `local` in `--strategy`. See
 Bazel's official documentation on `--strategy`
 [here](https://bazel.build/reference/command-line-reference#flag--strategy).
 
+## SCM version
+
+When `--config=local`, some actions run in the sandbox and some
+does not. To ensure that both kinds of actions get consistent values,
+SCM versions and `SOURCE_DATE_EPOCH` should be set to empty or
+0 values; i.e. `--config=stamp` should not be set.
+If you specify `--config=local` and `--config=stamp` simultaneously,
+you'll get a build error.
+
+See [scmversion.md](scmversion.md).
+
 ## Other flags
 
 The flag `--config=local` is also implied by other flags, e.g.:

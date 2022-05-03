@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Let rules know what configs we are using now
-build:release --//build/kernel/kleaf:config_release
+build:stamp --//build/kernel/kleaf:config_stamp
 
 # Embed scmversion
-build:release --config=stamp
+build:stamp --workspace_status_command=build/kernel/kleaf/workspace_status.sh

@@ -45,6 +45,9 @@ def define_kleaf_workspace(common_kernel_package = None):
     key_value_repo(
         name = "kernel_toolchain_info",
         srcs = ["//{}:build.config.constants".format(common_kernel_package)],
+        additional_values = {
+            "common_kernel_package": common_kernel_package,
+        },
     )
 
     download_artifacts_repo(

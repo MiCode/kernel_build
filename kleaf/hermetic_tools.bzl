@@ -48,40 +48,19 @@ def _hermetic_tools_impl(ctx):
     hermetic_outs = hermetic_outs_dict.values()
     all_outputs += hermetic_outs
     deps += hermetic_outs
-    deps.append(ctx.file._no_host_tool)
 
-    for attr in ("host_tools", "test_host_tools", "optional_host_tools"):
+    for attr in ("host_tools", "test_host_tools"):
         host_outs = getattr(ctx.outputs, attr)
-        if attr == "optional_host_tools":
-            link_one_cmd = """
-                (
-                    actual=$({hermetic_base}/which $({hermetic_base}/basename $i) || {hermetic_base}/true)
-                    if [[ -n "$actual" ]]; then
-                        {hermetic_base}/ln -s "$actual" $i
-                    else
-                        {hermetic_base}/ln -s $({hermetic_base}/readlink -e {no_host_tool}) $i
-                    fi
-                )
-            """.format(
-                hermetic_base = hermetic_outs[0].dirname,
-                no_host_tool = ctx.file._no_host_tool.path,
-            )
-        else:
-            link_one_cmd = """
-                {hermetic_base}/ln -s $({hermetic_base}/which $({hermetic_base}/basename $i)) $i
-            """.format(
-                hermetic_base = hermetic_outs[0].dirname,
-            )
         command = """
             set -e
           # export PATH so which can work
             export PATH
             for i in {host_outs}; do
-                {link_one_cmd}
+                {hermetic_base}/ln -s $({hermetic_base}/which $({hermetic_base}/basename $i)) $i
             done
         """.format(
             host_outs = " ".join([f.path for f in host_outs]),
-            link_one_cmd = link_one_cmd,
+            hermetic_base = hermetic_outs[0].dirname,
         )
         ctx.actions.run_shell(
             inputs = deps,
@@ -95,7 +74,7 @@ def _hermetic_tools_impl(ctx):
         )
         all_outputs += host_outs
 
-    deps += ctx.outputs.host_tools + ctx.outputs.optional_host_tools
+    deps += ctx.outputs.host_tools
 
     fail_hard = """
          # error on failures
@@ -129,11 +108,9 @@ _hermetic_tools = rule(
     attrs = {
         "host_tools": attr.output_list(),
         "test_host_tools": attr.output_list(),
-        "optional_host_tools": attr.output_list(),
         "outs": attr.output_list(),
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
-        "_no_host_tool": attr.label(default = "//build/kernel/kleaf:no_host_tool.sh", allow_single_file = True),
     },
 )
 
@@ -142,7 +119,6 @@ def hermetic_tools(
         srcs,
         host_tools = None,
         test_host_tools = None,
-        optional_host_tools = None,
         deps = None):
     """Provide tools for a hermetic build.
 
@@ -154,11 +130,6 @@ def hermetic_tools(
         host_tools: An allowlist of names of tools that are allowed to be used from the host.
 
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
-        optional_host_tools: An allowlist of names of optional tools that are allowed to be used from the host.
-
-          For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
-
-          If `{tool}` is not found from host, a build action executing the tool will always return a non-zero status.
         test_host_tools: An allowlist of names of tools that are allowed to be used from the host for testing only.
 
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
@@ -171,9 +142,6 @@ def hermetic_tools(
     if test_host_tools:
         test_host_tools = ["{}/{}".format(name, tool) for tool in test_host_tools]
 
-    if optional_host_tools:
-        optional_host_tools = ["{}/{}".format(name, tool) for tool in optional_host_tools]
-
     outs = None
     if srcs:
         outs = ["{}/{}".format(name, paths.basename(src)) for src in srcs]
@@ -184,6 +152,5 @@ def hermetic_tools(
         outs = outs,
         host_tools = host_tools,
         test_host_tools = test_host_tools,
-        optional_host_tools = optional_host_tools,
         deps = deps,
     )

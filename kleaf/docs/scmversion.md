@@ -8,6 +8,22 @@ SCM version refers to the result of the `scripts/setlocalversion` script.
   release string, after the kernel version.
 - For kernel modules `*.ko`, SCM version can be found using `modinfo(8)`.
 
+## The `stamp` config
+
+Embedding the SCM version:
+- Introduces extra overhead for every `bazel` command
+- Unnecessarily triggers rebuilds when unrelated code changes
+
+The SCM version is only embedded when `--config=stamp` is set.
+
+On a developer's machine, the configuration is not set by default.
+
+### Other flags
+
+The flag `--config=stamp` is also implied by other flags, e.g.:
+
+* `--config=release`. See [release.md](release.md).
+
 ## Handling SCM version in `kernel_build`
 
 For `kernel_build()` that produces `vmlinux`, the following is required to embed

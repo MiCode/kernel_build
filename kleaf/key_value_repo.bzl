@@ -7,6 +7,9 @@ def _impl(repository_ctx):
             key, value = line.split("=", 1)
             repository_content += '{} = "{}"\n'.format(key.strip(), value.strip())
 
+    for key, value in repository_ctx.attr.additional_values.items():
+        repository_content += '{} = "{}"\n'.format(key, value)
+
     repository_ctx.file("BUILD", """
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 bzl_library(
@@ -47,8 +50,13 @@ and users of the repository can refer to the values with
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 ```
 """,
-    attrs = {"srcs": attr.label_list(
-        mandatory = True,
-        doc = "Configuration files storing 'key=value' pairs.",
-    )},
+    attrs = {
+        "srcs": attr.label_list(
+            mandatory = True,
+            doc = "Configuration files storing 'key=value' pairs.",
+        ),
+        "additional_values": attr.string_dict(
+            doc = "Additional values in `dict.bzl`",
+        ),
+    },
 )
