@@ -3113,7 +3113,6 @@ def _boot_images_impl(ctx):
         """
     else:
         fail("{}: unknown vendor_boot_name {}".format(ctx.label, ctx.attr.vendor_boot_name))
-    print(vendor_boot_flag_cmd)
 
     if ctx.files.vendor_ramdisk_binaries:
         # build_utils.sh uses singular VENDOR_RAMDISK_BINARY
