@@ -98,6 +98,9 @@ to be built as external kernel modules. This means keeping the list
 of `module_outs` empty or as short as possible. See Step 2 for building external
 kernel modules.
 
+For other build configurations defined in the `build.config` file, see
+[build_configs.md](build_configs.md).
+
 Example for Pixel 2021 (see the `kernel_build` target named `slider`):
 
 [https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)

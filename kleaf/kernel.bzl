@@ -3045,8 +3045,24 @@ def _boot_images_impl(ctx):
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
 
     vendor_boot_flag_cmd = ""
-    if not ctx.attr.build_vendor_boot:
-        vendor_boot_flag_cmd = "SKIP_VENDOR_BOOT=1"
+    if ctx.attr.vendor_boot_name == None:
+        vendor_boot_flag_cmd = """
+            SKIP_VENDOR_BOOT=1
+            BUILD_VENDOR_KERNEL_BOOT=
+        """
+    elif ctx.attr.vendor_boot_name == "vendor_boot":
+        vendor_boot_flag_cmd = """
+            SKIP_VENDOR_BOOT=
+            BUILD_VENDOR_KERNEL_BOOT=
+        """
+    elif ctx.attr.vendor_boot_name == "vendor_kernel_boot":
+        vendor_boot_flag_cmd = """
+            SKIP_VENDOR_BOOT=
+            BUILD_VENDOR_KERNEL_BOOT=1
+        """
+    else:
+        fail("{}: unknown vendor_boot_name {}".format(ctx.label, ctx.attr.vendor_boot_name))
+    print(vendor_boot_flag_cmd)
 
     if ctx.files.vendor_ramdisk_binaries:
         # build_utils.sh uses singular VENDOR_RAMDISK_BINARY
@@ -3119,7 +3135,11 @@ Execute `build_boot_images` in `build_utils.sh`.""",
             allow_single_file = True,
             default = "//tools/mkbootimg:mkbootimg.py",
         ),
-        "build_vendor_boot": attr.bool(),
+        "vendor_boot_name": attr.string(doc = """
+* If `"vendor_boot"`, build `vendor_boot.img`
+* If `"vendor_kernel_boot"`, build `vendor_kernel_boot.img`
+* If `None`, skip `vendor_boot`.
+""", values = ["vendor_boot", "vendor_kernel_boot"]),
         "vendor_ramdisk_binaries": attr.label_list(allow_files = True),
         "_debug_print_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_print_scripts",
@@ -3182,6 +3202,7 @@ def kernel_images(
         build_vendor_dlkm = None,
         build_boot = None,
         build_vendor_boot = None,
+        build_vendor_kernel_boot = None,
         build_system_dlkm = None,
         build_dtbo = None,
         dtbo_srcs = None,
@@ -3253,12 +3274,27 @@ def kernel_images(
 
           This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
           `build_initramfs` is implicitly true, and `kernel_build` must be set.
-        build_vendor_boot: Whether to build `vendor_boot` image. It must be set if either
-          `BUILD_BOOT_IMG` or `BUILD_VENDOR_BOOT_IMG` is set, and `SKIP_VENDOR_BOOT` is not set.
+        build_vendor_boot: Whether to build `vendor_boot.img`. It must be set if either
+          `BUILD_BOOT_IMG` or `BUILD_VENDOR_BOOT_IMG` is set, and `SKIP_VENDOR_BOOT` is not set,
+          and `BUILD_VENDOR_KERNEL_BOOT` is not set.
+
+          At most **one** of `build_vendor_boot` and `build_vendor_kernel_boot` may be set to
+          `True`.
 
           If `True`, requires `build_boot = True`.
 
-          If `True`, adds `vendor-boot.img` to `boot_image_outs` if not already in the list.
+          If `True`, adds `vendor_boot.img` to `boot_image_outs` if not already in the list.
+
+        build_vendor_kernel_boot: Whether to build `vendor_kernel_boot.img`. It must be set if either
+          `BUILD_BOOT_IMG` or `BUILD_VENDOR_BOOT_IMG` is set, and `SKIP_VENDOR_BOOT` is not set,
+          and `BUILD_VENDOR_KERNEL_BOOT` is set.
+
+          At most **one** of `build_vendor_boot` and `build_vendor_kernel_boot` may be set to
+          `True`.
+
+          If `True`, requires `build_boot = True`.
+
+          If `True`, adds `vendor_kernel_boot.img` to `boot_image_outs` if not already in the list.
         build_dtbo: Whether to build dtbo image. Keep this in sync with `BUILD_DTBO_IMG`.
 
           If `dtbo_srcs` is non-empty, `build_dtbo` is `True` by default. Otherwise it is `False`
@@ -3344,8 +3380,14 @@ def kernel_images(
     """
     all_rules = []
 
+    if build_vendor_boot and build_vendor_kernel_boot:
+        fail("{}: build_vendor_boot and build_vendor_kernel_boot must not be set simultaneously.".format(name))
+
     if build_vendor_boot and not build_boot:
         fail("{}: build_vendor_boot = True requires build_boot = True.".format(name))
+
+    if build_vendor_kernel_boot and not build_boot:
+        fail("{}: build_vendor_kernel_boot = True requires build_boot = True.".format(name))
 
     if build_boot:
         if build_initramfs == None:
@@ -3367,8 +3409,12 @@ def kernel_images(
                 "vendor-bootconfig.img",
             ]
 
+    boot_image_outs = list(boot_image_outs)
     if build_vendor_boot and "vendor_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_boot.img")
+
+    if build_vendor_kernel_boot and "vendor_kernel_boot.img" not in boot_image_outs:
+        boot_image_outs.append("vendor_kernel_boot.img")
 
     if build_initramfs:
         _initramfs(
@@ -3405,6 +3451,12 @@ def kernel_images(
         all_rules.append(":{}_vendor_dlkm_image".format(name))
 
     if build_boot:
+        if build_vendor_kernel_boot:
+            vendor_boot_name = "vendor_kernel_boot"
+        elif build_vendor_boot:
+            vendor_boot_name = "vendor_boot"
+        else:
+            vendor_boot_name = None
         _boot_images(
             name = "{}_boot_images".format(name),
             kernel_build = kernel_build,
@@ -3412,7 +3464,7 @@ def kernel_images(
             deps = deps,
             initramfs = ":{}_initramfs".format(name),
             mkbootimg = mkbootimg,
-            build_vendor_boot = build_vendor_boot,
+            vendor_boot_name = vendor_boot_name,
             vendor_ramdisk_binaries = vendor_ramdisk_binaries,
         )
         all_rules.append(":{}_boot_images".format(name))

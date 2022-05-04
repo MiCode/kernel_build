@@ -68,9 +68,10 @@ The flag `--config=local` is also implied by other flags, e.g.:
 
 * `--config=fast`. See [fast.md](fast.md).
 
-## Known issues
+## Common issues
 
-[comment]: <> (Bug 229309039)
+It is possible to see `Read-only file system` errors if a previous
+`--config=local` build was interrupted, especially when it was
+building the defconfig file.
 
-It is possible to see `Read-only file system` errors if a `--config=local` build
-was interrupted. See [errors.md](errors.md) for solutions.
+See [errors.md#defconfig-readonly](errors.md#defconfig-readonly) for solutions.

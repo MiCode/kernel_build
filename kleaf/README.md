@@ -6,6 +6,8 @@
 
 [Building your kernels and drivers with Bazel](docs/impl.md)
 
+[`build.sh` build configs](docs/build_configs.md)
+
 [Handling SCM version](docs/scmversion.md)
 
 [Resolving common errors](docs/errors.md)
