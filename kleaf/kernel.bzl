@@ -4299,7 +4299,9 @@ def kernel_build_abi_dist(
 
     if kwargs.get("data") == None:
         kwargs["data"] = []
-    kwargs["data"] += [kernel_build_abi + "_abi"]
+
+    # Use explicit + to prevent modifying the original list.
+    kwargs["data"] = kwargs["data"] + [kernel_build_abi + "_abi"]
 
     copy_to_dist_dir(
         name = name + "_copy_to_dist_dir",
