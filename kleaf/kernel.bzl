@@ -1661,7 +1661,7 @@ def _kernel_build_impl(ctx):
          # Check if there are remaining *.ko files
            remaining_ko_files=$({check_declared_output_list} \\
                 --declared $(cat {all_module_names_file}) \\
-                --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^./::'))
+                --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^[.]/::'))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
