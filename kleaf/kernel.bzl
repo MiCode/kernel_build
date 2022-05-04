@@ -4130,43 +4130,124 @@ def kernel_build_abi(
     if define_abi_targets and kwargs.get("collect_unstripped_modules") == None:
         kwargs["collect_unstripped_modules"] = True
 
+    _kernel_build_abi_define_other_targets(
+        name = name,
+        define_abi_targets = define_abi_targets,
+        kernel_modules = kernel_modules,
+        module_grouping = module_grouping,
+        abi_definition = abi_definition,
+        kmi_enforced = kmi_enforced,
+        unstripped_modules_archive = unstripped_modules_archive,
+        kernel_build_kwargs = kwargs,
+    )
+
     kernel_build(name = name, **kwargs)
 
-    outs_and_vmlinux, added_vmlinux = _kernel_build_outs_add_vmlinux(name, kwargs.get("outs"))
+def _kernel_build_abi_define_other_targets(
+        name,
+        define_abi_targets,
+        kernel_modules,
+        module_grouping,
+        abi_definition,
+        kmi_enforced,
+        unstripped_modules_archive,
+        kernel_build_kwargs):
+    """Helper to `kernel_build_abi`.
+
+    Defines targets other than the main `kernel_build()`.
+
+    Defines:
+    * `{name}_with_vmlinux`
+    * `{name}_notrim` (if `define_abi_targets`)
+    * `{name}_abi_diff_executable`
+    * `{name}_abi`
+    """
+    outs_and_vmlinux, added_vmlinux = _kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
 
     # with_vmlinux: outs += [vmlinux]
     if added_vmlinux:
-        with_vmlinux_kwargs = dict(kwargs)
+        with_vmlinux_kwargs = dict(kernel_build_kwargs)
         with_vmlinux_kwargs["outs"] = _transform_kernel_build_outs(name + "_with_vmlinux", "outs", outs_and_vmlinux)
         kernel_build(name = name + "_with_vmlinux", **with_vmlinux_kwargs)
     else:
         native.alias(name = name + "_with_vmlinux", actual = name)
-
-    default_outputs = []
 
     _kernel_abi_dump(
         name = name + "_abi_dump",
         kernel_build = name + "_with_vmlinux",
         kernel_modules = kernel_modules,
     )
-    default_outputs.append(name + "_abi_dump")
 
     if not define_abi_targets:
-        native.filegroup(
-            name = name + "_abi",
-            srcs = default_outputs,
+        _kernel_build_abi_not_define_abi_targets(
+            name = name,
+            abi_dump_target = name + "_abi_dump",
+        )
+    else:
+        _kernel_build_abi_define_abi_targets(
+            name = name,
+            kernel_modules = kernel_modules,
+            module_grouping = module_grouping,
+            abi_definition = abi_definition,
+            kmi_enforced = kmi_enforced,
+            unstripped_modules_archive = unstripped_modules_archive,
+            added_vmlinux = added_vmlinux,
+            outs_and_vmlinux = outs_and_vmlinux,
+            abi_dump_target = name + "_abi_dump",
+            kernel_build_with_vmlinux_target = name + "_with_vmlinux",
+            kernel_build_kwargs = kernel_build_kwargs,
         )
 
-        # For kernel_build_abi_dist to use when define_abi_targets is not set.
-        exec(
-            name = name + "_abi_diff_executable",
-            script = "",
-        )
-        return
+def _kernel_build_abi_not_define_abi_targets(
+        name,
+        abi_dump_target):
+    """Helper to `_kernel_build_abi_define_other_targets` when `define_abi_targets = False.`
+
+    Defines `{name}_abi` filegroup that only contains the ABI dump, provided
+    in `abi_dump_target`.
+
+    Defines:
+    * `{name}_abi_diff_executable`
+    * `{name}_abi`
+    """
+    native.filegroup(
+        name = name + "_abi",
+        srcs = [abi_dump_target],
+    )
+
+    # For kernel_build_abi_dist to use when define_abi_targets is not set.
+    exec(
+        name = name + "_abi_diff_executable",
+        script = "",
+    )
+
+def _kernel_build_abi_define_abi_targets(
+        name,
+        kernel_modules,
+        module_grouping,
+        abi_definition,
+        kmi_enforced,
+        unstripped_modules_archive,
+        added_vmlinux,
+        outs_and_vmlinux,
+        abi_dump_target,
+        kernel_build_with_vmlinux_target,
+        kernel_build_kwargs):
+    """Helper to `_kernel_build_abi_define_other_targets` when `define_abi_targets = True.`
+
+    Define targets to extract symbol list, extract ABI, update them, etc.
+
+    Defines:
+    * `{name}_notrim`
+    * `{name}_abi_diff_executable`
+    * `{name}_abi`
+    """
+
+    default_outputs = [abi_dump_target]
 
     # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
-    if kwargs.get("trim_nonlisted_kmi") or added_vmlinux:
-        notrim_kwargs = dict(kwargs)
+    if kernel_build_kwargs.get("trim_nonlisted_kmi") or added_vmlinux:
+        notrim_kwargs = dict(kernel_build_kwargs)
         notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", outs_and_vmlinux)
         notrim_kwargs["trim_nonlisted_kmi"] = False
         notrim_kwargs["kmi_symbol_list_strict_mode"] = False
@@ -4184,91 +4265,21 @@ def kernel_build_abi(
     update_source_file(
         name = name + "_abi_update_symbol_list",
         src = name + "_abi_extracted_symbols",
-        dst = kwargs.get("kmi_symbol_list"),
+        dst = kernel_build_kwargs.get("kmi_symbol_list"),
     )
 
-    if abi_definition:
-        native.filegroup(
-            name = name + "_abi_out_file",
-            srcs = [name + "_abi_dump"],
-            output_group = "abi_out_file",
-        )
-
-        _kernel_abi_diff(
-            name = name + "_abi_diff",
-            baseline = abi_definition,
-            new = name + "_abi_out_file",
-            kmi_enforced = kmi_enforced,
-        )
-        default_outputs.append(name + "_abi_diff")
-
-        # The default outputs of _abi_diff does not contain the executable,
-        # but the reports. Use this filegroup to select the executable
-        # so rootpath in _abi_update works.
-        native.filegroup(
-            name = name + "_abi_diff_executable",
-            srcs = [name + "_abi_diff"],
-            output_group = "executable",
-        )
-
-        update_source_file(
-            name = name + "_abi_update_definition",
-            src = name + "_abi_out_file",
-            dst = abi_definition,
-        )
-
-        exec(
-            name = name + "_abi_nodiff_update",
-            data = [
-                name + "_abi_extracted_symbols",
-                name + "_abi_update_definition",
-                kwargs.get("kmi_symbol_list"),
-            ],
-            script = """
-              # Ensure that symbol list is updated
-                if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
-                  echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
-                  exit 1
-                fi
-              # Update abi_definition
-                $(rootpath {update_definition})
-            """.format(
-                src_symbol_list = name + "_abi_extracted_symbols",
-                dst_symbol_list = kwargs.get("kmi_symbol_list"),
-                package = native.package_name(),
-                update_symbol_list_label = name + "_abi_update_symbol_list",
-                update_definition = name + "_abi_update_definition",
-            ),
-        )
-
-        exec(
-            name = name + "_abi_update",
-            data = [
-                name + "_abi_diff_executable",
-                name + "_abi_nodiff_update",
-            ],
-            script = """
-              # Update abi_definition
-                $(rootpath {nodiff_update})
-              # Check return code of diff_abi and kmi_enforced
-                $(rootpath {diff})
-            """.format(
-                diff = name + "_abi_diff_executable",
-                nodiff_update = name + "_abi_nodiff_update",
-            ),
-        )
-    else:
-        # For kernel_build_abi_dist to use when abi_definition is empty.
-        exec(
-            name = name + "_abi_diff_executable",
-            script = "",
-        )
+    default_outputs += _kernel_build_abi_define_abi_definition_targets(
+        name = name,
+        abi_definition = abi_definition,
+        kmi_enforced = kmi_enforced,
+        kmi_symbol_list = kernel_build_kwargs.get("kmi_symbol_list"),
+    )
 
     _kernel_abi_prop(
         name = name + "_abi_prop",
         kmi_definition = name + "_abi_out_file" if abi_definition else None,
         kmi_enforced = kmi_enforced,
-        kernel_build = name + "_with_vmlinux",
+        kernel_build = kernel_build_with_vmlinux_target,
         modules_archive = unstripped_modules_archive,
     )
     default_outputs.append(name + "_abi_prop")
@@ -4277,6 +4288,99 @@ def kernel_build_abi(
         name = name + "_abi",
         srcs = default_outputs,
     )
+
+def _kernel_build_abi_define_abi_definition_targets(
+        name,
+        abi_definition,
+        kmi_enforced,
+        kmi_symbol_list):
+    """Helper to `_kernel_build_abi_define_abi_targets`.
+
+    Defines targets to extract ABI, update ABI, compare ABI, etc. etc.
+
+    Defines `{name}_abi_diff_executable`.
+    """
+    if not abi_definition:
+        # For kernel_build_abi_dist to use when abi_definition is empty.
+        exec(
+            name = name + "_abi_diff_executable",
+            script = "",
+        )
+        return []
+
+    default_outputs = []
+
+    native.filegroup(
+        name = name + "_abi_out_file",
+        srcs = [name + "_abi_dump"],
+        output_group = "abi_out_file",
+    )
+
+    _kernel_abi_diff(
+        name = name + "_abi_diff",
+        baseline = abi_definition,
+        new = name + "_abi_out_file",
+        kmi_enforced = kmi_enforced,
+    )
+    default_outputs.append(name + "_abi_diff")
+
+    # The default outputs of _abi_diff does not contain the executable,
+    # but the reports. Use this filegroup to select the executable
+    # so rootpath in _abi_update works.
+    native.filegroup(
+        name = name + "_abi_diff_executable",
+        srcs = [name + "_abi_diff"],
+        output_group = "executable",
+    )
+
+    update_source_file(
+        name = name + "_abi_update_definition",
+        src = name + "_abi_out_file",
+        dst = abi_definition,
+    )
+
+    exec(
+        name = name + "_abi_nodiff_update",
+        data = [
+            name + "_abi_extracted_symbols",
+            name + "_abi_update_definition",
+            kmi_symbol_list,
+        ],
+        script = """
+              # Ensure that symbol list is updated
+                if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
+                  echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                  exit 1
+                fi
+              # Update abi_definition
+                $(rootpath {update_definition})
+            """.format(
+            src_symbol_list = name + "_abi_extracted_symbols",
+            dst_symbol_list = kmi_symbol_list,
+            package = native.package_name(),
+            update_symbol_list_label = name + "_abi_update_symbol_list",
+            update_definition = name + "_abi_update_definition",
+        ),
+    )
+
+    exec(
+        name = name + "_abi_update",
+        data = [
+            name + "_abi_diff_executable",
+            name + "_abi_nodiff_update",
+        ],
+        script = """
+              # Update abi_definition
+                $(rootpath {nodiff_update})
+              # Check return code of diff_abi and kmi_enforced
+                $(rootpath {diff})
+            """.format(
+            diff = name + "_abi_diff_executable",
+            nodiff_update = name + "_abi_nodiff_update",
+        ),
+    )
+
+    return default_outputs
 
 def kernel_build_abi_dist(
         name,
@@ -4291,6 +4395,8 @@ def kernel_build_abi_dist(
       kernel_build_abi: name of the [`kernel_build_abi`](#kernel_build_abi)
         invocation.
     """
+
+    # TODO(b/231647455): Clean up hard-coded name "_abi" and "_abi_diff_executable".
 
     if kwargs.get("data") == None:
         kwargs["data"] = []
