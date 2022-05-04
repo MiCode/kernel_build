@@ -3879,9 +3879,9 @@ def _kernel_abi_dump_full(ctx):
 
     unstripped_dir_provider_targets = [ctx.attr.kernel_build] + ctx.attr.kernel_modules
     unstripped_dir_providers = [target[_KernelUnstrippedModulesInfo] for target in unstripped_dir_provider_targets]
-    for prov in unstripped_dir_providers:
+    for prov, target in zip(unstripped_dir_providers, unstripped_dir_provider_targets):
         if not prov.directory:
-            fail("{}: Requires dep {} to set collect_unstripped_modules = True".format(ctx.label, prov.label))
+            fail("{}: Requires dep {} to set collect_unstripped_modules = True".format(ctx.label, target.label))
     unstripped_dirs = [prov.directory for prov in unstripped_dir_providers]
 
     inputs = [vmlinux, ctx.file._dump_abi]
