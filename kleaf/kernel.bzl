@@ -2298,9 +2298,10 @@ def kernel_module(
         srcs = srcs,
         kernel_build = kernel_build,
         kernel_module_deps = kernel_module_deps,
-        outs = ["{name}/{out}".format(name = name, out = out) for out in outs] if outs else [],
+        outs = outs,
     )
     kwargs = _kernel_module_set_defaults(kwargs)
+    kwargs["outs"] = ["{name}/{out}".format(name = name, out = out) for out in kwargs["outs"]]
     _kernel_module(**kwargs)
 
     kernel_module_test(
