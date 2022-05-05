@@ -3807,7 +3807,8 @@ def _kernel_extracted_symbols_impl(ctx):
     vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
     in_tree_modules = find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
     srcs = [vmlinux] + in_tree_modules
-    srcs += ctx.files.kernel_modules  # external modules
+    for kernel_module in ctx.attr.kernel_modules:  # external modules
+        srcs += kernel_module[_KernelModuleInfo].files
 
     inputs = [ctx.file._extract_symbols]
     inputs += srcs
@@ -3845,7 +3846,7 @@ _kernel_extracted_symbols = rule(
         #   know the toolchain_version ahead of time.
         # - We also don't have the necessity to extract symbols from prebuilts.
         "kernel_build_notrim": attr.label(providers = [_KernelEnvInfo, _KernelBuildAbiInfo]),
-        "kernel_modules": attr.label_list(),
+        "kernel_modules": attr.label_list(providers = [_KernelModuleInfo]),
         "module_grouping": attr.bool(default = True),
         "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
