@@ -30,6 +30,7 @@ def main(root_dir, bazel_args, env):
     parser.add_argument("--use_prebuilt_gki")
     parser.add_argument("--experimental_strip_sandbox_path",
                         action='store_true')
+    parser.add_argument("--make_jobs", type=int, default=None)
     known_args, bazel_args = parser.parse_known_args(bazel_args)
     if known_args.use_prebuilt_gki:
         # Insert before positional arguments
@@ -39,6 +40,8 @@ def main(root_dir, bazel_args, env):
             idx = len(bazel_args)
         bazel_args.insert(idx, "--//common:use_prebuilt_gki")
         env["KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = "gki_prebuilts=" + known_args.use_prebuilt_gki
+    if known_args.make_jobs is not None:
+        env["KLEAF_MAKE_JOBS"] = str(known_args.make_jobs)
 
     command_args = [
         bazel_path,

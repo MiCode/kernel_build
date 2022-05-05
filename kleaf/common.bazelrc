@@ -38,7 +38,7 @@ build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_sc
 build --flag_alias=debug_print_scripts=//build/kernel/kleaf:debug_print_scripts
 
 # By default, do not embed scmversion.
-build --workspace_status_command=
+build --workspace_status_command=build/kernel/kleaf/workspace_status_common.sh
 
 # Always dump full test results
 test --test_output=errors --test_summary=terse
