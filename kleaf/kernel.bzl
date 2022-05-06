@@ -4328,7 +4328,7 @@ def _kernel_build_abi_define_abi_targets(
     _kernel_extracted_symbols(
         name = name + "_abi_extracted_symbols",
         kernel_build_notrim = name + "_notrim",
-        kernel_modules = kernel_modules,
+        kernel_modules = [module + "_notrim" for module in kernel_modules] if kernel_modules else kernel_modules,
         module_grouping = module_grouping,
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
