@@ -4241,7 +4241,7 @@ def _kernel_build_abi_define_other_targets(
     _kernel_abi_dump(
         name = name + "_abi_dump",
         kernel_build = name + "_with_vmlinux",
-        kernel_modules = kernel_modules,
+        kernel_modules = [module + "_with_vmlinux" for module in kernel_modules] if kernel_modules else kernel_modules,
     )
 
     if not define_abi_targets:
