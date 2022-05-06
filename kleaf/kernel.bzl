@@ -42,6 +42,11 @@ _kernel_build_internal_outs = [
     "include/config/kernel.release",
 ]
 
+_sibling_names = [
+    "notrim",
+    "with_vmlinux",
+]
+
 def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
@@ -2324,13 +2329,39 @@ def kernel_module(
         outs = outs,
     )
     kwargs = _kernel_module_set_defaults(kwargs)
-    kwargs["outs"] = ["{name}/{out}".format(name = name, out = out) for out in kwargs["outs"]]
-    _kernel_module(**kwargs)
+
+    main_kwargs = dict(kwargs)
+    main_kwargs["name"] = name
+    main_kwargs["outs"] = ["{name}/{out}".format(name = name, out = out) for out in main_kwargs["outs"]]
+    _kernel_module(**main_kwargs)
 
     kernel_module_test(
         name = name + "_test",
         modules = [name],
     )
+
+    # Define external module for sibling kernel_build's.
+    # It may be possible to optimize this to alias some of them with the same
+    # kernel_build, but we don't have a way to get this information in
+    # the load phase right now.
+    for sibling_name in _sibling_names:
+        sibling_kwargs = dict(kwargs)
+        sibling_target_name = name + "_" + sibling_name
+        sibling_kwargs["name"] = sibling_target_name
+        sibling_kwargs["outs"] = ["{sibling_target_name}/{out}".format(sibling_target_name = sibling_target_name, out = out) for out in outs]
+
+        # This assumes the target is a kernel_build_abi with define_abi_targets
+        # etc., which may not be the case. See below for adding "manual" tag.
+        # TODO(b/231647455): clean up dependencies on implementation details.
+        sibling_kwargs["kernel_build"] = sibling_kwargs["kernel_build"] + "_" + sibling_name
+        if sibling_kwargs.get("kernel_module_deps") != None:
+            sibling_kwargs["kernel_module_deps"] = [dep + "_" + sibling_name for dep in sibling_kwargs["kernel_module_deps"]]
+
+        # We don't know if {kernel_build}_{sibling_name} exists or not, so
+        # add "manual" tag to prevent it from being built by default.
+        sibling_kwargs["tags"] = sibling_kwargs.get("tags", []) + ["manual"]
+
+        _kernel_module(**sibling_kwargs)
 
 def _kernel_module_set_defaults(kwargs):
     """
