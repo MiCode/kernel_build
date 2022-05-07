@@ -3097,7 +3097,7 @@ def _boot_images_impl(ctx):
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
 
     vendor_boot_flag_cmd = ""
-    if ctx.attr.vendor_boot_name == None:
+    if not ctx.attr.vendor_boot_name:
         vendor_boot_flag_cmd = """
             SKIP_VENDOR_BOOT=1
             BUILD_VENDOR_KERNEL_BOOT=
