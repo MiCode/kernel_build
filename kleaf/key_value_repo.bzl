@@ -5,7 +5,7 @@ def _impl(repository_ctx):
         raw_content = repository_ctx.read(src)
         for line in raw_content.splitlines():
             key, value = line.split("=", 1)
-            repository_content += '{} = "{}"'.format(key.strip(), value.strip())
+            repository_content += '{} = "{}"\n'.format(key.strip(), value.strip())
 
     repository_ctx.file("BUILD", """
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")

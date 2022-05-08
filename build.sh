@@ -120,7 +120,7 @@
 #     react to it by failing if KMI differences are detected.
 #
 #   GENERATE_VMLINUX_BTF
-#     If set to "1", generate a vmlinux.btf that is stripped off any debug
+#     If set to "1", generate a vmlinux.btf that is stripped of any debug
 #     symbols, but contains type and symbol information within a .BTF section.
 #     This is suitable for ABI analysis through BTF.
 #
@@ -281,7 +281,8 @@
 #
 #   BUILD_SYSTEM_DLKM
 #     if set to "1", build a system_dlkm.img containing all signed GKI modules
-#     and resulting depmod artifacts
+#     and resulting depmod artifacts. GKI build exclusive; DO NOT USE with device
+#     build configs files.
 #
 #   MODULES_OPTIONS
 #     A /lib/modules/modules.options file is created on the ramdisk containing
@@ -406,6 +407,10 @@
 #         FILES="${FILES} rk3399-rock-pi-4b.dtb"
 #     where the dts file path is
 #     common-modules/virtual-device/rk3399-rock-pi-4b.dts
+#
+#   BUILD_GKI_CERTIFICATION_TOOLS
+#     if set to "1", build a gki_certification_tools.tar.gz, which contains
+#     the utilities used to certify GKI boot-*.img files.
 
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
@@ -465,6 +470,27 @@ function build_super() {
 export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
 source "${ROOT_DIR}/build/build_utils.sh"
 source "${ROOT_DIR}/build/_setup_env.sh"
+
+(
+    [[ "$KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING" == "1" ]] && exit 0 || true
+    echo     "************************************************************************" >&2
+    echo     "* WARNING: build.sh is deprecated for this branch. Please migrate to Bazel."
+    echo     "*   See build/kernel/kleaf/README.md"
+    echo -ne "*          Inferring equivalent Bazel command...\r"
+    bazel_command_code=0
+    eq_bazel_command=$(${ROOT_DIR}/build/kernel/kleaf/convert_to_bazel.sh 2>&1) || bazel_command_code=$?
+    if [[ $bazel_command_code -eq 0 ]]; then
+        echo "*          Possibly equivalent Bazel command:                           " >&2
+        echo "*" >&2
+        echo "*   \$ $eq_bazel_command" >&2
+        echo "*" >&2
+    else
+        echo "WARNING: Unable to infer an equivalent Bazel command." >&2
+    fi
+    echo     "* To suppress this warning, set KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1"
+    echo     "************************************************************************" >&2
+    echo >&2
+)
 
 MAKE_ARGS=( "$@" )
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
@@ -836,6 +862,17 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
 
 fi
 
+if [ "${BUILD_GKI_CERTIFICATION_TOOLS}" = "1"  ]; then
+  GKI_CERTIFICATION_TOOLS_TAR="gki_certification_tools.tar.gz"
+  echo "========================================================"
+  echo " Generating ${GKI_CERTIFICATION_TOOLS_TAR}"
+  GKI_CERTIFICATION_BINARIES=(avbtool certify_bootimg)
+  GKI_CERTIFICATION_TOOLS_ROOT="${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86"
+  GKI_CERTIFICATION_FILES="${GKI_CERTIFICATION_BINARIES[@]/#/bin/}"
+  tar -czf ${DIST_DIR}/${GKI_CERTIFICATION_TOOLS_TAR} \
+    -C ${GKI_CERTIFICATION_TOOLS_ROOT} ${GKI_CERTIFICATION_FILES}
+fi
+
 echo "========================================================"
 echo " Generating test_mappings.zip"
 TEST_MAPPING_FILES=${OUT_DIR}/test_mapping_files.txt
@@ -1008,10 +1045,8 @@ if [ "${BUILD_SYSTEM_DLKM}" = "1"  ]; then
   tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
 
   # No need to sign the image as modules are signed
-  SYSTEM_DLKM_PARTITION_SIZE=$((64 << 20))
-  avbtool add_hash_footer \
+  avbtool add_hashtree_footer \
     --partition_name system_dlkm \
-    --partition_size ${SYSTEM_DLKM_PARTITION_SIZE} \
     --image "${DIST_DIR}/system_dlkm.img"
 fi
 

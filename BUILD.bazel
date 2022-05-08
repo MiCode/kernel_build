@@ -14,19 +14,45 @@
 
 package(default_visibility = ["//visibility:public"])
 
-# Provide access to some host tools for rules wanting to restrict PATH
-genrule(
-    name = "host-tools",
-    outs = [
-        "host-tools/bash",
-        "host-tools/install",
-        "host-tools/perl",
-        "host-tools/rsync",
-        "host-tools/sh",
-        "host-tools/tar",
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+
+hermetic_tools(
+    name = "hermetic-tools",
+    srcs = glob(
+        ["build-tools/path/**"],
+        allow_empty = False,
+    ),
+    host_tools = [
+        "bash",
+        "install",
+        "perl",
+        "rsync",
+        "sh",
+        "tar",
     ],
-    cmd = "for i in $(OUTS); do ln -s $$(which $$(basename $$i)) $$i; done",
-    tags = ["no-remote"],
+    optional_host_tools = [
+        # For --strategy KernelBuild=local, scmversion is not pre-calculated
+        # in --workspace_status_command. Instead, it is calculated using
+        # git when the action is executed.
+        # Hence, git is needed for --strategy KernelBuild=local.
+        # However, we do not have ways to select() on --strategy, so just
+        # include git unconditionally for now until we find a better option.
+        # TODO(b/227520025): Once logic is deduplicated between kernel.bzl and
+        #  setlocalversion, consider removing this.
+        "git",
+    ],
+    test_host_tools = [
+        "modinfo",
+        "strings",
+    ],
+    deps = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ) + [
+        "//prebuilts/build-tools:linux-x86",
+        "//prebuilts/kernel-build-tools:linux-x86",
+        "@prebuilt_ndk//:sysroot",
+    ],
 )
 
 filegroup(
@@ -35,10 +61,7 @@ filegroup(
         "_setup_env.sh",
         "build.sh",
         "build_utils.sh",
-    ] + glob(
-        ["build-tools/**"],
-        allow_empty = False,
-    ),
+    ],
 )
 
 filegroup(
@@ -51,3 +74,54 @@ filegroup(
         "abi/symbols.deny",
     ],
 )
+
+filegroup(
+    name = "dump-abi-scripts",
+    srcs = [
+        "abi/abitool.py",
+        "abi/dump_abi",
+    ],
+)
+
+filegroup(
+    name = "diff-abi-scripts",
+    srcs = [
+        "abi/abitool.py",
+        "abi/diff_abi",
+    ],
+)
+
+_GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
+
+_GKI_CERTIFICATION_BINARIES = [
+    "avbtool",
+    "certify_bootimg",
+]
+
+genrule(
+    name = "gki_certification_tools",
+    srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
+    outs = ["gki_certification_tools.tar.gz"],
+    # Clear PATH to ensure hermeticity.
+    cmd = """
+        PATH=
+        $(location :hermetic-tools/tar) -c \\
+            -C $$($(location :hermetic-tools/dirname) $$($(location :hermetic-tools/dirname) $(location {prefix}{first}))) \\
+            {files} | \\
+          $(location :hermetic-tools/gzip) > $@
+    """.format(
+        files = " ".join(["bin/" + tool for tool in _GKI_CERTIFICATION_BINARIES]),
+        first = _GKI_CERTIFICATION_BINARIES[0],
+        prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
+    ),
+    tools = [
+        ":hermetic-tools/dirname",
+        ":hermetic-tools/gzip",
+        ":hermetic-tools/tar",
+    ],
+)
+
+exports_files([
+    "abi/extract_symbols",
+    "abi/filter_abi",
+])

@@ -14,31 +14,11 @@
 
 import argparse
 import os
-import subprocess
 import sys
-
-
-def check_output(*args, **kwargs):
-    """
-    Pass to subprocess.check_output. On CalledProcessError, exit with return
-    code immediately, but don't print Python stack traces.
-    """
-    try:
-        return subprocess.check_output(*args, **kwargs)
-    except subprocess.CalledProcessError as e:
-        sys.exit(e.returncode)
 
 
 def main(root_dir, bazel_args, env):
     env = env.copy()
-
-    source_date_epoch = check_output(
-        ['{root_dir}/build/kernel/kleaf/source_date_epoch.sh'.format(root_dir=root_dir)],
-        text=True).strip()
-    if not source_date_epoch:
-        sys.stderr.write("Unable to determine SOURCE_DATE_EPOCH, fallback to 0\n")
-        source_date_epoch = "0"
-    env["SOURCE_DATE_EPOCH"] = source_date_epoch
 
     bazel_path = "{root_dir}/prebuilts/bazel/linux-x86_64/bazel".format(root_dir=root_dir)
     bazel_jdk_path = "{root_dir}/prebuilts/jdk/jdk11/linux-x86".format(root_dir=root_dir)
@@ -48,6 +28,8 @@ def main(root_dir, bazel_args, env):
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--use_prebuilt_gki")
+    parser.add_argument("--experimental_strip_sandbox_path",
+                        action='store_true')
     known_args, bazel_args = parser.parse_known_args(bazel_args)
     if known_args.use_prebuilt_gki:
         # Insert before positional arguments
@@ -70,7 +52,38 @@ def main(root_dir, bazel_args, env):
     ]
     command_args += bazel_args
 
-    os.execve(path=bazel_path, argv=command_args, env=env)
+    if known_args.experimental_strip_sandbox_path:
+        import asyncio
+        import re
+        filter_regex=re.compile(absolute_out_dir+"/\S+?/sandbox/.*?/__main__/")
+        asyncio.run(run(command_args, env, filter_regex))
+    else:
+        os.execve(path=bazel_path, argv=command_args, env=env)
+
+
+async def output_filter(input_stream, output_stream, filter_regex):
+    import re
+    while not input_stream.at_eof():
+        output = await input_stream.readline()
+        output = re.sub(filter_regex, "", output.decode())
+        output_stream.buffer.write(output.encode())
+        output_stream.flush()
+
+
+async def run(command, env, filter_regex):
+    import asyncio
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=env,
+    )
+
+    await asyncio.gather(
+        output_filter(process.stderr, sys.stderr, filter_regex),
+        output_filter(process.stdout, sys.stdout, filter_regex),
+    )
+    await process.wait()
 
 
 if __name__ == "__main__":

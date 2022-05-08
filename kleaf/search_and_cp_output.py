@@ -3,6 +3,7 @@
 import argparse
 import os
 import shutil
+import sys
 
 
 def handle_outputs_with_slash(srcdir, dstdir, outputs):
@@ -12,13 +13,14 @@ def handle_outputs_with_slash(srcdir, dstdir, outputs):
     for sdir in srcdir:
       if os.path.exists(os.path.join(sdir, out)):
         shutil.copy(os.path.join(sdir, out), dstdir)
-        shutil.move(os.path.join(sdir, out), os.path.join(dstdir, out))
+        os.makedirs(os.path.dirname(os.path.join(dstdir, out)), exist_ok=True)
+        shutil.copy(os.path.join(sdir, out), os.path.join(dstdir, out))
         found = True
         break
     if not found:
       errors.append(
         f"Unable to find {out} in any of the following directories:\n  " + (
-          "\n  ".join([os.path.realpath(sdir) for sdir in srcdir])))
+          "\n  ".join(srcdir)))
 
   return errors
 
@@ -29,29 +31,29 @@ def handle_outputs_without_slash(srcdir, dstdir, outputs):
     found = False
     for sdir in srcdir:
       if os.path.exists(os.path.join(sdir, out)):
-        shutil.move(os.path.join(sdir, out), dstdir)
+        shutil.copy(os.path.join(sdir, out), dstdir)
         found = True
         break
       if not found:
-        ok, matches = search_and_mv_output_one(sdir, dstdir, out)
+        ok, matches = search_and_cp_output_one(sdir, dstdir, out)
         if ok:
           found = True
           break
         if len(matches) > 1:
           found = True
           errors.append(
-            f"In {os.path.realpath(sdir)}, multiple files match '{out}', expected at most 1:\n  " + (
+            f"In {sdir}, multiple files match '{out}', expected at most 1:\n  " + (
               "\n  ".join(matches)))
           break
     if not found:
       errors.append(
         f"Unable to find {out} in any of the following directories:\n  " + (
-          "\n  ".join([os.path.realpath(sdir) for sdir in srcdir])))
+          "\n  ".join(srcdir)))
 
   return errors
 
 
-def search_and_mv_output_one(srcdir, dstdir, out):
+def search_and_cp_output_one(srcdir, dstdir, out):
   """Implements the search and move logic for outputs that need to be located.
 
   For each output in <outputs>, searches <output> within <srcdir>, and moves it
@@ -70,7 +72,7 @@ def search_and_mv_output_one(srcdir, dstdir, out):
   real_matches = set(os.path.realpath(f) for f in matches)
   ok = len(real_matches) == 1
   if ok:
-    shutil.move(next(iter(real_matches)), os.path.join(dstdir, out))
+    shutil.copy(next(iter(real_matches)), os.path.join(dstdir, out))
 
   # For readable error messages, return |matches| instead of the realpaths here.
   return ok, matches
@@ -93,9 +95,9 @@ def main(srcdir, dstdir, outputs):
   """
   for sdir in srcdir:
     if not os.path.isdir(sdir):
-      raise Exception(f"srcdir {sdir} is not a directory.")
+      sys.exit(f"ERROR: srcdir {sdir} is not a directory.")
   if not os.path.isdir(dstdir):
-    raise Exception(f"dstdir {dstdir} is not a directory.")
+    sys.exit(f"ERROR: dstdir {dstdir} is not a directory.")
 
   with_slash = [out for out in outputs if "/" in out]
   errors = handle_outputs_with_slash(srcdir, dstdir, with_slash)
@@ -104,7 +106,7 @@ def main(srcdir, dstdir, outputs):
   errors += handle_outputs_without_slash(srcdir, dstdir, without_slash)
 
   if errors:
-    raise Exception("\n".join(errors))
+    sys.exit("ERROR: " + ("\n".join(errors)))
 
 
 if __name__ == "__main__":
