@@ -57,7 +57,7 @@ def _collapse_abidiff_offset_changes(text):
         del items[:]
         new_text.append(line)
 
-    for line in text.splitlines(True):
+    for line in text.splitlines(keepends=True):
         match = regex.search(line)
         if match:
             (new_indent, item, new_offset) = match.group(1, 2, 3)
@@ -104,7 +104,7 @@ def _collapse_stgdiff_offset_changes(text: str) -> str:
         del items[:]
         new_text.extend(lines)
 
-    lines = text.splitlines(True)
+    lines = text.splitlines(keepends=True)
     index = 0
     while index < len(lines):
         line = lines[index]
@@ -176,7 +176,7 @@ def _collapse_abidiff_CRC_changes(text, limit):
                              .format(count - limit, count))
         pending.clear()
 
-    lines = text.splitlines(True)
+    lines = text.splitlines(keepends=True)
     index = 0
     while index < len(lines):
         line = lines[index]
@@ -235,7 +235,7 @@ def _collapse_stgdiff_CRC_changes(text: str, limit: int) -> str:
                     count - limit, count))
         del pending[:]
 
-    lines = text.splitlines(True)
+    lines = text.splitlines(keepends=True)
     index = 0
     while index < len(lines):
         line = lines[index]
