@@ -491,7 +491,7 @@ function build_super() {
   echo -e "super_partition_groups=kb_dynamic_partitions" >> ${super_props_file}
   echo -e "super_kb_dynamic_partitions_group_size=${group_size}" >> ${super_props_file}
 
-  for image in "${SUPER_IMAGE_CONTENTS}"; do
+  for image in "${SUPER_IMAGE_CONTENTS[@]}"; do
     echo "  Adding ${image}"
     partition_name=$(basename -s .img "${image}")
     dynamic_partitions="${dynamic_partitions} ${partition_name}"
