@@ -168,10 +168,18 @@ def create_symbol_list(symbol_list, undefined_symbols, exported,
 
   with open(symbol_list, "w") as wl:
 
-    common_wl_section = symbol_sort([
+    common_symbols = [
         symbol for symbol, count in symbol_counter.items()
         if (count > 1 or not module_grouping) and symbol in exported
-    ] + _ALWAYS_INCLUDED)
+    ] + _ALWAYS_INCLUDED
+
+    # When both --additions-only and --skip-module-grouping are used together,
+    # we sort the unused symbols together will all of the other symbols.
+    if additions_only and not module_grouping:
+        common_symbols.extend(precious_symbols)
+        precious_symbols.clear()
+
+    common_wl_section = symbol_sort(common_symbols)
 
     # write the header
     wl.write(_ABIGAIL_HEADER)
@@ -262,7 +270,7 @@ def main():
       "--skip-module-grouping",
       action="store_false",
       dest="module_grouping",
-      help="Do not group symbols by module.")
+      help="Do not group symbols by module. When coupled with --additions-only, the unused symbols are sorted with all the symbols")
 
   parser.add_argument(
       "--module-filter",
