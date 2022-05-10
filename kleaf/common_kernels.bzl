@@ -540,6 +540,7 @@ def define_common_kernels(
             data = dist_targets,
             flat = True,
             dist_dir = "out/{branch}/dist".format(branch = BRANCH),
+            log = "info",
         )
 
         kernel_build_abi_dist(
@@ -548,6 +549,7 @@ def define_common_kernels(
             data = dist_targets,
             flat = True,
             dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
+            log = "info",
         )
 
         native.test_suite(
@@ -724,4 +726,5 @@ def define_db845c(
         ],
         dist_dir = dist_dir,
         flat = True,
+        log = "info",
     )
