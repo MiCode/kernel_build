@@ -1462,6 +1462,12 @@ def _kernel_build_abi_define_abi_definition_targets(
         output_group = "executable",
     )
 
+    native.filegroup(
+        name = name + "_abi_diff_git_message",
+        srcs = [name + "_abi_diff"],
+        output_group = "git_message",
+    )
+
     update_source_file(
         name = name + "_abi_update_definition",
         src = name + "_abi_out_file",
@@ -1495,17 +1501,37 @@ def _kernel_build_abi_define_abi_definition_targets(
     exec(
         name = name + "_abi_update",
         data = [
+            abi_definition,
+            name + "_abi_diff_git_message",
             name + "_abi_diff_executable",
             name + "_abi_nodiff_update",
         ],
         script = """
               # Update abi_definition
                 $(rootpath {nodiff_update})
+              # Create git commit if requested
+                if [[ $1 == "--commit" ]]; then
+                    real_abi_def="$(realpath $(rootpath {abi_definition}))"
+                    git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
+                    git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
+                fi
               # Check return code of diff_abi and kmi_enforced
+                set +e
                 $(rootpath {diff})
+                rc=$?
+                set -e
+              # Prompt for editing the commit message
+                if [[ $1 == "--commit" ]]; then
+                    echo
+                    echo "INFO: git commit created. Execute the following to edit the commit message:"
+                    echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
+                fi
+                exit $rc
             """.format(
             diff = name + "_abi_diff_executable",
             nodiff_update = name + "_abi_nodiff_update",
+            abi_definition = abi_definition,
+            git_message = name + "_abi_diff_git_message",
         ),
     )
 
@@ -1567,11 +1593,13 @@ def _kernel_abi_diff_impl(ctx):
     output_dir = ctx.actions.declare_directory("{}/abi_diff".format(ctx.attr.name))
     error_msg_file = ctx.actions.declare_file("{}/error_msg_file".format(ctx.attr.name))
     exit_code_file = ctx.actions.declare_file("{}/exit_code_file".format(ctx.attr.name))
+    git_msg_file = ctx.actions.declare_file("{}/git_message.txt".format(ctx.attr.name))
     default_outputs = [output_dir]
 
     command_outputs = default_outputs + [
         error_msg_file,
         exit_code_file,
+        git_msg_file,
     ]
 
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
@@ -1583,6 +1611,21 @@ def _kernel_abi_diff_impl(ctx):
         rc=$?
         set -e
         echo $rc > {exit_code_file}
+
+        : > {git_msg_file}
+        if [[ -f {output_dir}/abi.report.short ]]; then
+          cat >> {git_msg_file} <<EOF
+ANDROID: <TODO subject line>
+
+<TODO commit message>
+
+$(cat {output_dir}/abi.report.short)
+
+Bug: <TODO bug number>
+EOF
+        else
+            echo "WARNING: No short report found. Unable to infer the git commit message." >&2
+        fi
         if [[ $rc == 0 ]]; then
             echo "INFO: $(cat {error_msg_file})"
         else
@@ -1596,6 +1639,7 @@ def _kernel_abi_diff_impl(ctx):
         output_dir = output_dir.path,
         exit_code_file = exit_code_file.path,
         error_msg_file = error_msg_file.path,
+        git_msg_file = git_msg_file.path,
         label = ctx.label,
     )
 
@@ -1632,7 +1676,10 @@ def _kernel_abi_diff_impl(ctx):
             executable = script,
             runfiles = ctx.runfiles(files = command_outputs),
         ),
-        OutputGroupInfo(executable = depset([script])),
+        OutputGroupInfo(
+            executable = depset([script]),
+            git_message = depset([git_msg_file]),
+        ),
     ]
 
 _kernel_abi_diff = rule(
