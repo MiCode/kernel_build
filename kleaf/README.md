@@ -8,6 +8,8 @@
 
 [`build.sh` build configs](docs/build_configs.md)
 
+[Support ABI monitoring](docs/abi.md)
+
 [Handling SCM version](docs/scmversion.md)
 
 [Resolving common errors](docs/errors.md)

@@ -1,7 +1,5 @@
 # Kleaf - Building Android Kernels with Bazel
 
-**Note:** THIS IS EXPERIMENTAL AND INCOMPLETE. USE WITH CAUTION!
-
 ## Background
 
 The canonical way to
