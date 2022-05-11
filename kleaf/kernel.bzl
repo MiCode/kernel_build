@@ -610,11 +610,17 @@ def kernel_dtstree(
     )
     _kernel_dtstree(**kwargs)
 
-def _get_stable_status_cmd(ctx, var):
-    return """cat {stable_status} | ( grep -e "^{var} " || true ) | cut -f2- -d' '""".format(
-        stable_status = ctx.info_file.path,
+def _get_status_cmd(ctx, status_file, var):
+    return """cat {status} | ( grep -e "^{var} " || true ) | cut -f2- -d' '""".format(
+        status = status_file.path,
         var = var,
     )
+
+def _get_stable_status_cmd(ctx, var):
+    return _get_status_cmd(ctx, ctx.info_file, var)
+
+def _get_volatile_status_cmd(ctx, var):
+    return _get_status_cmd(ctx, ctx.version_file, var)
 
 def _get_scmversion_cmd(srctree, scmversion):
     """Return a shell script that sets up .scmversion file in the source tree conditionally.
@@ -742,8 +748,6 @@ def _kernel_env_impl(ctx):
         """
 
     command += """
-        # Increase parallelism # TODO(b/192655643): do not use -j anymore
-          export MAKEFLAGS="${{MAKEFLAGS}} -j$(nproc)"
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
@@ -771,6 +775,20 @@ def _kernel_env_impl(ctx):
     setup += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += _debug_trap()
+
+    set_up_jobs_cmd = """
+        # Increase parallelism # TODO(b/192655643): do not use -j anymore
+          export MAKEFLAGS="${{MAKEFLAGS}} -j$(
+            make_jobs="$({get_make_jobs_cmd})"
+            if [[ -n "$make_jobs" ]]; then
+              echo "$make_jobs"
+            else
+              nproc
+            fi
+          )"
+    """.format(
+        get_make_jobs_cmd = _get_volatile_status_cmd(ctx, "MAKE_JOBS"),
+    )
 
     # For non-release builds, CONFIG_LOCALVERSION_AUTO is disabled. There's no
     # need to set up scmversion.
@@ -827,6 +845,7 @@ def _kernel_env_impl(ctx):
            source {build_utils_sh}
          # source the build environment
            source {env}
+           {set_up_jobs_cmd}
          # re-setup the PATH to also include the hermetic tools, because env completely overwrites
          # PATH with HERMETIC_TOOLCHAIN=1
            {hermetic_tools_additional_setup}
@@ -853,12 +872,14 @@ def _kernel_env_impl(ctx):
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
         set_up_scmversion_cmd = set_up_scmversion_cmd,
+        set_up_jobs_cmd = set_up_jobs_cmd,
     )
 
     dependencies = ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
+        ctx.version_file,
     ]
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         dependencies.append(ctx.info_file)

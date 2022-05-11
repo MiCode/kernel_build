@@ -758,8 +758,11 @@ if [ "${KMI_SYMBOL_LIST_STRICT_MODE}" = "1" ]; then
   echo "========================================================"
   echo " Comparing the KMI and the symbol lists:"
   set -x
-  ${ROOT_DIR}/build/abi/compare_to_symbol_list "${OUT_DIR}/Module.symvers" \
-                                               "${OUT_DIR}/abi_symbollist.raw"
+
+  gki_modules_list="${ROOT_DIR}/${KERNEL_DIR}/android/gki_system_dlkm_modules"
+  KMI_STRICT_MODE_OBJECTS="vmlinux $(sed 's/\.ko$//' ${gki_modules_list} | tr '\n' ' ')" \
+    ${ROOT_DIR}/build/abi/compare_to_symbol_list "${OUT_DIR}/Module.symvers"             \
+    "${OUT_DIR}/abi_symbollist.raw"
   set +x
 fi
 
@@ -876,6 +879,13 @@ for FILE in ${FILES}; do
     echo "  $FILE is not a file, skipping"
   fi
 done
+
+if [ -f ${OUT_DIR}/vmlinux-gdb.py ]; then
+  echo "========================================================"
+  KERNEL_GDB_SCRIPTS_TAR=${DIST_DIR}/kernel-gdb-scripts.tar.gz
+  echo " Copying kernel gdb scripts to $KERNEL_GDB_SCRIPTS_TAR"
+  (cd $OUT_DIR && tar -czf $KERNEL_GDB_SCRIPTS_TAR --dereference vmlinux-gdb.py scripts/gdb/linux/*.py)
+fi
 
 for FILE in ${OVERLAYS_OUT}; do
   OVERLAY_DIST_DIR=${DIST_DIR}/$(dirname ${FILE#${OUT_DIR}/overlays/})

@@ -441,6 +441,7 @@ def define_common_kernels(
         print_debug(
             name = name + "_print_configs",
             content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
+            tags = ["manual"],
         )
 
         kernel_build_abi(
@@ -613,6 +614,7 @@ def _define_prebuilts(**kwargs):
         native.filegroup(
             name = name + "_downloaded",
             srcs = ["@{}//{}".format(repo_name, filename) for filename in main_target_outs],
+            tags = ["manual"],
         )
 
         # A kernel_filegroup that:
@@ -647,6 +649,7 @@ def _define_prebuilts(**kwargs):
             native.filegroup(
                 name = name + "_" + target_suffix + "_downloaded",
                 srcs = ["@{}//{}".format(repo_name, filename) for filename in suffixed_target_outs],
+                tags = ["manual"],
             )
 
             # A filegroup that:
