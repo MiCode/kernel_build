@@ -73,17 +73,20 @@ EOF
     script="
         let pkg_targets = siblings($build_config_label) in
         let dists = filter(\"_dist\$\", \$pkg_targets) except kind(alias, \$pkg_targets) in
+        let kernel_builds = kind(_kernel_build, \$pkg_targets) in
 
         let build_config_rdeps = attr(build_config, \"$build_config_label\", \$pkg_targets) in
-        let dists_on_build_config = \$dists intersect allpaths(\$dists, \$build_config_rdeps) in
+        let kernel_builds_on_build_config = \$kernel_builds intersect allpaths(\$kernel_builds, \$build_config_rdeps) except filter(\"_interceptor\$\", \$pkg_targets) in
 
-        let abi_targets = kind(filegroup, filter(\"_abi\$\", \$pkg_targets)) in
-        let dists_with_abi_dep = \$dists_on_build_config intersect allpaths(\$dists_on_build_config, \$abi_targets) in
-        let dists_without_abi_dep = \$dists_on_build_config except \$dists_with_abi_dep in
+        let dists_on_kernel_builds = \$dists intersect allpaths(\$dists, \$kernel_builds_on_build_config) in
+
+        let abi_targets = kind(filegroup, filter(\"_abi\$\", \$pkg_targets)) except filter(\"_interceptor_abi\$\", \$pkg_targets) in
+        let dists_with_abi_dep = \$dists_on_kernel_builds intersect allpaths(\$dists_on_kernel_builds, \$abi_targets) in
+        let dists_without_abi_dep = \$dists_on_kernel_builds except \$dists_with_abi_dep in
 
         let kythe = kind(kernel_kythe, \$pkg_targets) in
-        let dists_with_kythe_dep = \$dists_on_build_config intersect allpaths(\$dists_on_build_config, \$kythe) in
-        let dists_without_kythe_dep = \$dists_on_build_config except \$dists_with_kythe_dep in
+        let dists_with_kythe_dep = \$dists_on_kernel_builds intersect allpaths(\$dists_on_kernel_builds, \$kythe) in
+        let dists_without_kythe_dep = \$dists_on_kernel_builds except \$dists_with_kythe_dep in
 
         let dists_with_abi_without_kythe = \$dists_with_abi_dep intersect \$dists_without_kythe_dep in
         let dists_without_abi_without_kythe = \$dists_without_abi_dep intersect \$dists_without_kythe_dep in
