@@ -3272,7 +3272,7 @@ def _boot_images_impl(ctx):
                  {boot_flag_cmd}
                  {vendor_boot_flag_cmd}
                  {set_initramfs_var_cmd}
-                 MKBOOTIMG_STAGING_DIR=$(realpath {mkbootimg_staging_dir})
+                 MKBOOTIMG_STAGING_DIR=$(readlink -m {mkbootimg_staging_dir})
                  build_boot_images
                )
                {search_and_cp_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
