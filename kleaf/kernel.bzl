@@ -3107,9 +3107,19 @@ def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_modules_blocklist = ctx.actions.declare_file("{}/vendor_dlkm.modules.blocklist".format(ctx.label.name))
     modules_staging_dir = vendor_dlkm_img.dirname + "/staging"
     vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
-    command = """
-            # Restore vendor_boot.modules.load
-              cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+
+    command = ""
+    additional_inputs = []
+    if ctx.file.vendor_boot_modules_load:
+        command += """
+                # Restore vendor_boot.modules.load
+                  cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+        """.format(
+            vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
+        )
+        additional_inputs.append(ctx.file.vendor_boot_modules_load)
+
+    command += """
             # Build vendor_dlkm
               mkdir -p {vendor_dlkm_staging_dir}
               (
@@ -3128,7 +3138,6 @@ def _vendor_dlkm_image_impl(ctx):
             # Remove staging directories
               rm -rf {vendor_dlkm_staging_dir}
     """.format(
-        vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
         modules_staging_dir = modules_staging_dir,
         vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
         vendor_dlkm_img = vendor_dlkm_img.path,
@@ -3142,7 +3151,7 @@ def _vendor_dlkm_image_impl(ctx):
         outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist],
         build_command = command,
         modules_staging_dir = modules_staging_dir,
-        additional_inputs = [ctx.file.vendor_boot_modules_load],
+        additional_inputs = additional_inputs,
         mnemonic = "VendorDlkmImage",
     )
 
@@ -3616,7 +3625,7 @@ def kernel_images(
         _vendor_dlkm_image(
             name = "{}_vendor_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
-            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
+            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name) if build_initramfs else None,
             deps = deps,
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
