@@ -126,28 +126,27 @@ def _transform_kernel_build_outs(name, what, outs):
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
 def _kernel_build_outs_add_vmlinux(name, outs):
-    notrim_outs = outs
     added_vmlinux = False
-    if notrim_outs == None:
-        notrim_outs = ["vmlinux"]
+    if outs == None:
+        outs = ["vmlinux"]
         added_vmlinux = True
-    if type(notrim_outs) == type([]):
-        if "vmlinux" not in notrim_outs:
+    if type(outs) == type([]):
+        if "vmlinux" not in outs:
             # don't use append to avoid changing outs
-            notrim_outs = notrim_outs + ["vmlinux"]
+            outs = outs + ["vmlinux"]
             added_vmlinux = True
     elif type(outs) == type({}):
-        notrim_outs_new = {}
-        for k, v in notrim_outs.items():
+        outs_new = {}
+        for k, v in outs.items():
             if "vmlinux" not in v:
                 # don't use append to avoid changing outs
                 v = v + ["vmlinux"]
                 added_vmlinux = True
-            notrim_outs_new[k] = v
-        notrim_outs = notrim_outs_new
+            outs_new[k] = v
+        outs = outs_new
     else:
         fail("{}: Invalid type for outs: {}".format(name, type(outs)))
-    return notrim_outs, added_vmlinux
+    return outs, added_vmlinux
 
 def kernel_build(
         name,
