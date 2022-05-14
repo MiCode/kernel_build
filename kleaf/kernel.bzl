@@ -42,6 +42,11 @@ _kernel_build_internal_outs = [
     "include/config/kernel.release",
 ]
 
+_sibling_names = [
+    "notrim",
+    "with_vmlinux",
+]
+
 def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
@@ -126,27 +131,30 @@ def _transform_kernel_build_outs(name, what, outs):
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
 def _kernel_build_outs_add_vmlinux(name, outs):
-    added_vmlinux = False
+    files_to_add = ("vmlinux", "System.map")
+    outs_changed = False
     if outs == None:
         outs = ["vmlinux"]
-        added_vmlinux = True
+        outs_changed = True
     if type(outs) == type([]):
-        if "vmlinux" not in outs:
-            # don't use append to avoid changing outs
-            outs = outs + ["vmlinux"]
-            added_vmlinux = True
+        for file in files_to_add:
+            if file not in outs:
+                # don't use append to avoid changing outs
+                outs = outs + [file]
+                outs_changed = True
     elif type(outs) == type({}):
         outs_new = {}
         for k, v in outs.items():
-            if "vmlinux" not in v:
-                # don't use append to avoid changing outs
-                v = v + ["vmlinux"]
-                added_vmlinux = True
+            for file in files_to_add:
+                if file not in v:
+                    # don't use append to avoid changing outs
+                    v = v + [file]
+                    outs_changed = True
             outs_new[k] = v
         outs = outs_new
     else:
         fail("{}: Invalid type for outs: {}".format(name, type(outs)))
-    return outs, added_vmlinux
+    return outs, outs_changed
 
 def kernel_build(
         name,
@@ -2321,13 +2329,39 @@ def kernel_module(
         outs = outs,
     )
     kwargs = _kernel_module_set_defaults(kwargs)
-    kwargs["outs"] = ["{name}/{out}".format(name = name, out = out) for out in kwargs["outs"]]
-    _kernel_module(**kwargs)
+
+    main_kwargs = dict(kwargs)
+    main_kwargs["name"] = name
+    main_kwargs["outs"] = ["{name}/{out}".format(name = name, out = out) for out in main_kwargs["outs"]]
+    _kernel_module(**main_kwargs)
 
     kernel_module_test(
         name = name + "_test",
         modules = [name],
     )
+
+    # Define external module for sibling kernel_build's.
+    # It may be possible to optimize this to alias some of them with the same
+    # kernel_build, but we don't have a way to get this information in
+    # the load phase right now.
+    for sibling_name in _sibling_names:
+        sibling_kwargs = dict(kwargs)
+        sibling_target_name = name + "_" + sibling_name
+        sibling_kwargs["name"] = sibling_target_name
+        sibling_kwargs["outs"] = ["{sibling_target_name}/{out}".format(sibling_target_name = sibling_target_name, out = out) for out in outs]
+
+        # This assumes the target is a kernel_build_abi with define_abi_targets
+        # etc., which may not be the case. See below for adding "manual" tag.
+        # TODO(b/231647455): clean up dependencies on implementation details.
+        sibling_kwargs["kernel_build"] = sibling_kwargs["kernel_build"] + "_" + sibling_name
+        if sibling_kwargs.get("kernel_module_deps") != None:
+            sibling_kwargs["kernel_module_deps"] = [dep + "_" + sibling_name for dep in sibling_kwargs["kernel_module_deps"]]
+
+        # We don't know if {kernel_build}_{sibling_name} exists or not, so
+        # add "manual" tag to prevent it from being built by default.
+        sibling_kwargs["tags"] = sibling_kwargs.get("tags", []) + ["manual"]
+
+        _kernel_module(**sibling_kwargs)
 
 def _kernel_module_set_defaults(kwargs):
     """
@@ -4193,12 +4227,13 @@ def _kernel_build_abi_define_other_targets(
     * `{name}_abi_diff_executable`
     * `{name}_abi`
     """
-    outs_and_vmlinux, added_vmlinux = _kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
+    new_outs, outs_changed = _kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
 
     # with_vmlinux: outs += [vmlinux]
-    if added_vmlinux:
+    if outs_changed or kernel_build_kwargs.get("base_kernel"):
         with_vmlinux_kwargs = dict(kernel_build_kwargs)
-        with_vmlinux_kwargs["outs"] = _transform_kernel_build_outs(name + "_with_vmlinux", "outs", outs_and_vmlinux)
+        with_vmlinux_kwargs["outs"] = _transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
+        with_vmlinux_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_with_vmlinux", **with_vmlinux_kwargs)
     else:
         native.alias(name = name + "_with_vmlinux", actual = name)
@@ -4206,7 +4241,7 @@ def _kernel_build_abi_define_other_targets(
     _kernel_abi_dump(
         name = name + "_abi_dump",
         kernel_build = name + "_with_vmlinux",
-        kernel_modules = kernel_modules,
+        kernel_modules = [module + "_with_vmlinux" for module in kernel_modules] if kernel_modules else kernel_modules,
     )
 
     if not define_abi_targets:
@@ -4223,8 +4258,8 @@ def _kernel_build_abi_define_other_targets(
             abi_definition = abi_definition,
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
-            added_vmlinux = added_vmlinux,
-            outs_and_vmlinux = outs_and_vmlinux,
+            outs_changed = outs_changed,
+            new_outs = new_outs,
             abi_dump_target = name + "_abi_dump",
             kernel_build_with_vmlinux_target = name + "_with_vmlinux",
             kernel_build_kwargs = kernel_build_kwargs,
@@ -4261,8 +4296,8 @@ def _kernel_build_abi_define_abi_targets(
         abi_definition,
         kmi_enforced,
         unstripped_modules_archive,
-        added_vmlinux,
-        outs_and_vmlinux,
+        outs_changed,
+        new_outs,
         abi_dump_target,
         kernel_build_with_vmlinux_target,
         kernel_build_kwargs):
@@ -4279,11 +4314,12 @@ def _kernel_build_abi_define_abi_targets(
     default_outputs = [abi_dump_target]
 
     # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
-    if kernel_build_kwargs.get("trim_nonlisted_kmi") or added_vmlinux:
+    if kernel_build_kwargs.get("trim_nonlisted_kmi") or outs_changed or kernel_build_kwargs.get("base_kernel"):
         notrim_kwargs = dict(kernel_build_kwargs)
-        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", outs_and_vmlinux)
+        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
         notrim_kwargs["trim_nonlisted_kmi"] = False
         notrim_kwargs["kmi_symbol_list_strict_mode"] = False
+        notrim_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_notrim", **notrim_kwargs)
     else:
         native.alias(name = name + "_notrim", actual = name)
@@ -4292,7 +4328,7 @@ def _kernel_build_abi_define_abi_targets(
     _kernel_extracted_symbols(
         name = name + "_abi_extracted_symbols",
         kernel_build_notrim = name + "_notrim",
-        kernel_modules = kernel_modules,
+        kernel_modules = [module + "_notrim" for module in kernel_modules] if kernel_modules else kernel_modules,
         module_grouping = module_grouping,
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
