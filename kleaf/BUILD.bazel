@@ -50,6 +50,7 @@ bool_flag(
 _config_values = (
     "local",
     "fast",
+    "stamp",
     "release",
     "remote",
 )
@@ -71,7 +72,6 @@ exports_files([
     "search_and_cp_output.py",
     "check_declared_output_list.py",
     "check_duplicated_files_in_archives.py",
-    "no_host_tool.sh",
 ])
 
 # Docs. To view them:
@@ -82,6 +82,7 @@ docs(
     srcs = [
         "common_kernels.bzl",
         "constants.bzl",
+        "directory_with_structure.bzl",
         "download_repo.bzl",
         "fail.bzl",
         "hermetic_tools.bzl",
@@ -94,6 +95,7 @@ docs(
     deps = [
         "utils.bzl",
         "//build/bazel_common_rules/dist",
+        "//build/bazel_common_rules/exec",
         "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
@@ -127,4 +129,13 @@ py_test(
     name = "check_declared_output_list_test",
     srcs = ["check_declared_output_list_test.py"],
     python_version = "PY3",
+)
+
+# Quick test on Kleaf static definitions and scripts, but not built artifacts
+test_suite(
+    name = "quick_tests",
+    tests = [
+        "//build/bazel_common_rules/exec/tests",
+        "//prebuilts/build-tools/tests",
+    ],
 )

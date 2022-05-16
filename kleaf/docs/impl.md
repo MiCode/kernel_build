@@ -93,10 +93,16 @@ build.config. This may include DTB files.
 The `module_outs` attribute of the target includes the list of in-tree drivers
 that you are building.
 
+* Hint: You may leave the list empty and build the target. If the list is not
+  up to date, modify the list according to the error message.
+
 **Note**: It is recommended that kernel modules are moved out of the kernel tree
 to be built as external kernel modules. This means keeping the list
 of `module_outs` empty or as short as possible. See Step 2 for building external
 kernel modules.
+
+For other build configurations defined in the `build.config` file, see
+[build_configs.md](build_configs.md).
 
 Example for Pixel 2021 (see the `kernel_build` target named `slider`):
 
@@ -111,6 +117,12 @@ in `build.config`.
 The `kernel_build` attribute should be the target to the `kernel_build` you have
 previously created in step 1, or  `//common:kernel_aarch64` if you did not do
 step 1.
+
+The `outs` attribute should be set to a list of `*.ko` files built by this
+external module.
+
+* Hint: You may leave the list empty and build the target. If the list is not
+  up to date, modify the list according to the error message.
 
 Be sure to set visibility accordingly, so that these targets are visible to
 the `kernel_modules_install` target that will be created in step 3.

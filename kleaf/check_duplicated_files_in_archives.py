@@ -17,6 +17,7 @@
 import argparse
 import collections
 import pathlib
+import os
 import tarfile
 
 from typing import Collection
@@ -31,10 +32,15 @@ def _sanitize(line: str) -> str:
 
 
 def _list_files(archive: pathlib.Path) -> list[str]:
-  with tarfile.open(archive) as tar:
-    tar: tarfile.TarFile
-    return [_sanitize(name) for name in tar.getnames()]
-
+  if os.path.isfile(archive):
+    with tarfile.open(archive) as tar:
+      tar: tarfile.TarFile
+      return [_sanitize(name) for name in tar.getnames()]
+  elif os.path.isdir(archive):
+    return [_sanitize(os.path.relpath(os.path.join(root, file), archive))
+            for root, dirs, files in os.walk(archive) for file in files]
+  else:
+    raise Exception(f"{archive} is not file or directory")
 
 def main(archives: Collection[pathlib.Path]) -> None:
   """Checks that when extracting each archive to the same directory, files won't
@@ -59,6 +65,6 @@ def main(archives: Collection[pathlib.Path]) -> None:
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description=main.__doc__)
   parser.add_argument("archives", nargs="*", type=pathlib.Path,
-                      help="A list of tar archives to check")
+                      help="A list of tar archives or directories to check")
   args = parser.parse_args()
   main(**vars(args))

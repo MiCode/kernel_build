@@ -1,4 +1,3 @@
-#!/bin/bash -e
 # Copyright (C) 2022 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,14 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Script used as --workspace_status_command with --config=stamp.
-# Must execute at the root of workspace.
-# https://docs.bazel.build/versions/main/command-line-reference.html#flag--workspace_status_command
+# Flags used for ci.android.com builds.
 
-if [[ ! -f "WORKSPACE" ]]; then
-  echo "ERROR: workspace_status.sh must be executed at the root of Bazel workspace." >&2
-  exit 1
-fi
+# Embed scmversion
+build:android_ci --config=stamp
 
-build/kernel/kleaf/workspace_status_common.sh
-build/kernel/build-tools/path/linux-x86/python3 build/kernel/kleaf/workspace_status_stamp.py
+# Upload test results
+test:android_ci --config=ants

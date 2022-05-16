@@ -34,8 +34,9 @@ class ScmVersionTestCase(unittest.TestCase):
     # Version.PatchLevel.SubLevel-AndroidRelease-KmiGeneration[-Tag]-Sha1
     # e.g. 5.4.42-android12-0-00544-ged21d463f856
     # e.g. 5.4.42-mainline-00544-ged21d463f856
+    # e.g. 5.18.0-rc3-mainline-19648-g9d2f688e65db
     _scmversion_pattern = re.compile(
-        r"Linux version [0-9]+[.][0-9]+[.][0-9]+(-android[0-9]+-[0-9]+|-mainline)(-[0-9]+)?-g[0-9a-f]{12,40}")
+        r"Linux version [0-9]+[.][0-9]+[.][0-9]+(-android[0-9]+-[0-9]+|(-rc[0-9]+)?-mainline)(-[0-9]+)?-g[0-9a-f]{12,40}")
 
     def test_vmlinux_contains_scmversion(self):
         """Test that vmlinux (if exists) has scmversion."""

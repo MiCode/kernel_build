@@ -30,17 +30,6 @@ hermetic_tools(
         "sh",
         "tar",
     ],
-    optional_host_tools = [
-        # For --strategy KernelBuild=local, scmversion is not pre-calculated
-        # in --workspace_status_command. Instead, it is calculated using
-        # git when the action is executed.
-        # Hence, git is needed for --strategy KernelBuild=local.
-        # However, we do not have ways to select() on --strategy, so just
-        # include git unconditionally for now until we find a better option.
-        # TODO(b/227520025): Once logic is deduplicated between kernel.bzl and
-        #  setlocalversion, consider removing this.
-        "git",
-    ],
     test_host_tools = [
         "modinfo",
         "strings",

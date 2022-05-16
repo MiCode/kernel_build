@@ -6,6 +6,10 @@
 
 [Building your kernels and drivers with Bazel](docs/impl.md)
 
+[`build.sh` build configs](docs/build_configs.md)
+
+[Support ABI monitoring](docs/abi.md)
+
 [Handling SCM version](docs/scmversion.md)
 
 [Resolving common errors](docs/errors.md)
@@ -23,3 +27,5 @@
 `--config=fast`: [Make local builds faster](docs/fast.md)
 
 `--config=local`: [Sandboxing](docs/sandbox.md)
+
+`--config=stamp`: [Handling SCM version](docs/scmversion.md)

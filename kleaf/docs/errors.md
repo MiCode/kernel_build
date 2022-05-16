@@ -150,9 +150,7 @@ If `/proc/version` shows something like
 5.14.0-mainline
 ```
 
-without a SHA, this is a known issue.
-
-[comment]: <> (Bug 202077908)
+without a SHA, the SCM version is not embedded.
 
 This is also the cause of the following dialog on the phone screen with Android
 12 userspace:
@@ -165,6 +163,20 @@ The dialog should not show if your device is running Android 13 in userspace
 with
 [CL 1843574](https://android-review.googlesource.com/c/platform/system/libvintf/+/1843574/)
 .
+
+The SCM version is only embedded for `--config=stamp` or any other configs that
+inherits from it (e.g. `--config=release`).
+
+The SCM version should be embedded properly on release builds, where
+`--config=release` must be specified.
+
+**Solutions**:
+- You may hide the dialog by cherry-picking
+  [CL 1843574](https://android-review.googlesource.com/c/platform/system/libvintf/+/1843574/)
+  if you are running Android 12 in userspace.
+- You may embed SCM version in local builds with `--config=stamp`.
+
+See [scmversion.md](scmversion.md) for details.
 
 ## error: unable to open output file [...]: 'Operation not permitted' {#operation-not-permitted}
 
@@ -228,6 +240,49 @@ You may ignore this warning:
 - if you are building GKI.
 
 For details, see [scmversion.md](scmversion.md).
+
+## rm: cannot remove 'out/bazel/output_user_root/<hash>/execroot/\_\_main\_\_/bazel-out/k8-fastbuild/bin/<...>
+
+If you try to `rm -rf out/` and get the above message, this is because Bazel
+removes the write permission on output binaries.
+
+Unlike with `build.sh`, it is no longer needed to clean the output
+directory for consistency of build results.
+
+However, if you need to clean the `out/` directory to
+save disk space, you may run `bazel clean`. See
+documentation for the `clean` command
+[here](https://bazel.build/docs/user-manual#cleaning-build-outputs).
+
+## cp: <workspace\_root>/out/bazel/output\_user\_root/[...]/execroot/\_\_main\_\_/[...]/[...]_defconfig: Read-only file system {#defconfig-readonly}
+
+This is likely because a previous build from one of the following does not clean
+up the `$ROOT_DIR/$KERNEL_DIR/$DEFCONFIG` file:
+
+- A `build.sh` build is interrupted
+- A `--config=local` Bazel build is interrupted
+
+These may cause `POST_DEFCONFIG_CMDS` to not being executed. Or
+`POST_DEFCONFIG_CMDS` is not defined to clean up `$DEFCONFIG`.
+
+To restore the workspace to a build-able state, manually delete the generated
+`$DEFCONFIG` file in the source tree.
+
+**HINT**: You may execute the Bazel command with
+`--experimental_strip_sandbox_path` to get a cleaner path of the file that needs
+to be deleted.
+
+To prevent `--config=local` builds from writing `$DEFCONFIG` into
+the source tree in the future, you may modify `PRE_DEFCONFIG_CMDS` to
+write to `\${OUT_DIR}` instead. Note that because `${OUT_DIR}` is not
+defined when `build.config` is loaded, the preceding `$` must be escaped
+so `$OUT_DIR` is evaluated properly when `$PRE_DEFCONFIG_CMDS` are executed.
+
+You may also stick with sandboxed builds (i.e. not using `--config=local`)
+to prevent this in the future. See [sandbox.md](sandbox.md).
+
+See
+[CL:2082199](https://android-review.googlesource.com/2082199) for an example.
 
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 

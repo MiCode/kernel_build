@@ -47,7 +47,6 @@ $ bazel run --lto=none //common:kernel_aarch64_dist
 ## Mnemonic
 
 ```text
-
 $           BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 #   =>
 $ tools/bazel run      //common:[........]kernel_aarch64[..............]_dist -- ...
@@ -59,6 +58,13 @@ $ tools/bazel run      //common:[........]kernel_aarch64[..........]_abi[...]_di
 $           BUILD_CONFIG=common/build.config.gki.aarch64 build/build_abi.sh --update_symbol_list
 #   =>
 $ tools/bazel run      //common:[........]kernel_aarch64[..........]_abi[...]_update_symbol_list
+
+# The following two Bazel commands require updating the symbol list before
+# executing the command.
+
+$           BUILD_CONFIG=common/build.config.gki.aarch64 build/build_abi.sh --nodiff --update
+#   =>
+$ tools/bazel run      //common:[........]kernel_aarch64[..........]_abi[...]_nodiff_update
 
 $           BUILD_CONFIG=common/build.config.gki.aarch64 build/build_abi.sh --update
 #   =>
