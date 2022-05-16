@@ -53,6 +53,10 @@ while [[ $# -gt 0 ]]; do
     IGNORELIST_FILE="$2"
     shift
     ;;
+  --ext_mod)
+    EXT_MOD_DIR="$2"
+    shift
+    ;;
   --help)
     echo "Gets a patch from git, passes it checkpatch.pl, and then reports"
     echo "the subset of violations we choose to enforce."
@@ -89,11 +93,17 @@ fi
 echo "========================================================"
 echo " Running static analysis..."
 echo "========================================================"
-echo "Using KERNEL_DIR: ${KERNEL_DIR}"
-echo "Using --git_sha1: ${GIT_SHA1}"
 
 # Generate patch file from git.
-cd ${KERNEL_DIR}
+if [[ -n "${EXT_MOD_DIR}" ]]; then
+  echo "Using EXT_MOD_DIR: ${EXT_MOD_DIR}"
+  cd ${EXT_MOD_DIR}
+else
+  echo "Using KERNEL_DIR: ${KERNEL_DIR}"
+  cd ${KERNEL_DIR}
+fi
+echo "Using --git_sha1: ${GIT_SHA1}"
+
 git format-patch --quiet -o "${PATCH_DIR}" "${GIT_SHA1}^1..${GIT_SHA1}" -- \
   ':!android/abi*' ':!BUILD.bazel'
 PATCH_FILE="${PATCH_DIR}/*.patch"
