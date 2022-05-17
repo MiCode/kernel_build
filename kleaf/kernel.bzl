@@ -3886,8 +3886,6 @@ def _kernel_extracted_symbols_impl(ctx):
             src = ctx.file.src.path,
             out = out.path,
         )
-    # Always consider symbols exported by modules
-    flags.append("--include-module-exports")
 
     command = ctx.attr.kernel_build_notrim[_KernelEnvInfo].setup
     command += """
