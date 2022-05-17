@@ -409,6 +409,31 @@
 #   BUILD_GKI_CERTIFICATION_TOOLS
 #     if set to "1", build a gki_certification_tools.tar.gz, which contains
 #     the utilities used to certify GKI boot-*.img files.
+#
+#   BUILD_GKI_ARTIFACTS
+#     if defined, build a boot-img.tar.gz archive that contains several GKI
+#     boot-*.img files with different kernel compression format.
+#     Each boot image contains a boot header v4 as per the format defined by
+#     https://source.android.com/devices/bootloader/boot-image-header,
+#     followed by a kernel (no ramdisk). The kernel binaries are from
+#     ${DIST_DIR}, e.g., Image, Image.gz, Image.lz4, etc. Individual
+#     boot-*.img files are also generated, e.g., boot.img, boot-gz.img and
+#     boot-lz4.img. It is expected that all components are present in
+#     ${DIST_DIR}.
+#
+#     When the BUILD_GKI_ARTIFACTS flag is defined, the following flags also
+#     need to be defined.
+#     - MKBOOTIMG_PATH=<path to the mkbootimg.py script which builds boot.img>
+#       (defaults to tools/mkbootimg/mkbootimg.py)
+#     - BUILD_GKI_BOOT_IMG_SIZE=<The size of the boot.img to build>
+#       This is required, and the file ${DIST_DIR}/Image must exist.
+#     - BUILD_GKI_BOOT_IMG_GZ_SIZE=<The size of the boot-gz.img to build>
+#       This is required only when ${DIST_DIR}/Image.gz is present.
+#     - BUILD_GKI_BOOT_IMG_LZ4_SIZE=<The size of the boot-lz4.img to build>
+#       This is required only when ${DIST_DIR}/Image.lz4 is present.
+#     - BUILD_GKI_BOOT_IMG_<COMPRESSION>_SIZE=<The size of the
+#       boot-${compression}.img to build> This is required
+#       only when ${DIST_DIR}/Image.${compression} is present.
 
 # Note: For historic reasons, internally, OUT_DIR will be copied into
 # COMMON_OUT_DIR, and OUT_DIR will be then set to
@@ -432,24 +457,28 @@ source "${ROOT_DIR}/build/_setup_env.sh"
 
 (
     [[ "$KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING" == "1" ]] && exit 0 || true
-    echo     "************************************************************************" >&2
-    echo     "* WARNING: build.sh is deprecated for this branch. Please migrate to Bazel."
-    echo     "*   See build/kernel/kleaf/README.md"
-    echo -ne "*          Inferring equivalent Bazel command...\r"
+    echo     "Inferring equivalent Bazel command..."
     bazel_command_code=0
-    eq_bazel_command=$(${ROOT_DIR}/build/kernel/kleaf/convert_to_bazel.sh 2>&1) || bazel_command_code=$?
+    eq_bazel_command=$(
+        ${ROOT_DIR}/build/kernel/kleaf/convert_to_bazel.sh # error messages goes to stderr
+    ) || bazel_command_code=$?
+    echo     "*****************************************************************************" >&2
+    echo     "* WARNING: build.sh is deprecated for this branch. Please migrate to Bazel.  " >&2
+    echo     "*   See build/kernel/kleaf/README.md                                         " >&2
     if [[ $bazel_command_code -eq 0 ]]; then
-        echo "*          Possibly equivalent Bazel command:                           " >&2
+        echo "*          Possibly equivalent Bazel command:                                " >&2
         echo "*" >&2
         echo "*   \$ $eq_bazel_command" >&2
         echo "*" >&2
     else
-        echo "WARNING: Unable to infer an equivalent Bazel command." >&2
+        echo "WARNING: Unable to infer an equivalent Bazel command.                        " >&2
     fi
-    echo     "* To suppress this warning, set KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1"
-    echo     "************************************************************************" >&2
+    echo     "* To suppress this warning, set KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1" >&2
+    echo     "*****************************************************************************" >&2
     echo >&2
 )
+# Suppress deprecation warning for recursive build.sh invocation with GKI_BUILD_CONFIG
+export KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1
 
 MAKE_ARGS=( "$@" )
 export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
@@ -1037,6 +1066,10 @@ echo " Files copied to ${DIST_DIR}"
 
 if [ -n "${BUILD_BOOT_IMG}" -o -n "${BUILD_VENDOR_BOOT_IMG}" ] ; then
   build_boot_images
+fi
+
+if [ -n "${BUILD_GKI_ARTIFACTS}" ] ; then
+  build_gki_artifacts
 fi
 
 if [ -n "${BUILD_DTBO_IMG}" ]; then
