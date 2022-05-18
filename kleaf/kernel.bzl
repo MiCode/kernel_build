@@ -23,7 +23,7 @@ load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
 load(":update_source_file.bzl", "update_source_file")
 load(
-    ":utils.bzl",
+    "//build/kernel/kleaf/impl:utils.bzl",
     "find_file",
     "find_files",
     "getoptattr",
