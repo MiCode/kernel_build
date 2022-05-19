@@ -78,7 +78,7 @@ set -e
 
 # Pick the correct patch to test.
 verify_file_exists ${APPLIED_PROP_PATH}
-GIT_SHA1=$(sed -nE "s#${KERNEL_DIR} .*([0-9a-f]{40}).*#\\1#p" "${APPLIED_PROP_PATH}")
+GIT_SHA1=$(sed -nE "s#^${KERNEL_DIR} .*([0-9a-f]{40}).*#\\1#p" "${APPLIED_PROP_PATH}")
 if [[ -z ${GIT_SHA1} ]]; then
   # Since applied.prop only tracks user changes, ignore projects that are
   # included in presubmit without any changed files.

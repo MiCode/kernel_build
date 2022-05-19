@@ -320,7 +320,7 @@ def main():
     return 1
 
   # Get required symbols of all modules
-  undefined_symbols = extract_undefined_symbols(modules)
+  undefined_symbols = extract_undefined_symbols(modules + gki_modules)
 
   # Get the actually defined and exported symbols
   generic_exports = extract_generic_exports(vmlinux, gki_modules)
