@@ -3878,9 +3878,14 @@ def _kernel_extracted_symbols_impl(ctx):
     out = ctx.actions.declare_file("{}/extracted_symbols".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
 
+    gki_modules_list = ctx.attr.gki_modules_list_kernel_build[_KernelBuildAbiInfo].module_outs_file
     vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
     in_tree_modules = find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
-    srcs = [vmlinux] + in_tree_modules
+    srcs = [
+        gki_modules_list,
+        vmlinux,
+    ]
+    srcs += in_tree_modules
     for kernel_module in ctx.attr.kernel_modules:  # external modules
         srcs += kernel_module[_KernelModuleInfo].files
 
@@ -3890,6 +3895,7 @@ def _kernel_extracted_symbols_impl(ctx):
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
+    flags += ["--gki-modules", gki_modules_list.path]
     if not ctx.attr.module_grouping:
         flags.append("--skip-module-grouping")
     if ctx.attr.kmi_symbol_list_add_only:
@@ -3940,6 +3946,7 @@ _kernel_extracted_symbols = rule(
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
+        "gki_modules_list_kernel_build": attr.label(doc = "The `kernel_build` which `module_outs` is treated as GKI modules list.", providers = [_KernelBuildAbiInfo]),
         "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
@@ -4348,6 +4355,10 @@ def _kernel_build_abi_define_abi_targets(
         module_grouping = module_grouping,
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+        # If base_kernel is set, this is a device build, so use the GKI
+        # modules list from base_kernel (GKI). If base_kernel is not set, this
+        # likely a GKI build, so use modules_outs from itself.
+        gki_modules_list_kernel_build = kernel_build_kwargs.get("base_kernel", name),
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",
