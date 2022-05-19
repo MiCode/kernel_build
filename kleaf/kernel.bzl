@@ -18,7 +18,12 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
-load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
+load(
+    ":constants.bzl",
+    "MODULE_OUTS_FILE_OUTPUT_GROUP",
+    "MODULE_OUTS_FILE_SUFFIX",
+    "TOOLCHAIN_VERSION_FILENAME",
+)
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
 load(":update_source_file.bzl", "update_source_file")
@@ -1353,6 +1358,7 @@ _KernelBuildAbiInfo = provider(
     fields = {
         "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](#kernel_build).",
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",
+        "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs).",
     },
 )
 
@@ -1580,7 +1586,7 @@ def _kernel_build_impl(ctx):
 
     # A file containing all module_outs
     all_module_names = all_output_files["module_outs"].keys()
-    all_module_names_file = ctx.actions.declare_file("{}_all_module_names/all_module_names.txt".format(ctx.label.name))
+    all_module_names_file = ctx.actions.declare_file("{name}_all_module_names/{name}{suffix}".format(name = ctx.label.name, suffix = MODULE_OUTS_FILE_SUFFIX))
     ctx.actions.write(
         output = all_module_names_file,
         content = "\n".join(all_module_names) + "\n",
@@ -1774,6 +1780,7 @@ def _kernel_build_impl(ctx):
     kernel_build_abi_info = _KernelBuildAbiInfo(
         trim_nonlisted_kmi = ctx.attr.trim_nonlisted_kmi,
         combined_abi_symbollist = ctx.file.combined_abi_symbollist,
+        module_outs_file = all_module_names_file,
     )
 
     kernel_unstripped_modules_info = _KernelUnstrippedModulesInfo(
@@ -1785,10 +1792,12 @@ def _kernel_build_impl(ctx):
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
     output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
+    output_group_kwargs[MODULE_OUTS_FILE_OUTPUT_GROUP] = depset([all_module_names_file])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(toolchain_version_out)
+    default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
     default_info = DefaultInfo(
@@ -3642,12 +3651,15 @@ def _kernel_filegroup_impl(ctx):
         )
         unstripped_modules_info = _KernelUnstrippedModulesInfo(directory = unstripped_dir)
 
+    abi_info = _KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
+
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
         kernel_module_dev_info,
         # TODO(b/219112010): implement _KernelEnvInfo for _kernel_build
         uapi_info,
         unstripped_modules_info,
+        abi_info,
     ]
 
 kernel_filegroup = rule(
@@ -3730,6 +3742,10 @@ Unlike `kernel_build`, this has default value `True` because
 [`define_abi_targets`](#kernel_build_abi-define_abi_targets) to `True` by
 default, which in turn sets `collect_unstripped_modules` to `True` by default.
 """,
+        ),
+        "module_outs_file": attr.label(
+            allow_single_file = True,
+            doc = """A file containing `module_outs` of the original [`kernel_build`](#kernel_build) target.""",
         ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     },

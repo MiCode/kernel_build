@@ -71,6 +71,7 @@ GKI_DOWNLOAD_CONFIGS = [
 ]
 
 TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
+MODULE_OUTS_FILE_SUFFIX = "_modules"
 
 # Key: Bazel target name in common_kernels.bzl
 # repo_name: name of download_artifacts_repo in bazel.WORKSPACE
@@ -81,6 +82,9 @@ CI_TARGET_MAPPING = {
         "repo_name": "gki_prebuilts",
         "outs": aarch64_outs + [
             TOOLCHAIN_VERSION_FILENAME,
+            "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
         ],
     },
 }
+
+MODULE_OUTS_FILE_OUTPUT_GROUP = "module_outs_file"
