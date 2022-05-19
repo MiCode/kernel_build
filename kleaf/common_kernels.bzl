@@ -487,10 +487,8 @@ def define_common_kernels(
             kernel_modules_install = name + "_modules_install",
             # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
             build_system_dlkm = True,
-            deps = [
-                # Keep the following in sync with build.config.gki* MODULES_LIST
-                "android/gki_system_dlkm_modules",
-            ],
+            # Keep in sync with build.config.gki* MODULES_LIST
+            modules_list = "android/gki_system_dlkm_modules",
         )
 
         # module_staging_archive from <name>
