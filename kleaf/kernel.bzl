@@ -171,6 +171,7 @@ def kernel_build(
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
+        base_kernel_for_module_outs = None,
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
@@ -232,7 +233,10 @@ def kernel_build(
               srcs = aarch64_outs,
             )
             ```
+        base_kernel_for_module_outs: **INTERNAL ONLY; DO NOT SET!**
 
+          If set, this is used instead of `base_kernel` to determine the list
+          of GKI modules.
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
           symbols, but contains type and symbol information within a .BTF section.
           This is suitable for ABI analysis through BTF.
@@ -479,6 +483,7 @@ def kernel_build(
         internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
+        base_kernel_for_module_outs = base_kernel_for_module_outs,
         modules_prepare = modules_prepare_target_name,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
@@ -1381,6 +1386,14 @@ For an external [`kernel_module()`](#kernel_module), this is a directory contain
     },
 )
 
+_KernelBuildInTreeModulesInfo = provider(
+    doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
+[`base_kernel`](#kernel_build-base_kernel) or [`base_kernel_for_module_outs`](#kernel_build-base_kernel_for_module_outs).""",
+    fields = {
+        "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs).",
+    },
+)
+
 _SrcsInfo = provider(fields = {
     "srcs": "The srcs attribute of a rule.",
 })
@@ -1572,6 +1585,17 @@ def _kernel_build_impl(ctx):
     if kbuild_mixed_tree:
         inputs.append(kbuild_mixed_tree)
 
+    base_kernel_all_module_names_file_path = ""
+    base_kernel_for_module_outs = ctx.attr.base_kernel_for_module_outs
+    if base_kernel_for_module_outs == None:
+        base_kernel_for_module_outs = ctx.attr.base_kernel
+    if base_kernel_for_module_outs:
+        base_kernel_all_module_names_file = base_kernel_for_module_outs[_KernelBuildInTreeModulesInfo].module_outs_file
+        if not base_kernel_all_module_names_file:
+            fail("{}: base_kernel {} does not provide module_outs_file.".format(ctx.label, ctx.attr.base_kernel.label))
+        inputs.append(base_kernel_all_module_names_file)
+        base_kernel_all_module_names_file_path = base_kernel_all_module_names_file.path
+
     # kernel_build(name="kernel", outs=["out"])
     # => _kernel_build(name="kernel", outs=["kernel/out"], internal_outs=["kernel/Module.symvers", ...])
     # => all_output_names = ["foo", "Module.symvers", ...]
@@ -1694,7 +1718,7 @@ def _kernel_build_impl(ctx):
            {grab_unstripped_intree_modules_cmd}
          # Check if there are remaining *.ko files
            remaining_ko_files=$({check_declared_output_list} \\
-                --declared $(cat {all_module_names_file}) \\
+                --declared $(cat {all_module_names_file} {base_kernel_all_module_names_file_path}) \\
                 --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^[.]/::'))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
@@ -1715,6 +1739,7 @@ def _kernel_build_impl(ctx):
         grab_intree_modules_cmd = grab_intree_modules_cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_intree_modules_cmd,
         all_module_names_file = all_module_names_file.path,
+        base_kernel_all_module_names_file_path = base_kernel_all_module_names_file_path,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
@@ -1788,6 +1813,10 @@ def _kernel_build_impl(ctx):
         directory = unstripped_dir,
     )
 
+    base_kernel_info = _KernelBuildInTreeModulesInfo(
+        module_outs_file = all_module_names_file,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -1813,6 +1842,7 @@ def _kernel_build_impl(ctx):
         kernel_build_uapi_info,
         kernel_build_abi_info,
         kernel_unstripped_modules_info,
+        base_kernel_info,
         output_group_info,
         default_info,
     ]
@@ -1846,6 +1876,11 @@ _kernel_build = rule(
         ),
         "base_kernel": attr.label(
             aspects = [_kernel_toolchain_aspect],
+            providers = [_KernelBuildInTreeModulesInfo],
+        ),
+        "base_kernel_for_module_outs": attr.label(
+            providers = [_KernelBuildInTreeModulesInfo],
+            doc = "If set, use the `module_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
         ),
         "kmi_symbol_list_strict_mode": attr.bool(),
         "raw_kmi_symbol_list": attr.label(
@@ -3652,6 +3687,7 @@ def _kernel_filegroup_impl(ctx):
         unstripped_modules_info = _KernelUnstrippedModulesInfo(directory = unstripped_dir)
 
     abi_info = _KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
+    base_kernel_info = _KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
 
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
@@ -3660,6 +3696,7 @@ def _kernel_filegroup_impl(ctx):
         uapi_info,
         unstripped_modules_info,
         abi_info,
+        base_kernel_info,
     ]
 
 kernel_filegroup = rule(
@@ -4256,7 +4293,7 @@ def _kernel_build_abi_define_other_targets(
     if outs_changed or kernel_build_kwargs.get("base_kernel"):
         with_vmlinux_kwargs = dict(kernel_build_kwargs)
         with_vmlinux_kwargs["outs"] = _transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
-        with_vmlinux_kwargs.pop("base_kernel", default = None)
+        with_vmlinux_kwargs["base_kernel_for_module_outs"] = with_vmlinux_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_with_vmlinux", **with_vmlinux_kwargs)
     else:
         native.alias(name = name + "_with_vmlinux", actual = name)
@@ -4342,7 +4379,7 @@ def _kernel_build_abi_define_abi_targets(
         notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
         notrim_kwargs["trim_nonlisted_kmi"] = False
         notrim_kwargs["kmi_symbol_list_strict_mode"] = False
-        notrim_kwargs.pop("base_kernel", default = None)
+        notrim_kwargs["base_kernel_for_module_outs"] = notrim_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_notrim", **notrim_kwargs)
     else:
         native.alias(name = name + "_notrim", actual = name)
