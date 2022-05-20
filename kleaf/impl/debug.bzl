@@ -30,6 +30,13 @@ def _print_scripts(ctx, command, what = None):
         print("""
         # Script that runs %s%s:%s""" % (ctx.label, (" " + what if what else ""), command))
 
+def _trap():
+    """Return a shell script that prints a date before each command afterwards.
+    """
+    return """set -x
+              trap '>&2 /bin/date' DEBUG"""
+
 debug = struct(
     print_scripts = _print_scripts,
+    trap = _trap,
 )
