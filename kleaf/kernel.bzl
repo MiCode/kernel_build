@@ -21,6 +21,7 @@ load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load("//build/kernel/kleaf/impl:debug.bzl", "debug")
 load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
+load("//build/kernel/kleaf/impl:stamp.bzl", "stamp")
 load("//build/kernel/kleaf/impl:status.bzl", "status")
 load(
     ":constants.bzl",
@@ -518,33 +519,6 @@ def kernel_build(
         modules = real_outs.get("module_outs"),
     )
 
-def _get_scmversion_cmd(srctree, scmversion):
-    """Return a shell script that sets up .scmversion file in the source tree conditionally.
-
-    Args:
-      srctree: Path to the source tree where `setlocalversion` were supposed to run with.
-      scmversion: The result of executing `setlocalversion` if it were executed on `srctree`.
-    """
-    return """
-         # Set up scm version
-           (
-              # Save scmversion to .scmversion if .scmversion does not already exist.
-              # If it does exist, then it is part of "srcs", so respect its value.
-              # If .git exists, we are not in sandbox. _kernel_config disables
-              # CONFIG_LOCALVERSION_AUTO in this case.
-              if [[ ! -d {srctree}/.git ]] && [[ ! -f {srctree}/.scmversion ]]; then
-                scmversion={scmversion}
-                if [[ -n "${{scmversion}}" ]]; then
-                    mkdir -p {srctree}
-                    echo $scmversion > {srctree}/.scmversion
-                fi
-              fi
-           )
-""".format(
-        srctree = srctree,
-        scmversion = scmversion,
-    )
-
 _KernelEnvInfo = provider(fields = {
     "dependencies": "dependencies required to use this environment setup",
     "setup": "setup script to initialize the environment",
@@ -628,15 +602,9 @@ def _kernel_env_impl(ctx):
           export OUT_DIR_SUFFIX={name}
     """.format(name = utils.removesuffix(_sanitize_label_as_filename(ctx.label), "_env"))
 
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        command += """
-              export SOURCE_DATE_EPOCH=$({source_date_epoch_cmd})
-        """.format(source_date_epoch_cmd = status.get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCH"))
-        inputs.append(ctx.info_file)
-    else:
-        command += """
-              export SOURCE_DATE_EPOCH=0
-        """
+    set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
+    command += set_source_date_epoch_ret.cmd
+    inputs += set_source_date_epoch_ret.deps
 
     command += """
         # create a build environment
@@ -681,52 +649,9 @@ def _kernel_env_impl(ctx):
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
     )
 
-    # For non-release builds, CONFIG_LOCALVERSION_AUTO is disabled. There's no
-    # need to set up scmversion.
-    set_up_scmversion_cmd = ""
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
-        # STABLE_SCMVERSION because their values aren't known at that point.
-        # Hence, mimic the logic in setlocalversion to prepend them.
-        stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
-
-        # TODO(b/227520025): Remove the following logic in setlocalversion.
-        # Right now, we need this logic for sandboxed builds. Local builds do not have
-        # CONFIG_LOCALVERSION_AUTO, so the following logic in setlocalversion is not necessary.
-        set_up_scmversion_cmd = """
-            (
-                # Extract the Android release version. If there is no match, then return 255
-                # and clear the variable $android_release
-                set +e
-                android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
-                if [[ $? -ne 0 ]]; then
-                    android_release=
-                fi
-                set -e
-                if [[ -n "$KMI_GENERATION" ]] && [[ $(expr $KMI_GENERATION : '^[0-9]\\+$') -eq 0 ]]; then
-                    echo "Invalid KMI_GENERATION $KMI_GENERATION" >&2
-                    exit 1
-                fi
-                scmversion=""
-                stable_scmversion=$({stable_scmversion_cmd})
-                if [[ -n "$stable_scmversion" ]]; then
-                    scmversion_prefix=
-                    if [[ -n "$android_release" ]] && [[ -n "$KMI_GENERATION" ]]; then
-                        scmversion_prefix="-$android_release-$KMI_GENERATION"
-                    elif [[ -n "$android_release" ]]; then
-                        scmversion_prefix="-$android_release"
-                    fi
-                    scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
-                fi
-                {setup_cmd}
-            )
-        """.format(
-            stable_scmversion_cmd = stable_scmversion_cmd,
-            setup_cmd = _get_scmversion_cmd(
-                srctree = "${ROOT_DIR}/${KERNEL_DIR}",
-                scmversion = "${scmversion}",
-            ),
-        )
+    dependencies = []
+    set_up_scmversion_ret = stamp.set_up_scmversion(ctx)
+    dependencies += set_up_scmversion_ret.deps
 
     setup += """
          # error on failures
@@ -762,18 +687,16 @@ def _kernel_env_impl(ctx):
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
-        set_up_scmversion_cmd = set_up_scmversion_cmd,
+        set_up_scmversion_cmd = set_up_scmversion_ret.cmd,
         set_up_jobs_cmd = set_up_jobs_cmd,
     )
 
-    dependencies = ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    dependencies += ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
         ctx.version_file,
     ]
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        dependencies.append(ctx.info_file)
     if kconfig_ext:
         dependencies.append(kconfig_ext)
     dependencies += dtstree_srcs
@@ -956,12 +879,7 @@ def _kernel_config_impl(ctx):
     config = ctx.outputs.config
     include_dir = ctx.actions.declare_directory(ctx.attr.name + "_include")
 
-    scmversion_command = ""
-    if not ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        scmversion_command = """
-            ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config -d LOCALVERSION_AUTO
-            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} olddefconfig
-        """
+    scmversion_command = stamp.scmversion_config_cmd(ctx)
 
     lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
 
@@ -1872,8 +1790,6 @@ def _kernel_module_impl(ctx):
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[_KernelEnvInfo].dependencies
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        inputs.append(ctx.info_file)
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -1943,21 +1859,9 @@ def _kernel_module_impl(ctx):
             outs = " ".join(original_outs_base),
         )
 
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
-        scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
-        scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ctx.attr.ext_mod)
-
-        # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
-        # should not run on KERNEL_DIR. However, for STABLE_SCMVERSION_EXT_MOD,
-        # we may have a missing item if setlocalversion should not run in
-        # a certain directory. Hence, be lenient about failures.
-        scmversion_cmd += " || true"
-
-        command += _get_scmversion_cmd(
-            srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ctx.attr.ext_mod),
-            scmversion = "$({})".format(scmversion_cmd),
-        )
+    scmversion_ret = stamp.get_ext_mod_scmversion(ctx)
+    inputs += scmversion_ret.deps
+    command += scmversion_ret.cmd
 
     command += """
              # Set variables

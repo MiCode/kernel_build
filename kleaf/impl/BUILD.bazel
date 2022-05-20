@@ -23,6 +23,7 @@ bzl_library(
         "gki_artifacts.bzl",
         "kernel_build_config.bzl",
         "kernel_dtstree.bzl",
+        "stamp.bzl",
         "status.bzl",
         "utils.bzl",
     ],
