@@ -4060,7 +4060,7 @@ def _kernel_abi_dump_full(ctx):
     # Directories could be empty, so use a find + cp
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         mkdir -p {abi_linux_tree}
-        find {unstripped_dirs} -type f -name '*.ko' -exec cp -pl -t {abi_linux_tree} {{}} +
+        find {unstripped_dirs} -name '*.ko' -exec cp -pl -t {abi_linux_tree} {{}} +
         cp -pl {vmlinux} {abi_linux_tree}
         {dump_abi} --linux-tree {abi_linux_tree} --out-file {full_abi_out_file}
         {epilog}
