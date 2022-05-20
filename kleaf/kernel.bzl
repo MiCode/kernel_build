@@ -18,6 +18,7 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
+load("//build/kernel/kleaf/impl:status.bzl", "status")
 load(
     ":constants.bzl",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
@@ -627,18 +628,6 @@ def kernel_dtstree(
     )
     _kernel_dtstree(**kwargs)
 
-def _get_status_cmd(ctx, status_file, var):
-    return """cat {status} | ( grep -e "^{var} " || true ) | cut -f2- -d' '""".format(
-        status = status_file.path,
-        var = var,
-    )
-
-def _get_stable_status_cmd(ctx, var):
-    return _get_status_cmd(ctx, ctx.info_file, var)
-
-def _get_volatile_status_cmd(ctx, var):
-    return _get_status_cmd(ctx, ctx.version_file, var)
-
 def _get_scmversion_cmd(srctree, scmversion):
     """Return a shell script that sets up .scmversion file in the source tree conditionally.
 
@@ -752,7 +741,7 @@ def _kernel_env_impl(ctx):
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         command += """
               export SOURCE_DATE_EPOCH=$({source_date_epoch_cmd})
-        """.format(source_date_epoch_cmd = _get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCH"))
+        """.format(source_date_epoch_cmd = status.get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCH"))
         inputs.append(ctx.info_file)
     else:
         command += """
@@ -799,7 +788,7 @@ def _kernel_env_impl(ctx):
             fi
           )"
     """.format(
-        get_make_jobs_cmd = _get_volatile_status_cmd(ctx, "MAKE_JOBS"),
+        get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
     )
 
     # For non-release builds, CONFIG_LOCALVERSION_AUTO is disabled. There's no
@@ -809,7 +798,7 @@ def _kernel_env_impl(ctx):
         # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
         # STABLE_SCMVERSION because their values aren't known at that point.
         # Hence, mimic the logic in setlocalversion to prepend them.
-        stable_scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+        stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
 
         # TODO(b/227520025): Remove the following logic in setlocalversion.
         # Right now, we need this logic for sandboxed builds. Local builds do not have
@@ -2066,7 +2055,7 @@ def _kernel_module_impl(ctx):
 
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
-        scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
+        scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
         scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ctx.attr.ext_mod)
 
         # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion

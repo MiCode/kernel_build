@@ -20,6 +20,7 @@ bzl_library(
     name = "impl",
     srcs = [
         "gki_artifacts.bzl",
+        "status.bzl",
         "utils.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
