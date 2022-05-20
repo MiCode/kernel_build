@@ -20,6 +20,7 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load("//build/kernel/kleaf/impl:debug.bzl", "debug")
 load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
+load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:status.bzl", "status")
 load(
     ":constants.bzl",
@@ -46,6 +47,7 @@ load(
 
 # Re-exports
 kernel_build_config = _kernel_build_config
+kernel_dtstree = _kernel_dtstree
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -516,71 +518,6 @@ def kernel_build(
         modules = real_outs.get("module_outs"),
     )
 
-_DtsTreeInfo = provider(fields = {
-    "srcs": "DTS tree sources",
-    "makefile": "DTS tree makefile",
-})
-
-def _kernel_dtstree_impl(ctx):
-    return _DtsTreeInfo(
-        srcs = ctx.files.srcs,
-        makefile = ctx.file.makefile,
-    )
-
-_kernel_dtstree = rule(
-    implementation = _kernel_dtstree_impl,
-    attrs = {
-        "srcs": attr.label_list(doc = "kernel device tree sources", allow_files = True),
-        "makefile": attr.label(mandatory = True, allow_single_file = True),
-    },
-)
-
-def kernel_dtstree(
-        name,
-        srcs = None,
-        makefile = None,
-        **kwargs):
-    """Specify a kernel DTS tree.
-
-    Args:
-      srcs: sources of the DTS tree. Default is
-
-        ```
-        glob(["**"], exclude = [
-            "**/.*",
-            "**/.*/**",
-            "**/BUILD.bazel",
-            "**/*.bzl",
-        ])
-        ```
-      makefile: Makefile of the DTS tree. Default is `:Makefile`, i.e. the `Makefile`
-        at the root of the package.
-      kwargs: Additional attributes to the internal rule, e.g.
-        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
-        See complete list
-        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
-    """
-    if srcs == None:
-        srcs = native.glob(
-            ["**"],
-            exclude = [
-                "**/.*",
-                "**/.*/**",
-                "**/BUILD.bazel",
-                "**/*.bzl",
-            ],
-        )
-    if makefile == None:
-        makefile = ":Makefile"
-
-    kwargs.update(
-        # This should be the exact list of arguments of kernel_dtstree.
-        name = name,
-        srcs = srcs,
-        makefile = makefile,
-    )
-    _kernel_dtstree(**kwargs)
-
 def _get_scmversion_cmd(srctree, scmversion):
     """Return a shell script that sets up .scmversion file in the source tree conditionally.
 
@@ -635,8 +572,8 @@ def _kernel_env_impl(ctx):
     dtstree_makefile = None
     dtstree_srcs = []
     if ctx.attr.dtstree != None:
-        dtstree_makefile = ctx.attr.dtstree[_DtsTreeInfo].makefile
-        dtstree_srcs = ctx.attr.dtstree[_DtsTreeInfo].srcs
+        dtstree_makefile = ctx.attr.dtstree[DtstreeInfo].makefile
+        dtstree_srcs = ctx.attr.dtstree[DtstreeInfo].srcs
 
     setup_env = ctx.file.setup_env
     preserve_env = ctx.file.preserve_env
@@ -941,7 +878,7 @@ _kernel_env = rule(
             doc = "an external Kconfig.ext file sourced by the base kernel",
         ),
         "dtstree": attr.label(
-            providers = [_DtsTreeInfo],
+            providers = [DtstreeInfo],
             doc = "Device tree",
         ),
         "_tools": attr.label_list(default = _get_tools),
