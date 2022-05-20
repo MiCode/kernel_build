@@ -21,11 +21,13 @@ bzl_library(
     srcs = [
         "debug.bzl",
         "gki_artifacts.bzl",
+        "kernel_build_config.bzl",
         "status.bzl",
         "utils.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
+        "//build/kernel/kleaf:hermetic_tools_def",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//lib:shell",
         "@bazel_skylib//rules:common_settings",
