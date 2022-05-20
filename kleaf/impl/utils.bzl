@@ -85,10 +85,18 @@ def _intermediates_dir(ctx):
         ctx.attr.name + "_intermediates",
     )
 
+# https://github.com/bazelbuild/starlark/issues/185
+# TODO(b/233247849): Change this to s.removeprefix() when Bazel prebuilts are updated.
+def _removeprefix(s, prefix):
+    if s.startswith(prefix):
+        return s[len(prefix):]
+    return s
+
 utils = struct(
     intermediates_dir = _intermediates_dir,
     reverse_dict = reverse_dict,
     getoptattr = getoptattr,
     find_file = find_file,
     find_files = find_files,
+    removeprefix = _removeprefix,
 )
