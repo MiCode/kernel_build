@@ -95,8 +95,8 @@ docs(
     deps = [
         "//build/bazel_common_rules/dist",
         "//build/bazel_common_rules/exec",
+        "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
-        "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",

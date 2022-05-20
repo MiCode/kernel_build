@@ -37,7 +37,7 @@ load(
     "utils",
 )
 load(
-    "//build/kernel/kleaf/tests:kernel_test.bzl",
+    "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_build_test",
     "kernel_module_test",
 )
