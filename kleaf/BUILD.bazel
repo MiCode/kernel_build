@@ -135,6 +135,7 @@ py_test(
 test_suite(
     name = "quick_tests",
     tests = [
+        ":check_declared_output_list_test",
         "//build/bazel_common_rules/exec/tests",
         "//prebuilts/build-tools/tests",
     ],
