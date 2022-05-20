@@ -144,6 +144,7 @@ test_suite(
     tests = [
         ":check_declared_output_list_test",
         "//build/bazel_common_rules/exec/tests",
+        "//build/kernel/kleaf/tests",
         "//prebuilts/build-tools/tests",
     ],
 )
