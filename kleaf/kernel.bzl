@@ -676,11 +676,6 @@ def _sanitize_label_as_filename(label):
     label_text = str(label)
     return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
 
-def _remove_suffix(s, suffix):
-    if s.endswith(suffix):
-        return s[:-len(suffix)]
-    return s
-
 def _kernel_env_impl(ctx):
     if ctx.attr._config_is_local[BuildSettingInfo].value and ctx.attr._config_is_stamp[BuildSettingInfo].value:
         fail("--config=local cannot be set with --config=stamp. " +
@@ -752,7 +747,7 @@ def _kernel_env_impl(ctx):
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
     command += """
           export OUT_DIR_SUFFIX={name}
-    """.format(name = _remove_suffix(_sanitize_label_as_filename(ctx.label), "_env"))
+    """.format(name = utils.removesuffix(_sanitize_label_as_filename(ctx.label), "_env"))
 
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         command += """
