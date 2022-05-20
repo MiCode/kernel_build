@@ -93,9 +93,9 @@ docs(
     ],
     default = "kernel.bzl",
     deps = [
-        "utils.bzl",
         "//build/bazel_common_rules/dist",
         "//build/bazel_common_rules/exec",
+        "//build/kernel/kleaf/impl",
         "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
