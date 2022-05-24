@@ -411,15 +411,22 @@
 #     the utilities used to certify GKI boot-*.img files.
 #
 #   BUILD_GKI_ARTIFACTS
-#     if defined, build a boot-img.tar.gz archive that contains several GKI
-#     boot-*.img files with different kernel compression format.
-#     Each boot image contains a boot header v4 as per the format defined by
-#     https://source.android.com/devices/bootloader/boot-image-header,
-#     followed by a kernel (no ramdisk). The kernel binaries are from
+#     if defined when $ARCH is arm64, build a boot-img.tar.gz archive that
+#     contains several GKI boot-*.img files with different kernel compression
+#     format. Each boot image contains a boot header v4 as per the format
+#     defined by https://source.android.com/devices/bootloader/boot-image-header
+#     , followed by a kernel (no ramdisk). The kernel binaries are from
 #     ${DIST_DIR}, e.g., Image, Image.gz, Image.lz4, etc. Individual
 #     boot-*.img files are also generated, e.g., boot.img, boot-gz.img and
 #     boot-lz4.img. It is expected that all components are present in
 #     ${DIST_DIR}.
+#
+#     if defined when $ARCH is x86_64, build a boot.img with the kernel image,
+#     bzImage under ${DIST_DIR}. No boot-img.tar.gz will be generated because
+#     currently there is only a x86_64 GKI image: the bzImage.
+#
+#     if defined when $ARCH is neither arm64 nor x86_64, print an error message
+#     then exist the build process.
 #
 #     When the BUILD_GKI_ARTIFACTS flag is defined, the following flags also
 #     need to be defined.

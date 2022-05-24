@@ -78,6 +78,23 @@ set -e
 
 # Pick the correct patch to test.
 verify_file_exists ${APPLIED_PROP_PATH}
+
+# Check for external modules first
+if EXT_MODULES=$(. ${ROOT_DIR}/build.config 2>/dev/null && echo ${EXT_MODULES}); then
+  for EXT_MOD in ${EXT_MODULES}; do
+    EXT_GIT_SHA1=$(sed -nE "s#^${EXT_MOD} .*([0-9a-f]{40}).*#\\1#p" "${APPLIED_PROP_PATH}")
+    if [[ -n "${EXT_GIT_SHA1}" ]]; then
+      # Skip merge commits
+      if [ $(git -C ${EXT_MOD} show --no-patch --format="%p" ${EXT_GIT_SHA1} | wc -w) -gt 1 ] ; then
+        echo "Merge commit detected for ${EXT_MOD}. Skipping this check."
+      else
+        ${STATIC_ANALYSIS_SRC_DIR}/checkpatch.sh --git_sha1 ${EXT_GIT_SHA1} \
+          --ext_mod ${EXT_MOD} ${FORWARDED_ARGS[*]}
+      fi
+    fi
+  done
+fi
+
 GIT_SHA1=$(sed -nE "s#^${KERNEL_DIR} .*([0-9a-f]{40}).*#\\1#p" "${APPLIED_PROP_PATH}")
 if [[ -z ${GIT_SHA1} ]]; then
   # Since applied.prop only tracks user changes, ignore projects that are

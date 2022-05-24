@@ -505,9 +505,27 @@ function gki_add_avb_footer() {
     --partition_name boot --partition_size "$2"
 }
 
-function build_gki_artifacts() {
-  check_mkbootimg_path
+function build_gki_artifacts_x86_64() {
+  kernel_path="${DIST_DIR}/bzImage"
+  boot_image_path="${DIST_DIR}/boot.img"
 
+  if ! [ -f "${kernel_path}" ]; then
+    echo "ERROR: '${kernel_path}' doesn't exist" >&2
+    exit 1
+  fi
+
+  GKI_MKBOOTIMG_ARGS=("--header_version" "4")
+  if [ -n "${GKI_KERNEL_CMDLINE}" ]; then
+    GKI_MKBOOTIMG_ARGS+=("--cmdline" "${GKI_KERNEL_CMDLINE}")
+  fi
+  GKI_MKBOOTIMG_ARGS+=("--kernel" "${kernel_path}")
+  GKI_MKBOOTIMG_ARGS+=("--output" "${boot_image_path}")
+  "${MKBOOTIMG_PATH}" "${GKI_MKBOOTIMG_ARGS[@]}"
+
+  gki_add_avb_footer "${boot_image_path}" "$(gki_get_boot_img_size)"
+}
+
+function build_gki_artifacts_aarch64() {
   if ! [ -f "${DIST_DIR}/Image" ]; then
     echo "ERROR: '${DIST_DIR}/Image' doesn't exist" >&2
     exit 1
@@ -542,4 +560,17 @@ function build_gki_artifacts() {
   GKI_BOOT_IMG_ARCHIVE="boot-img.tar.gz"
   echo "Creating ${GKI_BOOT_IMG_ARCHIVE} for" "${built_boot_images[@]}"
   tar -czf "${DIST_DIR}/${GKI_BOOT_IMG_ARCHIVE}" -C "${DIST_DIR}" "${built_boot_images[@]}"
+}
+
+function build_gki_artifacts() {
+  check_mkbootimg_path
+
+  if [ "${ARCH}" = "arm64" ]; then
+    build_gki_artifacts_aarch64
+  elif [ "${ARCH}" = "x86_64" ]; then
+    build_gki_artifacts_x86_64
+  else
+    echo "ERROR: unknown ARCH to BUILD_GKI_ARTIFACTS: '${ARCH}'" >&2
+    exit 1
+  fi
 }
