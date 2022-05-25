@@ -26,6 +26,7 @@ bzl_library(
         "kernel_config.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
+        "kmi_symbol_list.bzl",
         "modules_prepare.bzl",
         "stamp.bzl",
         "status.bzl",

@@ -24,6 +24,7 @@ load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config =
 load("//build/kernel/kleaf/impl:kernel_config.bzl", "kernel_config")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:kernel_env.bzl", "kernel_env")
+load("//build/kernel/kleaf/impl:kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load("//build/kernel/kleaf/impl:modules_prepare.bzl", "modules_prepare")
 load("//build/kernel/kleaf/impl:stamp.bzl", "stamp")
 load(
@@ -553,65 +554,6 @@ _kernel_toolchain_aspect = aspect(
         "config",
         "env",
     ],
-)
-
-def _kmi_symbol_list_impl(ctx):
-    if not ctx.files.srcs:
-        return
-
-    inputs = [] + ctx.files.srcs
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
-    inputs += ctx.files._kernel_abi_scripts
-
-    outputs = []
-    out_file = ctx.actions.declare_file("{}/abi_symbollist".format(ctx.attr.name))
-    report_file = ctx.actions.declare_file("{}/abi_symbollist.report".format(ctx.attr.name))
-    outputs = [out_file, report_file]
-
-    command = ctx.attr.env[KernelEnvInfo].setup + """
-        mkdir -p {out_dir}
-        {process_symbols} --out-dir={out_dir} --out-file={out_file_base} \
-            --report-file={report_file_base} --in-dir="${{ROOT_DIR}}/${{KERNEL_DIR}}" \
-            {srcs}
-    """.format(
-        process_symbols = ctx.file._process_symbols.path,
-        out_dir = out_file.dirname,
-        out_file_base = out_file.basename,
-        report_file_base = report_file.basename,
-        srcs = " ".join(["$(rel_path {} ${{ROOT_DIR}}/${{KERNEL_DIR}})".format(f.path) for f in ctx.files.srcs]),
-    )
-
-    debug.print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        mnemonic = "KmiSymbolList",
-        inputs = inputs,
-        outputs = outputs,
-        progress_message = "Creating abi_symbollist and report {}".format(ctx.label),
-        command = command,
-    )
-
-    return [
-        DefaultInfo(files = depset(outputs)),
-        OutputGroupInfo(abi_symbollist = depset([out_file])),
-    ]
-
-_kmi_symbol_list = rule(
-    implementation = _kmi_symbol_list_impl,
-    doc = "Build abi_symbollist if there are sources, otherwise don't build anything",
-    attrs = {
-        "env": attr.label(
-            mandatory = True,
-            providers = [KernelEnvInfo],
-            doc = "environment target that defines the kernel build environment",
-        ),
-        "srcs": attr.label_list(
-            doc = "`KMI_SYMBOL_LIST` + `ADDTIONAL_KMI_SYMBOL_LISTS`",
-            allow_files = True,
-        ),
-        "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
-        "_process_symbols": attr.label(default = "//build/kernel:abi/process_symbols", allow_single_file = True),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-    },
 )
 
 def _raw_kmi_symbol_list_impl(ctx):
