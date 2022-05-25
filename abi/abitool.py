@@ -298,9 +298,6 @@ def dump_kernel_abi(linux_tree, dump_path, symbol_list, vmlinux_path=None):
         if vmlinux_path is not None:
             dump_abi_cmd.extend(["--vmlinux", vmlinux_path])
 
-        if symbol_list is not None:
-            dump_abi_cmd.extend(["--kmi-whitelist", symbol_list])
-
         subprocess.check_call(dump_abi_cmd)
 
         tidy_abi_command = ["abitidy",
@@ -308,6 +305,9 @@ def dump_kernel_abi(linux_tree, dump_path, symbol_list, vmlinux_path=None):
                             "--no-report-untyped",
                             "--input", temp_path,
                             "--output", dump_path]
+
+        if symbol_list is not None:
+            tidy_abi_command.extend(["--symbols", symbol_list])
 
         subprocess.check_call(tidy_abi_command)
 
