@@ -88,6 +88,9 @@ _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 * [`DTS_EXT_DIR`](#dts_ext_dir)
 * [`BUILD_GKI_CERTIFICATION_TOOLS`](#build_gki_certification_tools)
 * [`BUILD_VENDOR_KERNEL_BOOT`](#build_vendor_kernel_boot)
+* [`MKBOOTIMG_PATH`](#mkbootimg_path)
+* [`BUILD_GKI_ARTIFACTS`](#build_gki_artifacts)
+* [`GKI_KERNEL_CMDLINE`](#gki_kernel_cmdline)
 
 ## BUILD\_CONFIG
 
@@ -636,6 +639,36 @@ kernel_images(build_vendor_kernel_boot=...)
 ```
 
 See [documentation for all rules].
+
+## MKBOOTIMG\_PATH
+
+```python
+kernel_images(mkbootimg=...)
+gki_artifacts(mkbootimg=...)
+```
+
+See [documentation for all rules] for `kernel_images`.
+
+**NOTE**: `gki_artifacts` is an implementation detail, and it should only be
+invoked by GKI targets.
+
+## BUILD\_GKI\_ARTIFACTS
+
+```python
+gki_artifacts()
+```
+
+**NOTE**: `gki_artifacts` is an implementation detail, and it should only be
+invoked by GKI targets.
+
+## GKI\_KERNEL\_CMDLINE
+
+```python
+gki_artifacts(gki_kernel_cmdline=...)
+```
+
+**NOTE**: `gki_artifacts` is an implementation detail, and it should only be
+invoked by GKI targets.
 
 [documentation for all rules]: https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html
 

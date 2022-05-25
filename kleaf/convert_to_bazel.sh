@@ -94,6 +94,7 @@ EOF
         $result_var
 "
 
+    $REAL_BAZEL version > /dev/null # prints start up message to stderr
     $REAL_BAZEL query --ui_event_filters=-info,-debug --noshow_progress "$script"
 ) # determine_targets_internal
 

@@ -31,6 +31,8 @@ load(
     "CI_TARGET_MAPPING",
     "GKI_DOWNLOAD_CONFIGS",
     "GKI_MODULES",
+    "MODULE_OUTS_FILE_OUTPUT_GROUP",
+    "MODULE_OUTS_FILE_SUFFIX",
     "aarch64_outs",
     "x86_64_outs",
 )
@@ -487,10 +489,8 @@ def define_common_kernels(
             kernel_modules_install = name + "_modules_install",
             # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
             build_system_dlkm = True,
-            deps = [
-                # Keep the following in sync with build.config.gki* MODULES_LIST
-                "android/gki_system_dlkm_modules",
-            ],
+            # Keep in sync with build.config.gki* MODULES_LIST
+            modules_list = "android/gki_system_dlkm_modules",
         )
 
         # module_staging_archive from <name>
@@ -619,6 +619,12 @@ def _define_prebuilts(**kwargs):
             tags = ["manual"],
         )
 
+        native.filegroup(
+            name = name + "_module_outs_file",
+            srcs = [":" + name],
+            output_group = MODULE_OUTS_FILE_OUTPUT_GROUP,
+        )
+
         # A kernel_filegroup that:
         # - If --use_prebuilt_gki_num is set, use downloaded prebuilt of kernel_aarch64
         # - Otherwise build kernel_aarch64 from sources.
@@ -641,6 +647,10 @@ def _define_prebuilts(**kwargs):
             kernel_srcs = [source_package_name + "_sources"],
             kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+            module_outs_file = select({
+                ":use_prebuilt_gki_set": "@{}//{}{}".format(repo_name, name, MODULE_OUTS_FILE_SUFFIX),
+                "//conditions:default": ":" + name + "_module_outs_file",
+            }),
             **kwargs
         )
 

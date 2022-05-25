@@ -18,12 +18,17 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
-load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
+load(
+    ":constants.bzl",
+    "MODULE_OUTS_FILE_OUTPUT_GROUP",
+    "MODULE_OUTS_FILE_SUFFIX",
+    "TOOLCHAIN_VERSION_FILENAME",
+)
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
 load(":update_source_file.bzl", "update_source_file")
 load(
-    ":utils.bzl",
+    "//build/kernel/kleaf/impl:utils.bzl",
     "find_file",
     "find_files",
     "getoptattr",
@@ -166,6 +171,7 @@ def kernel_build(
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
+        base_kernel_for_module_outs = None,
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
@@ -227,7 +233,10 @@ def kernel_build(
               srcs = aarch64_outs,
             )
             ```
+        base_kernel_for_module_outs: **INTERNAL ONLY; DO NOT SET!**
 
+          If set, this is used instead of `base_kernel` to determine the list
+          of GKI modules.
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
           symbols, but contains type and symbol information within a .BTF section.
           This is suitable for ABI analysis through BTF.
@@ -474,6 +483,7 @@ def kernel_build(
         internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
+        base_kernel_for_module_outs = base_kernel_for_module_outs,
         modules_prepare = modules_prepare_target_name,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
@@ -666,11 +676,6 @@ def _sanitize_label_as_filename(label):
     label_text = str(label)
     return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
 
-def _remove_suffix(s, suffix):
-    if s.endswith(suffix):
-        return s[:-len(suffix)]
-    return s
-
 def _kernel_env_impl(ctx):
     if ctx.attr._config_is_local[BuildSettingInfo].value and ctx.attr._config_is_stamp[BuildSettingInfo].value:
         fail("--config=local cannot be set with --config=stamp. " +
@@ -742,7 +747,7 @@ def _kernel_env_impl(ctx):
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
     command += """
           export OUT_DIR_SUFFIX={name}
-    """.format(name = _remove_suffix(_sanitize_label_as_filename(ctx.label), "_env"))
+    """.format(name = utils.removesuffix(_sanitize_label_as_filename(ctx.label), "_env"))
 
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         command += """
@@ -1353,6 +1358,7 @@ _KernelBuildAbiInfo = provider(
     fields = {
         "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](#kernel_build).",
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",
+        "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs).",
     },
 )
 
@@ -1372,6 +1378,14 @@ For an external [`kernel_module()`](#kernel_module), this is a directory contain
 - This is `None` if and only if the `kernel_build` argument has `collect_unstripped_modules = False`
 - Never `None` if and only if the `kernel_build` argument has `collect_unstripped_modules = True`
 """,
+    },
+)
+
+_KernelBuildInTreeModulesInfo = provider(
+    doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
+[`base_kernel`](#kernel_build-base_kernel) or [`base_kernel_for_module_outs`](#kernel_build-base_kernel_for_module_outs).""",
+    fields = {
+        "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs).",
     },
 )
 
@@ -1566,6 +1580,17 @@ def _kernel_build_impl(ctx):
     if kbuild_mixed_tree:
         inputs.append(kbuild_mixed_tree)
 
+    base_kernel_all_module_names_file_path = ""
+    base_kernel_for_module_outs = ctx.attr.base_kernel_for_module_outs
+    if base_kernel_for_module_outs == None:
+        base_kernel_for_module_outs = ctx.attr.base_kernel
+    if base_kernel_for_module_outs:
+        base_kernel_all_module_names_file = base_kernel_for_module_outs[_KernelBuildInTreeModulesInfo].module_outs_file
+        if not base_kernel_all_module_names_file:
+            fail("{}: base_kernel {} does not provide module_outs_file.".format(ctx.label, ctx.attr.base_kernel.label))
+        inputs.append(base_kernel_all_module_names_file)
+        base_kernel_all_module_names_file_path = base_kernel_all_module_names_file.path
+
     # kernel_build(name="kernel", outs=["out"])
     # => _kernel_build(name="kernel", outs=["kernel/out"], internal_outs=["kernel/Module.symvers", ...])
     # => all_output_names = ["foo", "Module.symvers", ...]
@@ -1580,7 +1605,7 @@ def _kernel_build_impl(ctx):
 
     # A file containing all module_outs
     all_module_names = all_output_files["module_outs"].keys()
-    all_module_names_file = ctx.actions.declare_file("{}_all_module_names/all_module_names.txt".format(ctx.label.name))
+    all_module_names_file = ctx.actions.declare_file("{name}_all_module_names/{name}{suffix}".format(name = ctx.label.name, suffix = MODULE_OUTS_FILE_SUFFIX))
     ctx.actions.write(
         output = all_module_names_file,
         content = "\n".join(all_module_names) + "\n",
@@ -1688,7 +1713,7 @@ def _kernel_build_impl(ctx):
            {grab_unstripped_intree_modules_cmd}
          # Check if there are remaining *.ko files
            remaining_ko_files=$({check_declared_output_list} \\
-                --declared $(cat {all_module_names_file}) \\
+                --declared $(cat {all_module_names_file} {base_kernel_all_module_names_file_path}) \\
                 --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^[.]/::'))
            if [[ ${{remaining_ko_files}} ]]; then
              echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
@@ -1709,6 +1734,7 @@ def _kernel_build_impl(ctx):
         grab_intree_modules_cmd = grab_intree_modules_cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_intree_modules_cmd,
         all_module_names_file = all_module_names_file.path,
+        base_kernel_all_module_names_file_path = base_kernel_all_module_names_file_path,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive = modules_staging_archive.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
@@ -1774,6 +1800,7 @@ def _kernel_build_impl(ctx):
     kernel_build_abi_info = _KernelBuildAbiInfo(
         trim_nonlisted_kmi = ctx.attr.trim_nonlisted_kmi,
         combined_abi_symbollist = ctx.file.combined_abi_symbollist,
+        module_outs_file = all_module_names_file,
     )
 
     kernel_unstripped_modules_info = _KernelUnstrippedModulesInfo(
@@ -1781,14 +1808,20 @@ def _kernel_build_impl(ctx):
         directory = unstripped_dir,
     )
 
+    base_kernel_info = _KernelBuildInTreeModulesInfo(
+        module_outs_file = all_module_names_file,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
     output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
+    output_group_kwargs[MODULE_OUTS_FILE_OUTPUT_GROUP] = depset([all_module_names_file])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(toolchain_version_out)
+    default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
     default_info = DefaultInfo(
@@ -1804,6 +1837,7 @@ def _kernel_build_impl(ctx):
         kernel_build_uapi_info,
         kernel_build_abi_info,
         kernel_unstripped_modules_info,
+        base_kernel_info,
         output_group_info,
         default_info,
     ]
@@ -1837,6 +1871,11 @@ _kernel_build = rule(
         ),
         "base_kernel": attr.label(
             aspects = [_kernel_toolchain_aspect],
+            providers = [_KernelBuildInTreeModulesInfo],
+        ),
+        "base_kernel_for_module_outs": attr.label(
+            providers = [_KernelBuildInTreeModulesInfo],
+            doc = "If set, use the `module_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
         ),
         "kmi_symbol_list_strict_mode": attr.bool(),
         "raw_kmi_symbol_list": attr.label(
@@ -3063,9 +3102,19 @@ def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_modules_blocklist = ctx.actions.declare_file("{}/vendor_dlkm.modules.blocklist".format(ctx.label.name))
     modules_staging_dir = vendor_dlkm_img.dirname + "/staging"
     vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
-    command = """
-            # Restore vendor_boot.modules.load
-              cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+
+    command = ""
+    additional_inputs = []
+    if ctx.file.vendor_boot_modules_load:
+        command += """
+                # Restore vendor_boot.modules.load
+                  cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+        """.format(
+            vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
+        )
+        additional_inputs.append(ctx.file.vendor_boot_modules_load)
+
+    command += """
             # Build vendor_dlkm
               mkdir -p {vendor_dlkm_staging_dir}
               (
@@ -3084,7 +3133,6 @@ def _vendor_dlkm_image_impl(ctx):
             # Remove staging directories
               rm -rf {vendor_dlkm_staging_dir}
     """.format(
-        vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
         modules_staging_dir = modules_staging_dir,
         vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
         vendor_dlkm_img = vendor_dlkm_img.path,
@@ -3098,7 +3146,7 @@ def _vendor_dlkm_image_impl(ctx):
         outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist],
         build_command = command,
         modules_staging_dir = modules_staging_dir,
-        additional_inputs = [ctx.file.vendor_boot_modules_load],
+        additional_inputs = additional_inputs,
         mnemonic = "VendorDlkmImage",
     )
 
@@ -3124,11 +3172,13 @@ Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
 )
 
 def _boot_images_impl(ctx):
-    initramfs_staging_archive = ctx.attr.initramfs[_InitramfsInfo].initramfs_staging_archive
     outdir = ctx.actions.declare_directory(ctx.label.name)
     modules_staging_dir = outdir.path + "/staging"
-    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
     mkbootimg_staging_dir = modules_staging_dir + "/mkbootimg_staging"
+
+    if ctx.attr.initramfs:
+        initramfs_staging_archive = ctx.attr.initramfs[_InitramfsInfo].initramfs_staging_archive
+        initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
 
     outs = []
     for out in ctx.outputs.outs:
@@ -3137,11 +3187,14 @@ def _boot_images_impl(ctx):
     kernel_build_outs = ctx.attr.kernel_build[_KernelBuildInfo].outs + ctx.attr.kernel_build[_KernelBuildInfo].base_kernel_files
 
     inputs = [
-        ctx.attr.initramfs[_InitramfsInfo].initramfs_img,
-        initramfs_staging_archive,
         ctx.file.mkbootimg,
         ctx.file._search_and_cp_output,
     ]
+    if ctx.attr.initramfs:
+        inputs += [
+            ctx.attr.initramfs[_InitramfsInfo].initramfs_img,
+            initramfs_staging_archive,
+        ]
     inputs += ctx.files.deps
     inputs += ctx.attr.kernel_build[_KernelEnvInfo].dependencies
     inputs += kernel_build_outs
@@ -3150,19 +3203,26 @@ def _boot_images_impl(ctx):
     command = ""
     command += ctx.attr.kernel_build[_KernelEnvInfo].setup
 
-    vendor_boot_flag_cmd = ""
+    if ctx.attr.build_boot:
+        boot_flag_cmd = "BUILD_BOOT_IMG=1"
+    else:
+        boot_flag_cmd = "BUILD_BOOT_IMG="
+
     if not ctx.attr.vendor_boot_name:
         vendor_boot_flag_cmd = """
+            BUILD_VENDOR_BOOT_IMG=
             SKIP_VENDOR_BOOT=1
             BUILD_VENDOR_KERNEL_BOOT=
         """
     elif ctx.attr.vendor_boot_name == "vendor_boot":
         vendor_boot_flag_cmd = """
+            BUILD_VENDOR_BOOT_IMG=1
             SKIP_VENDOR_BOOT=
             BUILD_VENDOR_KERNEL_BOOT=
         """
     elif ctx.attr.vendor_boot_name == "vendor_kernel_boot":
         vendor_boot_flag_cmd = """
+            BUILD_VENDOR_BOOT_IMG=1
             SKIP_VENDOR_BOOT=
             BUILD_VENDOR_KERNEL_BOOT=1
         """
@@ -3178,36 +3238,59 @@ def _boot_images_impl(ctx):
         )
 
     command += """
-             # Create and restore initramfs_staging_dir
-               mkdir -p {initramfs_staging_dir}
-               tar xf {initramfs_staging_archive} -C {initramfs_staging_dir}
              # Create and restore DIST_DIR.
              # We don't need all of *_for_dist. Copying all declared outputs of kernel_build is
              # sufficient.
                mkdir -p ${{DIST_DIR}}
                cp {kernel_build_outs} ${{DIST_DIR}}
+    """.format(
+        kernel_build_outs = " ".join([out.path for out in kernel_build_outs]),
+    )
+
+    if ctx.attr.initramfs:
+        command += """
                cp {initramfs_img} ${{DIST_DIR}}/initramfs.img
+             # Create and restore initramfs_staging_dir
+               mkdir -p {initramfs_staging_dir}
+               tar xf {initramfs_staging_archive} -C {initramfs_staging_dir}
+        """.format(
+            initramfs_img = ctx.attr.initramfs[_InitramfsInfo].initramfs_img.path,
+            initramfs_staging_dir = initramfs_staging_dir,
+            initramfs_staging_archive = initramfs_staging_archive.path,
+        )
+        set_initramfs_var_cmd = """
+               BUILD_INITRAMFS=1
+               INITRAMFS_STAGING_DIR={initramfs_staging_dir}
+        """.format(
+            initramfs_staging_dir = initramfs_staging_dir,
+        )
+    else:
+        set_initramfs_var_cmd = """
+               BUILD_INITRAMFS=
+               INITRAMFS_STAGING_DIR=
+        """
+
+    command += """
              # Build boot images
                (
+                 {boot_flag_cmd}
                  {vendor_boot_flag_cmd}
-                 INITRAMFS_STAGING_DIR={initramfs_staging_dir}
-                 MKBOOTIMG_STAGING_DIR=$(realpath {mkbootimg_staging_dir})
+                 {set_initramfs_var_cmd}
+                 MKBOOTIMG_STAGING_DIR=$(readlink -m {mkbootimg_staging_dir})
                  build_boot_images
                )
                {search_and_cp_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
              # Remove staging directories
                rm -rf {modules_staging_dir}
     """.format(
-        initramfs_staging_dir = initramfs_staging_dir,
         mkbootimg_staging_dir = mkbootimg_staging_dir,
         search_and_cp_output = ctx.file._search_and_cp_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
         modules_staging_dir = modules_staging_dir,
-        initramfs_staging_archive = initramfs_staging_archive.path,
-        initramfs_img = ctx.attr.initramfs[_InitramfsInfo].initramfs_img.path,
-        kernel_build_outs = " ".join([out.path for out in kernel_build_outs]),
+        boot_flag_cmd = boot_flag_cmd,
         vendor_boot_flag_cmd = vendor_boot_flag_cmd,
+        set_initramfs_var_cmd = set_initramfs_var_cmd,
     )
 
     _debug_print_scripts(ctx, command)
@@ -3240,6 +3323,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
             allow_single_file = True,
             default = "//tools/mkbootimg:mkbootimg.py",
         ),
+        "build_boot": attr.bool(),
         "vendor_boot_name": attr.string(doc = """
 * If `"vendor_boot"`, build `vendor_boot.img`
 * If `"vendor_kernel_boot"`, build `vendor_kernel_boot.img`
@@ -3379,14 +3463,14 @@ def kernel_images(
 
           This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
           `build_initramfs` is implicitly true, and `kernel_build` must be set.
+
+          If `True`, adds `boot.img` to `boot_image_outs` if not already in the list.
         build_vendor_boot: Whether to build `vendor_boot.img`. It must be set if either
           `BUILD_BOOT_IMG` or `BUILD_VENDOR_BOOT_IMG` is set, and `SKIP_VENDOR_BOOT` is not set,
           and `BUILD_VENDOR_KERNEL_BOOT` is not set.
 
           At most **one** of `build_vendor_boot` and `build_vendor_kernel_boot` may be set to
           `True`.
-
-          If `True`, requires `build_boot = True`.
 
           If `True`, adds `vendor_boot.img` to `boot_image_outs` if not already in the list.
 
@@ -3396,8 +3480,6 @@ def kernel_images(
 
           At most **one** of `build_vendor_boot` and `build_vendor_kernel_boot` may be set to
           `True`.
-
-          If `True`, requires `build_boot = True`.
 
           If `True`, adds `vendor_kernel_boot.img` to `boot_image_outs` if not already in the list.
         build_dtbo: Whether to build dtbo image. Keep this in sync with `BUILD_DTBO_IMG`.
@@ -3485,36 +3567,27 @@ def kernel_images(
     """
     all_rules = []
 
-    if build_vendor_boot and build_vendor_kernel_boot:
-        fail("{}: build_vendor_boot and build_vendor_kernel_boot must not be set simultaneously.".format(name))
-
-    if build_vendor_boot and not build_boot:
-        fail("{}: build_vendor_boot = True requires build_boot = True.".format(name))
-
-    if build_vendor_kernel_boot and not build_boot:
-        fail("{}: build_vendor_kernel_boot = True requires build_boot = True.".format(name))
-
-    if build_boot:
-        if build_initramfs == None:
-            build_initramfs = True
-        if not build_initramfs:
-            fail("{}: Must set build_initramfs to True if build_boot".format(name))
+    build_any_boot_image = build_boot or build_vendor_boot or build_vendor_kernel_boot
+    if build_any_boot_image:
         if kernel_build == None:
-            fail("{}: Must set kernel_build if build_boot".format(name))
+            fail("{}: Must set kernel_build if any of these are true: build_boot={}, build_vendor_boot={}, build_vendor_kernel_boot={}".format(name, build_boot, build_vendor_boot, build_vendor_kernel_boot))
 
     # Set default value for boot_image_outs according to build_boot
     if boot_image_outs == None:
-        if not build_boot:
+        if not build_any_boot_image:
             boot_image_outs = []
         else:
             boot_image_outs = [
-                "boot.img",
                 "dtb.img",
                 "ramdisk.lz4",
                 "vendor-bootconfig.img",
             ]
 
     boot_image_outs = list(boot_image_outs)
+
+    if build_boot and "boot.img" not in boot_image_outs:
+        boot_image_outs.append("boot.img")
+
     if build_vendor_boot and "vendor_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_boot.img")
 
@@ -3547,7 +3620,7 @@ def kernel_images(
         _vendor_dlkm_image(
             name = "{}_vendor_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
-            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
+            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name) if build_initramfs else None,
             deps = deps,
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
@@ -3555,7 +3628,7 @@ def kernel_images(
         )
         all_rules.append(":{}_vendor_dlkm_image".format(name))
 
-    if build_boot:
+    if build_any_boot_image:
         if build_vendor_kernel_boot:
             vendor_boot_name = "vendor_kernel_boot"
         elif build_vendor_boot:
@@ -3567,10 +3640,11 @@ def kernel_images(
             kernel_build = kernel_build,
             outs = ["{}_boot_images/{}".format(name, out) for out in boot_image_outs],
             deps = deps,
-            initramfs = ":{}_initramfs".format(name),
+            initramfs = ":{}_initramfs".format(name) if build_initramfs else None,
             mkbootimg = mkbootimg,
-            vendor_boot_name = vendor_boot_name,
             vendor_ramdisk_binaries = vendor_ramdisk_binaries,
+            build_boot = build_boot,
+            vendor_boot_name = vendor_boot_name,
         )
         all_rules.append(":{}_boot_images".format(name))
 
@@ -3642,12 +3716,17 @@ def _kernel_filegroup_impl(ctx):
         )
         unstripped_modules_info = _KernelUnstrippedModulesInfo(directory = unstripped_dir)
 
+    abi_info = _KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
+    base_kernel_info = _KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
+
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
         kernel_module_dev_info,
         # TODO(b/219112010): implement _KernelEnvInfo for _kernel_build
         uapi_info,
         unstripped_modules_info,
+        abi_info,
+        base_kernel_info,
     ]
 
 kernel_filegroup = rule(
@@ -3730,6 +3809,10 @@ Unlike `kernel_build`, this has default value `True` because
 [`define_abi_targets`](#kernel_build_abi-define_abi_targets) to `True` by
 default, which in turn sets `collect_unstripped_modules` to `True` by default.
 """,
+        ),
+        "module_outs_file": attr.label(
+            allow_single_file = True,
+            doc = """A file containing `module_outs` of the original [`kernel_build`](#kernel_build) target.""",
         ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     },
@@ -3862,9 +3945,14 @@ def _kernel_extracted_symbols_impl(ctx):
     out = ctx.actions.declare_file("{}/extracted_symbols".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
 
+    gki_modules_list = ctx.attr.gki_modules_list_kernel_build[_KernelBuildAbiInfo].module_outs_file
     vmlinux = find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
     in_tree_modules = find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
-    srcs = [vmlinux] + in_tree_modules
+    srcs = [
+        gki_modules_list,
+        vmlinux,
+    ]
+    srcs += in_tree_modules
     for kernel_module in ctx.attr.kernel_modules:  # external modules
         srcs += kernel_module[_KernelModuleInfo].files
 
@@ -3874,6 +3962,7 @@ def _kernel_extracted_symbols_impl(ctx):
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
+    flags += ["--gki-modules", gki_modules_list.path]
     if not ctx.attr.module_grouping:
         flags.append("--skip-module-grouping")
     if ctx.attr.kmi_symbol_list_add_only:
@@ -3924,6 +4013,7 @@ _kernel_extracted_symbols = rule(
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
+        "gki_modules_list_kernel_build": attr.label(doc = "The `kernel_build` which `module_outs` is treated as GKI modules list.", providers = [_KernelBuildAbiInfo]),
         "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
@@ -3970,7 +4060,7 @@ def _kernel_abi_dump_full(ctx):
     # Directories could be empty, so use a find + cp
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         mkdir -p {abi_linux_tree}
-        find {unstripped_dirs} -type f -name '*.ko' -exec cp -pl -t {abi_linux_tree} {{}} +
+        find {unstripped_dirs} -name '*.ko' -exec cp -pl -t {abi_linux_tree} {{}} +
         cp -pl {vmlinux} {abi_linux_tree}
         {dump_abi} --linux-tree {abi_linux_tree} --out-file {full_abi_out_file}
         {epilog}
@@ -4190,7 +4280,7 @@ def kernel_build_abi(
         define_abi_targets = True
 
     kwargs = dict(kwargs)
-    if define_abi_targets and kwargs.get("collect_unstripped_modules") == None:
+    if kwargs.get("collect_unstripped_modules") == None:
         kwargs["collect_unstripped_modules"] = True
 
     _kernel_build_abi_define_other_targets(
@@ -4233,7 +4323,7 @@ def _kernel_build_abi_define_other_targets(
     if outs_changed or kernel_build_kwargs.get("base_kernel"):
         with_vmlinux_kwargs = dict(kernel_build_kwargs)
         with_vmlinux_kwargs["outs"] = _transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
-        with_vmlinux_kwargs.pop("base_kernel", default = None)
+        with_vmlinux_kwargs["base_kernel_for_module_outs"] = with_vmlinux_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_with_vmlinux", **with_vmlinux_kwargs)
     else:
         native.alias(name = name + "_with_vmlinux", actual = name)
@@ -4319,7 +4409,7 @@ def _kernel_build_abi_define_abi_targets(
         notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
         notrim_kwargs["trim_nonlisted_kmi"] = False
         notrim_kwargs["kmi_symbol_list_strict_mode"] = False
-        notrim_kwargs.pop("base_kernel", default = None)
+        notrim_kwargs["base_kernel_for_module_outs"] = notrim_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_notrim", **notrim_kwargs)
     else:
         native.alias(name = name + "_notrim", actual = name)
@@ -4332,6 +4422,10 @@ def _kernel_build_abi_define_abi_targets(
         module_grouping = module_grouping,
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+        # If base_kernel is set, this is a device build, so use the GKI
+        # modules list from base_kernel (GKI). If base_kernel is not set, this
+        # likely a GKI build, so use modules_outs from itself.
+        gki_modules_list_kernel_build = kernel_build_kwargs.get("base_kernel", name),
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",
