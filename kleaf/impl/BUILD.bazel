@@ -28,6 +28,7 @@ bzl_library(
         "kernel_env.bzl",
         "kmi_symbol_list.bzl",
         "modules_prepare.bzl",
+        "raw_kmi_symbol_list.bzl",
         "stamp.bzl",
         "status.bzl",
         "utils.bzl",
