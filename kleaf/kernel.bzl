@@ -24,6 +24,7 @@ load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config =
 load("//build/kernel/kleaf/impl:kernel_config.bzl", "kernel_config")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:kernel_env.bzl", "kernel_env")
+load("//build/kernel/kleaf/impl:modules_prepare.bzl", "modules_prepare")
 load("//build/kernel/kleaf/impl:stamp.bzl", "stamp")
 load(
     ":constants.bzl",
@@ -421,7 +422,7 @@ def kernel_build(
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
     )
 
-    _modules_prepare(
+    modules_prepare(
         name = modules_prepare_target_name,
         config = config_target_name,
         srcs = srcs,
@@ -1233,52 +1234,6 @@ _kernel_build = rule(
         "kernel_uapi_headers": attr.label(),
         "trim_nonlisted_kmi": attr.bool(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
-    },
-)
-
-def _modules_prepare_impl(ctx):
-    command = ctx.attr.config[KernelEnvInfo].setup + """
-         # Prepare for the module build
-           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
-         # Package files
-           tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
-    """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
-
-    debug.print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        mnemonic = "ModulesPrepare",
-        inputs = ctx.files.srcs,
-        outputs = [ctx.outputs.outdir_tar_gz],
-        tools = ctx.attr.config[KernelEnvInfo].dependencies,
-        progress_message = "Preparing for module build %s" % ctx.label,
-        command = command,
-    )
-
-    setup = """
-         # Restore modules_prepare outputs. Assumes env setup.
-           [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
-           tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
-           """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
-
-    return [KernelEnvInfo(
-        dependencies = [ctx.outputs.outdir_tar_gz],
-        setup = setup,
-    )]
-
-_modules_prepare = rule(
-    implementation = _modules_prepare_impl,
-    attrs = {
-        "config": attr.label(
-            mandatory = True,
-            providers = [KernelEnvInfo],
-            doc = "the kernel_config target",
-        ),
-        "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
-        "outdir_tar_gz": attr.output(
-            mandatory = True,
-            doc = "the packaged ${OUT_DIR} files",
-        ),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
