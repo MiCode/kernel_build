@@ -57,6 +57,7 @@ load(
     "find_file",
     "find_files",
     "getoptattr",
+    "kernel_utils",
     "reverse_dict",
     "utils",
 )
@@ -80,59 +81,6 @@ _sibling_names = [
     "notrim",
     "with_vmlinux",
 ]
-
-def _filter_module_srcs(files):
-    """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
-    return [
-        s
-        for s in files
-        if s.path.endswith(".h") or any([token in s.path for token in [
-            "Makefile",
-            "scripts/",
-        ]])
-    ]
-
-def _transform_kernel_build_outs(name, what, outs):
-    """Transform `*outs` attributes for `kernel_build`.
-
-    - If `outs` is a list, return it directly.
-    - If `outs` is a dict, return `select(outs)`.
-    - Otherwise fail
-    """
-    if outs == None:
-        return None
-    if type(outs) == type([]):
-        return outs
-    elif type(outs) == type({}):
-        return select(outs)
-    else:
-        fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
-
-def _kernel_build_outs_add_vmlinux(name, outs):
-    files_to_add = ("vmlinux", "System.map")
-    outs_changed = False
-    if outs == None:
-        outs = ["vmlinux"]
-        outs_changed = True
-    if type(outs) == type([]):
-        for file in files_to_add:
-            if file not in outs:
-                # don't use append to avoid changing outs
-                outs = outs + [file]
-                outs_changed = True
-    elif type(outs) == type({}):
-        outs_new = {}
-        for k, v in outs.items():
-            for file in files_to_add:
-                if file not in v:
-                    # don't use append to avoid changing outs
-                    v = v + [file]
-                    outs_changed = True
-            outs_new[k] = v
-        outs = outs_new
-    else:
-        fail("{}: Invalid type for outs: {}".format(name, type(outs)))
-    return outs, outs_changed
 
 def kernel_build(
         name,
@@ -450,10 +398,10 @@ def kernel_build(
         name = name,
         config = config_target_name,
         srcs = srcs,
-        outs = _transform_kernel_build_outs(name, "outs", outs),
-        module_outs = _transform_kernel_build_outs(name, "module_outs", module_outs),
-        implicit_outs = _transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
-        internal_outs = _transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
+        outs = kernel_utils.transform_kernel_build_outs(name, "outs", outs),
+        module_outs = kernel_utils.transform_kernel_build_outs(name, "module_outs", module_outs),
+        implicit_outs = kernel_utils.transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
+        internal_outs = kernel_utils.transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
         base_kernel_for_module_outs = base_kernel_for_module_outs,
@@ -908,7 +856,7 @@ def _kernel_build_impl(ctx):
         setup = env_info_setup,
     )
 
-    module_srcs = _filter_module_srcs(ctx.files.srcs)
+    module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
 
     kernel_build_info = KernelBuildInfo(
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
@@ -1032,33 +980,8 @@ _kernel_build = rule(
     },
 )
 
-def _check_kernel_build(kernel_modules, kernel_build, this_label):
-    """Check that kernel_modules have the same kernel_build as the given one.
-
-    Args:
-        kernel_modules: the attribute of kernel_module dependencies. Should be
-          an attribute of a list of labels.
-        kernel_build: the attribute of kernel_build. Should be an attribute of
-          a label.
-        this_label: label of the module being checked.
-    """
-
-    for kernel_module in kernel_modules:
-        if kernel_module[KernelModuleInfo].kernel_build.label != \
-           kernel_build.label:
-            fail((
-                "{this_label} refers to kernel_build {kernel_build}, but " +
-                "depended kernel_module {dep} refers to kernel_build " +
-                "{dep_kernel_build}. They must refer to the same kernel_build."
-            ).format(
-                this_label = this_label,
-                kernel_build = kernel_build.label,
-                dep = kernel_module.label,
-                dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
-            ))
-
 def _kernel_module_impl(ctx):
-    _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
+    kernel_utils.check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
     inputs = []
     inputs += ctx.files.srcs
@@ -1492,7 +1415,7 @@ def _kernel_module_set_defaults(kwargs):
     return kwargs
 
 def _kernel_modules_install_impl(ctx):
-    _check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
+    kernel_utils.check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
 
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
@@ -2605,7 +2528,7 @@ def _kernel_filegroup_impl(ctx):
         modules_prepare_setup = modules_prepare_setup,
         modules_prepare_deps = modules_prepare_deps,
         # TODO(b/211515836): module_srcs might also be downloaded
-        module_srcs = _filter_module_srcs(ctx.files.kernel_srcs),
+        module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs),
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
     uapi_info = KernelBuildUapiInfo(
@@ -3237,12 +3160,12 @@ def _kernel_build_abi_define_other_targets(
     * `{name}_abi_diff_executable`
     * `{name}_abi`
     """
-    new_outs, outs_changed = _kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
+    new_outs, outs_changed = kernel_utils.kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
 
     # with_vmlinux: outs += [vmlinux]
     if outs_changed or kernel_build_kwargs.get("base_kernel"):
         with_vmlinux_kwargs = dict(kernel_build_kwargs)
-        with_vmlinux_kwargs["outs"] = _transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
+        with_vmlinux_kwargs["outs"] = kernel_utils.transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
         with_vmlinux_kwargs["base_kernel_for_module_outs"] = with_vmlinux_kwargs.pop("base_kernel", default = None)
         kernel_build(name = name + "_with_vmlinux", **with_vmlinux_kwargs)
     else:
@@ -3326,7 +3249,7 @@ def _kernel_build_abi_define_abi_targets(
     # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
     if kernel_build_kwargs.get("trim_nonlisted_kmi") or outs_changed or kernel_build_kwargs.get("base_kernel"):
         notrim_kwargs = dict(kernel_build_kwargs)
-        notrim_kwargs["outs"] = _transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
+        notrim_kwargs["outs"] = kernel_utils.transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
         notrim_kwargs["trim_nonlisted_kmi"] = False
         notrim_kwargs["kmi_symbol_list_strict_mode"] = False
         notrim_kwargs["base_kernel_for_module_outs"] = notrim_kwargs.pop("base_kernel", default = None)
