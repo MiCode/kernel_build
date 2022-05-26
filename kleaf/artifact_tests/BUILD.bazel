@@ -20,7 +20,7 @@ exports_files([
 ])
 
 bzl_library(
-    name = "tests",
+    name = "artifact_tests",
     srcs = [
         "kernel_test.bzl",
     ],

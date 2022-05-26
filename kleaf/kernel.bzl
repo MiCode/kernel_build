@@ -18,6 +18,9 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
+load("//build/kernel/kleaf/impl:debug.bzl", "debug")
+load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
+load("//build/kernel/kleaf/impl:status.bzl", "status")
 load(
     ":constants.bzl",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
@@ -36,10 +39,13 @@ load(
     "utils",
 )
 load(
-    "//build/kernel/kleaf/tests:kernel_test.bzl",
+    "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_build_test",
     "kernel_module_test",
 )
+
+# Re-exports
+kernel_build_config = _kernel_build_config
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
@@ -56,11 +62,6 @@ def _debug_trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
 
-def _debug_print_scripts(ctx, command, what = None):
-    if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
-        print("""
-        # Script that runs %s%s:%s""" % (ctx.label, (" " + what if what else ""), command))
-
 def _filter_module_srcs(files):
     """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
     return [
@@ -71,53 +72,6 @@ def _filter_module_srcs(files):
             "scripts/",
         ]])
     ]
-
-def _kernel_build_config_impl(ctx):
-    out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
-        cat {srcs} > {out_file}
-    """.format(
-        srcs = " ".join([src.path for src in ctx.files.srcs]),
-        out_file = out_file.path,
-    )
-    _debug_print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        mnemonic = "KernelBuildConfig",
-        inputs = ctx.files.srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
-        outputs = [out_file],
-        command = command,
-        progress_message = "Generating build config {}".format(ctx.label),
-    )
-    return DefaultInfo(files = depset([out_file]))
-
-kernel_build_config = rule(
-    implementation = _kernel_build_config_impl,
-    doc = "Create a build.config file by concatenating build config fragments.",
-    attrs = {
-        "srcs": attr.label_list(
-            allow_files = True,
-            doc = """List of build config fragments.
-
-Order matters. To prevent buildifier from sorting the list, use the
-`# do not sort` magic line. For example:
-
-```
-kernel_build_config(
-    name = "build.config.foo.mixed",
-    srcs = [
-        # do not sort
-        "build.config.mixed",
-        "build.config.foo",
-    ],
-)
-```
-
-""",
-        ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-    },
-)
 
 def _transform_kernel_build_outs(name, what, outs):
     """Transform `*outs` attributes for `kernel_build`.
@@ -627,18 +581,6 @@ def kernel_dtstree(
     )
     _kernel_dtstree(**kwargs)
 
-def _get_status_cmd(ctx, status_file, var):
-    return """cat {status} | ( grep -e "^{var} " || true ) | cut -f2- -d' '""".format(
-        status = status_file.path,
-        var = var,
-    )
-
-def _get_stable_status_cmd(ctx, var):
-    return _get_status_cmd(ctx, ctx.info_file, var)
-
-def _get_volatile_status_cmd(ctx, var):
-    return _get_status_cmd(ctx, ctx.version_file, var)
-
 def _get_scmversion_cmd(srctree, scmversion):
     """Return a shell script that sets up .scmversion file in the source tree conditionally.
 
@@ -752,7 +694,7 @@ def _kernel_env_impl(ctx):
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         command += """
               export SOURCE_DATE_EPOCH=$({source_date_epoch_cmd})
-        """.format(source_date_epoch_cmd = _get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCH"))
+        """.format(source_date_epoch_cmd = status.get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCH"))
         inputs.append(ctx.info_file)
     else:
         command += """
@@ -774,7 +716,7 @@ def _kernel_env_impl(ctx):
         out = out_file.path,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelEnv",
         inputs = inputs,
@@ -799,7 +741,7 @@ def _kernel_env_impl(ctx):
             fi
           )"
     """.format(
-        get_make_jobs_cmd = _get_volatile_status_cmd(ctx, "MAKE_JOBS"),
+        get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
     )
 
     # For non-release builds, CONFIG_LOCALVERSION_AUTO is disabled. There's no
@@ -809,7 +751,7 @@ def _kernel_env_impl(ctx):
         # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
         # STABLE_SCMVERSION because their values aren't known at that point.
         # Hence, mimic the logic in setlocalversion to prepend them.
-        stable_scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+        stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
 
         # TODO(b/227520025): Remove the following logic in setlocalversion.
         # Right now, we need this logic for sandboxed builds. Local builds do not have
@@ -1161,7 +1103,7 @@ def _kernel_config_impl(ctx):
         trim_kmi_command = trim_kmi_command,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelConfig",
         inputs = inputs,
@@ -1243,7 +1185,7 @@ def _kmi_symbol_list_impl(ctx):
         srcs = " ".join(["$(rel_path {} ${{ROOT_DIR}}/${{KERNEL_DIR}})".format(f.path) for f in ctx.files.srcs]),
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KmiSymbolList",
         inputs = inputs,
@@ -1296,7 +1238,7 @@ def _raw_kmi_symbol_list_impl(ctx):
         src = ctx.file.src.path,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "RawKmiSymbolList",
         inputs = inputs,
@@ -1470,7 +1412,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             out = out.path,
         )
 
-        _debug_print_scripts(ctx, command, what = "check_toolchain")
+        debug.print_scripts(ctx, command, what = "check_toolchain")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildCheckToolchain",
             inputs = [base_toolchain_file] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
@@ -1524,7 +1466,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
         out = out.path,
     )
-    _debug_print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
+    debug.print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
     ctx.actions.run_shell(
         mnemonic = "KernelBuildKmiSymbolListStrictMode",
         inputs = inputs,
@@ -1558,7 +1500,7 @@ def _kernel_build_impl(ctx):
             base_kernel_files = " ".join([file.path for file in base_kernel_files]),
             kbuild_mixed_tree = kbuild_mixed_tree.path,
         )
-        _debug_print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
+        debug.print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildKbuildMixedTree",
             inputs = base_kernel_files + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
@@ -1742,7 +1684,7 @@ def _kernel_build_impl(ctx):
         label = ctx.label,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
         inputs = inputs,
@@ -1907,7 +1849,7 @@ def _modules_prepare_impl(ctx):
            tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
     """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "ModulesPrepare",
         inputs = ctx.files.srcs,
@@ -2066,7 +2008,7 @@ def _kernel_module_impl(ctx):
 
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
-        scmversion_cmd = _get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
+        scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
         scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ctx.attr.ext_mod)
 
         # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
@@ -2131,7 +2073,7 @@ def _kernel_module_impl(ctx):
     command += dws.record(modules_staging_dws)
     command += dws.record(kernel_uapi_headers_dws)
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModule",
         inputs = inputs,
@@ -2163,7 +2105,7 @@ def _kernel_module_impl(ctx):
             outdir = outdir,
             outs = " ".join(original_outs),
         )
-        _debug_print_scripts(ctx, command, what = "cp_outputs")
+        debug.print_scripts(ctx, command, what = "cp_outputs")
         ctx.actions.run_shell(
             mnemonic = "KernelModuleCpOutputs",
             inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
@@ -2524,7 +2466,7 @@ def _kernel_modules_install_impl(ctx):
 
     command += dws.record(modules_staging_dws)
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModulesInstall",
         inputs = inputs,
@@ -2612,7 +2554,7 @@ def _kernel_uapi_headers_impl(ctx):
         out_file = out_file.path,
         kernel_uapi_headers_dir = out_file.path + "_staging",
     )
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelUapiHeaders",
         inputs = ctx.files.srcs + ctx.attr.config[_KernelEnvInfo].dependencies,
@@ -2692,7 +2634,7 @@ def _merged_kernel_uapi_headers_impl(ctx):
         intermediates_dir = intermediates_dir,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],
@@ -2759,7 +2701,7 @@ def _kernel_headers_impl(ctx):
         out_dir_kernel_headers_tar = ctx.attr.kernel_build[_KernelBuildInfo].out_dir_kernel_headers_tar.path,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelHeaders",
         inputs = inputs,
@@ -2807,7 +2749,7 @@ def _vmlinux_btf_impl(ctx):
         out_dir = out_dir,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "VmlinuxBtf",
         inputs = inputs,
@@ -2926,7 +2868,7 @@ def _build_modules_image_impl_common(
         build_command = build_command,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = mnemonic,
         inputs = inputs,
@@ -3293,7 +3235,7 @@ def _boot_images_impl(ctx):
         set_initramfs_var_cmd = set_initramfs_var_cmd,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "BootImages",
         inputs = inputs,
@@ -3356,7 +3298,7 @@ def _dtbo_impl(ctx):
         srcs = " ".join([f.path for f in ctx.files.srcs]),
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "Dtbo",
         inputs = inputs,
@@ -3704,7 +3646,7 @@ def _kernel_filegroup_impl(ctx):
         command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
             tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
         """
-        _debug_print_scripts(ctx, command, what = "unstripped_modules_archive")
+        debug.print_scripts(ctx, command, what = "unstripped_modules_archive")
         ctx.actions.run_shell(
             command = command,
             inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
@@ -3990,7 +3932,7 @@ def _kernel_extracted_symbols_impl(ctx):
         flags = " ".join(flags),
         cp_src_cmd = cp_src_cmd,
     )
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out],
@@ -4073,7 +4015,7 @@ def _kernel_abi_dump_full(ctx):
         full_abi_out_file = full_abi_out_file.path,
         epilog = _kernel_abi_dump_epilog_cmd(full_abi_out_file.path, True),
     )
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [full_abi_out_file],
@@ -4113,7 +4055,7 @@ def _kernel_abi_dump_filtered(ctx, full_abi_out_file):
             abi_out_file = abi_out_file.path,
             full_abi_out_file = full_abi_out_file.path,
         )
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [abi_out_file],
@@ -4635,7 +4577,7 @@ def _kernel_abi_diff_impl(ctx):
         label = ctx.label,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = command_outputs,
@@ -4733,7 +4675,7 @@ def _kernel_unstripped_modules_archive_impl(ctx):
         unstripped_dir = unstripped_dir,
     )
 
-    _debug_print_scripts(ctx, command)
+    debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],

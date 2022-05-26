@@ -74,6 +74,13 @@ exports_files([
     "check_duplicated_files_in_archives.py",
 ])
 
+bzl_library(
+    name = "hermetic_tools_def",
+    srcs = ["hermetic_tools.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = ["@bazel_skylib//lib:paths"],
+)
+
 # Docs. To view them:
 #   bazel run //build/kernel/kleaf:docs_server
 
@@ -95,8 +102,8 @@ docs(
     deps = [
         "//build/bazel_common_rules/dist",
         "//build/bazel_common_rules/exec",
+        "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
-        "//build/kernel/kleaf/tests",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
@@ -135,6 +142,7 @@ py_test(
 test_suite(
     name = "quick_tests",
     tests = [
+        ":check_declared_output_list_test",
         "//build/bazel_common_rules/exec/tests",
         "//prebuilts/build-tools/tests",
     ],
