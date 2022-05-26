@@ -35,6 +35,7 @@ bzl_library(
         "kernel_modules_install.bzl",
         "kernel_toolchain_aspect.bzl",
         "kernel_uapi_headers.bzl",
+        "kernel_unstripped_modules_archive.bzl",
         "kmi_symbol_list.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
