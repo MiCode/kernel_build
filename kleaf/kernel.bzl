@@ -19,12 +19,17 @@ load(
     "//build/kernel/kleaf/impl:common_providers.bzl",
     "KernelEnvInfo",
 )
+load(
+    "//build/kernel/kleaf/impl:constants.bzl",
+    "TOOLCHAIN_VERSION_FILENAME",
+)
 load("//build/kernel/kleaf/impl:debug.bzl", "debug")
 load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
 load("//build/kernel/kleaf/impl:kernel_config.bzl", "kernel_config")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:kernel_env.bzl", "kernel_env")
 load("//build/kernel/kleaf/impl:kernel_uapi_headers.bzl", "kernel_uapi_headers")
+load("//build/kernel/kleaf/impl:kernel_toolchain_aspect.bzl", "KernelToolchainInfo", "kernel_toolchain_aspect")
 load("//build/kernel/kleaf/impl:kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load("//build/kernel/kleaf/impl:modules_prepare.bzl", "modules_prepare")
 load("//build/kernel/kleaf/impl:raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
@@ -34,7 +39,6 @@ load(
     ":constants.bzl",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
     "MODULE_OUTS_FILE_SUFFIX",
-    "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
@@ -522,43 +526,6 @@ def kernel_build(
         modules = real_outs.get("module_outs"),
     )
 
-_KernelToolchainInfo = provider(fields = {
-    "toolchain_version": "The toolchain version",
-    "toolchain_version_file": "A file containing the toolchain version",
-})
-
-def _kernel_toolchain_aspect_impl(target, ctx):
-    if ctx.rule.kind == "_kernel_build":
-        return ctx.rule.attr.config[_KernelToolchainInfo]
-    if ctx.rule.kind == "kernel_config":
-        return ctx.rule.attr.env[_KernelToolchainInfo]
-    if ctx.rule.kind == "kernel_env":
-        return _KernelToolchainInfo(toolchain_version = ctx.rule.attr.toolchain_version)
-
-    if ctx.rule.kind == "kernel_filegroup":
-        # Create a depset that contains all files referenced by "srcs"
-        all_srcs = depset([], transitive = [src.files for src in ctx.rule.attr.srcs])
-
-        # Traverse this depset and look for a file named "toolchain_version".
-        # If no file matches, leave it as None so that _kernel_build_check_toolchain prints a
-        # warning.
-        toolchain_version_file = find_file(name = TOOLCHAIN_VERSION_FILENAME, files = all_srcs.to_list(), what = ctx.label)
-        return _KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
-
-    fail("{label}: Unable to get toolchain info because {kind} is not supported.".format(
-        kind = ctx.rule.kind,
-        label = ctx.label,
-    ))
-
-_kernel_toolchain_aspect = aspect(
-    implementation = _kernel_toolchain_aspect_impl,
-    doc = "An aspect describing the toolchain of a `_kernel_build`, `kernel_config`, or `kernel_env` rule.",
-    attr_aspects = [
-        "config",
-        "env",
-    ],
-)
-
 _KernelBuildInfo = provider(fields = {
     "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
     "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs`, `implicit_outs` and `internal_outs`)",
@@ -641,9 +608,9 @@ def _kernel_build_check_toolchain(ctx):
     """
 
     base_kernel = ctx.attr.base_kernel
-    this_toolchain = ctx.attr.config[_KernelToolchainInfo].toolchain_version
-    base_toolchain = getoptattr(base_kernel[_KernelToolchainInfo], "toolchain_version")
-    base_toolchain_file = getoptattr(base_kernel[_KernelToolchainInfo], "toolchain_version_file")
+    this_toolchain = ctx.attr.config[KernelToolchainInfo].toolchain_version
+    base_toolchain = getoptattr(base_kernel[KernelToolchainInfo], "toolchain_version")
+    base_toolchain_file = getoptattr(base_kernel[KernelToolchainInfo], "toolchain_version_file")
 
     if base_toolchain == None and base_toolchain_file == None:
         print(("\nWARNING: {this_label}: No check is performed between the toolchain " +
@@ -714,7 +681,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
         return out
 
 def _kernel_build_dump_toolchain_version(ctx):
-    this_toolchain = ctx.attr.config[_KernelToolchainInfo].toolchain_version
+    this_toolchain = ctx.attr.config[KernelToolchainInfo].toolchain_version
     out = ctx.actions.declare_file("{}_toolchain_version/{}".format(ctx.attr.name, TOOLCHAIN_VERSION_FILENAME))
     ctx.actions.write(
         output = out,
@@ -1082,7 +1049,7 @@ _kernel_build = rule(
         "config": attr.label(
             mandatory = True,
             providers = [KernelEnvInfo],
-            aspects = [_kernel_toolchain_aspect],
+            aspects = [kernel_toolchain_aspect],
             doc = "the kernel_config target",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
@@ -1103,7 +1070,7 @@ _kernel_build = rule(
             allow_files = True,
         ),
         "base_kernel": attr.label(
-            aspects = [_kernel_toolchain_aspect],
+            aspects = [kernel_toolchain_aspect],
             providers = [_KernelBuildInTreeModulesInfo],
         ),
         "base_kernel_for_module_outs": attr.label(
