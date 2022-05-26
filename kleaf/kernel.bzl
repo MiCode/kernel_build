@@ -17,10 +17,7 @@ load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load(
     "//build/kernel/kleaf/impl:common_providers.bzl",
     "KernelBuildAbiInfo",
-    "KernelBuildExtModuleInfo",
-    "KernelBuildInTreeModulesInfo",
     "KernelBuildInfo",
-    "KernelBuildUapiInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
     "KernelUnstrippedModulesInfo",
@@ -30,6 +27,7 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", _kernel_build_macro = "kernel
 load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
 load("//build/kernel/kleaf/impl:kernel_compile_commands.bzl", _kernel_compile_commands = "kernel_compile_commands")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
+load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", _kernel_filegroup = "kernel_filegroup")
 load("//build/kernel/kleaf/impl:kernel_kythe.bzl", _kernel_kythe = "kernel_kythe")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", _kernel_module_macro = "kernel_module")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", _kernel_modules_install = "kernel_modules_install")
@@ -56,6 +54,7 @@ kernel_build = _kernel_build_macro
 kernel_build_config = _kernel_build_config
 kernel_compile_commands = _kernel_compile_commands
 kernel_dtstree = _kernel_dtstree
+kernel_filegroup = _kernel_filegroup
 kernel_kythe = _kernel_kythe
 kernel_module = _kernel_module_macro
 kernel_modules_install = _kernel_modules_install
@@ -896,156 +895,6 @@ def kernel_images(
         name = name,
         srcs = all_rules,
     )
-
-def _kernel_filegroup_impl(ctx):
-    all_deps = ctx.files.srcs + ctx.files.deps
-
-    # TODO(b/219112010): implement KernelEnvInfo for the modules_prepare target
-    modules_prepare_out_dir_tar_gz = find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label)
-    modules_prepare_setup = """
-         # Restore modules_prepare outputs. Assumes env setup.
-           [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
-           tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
-    """.format(outdir_tar_gz = modules_prepare_out_dir_tar_gz)
-    modules_prepare_deps = [modules_prepare_out_dir_tar_gz]
-
-    kernel_module_dev_info = KernelBuildExtModuleInfo(
-        modules_staging_archive = find_file("modules_staging_dir.tar.gz", all_deps, what = ctx.label),
-        modules_prepare_setup = modules_prepare_setup,
-        modules_prepare_deps = modules_prepare_deps,
-        # TODO(b/211515836): module_srcs might also be downloaded
-        module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs),
-        collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
-    )
-    uapi_info = KernelBuildUapiInfo(
-        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
-    )
-
-    unstripped_modules_info = None
-    for target in ctx.attr.srcs:
-        if KernelUnstrippedModulesInfo in target:
-            unstripped_modules_info = target[KernelUnstrippedModulesInfo]
-            break
-    if unstripped_modules_info == None:
-        # Reverse of kernel_unstripped_modules_archive
-        unstripped_modules_archive = find_file("unstripped_modules.tar.gz", all_deps, what = ctx.label, required = True)
-        unstripped_dir = ctx.actions.declare_directory("{}/unstripped".format(ctx.label.name))
-        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
-            tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
-        """
-        debug.print_scripts(ctx, command, what = "unstripped_modules_archive")
-        ctx.actions.run_shell(
-            command = command,
-            inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
-                unstripped_modules_archive,
-            ],
-            outputs = [unstripped_dir],
-            progress_message = "Extracting unstripped_modules_archive {}".format(ctx.label),
-            mnemonic = "KernelFilegroupUnstrippedModulesArchive",
-        )
-        unstripped_modules_info = KernelUnstrippedModulesInfo(directory = unstripped_dir)
-
-    abi_info = KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
-    base_kernel_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
-
-    return [
-        DefaultInfo(files = depset(ctx.files.srcs)),
-        kernel_module_dev_info,
-        # TODO(b/219112010): implement KernelEnvInfo for kernel_filegroup
-        uapi_info,
-        unstripped_modules_info,
-        abi_info,
-        base_kernel_info,
-    ]
-
-kernel_filegroup = rule(
-    implementation = _kernel_filegroup_impl,
-    doc = """Specify a list of kernel prebuilts.
-
-This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/general.html#filegroup)
-that gives a convenient name to a collection of targets, which can be referenced from other rules.
-
-It can be used in the `base_kernel` attribute of a [`kernel_build`](#kernel_build).
-""",
-    attrs = {
-        "srcs": attr.label_list(
-            allow_files = True,
-            doc = """The list of labels that are members of this file group.
-
-This usually contains a list of prebuilts, e.g. `vmlinux`, `Image.lz4`, `kernel-headers.tar.gz`,
-etc.
-
-Not to be confused with [`kernel_srcs`](#kernel_filegroup-kernel_srcs).""",
-        ),
-        "deps": attr.label_list(
-            allow_files = True,
-            doc = """A list of additional labels that participates in implementing the providers.
-
-This usually contains a list of prebuilts.
-
-Unlike srcs, these labels are NOT added to the [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)""",
-        ),
-        "kernel_srcs": attr.label_list(
-            allow_files = True,
-            doc = """A list of files that would have been listed as `srcs` if this rule were a [`kernel_build`](#kernel_build).
-
-This is usually a `glob()` of source files.
-
-Not to be confused with [`srcs`](#kernel_filegroup-srcs).
-""",
-        ),
-        "kernel_uapi_headers": attr.label(
-            allow_files = True,
-            doc = """The label pointing to `kernel-uapi-headers.tar.gz`.
-
-This attribute should be set to the `kernel-uapi-headers.tar.gz` artifact built by the
-[`kernel_build`](#kernel_build) macro if the `kernel_filegroup` rule were a `kernel_build`.
-
-Setting this attribute allows [`merged_kernel_uapi_headers`](#merged_kernel_uapi_headers) to
-work properly when this `kernel_filegroup` is set to the `base_kernel`.
-
-For example:
-```
-kernel_filegroup(
-    name = "kernel_aarch64_prebuilts",
-    srcs = [
-        "vmlinux",
-        # ...
-    ],
-    kernel_uapi_headers = "kernel-uapi-headers.tar.gz",
-)
-
-kernel_build(
-    name = "tuna",
-    base_kernel = ":kernel_aarch64_prebuilts",
-    # ...
-)
-
-merged_kernel_uapi_headers(
-    name = "tuna_merged_kernel_uapi_headers",
-    kernel_build = "tuna",
-    # ...
-)
-```
-""",
-        ),
-        "collect_unstripped_modules": attr.bool(
-            default = True,
-            doc = """See [`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules).
-
-Unlike `kernel_build`, this has default value `True` because
-[`kernel_build_abi`](#kernel_build_abi) sets
-[`define_abi_targets`](#kernel_build_abi-define_abi_targets) to `True` by
-default, which in turn sets `collect_unstripped_modules` to `True` by default.
-""",
-        ),
-        "module_outs_file": attr.label(
-            allow_single_file = True,
-            doc = """A file containing `module_outs` of the original [`kernel_build`](#kernel_build) target.""",
-        ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
-    },
-)
 
 def _kernel_extracted_symbols_impl(ctx):
     if ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].trim_nonlisted_kmi:
