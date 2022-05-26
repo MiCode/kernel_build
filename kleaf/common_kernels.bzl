@@ -63,9 +63,8 @@ _ARCH_CONFIGS = {
     },
 }
 
-# Valid configs of the value of the target_config argument in
-# `define_common_kernels`
-_TARGET_CONFIG_VALID_KEYS = [
+# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_build_abi.
+_KERNEL_BUILD_ABI_VALID_KEYS = [
     "kmi_symbol_list",
     "additional_kmi_symbol_lists",
     "trim_nonlisted_kmi",
@@ -73,6 +72,11 @@ _TARGET_CONFIG_VALID_KEYS = [
     "abi_definition",
     "kmi_enforced",
     "module_outs",
+]
+
+# Valid configs of the value of the target_config argument in
+# `define_common_kernels`
+_TARGET_CONFIG_VALID_KEYS = _KERNEL_BUILD_ABI_VALID_KEYS + [
 ]
 
 # Always collect_unstripped_modules for common kernels.
@@ -128,13 +132,13 @@ def _default_target_configs():
         },
     }
 
-def _filter_keys(d, valid_keys, what):
+def _filter_keys(d, valid_keys, what = "", allow_unknown_keys = False):
     """Remove keys from `d` if the key is not in `valid_keys`.
 
     Fail if there are unknown keys in `d`.
     """
     ret = {key: value for key, value in d.items() if key in valid_keys}
-    if sorted(ret.keys()) != sorted(d.keys()):
+    if not allow_unknown_keys and sorted(ret.keys()) != sorted(d.keys()):
         fail("{what} contains invalid keys {invalid_keys}. Valid keys are: {valid_keys}".format(
             what = what,
             invalid_keys = [key for key in d.keys() if key not in valid_keys],
@@ -446,6 +450,12 @@ def define_common_kernels(
             tags = ["manual"],
         )
 
+        kernel_build_abi_kwargs = _filter_keys(
+            target_config,
+            valid_keys = _KERNEL_BUILD_ABI_VALID_KEYS,
+            allow_unknown_keys = True,
+        )
+
         kernel_build_abi(
             name = name,
             srcs = [name + "_sources"],
@@ -466,7 +476,7 @@ def define_common_kernels(
             module_grouping = None,
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             toolchain_version = toolchain_version,
-            **target_config
+            **kernel_build_abi_kwargs
         )
 
         if arch_config.get("enable_interceptor"):
