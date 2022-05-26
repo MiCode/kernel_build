@@ -35,6 +35,7 @@ load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config =
 load("//build/kernel/kleaf/impl:kernel_config.bzl", "kernel_config")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:kernel_env.bzl", "kernel_env")
+load("//build/kernel/kleaf/impl:kernel_headers.bzl", "kernel_headers")
 load("//build/kernel/kleaf/impl:kernel_uapi_headers.bzl", "kernel_uapi_headers")
 load("//build/kernel/kleaf/impl:kernel_toolchain_aspect.bzl", "KernelToolchainInfo", "kernel_toolchain_aspect")
 load("//build/kernel/kleaf/impl:kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
@@ -507,7 +508,7 @@ def kernel_build(
         **kwargs
     )
 
-    _kernel_headers(
+    kernel_headers(
         name = headers_target_name,
         kernel_build = name,
         env = env_target_name,
@@ -1748,65 +1749,6 @@ the list have higher priority:
             providers = [KernelModuleInfo],
         ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-    },
-)
-
-def _kernel_headers_impl(ctx):
-    inputs = []
-    inputs += ctx.files.srcs
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
-    inputs += [
-        ctx.attr.kernel_build[KernelBuildInfo].out_dir_kernel_headers_tar,
-    ]
-    out_file = ctx.actions.declare_file("{}/kernel-headers.tar.gz".format(ctx.label.name))
-    command = ctx.attr.env[KernelEnvInfo].setup + """
-            # Restore headers in ${{OUT_DIR}}
-              mkdir -p ${{OUT_DIR}}
-              tar xf {out_dir_kernel_headers_tar} -C ${{OUT_DIR}}
-            # Create archive
-              (
-                real_out_file=$(realpath {out_file})
-                cd ${{ROOT_DIR}}/${{KERNEL_DIR}}
-                find arch include ${{OUT_DIR}} -name *.h -print0         \
-                    | tar czf ${{real_out_file}}                         \
-                        --absolute-names                                 \
-                        --dereference                                    \
-                        --transform "s,.*$OUT_DIR,,"                     \
-                        --transform "s,^,kernel-headers/,"               \
-                        --null -T -
-              )
-    """.format(
-        out_file = out_file.path,
-        out_dir_kernel_headers_tar = ctx.attr.kernel_build[KernelBuildInfo].out_dir_kernel_headers_tar.path,
-    )
-
-    debug.print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        mnemonic = "KernelHeaders",
-        inputs = inputs,
-        outputs = [out_file],
-        progress_message = "Building kernel headers %s" % ctx.attr.name,
-        command = command,
-    )
-
-    return [
-        DefaultInfo(files = depset([out_file])),
-    ]
-
-_kernel_headers = rule(
-    implementation = _kernel_headers_impl,
-    doc = "Build kernel-headers.tar.gz",
-    attrs = {
-        "srcs": attr.label_list(allow_files = True),
-        "kernel_build": attr.label(
-            mandatory = True,
-            providers = [KernelBuildInfo],  # for out_dir_kernel_headers_tar only
-        ),
-        "env": attr.label(
-            mandatory = True,
-            providers = [KernelEnvInfo],
-        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
