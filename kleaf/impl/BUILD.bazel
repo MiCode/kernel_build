@@ -33,6 +33,7 @@ bzl_library(
         "stamp.bzl",
         "status.bzl",
         "utils.bzl",
+        "btf.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [

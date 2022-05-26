@@ -29,6 +29,7 @@ load("//build/kernel/kleaf/impl:kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_sy
 load("//build/kernel/kleaf/impl:modules_prepare.bzl", "modules_prepare")
 load("//build/kernel/kleaf/impl:raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
 load("//build/kernel/kleaf/impl:stamp.bzl", "stamp")
+load("//build/kernel/kleaf/impl:btf.bzl", "btf")
 load(
     ":constants.bzl",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
@@ -361,7 +362,7 @@ def kernel_build(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
 
-          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_vmlinux_btf`.
+          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_btf`.
     """
     env_target_name = name + "_env"
     config_target_name = name + "_config"
@@ -504,9 +505,9 @@ def kernel_build(
     )
 
     if generate_vmlinux_btf:
-        vmlinux_btf_name = name + "_vmlinux_btf"
-        _vmlinux_btf(
-            name = vmlinux_btf_name,
+        btf_name = name + "_btf"
+        btf(
+            name = btf_name,
             vmlinux = name + "/vmlinux",
             env = env_target_name,
             **kwargs
@@ -1910,50 +1911,6 @@ _kernel_headers = rule(
         "kernel_build": attr.label(
             mandatory = True,
             providers = [_KernelBuildInfo],  # for out_dir_kernel_headers_tar only
-        ),
-        "env": attr.label(
-            mandatory = True,
-            providers = [KernelEnvInfo],
-        ),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-    },
-)
-
-def _vmlinux_btf_impl(ctx):
-    inputs = [
-        ctx.file.vmlinux,
-    ]
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
-    out_file = ctx.actions.declare_file("{}/vmlinux.btf".format(ctx.label.name))
-    out_dir = out_file.dirname
-    command = ctx.attr.env[KernelEnvInfo].setup + """
-              mkdir -p {out_dir}
-              cp -Lp {vmlinux} {vmlinux_btf}
-              pahole -J {vmlinux_btf}
-              llvm-strip --strip-debug {vmlinux_btf}
-    """.format(
-        vmlinux = ctx.file.vmlinux.path,
-        vmlinux_btf = out_file.path,
-        out_dir = out_dir,
-    )
-
-    debug.print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        mnemonic = "VmlinuxBtf",
-        inputs = inputs,
-        outputs = [out_file],
-        progress_message = "Building vmlinux.btf {}".format(ctx.label),
-        command = command,
-    )
-    return DefaultInfo(files = depset([out_file]))
-
-_vmlinux_btf = rule(
-    implementation = _vmlinux_btf_impl,
-    doc = "Build vmlinux.btf",
-    attrs = {
-        "vmlinux": attr.label(
-            mandatory = True,
-            allow_single_file = True,
         ),
         "env": attr.label(
             mandatory = True,
