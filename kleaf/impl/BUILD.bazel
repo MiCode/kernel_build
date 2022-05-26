@@ -29,6 +29,7 @@ bzl_library(
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
         "kernel_headers.bzl",
+        "kernel_module.bzl",
         "kernel_toolchain_aspect.bzl",
         "kernel_uapi_headers.bzl",
         "kmi_symbol_list.bzl",
@@ -42,6 +43,7 @@ bzl_library(
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
+        "//build/kernel/kleaf:directory_with_structure_def",
         "//build/kernel/kleaf:hermetic_tools_def",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//lib:shell",
