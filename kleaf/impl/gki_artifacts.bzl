@@ -51,6 +51,7 @@ def _gki_artifacts_impl(ctx):
         source {build_utils_sh}
         cp -pl -t {dist_dir} {srcs}
         export GKI_KERNEL_CMDLINE={quoted_gki_kernel_cmdline}
+        export ARCH={quoted_arch}
         export DIST_DIR=$(readlink -e {dist_dir})
         export MKBOOTIMG_PATH={mkbootimg}
         {size_cmd}
@@ -60,6 +61,7 @@ def _gki_artifacts_impl(ctx):
         dist_dir = dist_dir,
         srcs = " ".join([src.path for src in ctx.files.srcs]),
         quoted_gki_kernel_cmdline = shell.quote(ctx.attr.gki_kernel_cmdline),
+        quoted_arch = shell.quote(ctx.attr.arch),
         mkbootimg = ctx.file.mkbootimg.path,
         size_cmd = size_cmd,
     )
@@ -101,6 +103,7 @@ For example:
 """,
         ),
         "gki_kernel_cmdline": attr.string(doc = "`GKI_KERNEL_CMDLINE`."),
+        "arch": attr.string(doc = "`ARCH`.", values = ["arm64", "x86_64"], mandatory = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
