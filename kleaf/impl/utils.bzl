@@ -15,7 +15,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load(":common_providers.bzl", "KernelModuleInfo")
 
-def reverse_dict(d):
+def _reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
 
     Return {value: [key, ...]}.
@@ -28,7 +28,7 @@ def reverse_dict(d):
             ret[v].append(k)
     return ret
 
-def getoptattr(thing, attr, default_value = None):
+def _getoptattr(thing, attr, default_value = None):
     """Return attribute value if |thing| has attribute named |attr|, otherwise return |default_value|."""
     if hasattr(thing, attr):
         return getattr(thing, attr)
@@ -104,8 +104,8 @@ def _removesuffix(s, suffix):
 # not Kleaf specific.
 utils = struct(
     intermediates_dir = _intermediates_dir,
-    reverse_dict = reverse_dict,
-    getoptattr = getoptattr,
+    reverse_dict = _reverse_dict,
+    getoptattr = _getoptattr,
     find_file = find_file,
     find_files = find_files,
     removeprefix = _removeprefix,
