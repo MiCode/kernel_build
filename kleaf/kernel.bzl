@@ -33,6 +33,7 @@ load("//build/kernel/kleaf/impl:kernel_toolchain_aspect.bzl", "KernelToolchainIn
 load("//build/kernel/kleaf/impl:kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load("//build/kernel/kleaf/impl:modules_prepare.bzl", "modules_prepare")
 load("//build/kernel/kleaf/impl:raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
+load("//build/kernel/kleaf/impl:srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
 load("//build/kernel/kleaf/impl:stamp.bzl", "stamp")
 load("//build/kernel/kleaf/impl:btf.bzl", "btf")
 load(
@@ -587,19 +588,6 @@ _KernelBuildInTreeModulesInfo = provider(
     fields = {
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs).",
     },
-)
-
-_SrcsInfo = provider(fields = {
-    "srcs": "The srcs attribute of a rule.",
-})
-
-def _srcs_aspect_impl(target, ctx):
-    return [_SrcsInfo(srcs = getoptattr(ctx.rule.attr, "srcs"))]
-
-_srcs_aspect = aspect(
-    implementation = _srcs_aspect_impl,
-    doc = "An aspect that retrieves srcs attribute from a rule.",
-    attr_aspects = ["srcs"],
 )
 
 def _kernel_build_check_toolchain(ctx):
@@ -2917,7 +2905,7 @@ def _kernel_kythe_impl(ctx):
     intermediates_dir = utils.intermediates_dir(ctx)
     kzip_dir = intermediates_dir + "/kzip"
     extracted_kzip_dir = intermediates_dir + "/extracted"
-    transitive_inputs = [src.files for src in ctx.attr.kernel_build[_SrcsInfo].srcs]
+    transitive_inputs = [src.files for src in ctx.attr.kernel_build[SrcsInfo].srcs]
     inputs = [compile_commands]
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     command = ctx.attr.kernel_build[KernelEnvInfo].setup
@@ -2972,7 +2960,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
             providers = [KernelEnvInfo, _KernelBuildInfo],
-            aspects = [_srcs_aspect],
+            aspects = [srcs_aspect],
         ),
         "compile_commands": attr.label(
             mandatory = True,
