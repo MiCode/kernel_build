@@ -24,6 +24,7 @@ load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config =
 load("//build/kernel/kleaf/impl:kernel_config.bzl", "kernel_config")
 load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:kernel_env.bzl", "kernel_env")
+load("//build/kernel/kleaf/impl:kernel_uapi_headers.bzl", "kernel_uapi_headers")
 load("//build/kernel/kleaf/impl:kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load("//build/kernel/kleaf/impl:modules_prepare.bzl", "modules_prepare")
 load("//build/kernel/kleaf/impl:raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
@@ -486,7 +487,7 @@ def kernel_build(
         else:
             fail("Unexpected type {} for {}: {}".format(type(out_attr_val), out_name, out_attr_val))
 
-    _kernel_uapi_headers(
+    kernel_uapi_headers(
         name = uapi_headers_target_name,
         config = config_target_name,
         srcs = srcs,
@@ -1765,48 +1766,6 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
             doc = "Label referring to the script to process outputs",
         ),
-    },
-)
-
-def _kernel_uapi_headers_impl(ctx):
-    out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.label.name))
-    command = ctx.attr.config[KernelEnvInfo].setup + """
-         # Create staging directory
-           mkdir -p {kernel_uapi_headers_dir}/usr
-         # Actual headers_install
-           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} INSTALL_HDR_PATH=$(realpath {kernel_uapi_headers_dir}/usr) headers_install
-         # Create archive
-           tar czf {out_file} --directory={kernel_uapi_headers_dir} usr/
-         # Delete kernel_uapi_headers_dir because it is not declared
-           rm -rf {kernel_uapi_headers_dir}
-    """.format(
-        out_file = out_file.path,
-        kernel_uapi_headers_dir = out_file.path + "_staging",
-    )
-    debug.print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        mnemonic = "KernelUapiHeaders",
-        inputs = ctx.files.srcs + ctx.attr.config[KernelEnvInfo].dependencies,
-        outputs = [out_file],
-        progress_message = "Building UAPI kernel headers %s" % ctx.attr.name,
-        command = command,
-    )
-
-    return [
-        DefaultInfo(files = depset([out_file])),
-    ]
-
-_kernel_uapi_headers = rule(
-    implementation = _kernel_uapi_headers_impl,
-    doc = """Build kernel-uapi-headers.tar.gz""",
-    attrs = {
-        "srcs": attr.label_list(allow_files = True),
-        "config": attr.label(
-            mandatory = True,
-            providers = [KernelEnvInfo],
-            doc = "the kernel_config target",
-        ),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
 
