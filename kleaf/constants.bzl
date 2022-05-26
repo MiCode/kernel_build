@@ -14,6 +14,8 @@
 
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
+    "MODULE_OUTS_FILE_OUTPUT_GROUP",
+    "MODULE_OUTS_FILE_SUFFIX",
     "TOOLCHAIN_VERSION_FILENAME",
 )
 
@@ -76,8 +78,6 @@ GKI_DOWNLOAD_CONFIGS = [
     },
 ]
 
-MODULE_OUTS_FILE_SUFFIX = "_modules"
-
 # Key: Bazel target name in common_kernels.bzl
 # repo_name: name of download_artifacts_repo in bazel.WORKSPACE
 # outs: list of outs associated with that target name
@@ -91,5 +91,3 @@ CI_TARGET_MAPPING = {
         ],
     },
 }
-
-MODULE_OUTS_FILE_OUTPUT_GROUP = "module_outs_file"
