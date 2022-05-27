@@ -177,7 +177,7 @@ Example for Pixel 2021 (see the `kernel_images` target named `slider_images`):
 
 [https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)
 
-### Step 5: Define a target for distribution
+### Step 5: Define a target for distribution {#step-5}
 
 Define a `copy_to_dist_dir` target that includes the targets you want in the
 distribution directory. The name of this `copy_to_dist_dir` target is usually

@@ -34,7 +34,7 @@ $ tools/bazel build //common:kernel_aarch64_abi_dump
 This command extracts the ABI, but does not compare it. This is similar to
 `build/build_abi.sh --nodiff`.
 
-### Update the ABI definition
+### Update the ABI definition {#update-abi}
 
 **Note**: You must [update the symbol list](#update-symbol-list) before
 updating the ABI definition. The

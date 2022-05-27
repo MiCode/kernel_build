@@ -661,6 +661,24 @@ gki_artifacts()
 **NOTE**: `gki_artifacts` is an implementation detail, and it should only be
 invoked by GKI targets.
 
+For GKI targets, it may be configured via the following:
+
+```python
+define_common_kernels(
+  target_configs = {
+    "kernel_aarch64": {
+      "build_gki_artifacts": True,
+      "gki_boot_img_sizes": {
+        "": "67108864",
+        "lz4": "53477376",
+      },
+    },
+  },
+)
+```
+
+See [documentation for all rules].
+
 ## GKI\_KERNEL\_CMDLINE
 
 ```python
