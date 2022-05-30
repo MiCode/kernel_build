@@ -525,6 +525,20 @@ function build_gki_artifacts_x86_64() {
   gki_add_avb_footer "${boot_image_path}" "$(gki_get_boot_img_size)"
 }
 
+# gki_dry_run_certify_bootimg <boot_image> <gki_artifacts_info_file>
+# The certify_bootimg script will be executed on a server over a GKI
+# boot.img during the official certification process, which embeds
+# a GKI certificate into the boot.img. The certificate is for Android
+# VTS to verify that a GKI boot.img is authentic.
+# Dry running the process here so we can catch related issues early.
+function gki_dry_run_certify_bootimg() {
+  certify_bootimg --boot_img "$1" \
+    --algorithm SHA256_RSA4096 \
+    --key tools/mkbootimg/gki/testdata/testkey_rsa4096.pem \
+    --gki_info "$2" \
+    --output "$1"
+}
+
 # build_gki_artifacts_info <output_gki_artifacts_info_file>
 function build_gki_artifacts_info() {
   local artifacts_info="certify_bootimg_extra_args=--prop ARCH:${ARCH} \
@@ -573,6 +587,8 @@ function build_gki_artifacts_aarch64() {
 
     gki_add_avb_footer "${boot_image_path}" \
       "$(gki_get_boot_img_size "${compression}")"
+    gki_dry_run_certify_bootimg "${boot_image_path}" \
+      "${GKI_ARTIFACTS_INFO_FILE}"
     images_to_pack+=("${boot_image}")
   done
 
