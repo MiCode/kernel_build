@@ -1076,7 +1076,7 @@ if [ -n "${UNSTRIPPED_MODULES}" ]; then
   fi
 fi
 
-[ -n "${GKI_MODULES_LIST}" ] && cp ${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
+[ -n "${GKI_MODULES_LIST}" ] && cp ${ROOT_DIR}/${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
 
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"
