@@ -527,12 +527,8 @@ def define_common_kernels(
             transformed_boot_img_sizes = {}
             for out in arch_config["outs"]:
                 basename = paths.basename(out)
-                if basename == "Image":
+                if basename in ("Image", "bzImage") or basename.startswith("Image."):
                     gki_artifacts_srcs.append("{}/{}".format(name, out))
-                    compression = ""
-                elif basename.startswith("Image."):
-                    gki_artifacts_srcs.append("{}/{}".format(name, out))
-                    compression = utils.removeprefix(basename, "Image.")
 
             gki_artifacts(
                 name = name + "_gki_artifacts",
