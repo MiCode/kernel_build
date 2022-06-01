@@ -11,6 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+load(
+    "//build/kernel/kleaf/impl:constants.bzl",
+    "TOOLCHAIN_VERSION_FILENAME",
+)
+
 _common_outs = [
     "System.map",
     "modules.builtin",
@@ -70,7 +76,6 @@ GKI_DOWNLOAD_CONFIGS = [
     },
 ]
 
-TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
 MODULE_OUTS_FILE_SUFFIX = "_modules"
 
 # Key: Bazel target name in common_kernels.bzl
