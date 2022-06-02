@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# All public rules and macros to build the kernel.
+# This file serves as a central place for users to import these public
+# rules and macros. The implementations stays in sub-extensions,
+# which is not expected to be loaded directly by users.
+
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", _kernel_build_abi = "kernel_build_abi")
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi_dist.bzl", _kernel_build_abi_dist = "kernel_build_abi_dist")
 load("//build/kernel/kleaf/impl:image/kernel_images.bzl", _kernel_images = "kernel_images")
@@ -26,7 +31,7 @@ load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", _kernel_modules_ins
 load("//build/kernel/kleaf/impl:kernel_unstripped_modules_archive.bzl", _kernel_unstripped_modules_archive = "kernel_unstripped_modules_archive")
 load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_uapi_headers = "merged_kernel_uapi_headers")
 
-# Re-exports
+# Re-exports. This is the list of public rules and macros.
 kernel_build = _kernel_build_macro
 kernel_build_abi = _kernel_build_abi
 kernel_build_abi_dist = _kernel_build_abi_dist
