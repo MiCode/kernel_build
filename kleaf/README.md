@@ -8,7 +8,9 @@
 
 [`build.sh` build configs](docs/build_configs.md)
 
-[Support ABI monitoring](docs/abi.md)
+[Support ABI monitoring (GKI)](docs/abi.md)
+
+[Support ABI monitoring (Device)](docs/abi_device.md)
 
 [Handling SCM version](docs/scmversion.md)
 
