@@ -27,6 +27,7 @@ bzl_library(
         "kernel_config.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
+        "kernel_headers.bzl",
         "kernel_toolchain_aspect.bzl",
         "kernel_uapi_headers.bzl",
         "kmi_symbol_list.bzl",
