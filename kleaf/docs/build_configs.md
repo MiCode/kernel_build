@@ -688,6 +688,24 @@ gki_artifacts(gki_kernel_cmdline=...)
 **NOTE**: `gki_artifacts` is an implementation detail, and it should only be
 invoked by GKI targets.
 
+## KBUILD\_SYMTYPES
+
+If `KBUILD_SYMTYPES=1` is specified in build configs:
+
+```python
+kernel_build(kbuild_symtypes="true")
+```
+
+See [documentation for all rules].
+
+To specify `KBUILD_SYMTYPES=1` at build time:
+
+```shell
+$ bazel build --kbuild_symtypes ...
+```
+
+See [symtypes.md](symtypes.md) for details.
+
 [documentation for all rules]: https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html
 
 [documentation for `genrule`]: https://bazel.build/reference/be/general#genrule

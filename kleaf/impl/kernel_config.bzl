@@ -14,7 +14,11 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
-load(":common_providers.bzl", "KernelEnvInfo")
+load(
+    ":common_providers.bzl",
+    "KernelEnvAttrInfo",
+    "KernelEnvInfo",
+)
 load(":debug.bzl", "debug")
 load(":stamp.bzl", "stamp")
 
@@ -186,6 +190,7 @@ def _kernel_config_impl(ctx):
             dependencies = setup_deps,
             setup = setup,
         ),
+        ctx.attr.env[KernelEnvAttrInfo],
         DefaultInfo(files = depset([config, include_dir])),
     ]
 
@@ -195,7 +200,7 @@ kernel_config = rule(
     attrs = {
         "env": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo],
+            providers = [KernelEnvInfo, KernelEnvAttrInfo],
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),

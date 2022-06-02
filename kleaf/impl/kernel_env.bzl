@@ -15,7 +15,11 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
-load(":common_providers.bzl", "KernelEnvInfo")
+load(
+    ":common_providers.bzl",
+    "KernelEnvAttrInfo",
+    "KernelEnvInfo",
+)
 load(":debug.bzl", "debug")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":stamp.bzl", "stamp")
@@ -26,6 +30,17 @@ def _sanitize_label_as_filename(label):
     """Sanitize a Bazel label so it is safe to be used as a filename."""
     label_text = str(label)
     return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
+
+def _get_kbuild_symtypes(ctx):
+    if ctx.attr.kbuild_symtypes == "auto":
+        return ctx.attr._kbuild_symtypes_flag[BuildSettingInfo].value
+    elif ctx.attr.kbuild_symtypes == "true":
+        return True
+    elif ctx.attr.kbuild_symtypes == "false":
+        return False
+
+    # Should not reach
+    fail("{}: kernel_env has unknown value for kbuild_symtypes: {}".format(ctx.attr.label, ctx.attr.kbuild_symtypes))
 
 def _kernel_env_impl(ctx):
     if ctx.attr._config_is_local[BuildSettingInfo].value and ctx.attr._config_is_stamp[BuildSettingInfo].value:
@@ -93,6 +108,11 @@ def _kernel_env_impl(ctx):
         # Run Make in silence mode to suppress most of the info output
           export MAKEFLAGS="${MAKEFLAGS} -s"
         """
+
+    kbuild_symtypes = _get_kbuild_symtypes(ctx)
+    command += """
+        export KBUILD_SYMTYPES={}
+    """.format("1" if kbuild_symtypes else "")
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
@@ -203,6 +223,9 @@ def _kernel_env_impl(ctx):
             dependencies = dependencies,
             setup = setup,
         ),
+        KernelEnvAttrInfo(
+            kbuild_symtypes = kbuild_symtypes,
+        ),
         DefaultInfo(files = depset([out_file])),
     ]
 
@@ -265,6 +288,11 @@ kernel_env = rule(
             providers = [DtstreeInfo],
             doc = "Device tree",
         ),
+        "kbuild_symtypes": attr.string(
+            doc = "`KBUILD_SYMTYPES`",
+            default = "auto",
+            values = ["true", "false", "auto"],
+        ),
         "_tools": attr.label_list(default = _get_tools),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
@@ -276,6 +304,7 @@ kernel_env = rule(
         ),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
+        "_kbuild_symtypes_flag": attr.label(default = "//build/kernel/kleaf:kbuild_symtypes"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
     },

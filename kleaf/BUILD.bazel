@@ -34,6 +34,13 @@ string_flag(
     ],
 )
 
+# If true, set `KBUILD_SYMTYPES=1` for kernel_build() with
+# kbuild_symtypes="auto".
+bool_flag(
+    name = "kbuild_symtypes",
+    build_setting_default = False,
+)
+
 # Debug options
 
 bool_flag(
@@ -63,6 +70,7 @@ _config_values = (
 print_flags(
     name = "print_flags",
     flags = [
+        ":kbuild_symtypes",
         ":lto",
     ] + [":config_" + value for value in _config_values],
 )

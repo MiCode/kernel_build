@@ -27,6 +27,13 @@ is in its own extension instead of `kernel_env.bzl`.
     },
 )
 
+KernelEnvAttrInfo = provider(
+    doc = "Provide attributes of `kernel_env`.",
+    fields = {
+        "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
+    },
+)
+
 KernelBuildInfo = provider(
     doc = """Generic information provided by a `kernel_build`.""",
     fields = {
