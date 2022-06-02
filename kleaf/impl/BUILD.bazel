@@ -19,6 +19,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 bzl_library(
     name = "impl",
     srcs = [
+        "btf.bzl",
         "common_providers.bzl",
         "constants.bzl",
         "debug.bzl",
@@ -45,7 +46,6 @@ bzl_library(
         "stamp.bzl",
         "status.bzl",
         "utils.bzl",
-        "btf.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [

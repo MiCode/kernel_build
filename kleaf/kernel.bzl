@@ -33,7 +33,6 @@ load("//build/kernel/kleaf/impl:kernel_module.bzl", _kernel_module_macro = "kern
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", _kernel_modules_install = "kernel_modules_install")
 load("//build/kernel/kleaf/impl:kernel_unstripped_modules_archive.bzl", _kernel_unstripped_modules_archive = "kernel_unstripped_modules_archive")
 load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_uapi_headers = "merged_kernel_uapi_headers")
-load("//build/kernel/kleaf/impl:btf.bzl", "btf")
 load(":directory_with_structure.bzl", dws = "directory_with_structure")
 load(":hermetic_tools.bzl", "HermeticToolsInfo")
 load(":update_source_file.bzl", "update_source_file")
@@ -43,10 +42,6 @@ load(
     "find_files",
     "kernel_utils",
     "utils",
-)
-load(
-    "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
-    "kernel_module_test",
 )
 
 # Re-exports
