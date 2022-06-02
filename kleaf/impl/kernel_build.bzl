@@ -313,8 +313,6 @@ def kernel_build(
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
-
-          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_btf`.
     """
     env_target_name = name + "_env"
     config_target_name = name + "_config"
@@ -336,6 +334,12 @@ def kernel_build(
             ],
         )
 
+    internal_kwargs = dict(kwargs)
+    internal_kwargs.pop("visibility", default = None)
+
+    kwargs_with_manual = dict(kwargs)
+    kwargs_with_manual["tags"] = ["manual"]
+
     kernel_env(
         name = env_target_name,
         build_config = build_config,
@@ -344,6 +348,7 @@ def kernel_build(
         srcs = srcs,
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
+        **internal_kwargs
     )
 
     all_kmi_symbol_lists = []
@@ -356,18 +361,21 @@ def kernel_build(
         name = kmi_symbol_list_target_name,
         env = env_target_name,
         srcs = all_kmi_symbol_lists,
+        **internal_kwargs
     )
 
     native.filegroup(
         name = abi_symbollist_target_name,
         srcs = [kmi_symbol_list_target_name],
         output_group = "abi_symbollist",
+        **internal_kwargs
     )
 
     raw_kmi_symbol_list(
         name = raw_kmi_symbol_list_target_name,
         env = env_target_name,
         src = abi_symbollist_target_name if all_kmi_symbol_lists else None,
+        **internal_kwargs
     )
 
     kernel_config(
@@ -377,6 +385,7 @@ def kernel_build(
         config = config_target_name + "/.config",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
+        **internal_kwargs
     )
 
     modules_prepare(
@@ -384,6 +393,7 @@ def kernel_build(
         config = config_target_name,
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
+        **internal_kwargs
     )
 
     _kernel_build(
@@ -420,7 +430,7 @@ def kernel_build(
             continue
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
-                native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out)
+                native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out, **kwargs)
             real_outs[out_name] = [name + "/" + out for out in out_attr_val]
         elif type(out_attr_val) == type({}):
             # out_attr_val = {config_setting: [out, ...], ...}
@@ -435,7 +445,7 @@ def kernel_build(
                     }),
                     output_group = out,
                     # Use "manual" tags to prevent it to be built with ...
-                    tags = ["manual"],
+                    **kwargs_with_manual
                 )
             real_outs[out_name] = [name + "/" + out for out, _ in utils.reverse_dict(out_attr_val).items()]
         else:
@@ -469,10 +479,12 @@ def kernel_build(
     kernel_build_test(
         name = name + "_test",
         target = name,
+        **kwargs
     )
     kernel_module_test(
         name = name + "_modules_test",
         modules = real_outs.get("module_outs"),
+        **kwargs
     )
 
 def _kernel_build_impl(ctx):
