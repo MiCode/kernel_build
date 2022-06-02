@@ -88,6 +88,13 @@ bzl_library(
     deps = ["@bazel_skylib//lib:paths"],
 )
 
+bzl_library(
+    name = "update_source_file_def",
+    srcs = ["update_source_file.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [":hermetic_tools_def"],
+)
+
 # Docs. To view them:
 #   bazel run //build/kernel/kleaf:docs_server
 
