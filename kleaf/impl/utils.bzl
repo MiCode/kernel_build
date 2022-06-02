@@ -13,8 +13,9 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load(":common_providers.bzl", "KernelModuleInfo")
 
-def reverse_dict(d):
+def _reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
 
     Return {value: [key, ...]}.
@@ -27,7 +28,7 @@ def reverse_dict(d):
             ret[v].append(k)
     return ret
 
-def getoptattr(thing, attr, default_value = None):
+def _getoptattr(thing, attr, default_value = None):
     """Return attribute value if |thing| has attribute named |attr|, otherwise return |default_value|."""
     if hasattr(thing, attr):
         return getattr(thing, attr)
@@ -99,12 +100,105 @@ def _removesuffix(s, suffix):
         return s[:-len(suffix)]
     return s
 
+# Utilities that applies to all Bazel stuff in general. These functions are
+# not Kleaf specific.
 utils = struct(
     intermediates_dir = _intermediates_dir,
-    reverse_dict = reverse_dict,
-    getoptattr = getoptattr,
+    reverse_dict = _reverse_dict,
+    getoptattr = _getoptattr,
     find_file = find_file,
     find_files = find_files,
     removeprefix = _removeprefix,
     removesuffix = _removesuffix,
+)
+
+def _filter_module_srcs(files):
+    """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
+    return [
+        s
+        for s in files
+        if s.path.endswith(".h") or any([token in s.path for token in [
+            "Makefile",
+            "scripts/",
+        ]])
+    ]
+
+def _transform_kernel_build_outs(name, what, outs):
+    """Transform `*outs` attributes for `kernel_build`.
+
+    - If `outs` is a list, return it directly.
+    - If `outs` is a dict, return `select(outs)`.
+    - Otherwise fail
+
+    The logic should be in par with `_kernel_build_outs_add_vmlinux`.
+    """
+    if outs == None:
+        return None
+    if type(outs) == type([]):
+        return outs
+    elif type(outs) == type({}):
+        return select(outs)
+    else:
+        fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
+
+def _kernel_build_outs_add_vmlinux(name, outs):
+    """Add vmlinux etc. to the outs attribute of a `kernel_build`.
+
+    The logic should be in par with `_transform_kernel_build_outs`.
+    """
+    files_to_add = ("vmlinux", "System.map")
+    outs_changed = False
+    if outs == None:
+        outs = ["vmlinux"]
+        outs_changed = True
+    if type(outs) == type([]):
+        for file in files_to_add:
+            if file not in outs:
+                # don't use append to avoid changing outs
+                outs = outs + [file]
+                outs_changed = True
+    elif type(outs) == type({}):
+        outs_new = {}
+        for k, v in outs.items():
+            for file in files_to_add:
+                if file not in v:
+                    # don't use append to avoid changing outs
+                    v = v + [file]
+                    outs_changed = True
+            outs_new[k] = v
+        outs = outs_new
+    else:
+        fail("{}: Invalid type for outs: {}".format(name, type(outs)))
+    return outs, outs_changed
+
+def _check_kernel_build(kernel_modules, kernel_build, this_label):
+    """Check that kernel_modules have the same kernel_build as the given one.
+
+    Args:
+        kernel_modules: the attribute of kernel_module dependencies. Should be
+          an attribute of a list of labels.
+        kernel_build: the attribute of kernel_build. Should be an attribute of
+          a label.
+        this_label: label of the module being checked.
+    """
+
+    for kernel_module in kernel_modules:
+        if kernel_module[KernelModuleInfo].kernel_build.label != \
+           kernel_build.label:
+            fail((
+                "{this_label} refers to kernel_build {kernel_build}, but " +
+                "depended kernel_module {dep} refers to kernel_build " +
+                "{dep_kernel_build}. They must refer to the same kernel_build."
+            ).format(
+                this_label = this_label,
+                kernel_build = kernel_build.label,
+                dep = kernel_module.label,
+                dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
+            ))
+
+kernel_utils = struct(
+    filter_module_srcs = _filter_module_srcs,
+    transform_kernel_build_outs = _transform_kernel_build_outs,
+    check_kernel_build = _check_kernel_build,
+    kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,
 )
