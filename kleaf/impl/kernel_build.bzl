@@ -19,6 +19,7 @@ load(
     "kernel_build_test",
     "kernel_module_test",
 )
+load(":btf.bzl", "btf")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
@@ -45,7 +46,6 @@ load(":kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load(":modules_prepare.bzl", "modules_prepare")
 load(":raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
 load(":utils.bzl", "kernel_utils", "utils")
-load(":btf.bzl", "btf")
 
 # Outputs of a kernel_build rule needed to build kernel_module's
 _kernel_build_internal_outs = [
