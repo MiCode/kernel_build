@@ -12,30 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    "//build/kernel/kleaf:kernel.bzl",
-    "kernel_build_config",
-)
-load(":diff_test.bzl", "diff_test")
+load(":utils.bzl", "utils")
 
-kernel_build_config(
-    name = "test_build_config",
-    srcs = [
-        # do not sort
-        "build.config.2",
-        "build.config.1",
-    ],
-)
+SrcsInfo = provider(fields = {
+    "srcs": "The srcs attribute of a rule.",
+})
 
-diff_test(
-    name = "build_config_test",
-    actual = ":test_build_config",
-    expected = "build.config.expected",
-)
+def _srcs_aspect_impl(target, ctx):
+    return [SrcsInfo(srcs = utils.getoptattr(ctx.rule.attr, "srcs"))]
 
-test_suite(
-    name = "tests",
-    tests = [
-        ":build_config_test",
-    ],
+srcs_aspect = aspect(
+    implementation = _srcs_aspect_impl,
+    doc = "An aspect that retrieves srcs attribute from a rule.",
+    attr_aspects = ["srcs"],
 )

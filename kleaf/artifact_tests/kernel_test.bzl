@@ -22,7 +22,7 @@ def kernel_module_test(
         modules: The list of `*.ko` kernel modules, or targets that produces
             `*.ko` kernel modules (e.g. [kernel_module](#kernel_module)).
     """
-    script = "//build/kernel/kleaf/tests:kernel_module_test.py"
+    script = "//build/kernel/kleaf/artifact_tests:kernel_module_test.py"
     modinfo = "//build/kernel:hermetic-tools/modinfo"
     args = ["--modinfo", "$(location {})".format(modinfo)]
     data = [modinfo]
@@ -50,7 +50,7 @@ def kernel_build_test(
         name: name of test
         target: The [`kernel_build()`](#kernel_build).
     """
-    script = "//build/kernel/kleaf/tests:kernel_build_test.py"
+    script = "//build/kernel/kleaf/artifact_tests:kernel_build_test.py"
     strings = "//build/kernel:hermetic-tools/strings"
     args = ["--strings", "$(location {})".format(strings)]
     if target:

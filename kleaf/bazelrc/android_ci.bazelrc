@@ -14,6 +14,9 @@
 
 # Flags used for ci.android.com builds.
 
+common:android_ci --verbose_failures
+common:android_ci --noshow_progress
+
 # Embed scmversion
 build:android_ci --config=stamp
 

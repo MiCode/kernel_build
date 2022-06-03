@@ -12,30 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    "//build/kernel/kleaf:kernel.bzl",
-    "kernel_build_config",
-)
-load(":diff_test.bzl", "diff_test")
-
-kernel_build_config(
-    name = "test_build_config",
-    srcs = [
-        # do not sort
-        "build.config.2",
-        "build.config.1",
-    ],
-)
-
-diff_test(
-    name = "build_config_test",
-    actual = ":test_build_config",
-    expected = "build.config.expected",
-)
-
-test_suite(
-    name = "tests",
-    tests = [
-        ":build_config_test",
-    ],
-)
+TOOLCHAIN_VERSION_FILENAME = "toolchain_version"

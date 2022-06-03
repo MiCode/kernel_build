@@ -24,13 +24,17 @@ def _gki_artifacts_impl(ctx):
     inputs += ctx.files.srcs
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
-    tarball = ctx.actions.declare_file("{}/boot-img.tar.gz".format(ctx.label.name))
-    dist_dir = tarball.dirname
+    outs = []
 
-    outs = [tarball]
+    # build_gki_artifacts_aarch64 builds boot-img.tar.gz additionally.
+    # build_gki_artifacts_x86_64 does not build boot-img.tar.gz.
+    if ctx.attr.arch == "arm64":
+        tarball = ctx.actions.declare_file("{}/boot-img.tar.gz".format(ctx.label.name))
+        outs.append(tarball)
+
     size_cmd = ""
     for image in ctx.files.srcs:
-        if image.basename == "Image":
+        if image.basename in ("Image", "bzImage"):
             outs.append(ctx.actions.declare_file("{}/boot.img".format(ctx.label.name)))
             size_key = ""
             var_name = ""
@@ -47,10 +51,13 @@ def _gki_artifacts_impl(ctx):
             export BUILD_GKI_BOOT_IMG{var_name}_SIZE={size}
         """.format(var_name = var_name, size = size)
 
+    dist_dir = outs[0].dirname
+
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         source {build_utils_sh}
         cp -pl -t {dist_dir} {srcs}
         export GKI_KERNEL_CMDLINE={quoted_gki_kernel_cmdline}
+        export ARCH={quoted_arch}
         export DIST_DIR=$(readlink -e {dist_dir})
         export MKBOOTIMG_PATH={mkbootimg}
         {size_cmd}
@@ -60,6 +67,7 @@ def _gki_artifacts_impl(ctx):
         dist_dir = dist_dir,
         srcs = " ".join([src.path for src in ctx.files.srcs]),
         quoted_gki_kernel_cmdline = shell.quote(ctx.attr.gki_kernel_cmdline),
+        quoted_arch = shell.quote(ctx.attr.arch),
         mkbootimg = ctx.file.mkbootimg.path,
         size_cmd = size_cmd,
     )
@@ -76,7 +84,7 @@ def _gki_artifacts_impl(ctx):
 
 gki_artifacts = rule(
     implementation = _gki_artifacts_impl,
-    doc = "`BUILD_GKI_ARTIFACTS`. Build boot images and `boot-img.tar.gz` as default outputs.",
+    doc = "`BUILD_GKI_ARTIFACTS`. Build boot images and optionally `boot-img.tar.gz` as default outputs.",
     attrs = {
         "srcs": attr.label_list(
             allow_files = True,
@@ -101,6 +109,7 @@ For example:
 """,
         ),
         "gki_kernel_cmdline": attr.string(doc = "`GKI_KERNEL_CMDLINE`."),
+        "arch": attr.string(doc = "`ARCH`.", values = ["arm64", "x86_64"], mandatory = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
