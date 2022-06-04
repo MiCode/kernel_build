@@ -29,6 +29,7 @@ bzl_library(
         "common_providers.bzl",
         "constants.bzl",
         "ddk/ddk_headers.bzl",
+        "ddk/ddk_module.bzl",
         "ddk/makefiles.bzl",
         "debug.bzl",
         "gki_artifacts.bzl",
