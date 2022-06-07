@@ -26,6 +26,9 @@ test:ants --bes_backend=buildeventservice-pa.googleapis.com
 test:ants --bes_keywords=android-test-storage
 test:ants --build_metadata=run_type=critical
 
+# Show URI to test results
+test:ants --build_metadata=generate_test_uri=fusion
+
 # These need to be set in the command line
 # test:ants --build_metadata="ab_build_id=${BUILD_ID}"
 # test:ants --build_metadata="ab_target=???",

@@ -31,3 +31,5 @@
 `--config=local`: [Sandboxing](docs/sandbox.md)
 
 `--config=stamp`: [Handling SCM version](docs/scmversion.md)
+
+`--lto`: [Disable LTO during development](docs/lto.md)
