@@ -17,6 +17,7 @@ load(":image/image_utils.bzl", "image_utils")
 
 def _system_dlkm_image_impl(ctx):
     system_dlkm_img = ctx.actions.declare_file("{}/system_dlkm.img".format(ctx.label.name))
+    system_dlkm_modules_load = ctx.actions.declare_file("{}/system_dlkm.modules.load".format(ctx.label.name))
     system_dlkm_staging_archive = ctx.actions.declare_file("{}/system_dlkm_staging_archive.tar.gz".format(ctx.label.name))
 
     modules_staging_dir = system_dlkm_img.dirname + "/staging"
@@ -27,7 +28,8 @@ def _system_dlkm_image_impl(ctx):
              # Build system_dlkm.img
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
                  {system_dlkm_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
-               modules_root_dir=$(ls {system_dlkm_staging_dir}/lib/modules/*)
+               modules_root_dir=$(readlink -e {system_dlkm_staging_dir}/lib/modules/*) || exit 1
+               cp ${{modules_root_dir}}/modules.load {system_dlkm_modules_load}
              # Re-sign the stripped modules using kernel build time key
                for module in $(find {system_dlkm_staging_dir} -type f -name '*.ko'); do
                    "${{OUT_DIR}}"/scripts/sign-file sha1 \
@@ -47,6 +49,7 @@ def _system_dlkm_image_impl(ctx):
     """.format(
         modules_staging_dir = modules_staging_dir,
         system_dlkm_staging_dir = system_dlkm_staging_dir,
+        system_dlkm_modules_load = system_dlkm_modules_load.path,
         system_dlkm_img = system_dlkm_img.path,
         system_dlkm_staging_archive = system_dlkm_staging_archive.path,
     )
@@ -54,7 +57,11 @@ def _system_dlkm_image_impl(ctx):
     default_info = image_utils.build_modules_image_impl_common(
         ctx = ctx,
         what = "system_dlkm",
-        outputs = [system_dlkm_img, system_dlkm_staging_archive],
+        outputs = [
+            system_dlkm_img,
+            system_dlkm_modules_load,
+            system_dlkm_staging_archive,
+        ],
         build_command = command,
         modules_staging_dir = modules_staging_dir,
         mnemonic = "SystemDlkmImage",
@@ -65,7 +72,9 @@ system_dlkm_image = rule(
     implementation = _system_dlkm_image_impl,
     doc = """Build system_dlkm.img an erofs image with GKI modules.
 
-When included in a `copy_to_dist_dir` rule, this rule copies the `system_dlkm.img` to `DIST_DIR`.
+When included in a `copy_to_dist_dir` rule, this rule copies the following to `DIST_DIR`:
+- `system_dlkm.img`
+- `system_dlkm.modules.load`
 
 """,
     attrs = image_utils.build_modules_image_attrs_common({
