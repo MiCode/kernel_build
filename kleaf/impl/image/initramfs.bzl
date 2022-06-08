@@ -40,7 +40,7 @@ def _initramfs_impl(ctx):
              # Build initramfs
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
                  {initramfs_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
-               modules_root_dir=$(echo {initramfs_staging_dir}/lib/modules/*)
+               modules_root_dir=$(readlink -e {initramfs_staging_dir}/lib/modules/*) || exit 1
                cp ${{modules_root_dir}}/modules.load {modules_load}
                cp ${{modules_root_dir}}/modules.load {vendor_boot_modules_load}
                echo "${{MODULES_OPTIONS}}" > ${{modules_root_dir}}/modules.options
