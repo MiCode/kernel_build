@@ -26,8 +26,9 @@ def _vendor_dlkm_image_impl(ctx):
     additional_inputs = []
     if ctx.file.vendor_boot_modules_load:
         command += """
-                # Restore vendor_boot.modules.load
-                  cp {vendor_boot_modules_load} ${{DIST_DIR}}/vendor_boot.modules.load
+                # Restore vendor_boot.modules.load or vendor_kernel_boot.modules.load
+                # to modules.load, where build_utils.sh build_vendor_dlkm uses
+                  cp {vendor_boot_modules_load} ${{DIST_DIR}}/modules.load
         """.format(
             vendor_boot_modules_load = ctx.file.vendor_boot_modules_load.path,
         )

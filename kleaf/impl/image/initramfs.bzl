@@ -29,11 +29,20 @@ def _initramfs_impl(ctx):
     outputs = [
         initramfs_img,
         modules_load,
-        vendor_boot_modules_load,
     ]
+    if vendor_boot_modules_load:
+        outputs.append(vendor_boot_modules_load)
 
     modules_staging_dir = initramfs_img.dirname + "/staging"
     initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
+
+    cp_vendor_boot_modules_load_cmd = ""
+    if vendor_boot_modules_load:
+        cp_vendor_boot_modules_load_cmd = """
+               cp ${{modules_root_dir}}/modules.load {vendor_boot_modules_load}
+        """.format(
+            vendor_boot_modules_load = vendor_boot_modules_load.path,
+        )
 
     command = """
                mkdir -p {initramfs_staging_dir}
@@ -42,7 +51,7 @@ def _initramfs_impl(ctx):
                  {initramfs_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
                modules_root_dir=$(readlink -e {initramfs_staging_dir}/lib/modules/*) || exit 1
                cp ${{modules_root_dir}}/modules.load {modules_load}
-               cp ${{modules_root_dir}}/modules.load {vendor_boot_modules_load}
+               {cp_vendor_boot_modules_load_cmd}
                echo "${{MODULES_OPTIONS}}" > ${{modules_root_dir}}/modules.options
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
                ${{RAMDISK_COMPRESS}} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
@@ -54,9 +63,9 @@ def _initramfs_impl(ctx):
         modules_staging_dir = modules_staging_dir,
         initramfs_staging_dir = initramfs_staging_dir,
         modules_load = modules_load.path,
-        vendor_boot_modules_load = vendor_boot_modules_load.path,
         initramfs_img = initramfs_img.path,
         initramfs_staging_archive = initramfs_staging_archive.path,
+        cp_vendor_boot_modules_load_cmd = cp_vendor_boot_modules_load_cmd,
     )
 
     default_info = image_utils.build_modules_image_impl_common(
@@ -91,7 +100,9 @@ An additional label, `{name}/vendor_boot.modules.load`, is declared to point to 
 corresponding files.
 """,
     attrs = image_utils.build_modules_image_attrs_common({
-        "vendor_boot_modules_load": attr.output(),
+        "vendor_boot_modules_load": attr.output(
+            doc = "`vendor_boot.modules.load` or `vendor_kernel_boot.modules.load`",
+        ),
         "modules_list": attr.label(allow_single_file = True),
         "modules_blocklist": attr.label(allow_single_file = True),
         "modules_options": attr.label(allow_single_file = True),
