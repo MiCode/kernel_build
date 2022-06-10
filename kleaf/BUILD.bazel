@@ -75,10 +75,24 @@ exports_files([
 ])
 
 bzl_library(
+    name = "directory_with_structure_def",
+    srcs = ["directory_with_structure.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = ["@bazel_skylib//lib:paths"],
+)
+
+bzl_library(
     name = "hermetic_tools_def",
     srcs = ["hermetic_tools.bzl"],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = ["@bazel_skylib//lib:paths"],
+)
+
+bzl_library(
+    name = "update_source_file_def",
+    srcs = ["update_source_file.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [":hermetic_tools_def"],
 )
 
 # Docs. To view them:

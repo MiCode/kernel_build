@@ -343,7 +343,7 @@ $ bazel build --lto={default,none,thin,full} TARGETS
 $ bazel run   --lto={default,none,thin,full} TARGETS
 ```
 
-See [disable LTO during development](impl.md#disable-lto-during-development).
+See [disable LTO during development](lto.md).
 
 ## TAGS\_CONFIG
 
