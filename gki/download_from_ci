@@ -26,6 +26,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import struct
 import subprocess
 import sys
 import tarfile
@@ -169,15 +170,34 @@ def commit_prebuilts(output_dir, gitlog, name="kernel"):
     print("Use the following command from your Android repository to upload your changes:")
     print(" repo upload -t --br {}".format(branch_name))
 
+def extract_version_from_kernel(path):
+  """Extracts version string from kernel following https://www.kernel.org/doc/Documentation/x86/boot.txt"""
+  # Note that this works only for x86 kernel image
+  with open(path, mode='rb') as file:
+    # 4 byte magic string HdrS at 0x202
+    file.seek(0x202)
+    magic = file.read(4)
+    if magic != b"HdrS":
+      # fallback to grep (for the arm64 case)
+      return str(subprocess.check_output(["grep", "-a", "Linux version ", path]))
+    # 2 byte offset to the version string at 0x20e
+    file.seek(0x20e)
+    offset = struct.unpack('h', file.read(2))[0]
+    # The offset is actually from the header which is at 0x200
+    file.seek(offset+0x200)
+    # read the first null-terminated string with a reasonable assumption that
+    # it isn't longer than 1023 bytes
+    return file.read(1024).split(b'\0')[0].decode()
+
 def get_binary_kernel_version(path):
   """Returns a tuple of strings of the x.y.z (LTS) version and the SHA."""
-  rawdata = subprocess.check_output(["grep", "-a", "Linux version ", path])
-  pattern = b"Linux version (?P<release>(?P<version>[0-9]+[.][0-9]+[.][0-9]+)(-rc\d+)?(-\w+(-\d+)?)?-\d+-g(?P<sha>\w+)-ab\d+) \(.*@.*\) \((?P<compiler>.*)\) .*\n"
-  result = re.search(pattern, rawdata)
+  version = extract_version_from_kernel(path)
+  pattern = "(?P<release>(?P<version>[0-9]+[.][0-9]+[.][0-9]+)(-rc\d+)?(-\w+(-\d+)?)?-\d+-g(?P<sha>\w+)-ab\d+)"
+  result = re.search(pattern, version)
+
   if not result:
     raise Exception("Could not determine version in kernel binary " + path)
-  return (result.group("version").decode('ascii'),
-          result.group("sha").decode('ascii'))
+  return (result.group("version"), result.group("sha"))
 
 def get_binary_u_boot_version(path):
   """Returns a tuple of strings of the YYYY.MM(-rcXX) version and the SHA."""
