@@ -27,6 +27,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildInfo",
     "KernelBuildUapiInfo",
+    "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelUnstrippedModulesInfo",
 )
@@ -72,6 +73,7 @@ def kernel_build(
         kmi_symbol_list_strict_mode = None,
         collect_unstripped_modules = None,
         enable_interceptor = None,
+        kbuild_symtypes = None,
         toolchain_version = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -288,13 +290,29 @@ def kernel_build(
           Approximately equivalent to `UNSTRIPPED_MODULES=*` in `build.sh`.
         enable_interceptor: If set to `True`, enable interceptor so it can be
           used in [`kernel_compile_commands`](#kernel_compile_commands).
+        kbuild_symtypes: The value of `KBUILD_SYMTYPES`.
+
+          This can be set to one of the following:
+
+          - `"true"`
+          - `"false"`
+          - `"auto"`
+          - `None`, which defaults to `"auto"`
+
+          If the value is `"auto"`, it is determined by the `--kbuild_symtypes`
+          flag.
+
+          If the value is `"true"`; or the value is `"auto"` and
+          `--kbuild_symtypes` is specified, then `KBUILD_SYMTYPES=1`.
+          **Note**: kernel build time can be significantly longer.
+
+          If the value is `"false"`; or the value is `"auto"` and
+          `--kbuild_symtypes` is not specified, then `KBUILD_SYMTYPES=`.
         toolchain_version: The toolchain version to depend on.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
-
-          These arguments applies on the target with `{name}`, `{name}_headers`, `{name}_uapi_headers`, and `{name}_btf`.
     """
     env_target_name = name + "_env"
     config_target_name = name + "_config"
@@ -316,6 +334,12 @@ def kernel_build(
             ],
         )
 
+    internal_kwargs = dict(kwargs)
+    internal_kwargs.pop("visibility", default = None)
+
+    kwargs_with_manual = dict(kwargs)
+    kwargs_with_manual["tags"] = ["manual"]
+
     kernel_env(
         name = env_target_name,
         build_config = build_config,
@@ -323,6 +347,8 @@ def kernel_build(
         dtstree = dtstree,
         srcs = srcs,
         toolchain_version = toolchain_version,
+        kbuild_symtypes = kbuild_symtypes,
+        **internal_kwargs
     )
 
     all_kmi_symbol_lists = []
@@ -335,18 +361,21 @@ def kernel_build(
         name = kmi_symbol_list_target_name,
         env = env_target_name,
         srcs = all_kmi_symbol_lists,
+        **internal_kwargs
     )
 
     native.filegroup(
         name = abi_symbollist_target_name,
         srcs = [kmi_symbol_list_target_name],
         output_group = "abi_symbollist",
+        **internal_kwargs
     )
 
     raw_kmi_symbol_list(
         name = raw_kmi_symbol_list_target_name,
         env = env_target_name,
         src = abi_symbollist_target_name if all_kmi_symbol_lists else None,
+        **internal_kwargs
     )
 
     kernel_config(
@@ -356,6 +385,7 @@ def kernel_build(
         config = config_target_name + "/.config",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
+        **internal_kwargs
     )
 
     modules_prepare(
@@ -363,6 +393,7 @@ def kernel_build(
         config = config_target_name,
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
+        **internal_kwargs
     )
 
     _kernel_build(
@@ -399,7 +430,7 @@ def kernel_build(
             continue
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
-                native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out)
+                native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out, **kwargs)
             real_outs[out_name] = [name + "/" + out for out in out_attr_val]
         elif type(out_attr_val) == type({}):
             # out_attr_val = {config_setting: [out, ...], ...}
@@ -414,7 +445,7 @@ def kernel_build(
                     }),
                     output_group = out,
                     # Use "manual" tags to prevent it to be built with ...
-                    tags = ["manual"],
+                    **kwargs_with_manual
                 )
             real_outs[out_name] = [name + "/" + out for out, _ in utils.reverse_dict(out_attr_val).items()]
         else:
@@ -448,10 +479,12 @@ def kernel_build(
     kernel_build_test(
         name = name + "_test",
         target = name,
+        **kwargs
     )
     kernel_module_test(
         name = name + "_modules_test",
         modules = real_outs.get("module_outs"),
+        **kwargs
     )
 
 def _kernel_build_impl(ctx):
@@ -605,6 +638,16 @@ def _kernel_build_impl(ctx):
             all_module_basenames_file = all_module_basenames_file.path,
         )
 
+    grab_symtypes_cmd = ""
+    if ctx.attr.config[KernelEnvAttrInfo].kbuild_symtypes:
+        symtypes_dir = ctx.actions.declare_directory("{name}/symtypes".format(name = ctx.label.name))
+        command_outputs.append(symtypes_dir)
+        grab_symtypes_cmd = """
+            rsync -a --prune-empty-dirs --include '*/' --include '*.symtypes' --exclude '*' ${{OUT_DIR}}/ {symtypes_dir}/
+        """.format(
+            symtypes_dir = symtypes_dir.path,
+        )
+
     command += """
          # Actual kernel build
            {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
@@ -627,6 +670,8 @@ def _kernel_build_impl(ctx):
            {search_and_cp_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names_minus_modules}
          # Archive modules_staging_dir
            tar czf {modules_staging_archive} -C {modules_staging_dir} .
+         # Grab *.symtypes
+           {grab_symtypes_cmd}
          # Grab in-tree modules
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
@@ -653,6 +698,7 @@ def _kernel_build_impl(ctx):
         all_output_names_minus_modules = " ".join(all_output_names_minus_modules),
         grab_intree_modules_cmd = grab_intree_modules_cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_intree_modules_cmd,
+        grab_symtypes_cmd = grab_symtypes_cmd,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = base_kernel_all_module_names_file_path,
         modules_staging_dir = modules_staging_dir,
@@ -768,7 +814,7 @@ _kernel_build = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo],
+            providers = [KernelEnvInfo, KernelEnvAttrInfo],
             aspects = [kernel_toolchain_aspect],
             doc = "the kernel_config target",
         ),
