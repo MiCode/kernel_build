@@ -41,6 +41,18 @@ updating the ABI definition. The
 Bazel command below does not also update the source symbol list, unlike
 the `build_abi.sh` command.
 
+If ABI definition doesn't exists i.e. if this is the first time it is being
+generated then first and empty symbol file needs to be created and the symbol
+list needs to be generated using the `nodiff_update` target as below:
+
+```shell
+touch common/android/abi_gki_aarch64.xml
+bazel run //common:kernel_aarch64_abi_nodiff_update
+```
+
+Second time onwards you can use the `//common:kernel_aarch64_abi_update` target
+as below:
+
 ```shell
 $ tools/bazel run //common:kernel_aarch64_abi_update
 ```
