@@ -1016,7 +1016,11 @@ if [ -n "${MODULES}" ]; then
 
     MODULES_ROOT_DIR=$(echo ${INITRAMFS_STAGING_DIR}/lib/modules/*)
     cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/modules.load
-    cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_boot.modules.load
+    if [ -n "${BUILD_VENDOR_BOOT_IMG}" ]; then
+      cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_boot.modules.load
+    elif [ -n "${BUILD_VENDOR_KERNEL_BOOT}" ]; then
+      cp ${MODULES_ROOT_DIR}/modules.load ${DIST_DIR}/vendor_kernel_boot.modules.load
+    fi
     echo "${MODULES_OPTIONS}" > ${MODULES_ROOT_DIR}/modules.options
 
     mkbootfs "${INITRAMFS_STAGING_DIR}" >"${MODULES_STAGING_DIR}/initramfs.cpio"
@@ -1072,7 +1076,7 @@ if [ -n "${UNSTRIPPED_MODULES}" ]; then
   fi
 fi
 
-[ -n "${GKI_MODULES_LIST}" ] && cp ${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
+[ -n "${GKI_MODULES_LIST}" ] && cp ${ROOT_DIR}/${KERNEL_DIR}/${GKI_MODULES_LIST} ${DIST_DIR}/
 
 echo "========================================================"
 echo " Files copied to ${DIST_DIR}"

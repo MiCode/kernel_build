@@ -221,9 +221,9 @@ function build_vendor_dlkm() {
   fi
 
   # Modules loaded in vendor_boot should not be loaded in vendor_dlkm.
-  if [ -f ${DIST_DIR}/vendor_boot.modules.load ]; then
+  if [ -f ${DIST_DIR}/modules.load ]; then
     local stripped_modules_load="$(mktemp)"
-    ! grep -x -v -F -f ${DIST_DIR}/vendor_boot.modules.load \
+    ! grep -x -v -F -f ${DIST_DIR}/modules.load \
       ${vendor_dlkm_modules_load} > ${stripped_modules_load}
     mv -f ${stripped_modules_load} ${vendor_dlkm_modules_load}
   fi
