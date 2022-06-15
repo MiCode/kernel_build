@@ -22,6 +22,20 @@ example:
 $ tools/bazel run --lto=none //private/path/to/sources:tuna_dist -- --dist_dir=out/dist
 ```
 
+If you are using `--lto` with `--config=fast`, the value of
+`--lto` in the command line is ignored as of 2022-06-15 due to
+[Issue 15679](https://github.com/bazelbuild/bazel/issues/15679). Until the issue
+is resolved, using `--config=local` instead, or choose Option 2 below. For
+example:
+
+```shell
+# DO NOT USE: --lto may be set to thin due to Issue 15679
+# tools/bazel run --config=fast --lto=none //common:kernel_dist
+
+# Instead, use:
+$ tools/bazel run --config=local --lto=none //common:kernel_dist
+```
+
 ## Option 2: Disable LTO for this workspace
 
 You only need to **do this once** per workspace.
