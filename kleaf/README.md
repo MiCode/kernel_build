@@ -20,6 +20,8 @@
 
 [Kleaf testing](docs/testing.md)
 
+[Building against downloaded prebuilts](docs/download_prebuilt.md)
+
 [Cheatsheet](docs/cheatsheet.md)
 
 ### Configurations
