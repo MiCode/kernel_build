@@ -21,7 +21,6 @@ def _gki_artifacts_impl(ctx):
         ctx.file.mkbootimg,
         ctx.file._build_utils_sh,
     ]
-    inputs += ctx.files.srcs
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
     outs = []
@@ -33,29 +32,36 @@ def _gki_artifacts_impl(ctx):
         outs.append(tarball)
 
     size_cmd = ""
-    for image in ctx.files.srcs:
+    images = []
+    for image in ctx.files.kernel_build:
         if image.basename in ("Image", "bzImage"):
             outs.append(ctx.actions.declare_file("{}/boot.img".format(ctx.label.name)))
             size_key = ""
             var_name = ""
-        else:
+        elif image.basename.startswith("Image."):
             compression = utils.removeprefix(image.basename, "Image.")
             outs.append(ctx.actions.declare_file("{}/boot-{}.img".format(ctx.label.name, compression)))
             size_key = compression
             var_name = "_" + compression.upper()
+        else:
+            # Not an image
+            continue
 
+        images.append(image)
         size = ctx.attr.boot_img_sizes.get(size_key)
         if not size:
-            fail("""{}: Missing key "{}" in boot_img_sizes for src {}.""".format(ctx.label, size_key, image.basename))
+            fail("""{}: Missing key "{}" in boot_img_sizes for image {}.""".format(ctx.label, size_key, image.basename))
         size_cmd += """
             export BUILD_GKI_BOOT_IMG{var_name}_SIZE={size}
         """.format(var_name = var_name, size = size)
+
+    inputs += images
 
     dist_dir = outs[0].dirname
 
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         source {build_utils_sh}
-        cp -pl -t {dist_dir} {srcs}
+        cp -pl -t {dist_dir} {images}
         export GKI_KERNEL_CMDLINE={quoted_gki_kernel_cmdline}
         export ARCH={quoted_arch}
         export DIST_DIR=$(readlink -e {dist_dir})
@@ -65,7 +71,7 @@ def _gki_artifacts_impl(ctx):
     """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         dist_dir = dist_dir,
-        srcs = " ".join([src.path for src in ctx.files.srcs]),
+        images = " ".join([image.path for image in images]),
         quoted_gki_kernel_cmdline = shell.quote(ctx.attr.gki_kernel_cmdline),
         quoted_arch = shell.quote(ctx.attr.arch),
         mkbootimg = ctx.file.mkbootimg.path,
@@ -86,9 +92,9 @@ gki_artifacts = rule(
     implementation = _gki_artifacts_impl,
     doc = "`BUILD_GKI_ARTIFACTS`. Build boot images and optionally `boot-img.tar.gz` as default outputs.",
     attrs = {
-        "srcs": attr.label_list(
+        "kernel_build": attr.label(
             allow_files = True,
-            doc = "A list of `Image` and `Image.*` from [`kernel_build`](#kernel_build).",
+            doc = "The target that provides all `Image` and `Image.*`.",
         ),
         "mkbootimg": attr.label(
             allow_single_file = True,
