@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Enable toplevel_output_directories and Ninja executor in Bazel
-common --experimental_ninja_actions
-
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env
 
