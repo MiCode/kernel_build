@@ -72,7 +72,7 @@ def main():
         source build/build_utils.sh
         source build/_setup_env.sh
         echo $EXT_MODULES
-        """, shell=True, text=True, stderr=subprocess.PIPE).split()
+        """, shell=True, text=True, stderr=subprocess.PIPE, executable="/bin/bash").split()
     except subprocess.CalledProcessError as e:
       msg = "WARNING: Unable to determine EXT_MODULES; scmversion for external modules may be incorrect. code={}, stderr={}\n".format(
           e.returncode, e.stderr.strip())
