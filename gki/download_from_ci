@@ -35,7 +35,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.append(str(Path(os.path.dirname(__file__)) / ".." / "abi"))
-from abitool import get_abi_tool
+from abitool import dump_kernel_abi
 
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 ARM_TARGETS = ["u-boot_qemu_arm"]
@@ -247,8 +247,8 @@ def get_or_update_abi_definition(target, output_dir):
       func = functools.partial(download, url_base, tmp)
       _pool.map(func, abi_files)
 
-      get_abi_tool().dump_kernel_abi(tmp, tmp / abi_xml,
-                                     tmp / symbol_list if symbol_list else None)
+      dump_kernel_abi(tmp, tmp / abi_xml,
+                      tmp / symbol_list if symbol_list else None)
 
     shutil.copyfile(tmp / abi_xml, output_dir / "abi.xml")
 

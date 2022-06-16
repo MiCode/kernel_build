@@ -164,8 +164,13 @@ def _define_other_targets(
     """
     new_outs, outs_changed = kernel_utils.kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
 
-    # with_vmlinux: outs += [vmlinux]
-    if outs_changed or kernel_build_kwargs.get("base_kernel"):
+    # with_vmlinux: outs += [vmlinux]; base_kernel = None; kbuild_symtypes = True
+    # Technically we may skip creating the _with_vmlinux target when
+    # kbuild_symtypes = "auto" and --kbuild_symtypes, but there's no easy way
+    # to determine flag values at loading phase.
+    need_separate_with_vmlinux_target = outs_changed or kernel_build_kwargs.get("base_kernel") or kernel_build_kwargs.get("kbuild_symtypes") != "true"
+
+    if need_separate_with_vmlinux_target:
         with_vmlinux_kwargs = dict(kernel_build_kwargs)
         with_vmlinux_kwargs["outs"] = kernel_utils.transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
         with_vmlinux_kwargs["base_kernel_for_module_outs"] = with_vmlinux_kwargs.pop("base_kernel", default = None)
@@ -197,6 +202,7 @@ def _define_other_targets(
             new_outs = new_outs,
             abi_dump_target = name + "_abi_dump",
             kernel_build_with_vmlinux_target = name + "_with_vmlinux",
+            need_separate_with_vmlinux_target = need_separate_with_vmlinux_target,
             kernel_build_kwargs = kernel_build_kwargs,
         )
 
@@ -235,6 +241,7 @@ def _define_abi_targets(
         new_outs,
         abi_dump_target,
         kernel_build_with_vmlinux_target,
+        need_separate_with_vmlinux_target,
         kernel_build_kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = True.`
 
@@ -248,8 +255,8 @@ def _define_abi_targets(
 
     default_outputs = [abi_dump_target]
 
-    # notrim: outs += [vmlinux], trim_nonlisted_kmi = False
-    if kernel_build_kwargs.get("trim_nonlisted_kmi") or outs_changed or kernel_build_kwargs.get("base_kernel"):
+    # notrim: like _with_vmlinux, but trim_nonlisted_kmi = False
+    if need_separate_with_vmlinux_target or kernel_build_kwargs.get("trim_nonlisted_kmi"):
         notrim_kwargs = dict(kernel_build_kwargs)
         notrim_kwargs["outs"] = kernel_utils.transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
         notrim_kwargs["trim_nonlisted_kmi"] = False

@@ -229,12 +229,18 @@ def kernel_images(
     if build_vendor_kernel_boot and "vendor_kernel_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_kernel_boot.img")
 
+    vendor_boot_modules_load = None
     if build_initramfs:
+        if build_vendor_boot:
+            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name)
+        elif build_vendor_kernel_boot:
+            vendor_boot_modules_load = "{}_initramfs/vendor_kernel_boot.modules.load".format(name)
+
         initramfs(
             name = "{}_initramfs".format(name),
             kernel_modules_install = kernel_modules_install,
             deps = deps,
-            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name),
+            vendor_boot_modules_load = vendor_boot_modules_load,
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
             modules_options = modules_options,
@@ -255,7 +261,7 @@ def kernel_images(
         vendor_dlkm_image(
             name = "{}_vendor_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
-            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name) if build_initramfs else None,
+            vendor_boot_modules_load = vendor_boot_modules_load,
             deps = deps,
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
