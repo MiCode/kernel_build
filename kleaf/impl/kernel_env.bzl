@@ -124,6 +124,8 @@ def _kernel_env_impl(ctx):
     command += set_source_date_epoch_ret.cmd
     inputs += set_source_date_epoch_ret.deps
 
+    command += stamp.set_localversion_cmd(ctx)
+
     command += """
         # create a build environment
           source {build_utils_sh}
