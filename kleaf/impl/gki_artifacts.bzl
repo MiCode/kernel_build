@@ -22,7 +22,6 @@ def _gki_artifacts_impl(ctx):
     inputs = [
         ctx.file.mkbootimg,
         ctx.file._build_utils_sh,
-        ctx.file._testkey,
     ]
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
@@ -137,6 +136,5 @@ For example:
             allow_single_file = True,
             default = Label("//build/kernel:build_utils.sh"),
         ),
-        "_testkey": attr.label(default = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem", allow_single_file = True),
     },
 )
