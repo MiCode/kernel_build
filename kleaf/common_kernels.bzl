@@ -526,9 +526,16 @@ def define_common_kernels(
         )
 
         if target_config.get("build_gki_artifacts"):
+            gki_artifacts_srcs = []
+            transformed_boot_img_sizes = {}
+            for out in arch_config["outs"]:
+                basename = paths.basename(out)
+                if basename in ("Image", "bzImage") or basename.startswith("Image."):
+                    gki_artifacts_srcs.append("{}/{}".format(name, out))
+
             gki_artifacts(
                 name = name + "_gki_artifacts",
-                kernel_build = name,
+                srcs = gki_artifacts_srcs,
                 boot_img_sizes = target_config.get("gki_boot_img_sizes", {}),
                 arch = arch_config["arch"],
             )
