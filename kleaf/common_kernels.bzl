@@ -690,7 +690,7 @@ def _define_prebuilts(**kwargs):
             deps = select({
                 ":use_prebuilt_gki_set": [
                     source_package_name + "_ddk_artifacts_downloaded",
-                    source_package_name + "_unstripped_modules_archive_download",
+                    source_package_name + "_unstripped_modules_archive_downloaded",
                 ],
                 "//conditions:default": [
                     source_package_name + "_ddk_artifacts",
