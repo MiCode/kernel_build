@@ -151,9 +151,23 @@ def _set_source_date_epoch(ctx):
               export SOURCE_DATE_EPOCH=0
         """)
 
+def _set_localversion_cmd(ctx):
+    """Return command that sets `LOCALVERSION` for `--config=stamp`, otherwise empty.
+
+    After setting `LOCALVERSION`, `setlocalversion` script reduces code paths
+    that executes `git`.
+    """
+    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
+        return ""
+
+    return """
+        export LOCALVERSION="-maybe-dirty"
+    """
+
 stamp = struct(
     scmversion_config_cmd = _scmversion_config_cmd,
     get_ext_mod_scmversion = _get_ext_mod_scmversion,
     set_source_date_epoch = _set_source_date_epoch,
     set_up_scmversion = _set_up_scmversion,
+    set_localversion_cmd = _set_localversion_cmd,
 )

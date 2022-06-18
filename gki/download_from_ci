@@ -26,6 +26,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import struct
 import subprocess
 import sys
 import tarfile
@@ -41,10 +42,12 @@ BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/r
 ARM_TARGETS = ["u-boot_qemu_arm"]
 ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64",
                  "u-boot_crosvm_aarch64", "u-boot_qemu_aarch64",
-                 "u-boot_crosvm_locked_aarch64"]
+                 "u-boot_crosvm_locked_aarch64",
+                 "kernel_microdroid_aarch64"]
 X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64",
                   "u-boot_crosvm_x86_64", "u-boot_qemu_x86_64",
-                  "u-boot_crosvm_locked_x86_64"]
+                  "u-boot_crosvm_locked_x86_64",
+                  "kernel_microdroid_x86_64"]
 GIT_COMMIT_LOG_LENGTH = 100
 
 # Arguments from argparse.
@@ -85,6 +88,10 @@ def parse_args():
       action="store_true",
       help="update U-Boot prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
+      "--update-microdroid",
+      action="store_true",
+      help="update Microdroid kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
       "-r",
       "--repo-branch",
       action="store_true",
@@ -98,7 +105,7 @@ def parse_args():
 
   _args = parser.parse_args()
 
-  if _args.update_gki or _args.update_u_boot:
+  if _args.update_gki or _args.update_u_boot or _args.update_microdroid:
     if _args.build_target is not None:
       raise Exception("build_target cannot be specified when updating prebuilts")
     if "ANDROID_BUILD_TOP" not in os.environ:
@@ -169,15 +176,34 @@ def commit_prebuilts(output_dir, gitlog, name="kernel"):
     print("Use the following command from your Android repository to upload your changes:")
     print(" repo upload -t --br {}".format(branch_name))
 
+def extract_version_from_kernel(path):
+  """Extracts version string from kernel following https://www.kernel.org/doc/Documentation/x86/boot.txt"""
+  # Note that this works only for x86 kernel image
+  with open(path, mode='rb') as file:
+    # 4 byte magic string HdrS at 0x202
+    file.seek(0x202)
+    magic = file.read(4)
+    if magic != b"HdrS":
+      # fallback to grep (for the arm64 case)
+      return str(subprocess.check_output(["grep", "-a", "Linux version ", path]))
+    # 2 byte offset to the version string at 0x20e
+    file.seek(0x20e)
+    offset = struct.unpack('h', file.read(2))[0]
+    # The offset is actually from the header which is at 0x200
+    file.seek(offset+0x200)
+    # read the first null-terminated string with a reasonable assumption that
+    # it isn't longer than 1023 bytes
+    return file.read(1024).split(b'\0')[0].decode()
+
 def get_binary_kernel_version(path):
   """Returns a tuple of strings of the x.y.z (LTS) version and the SHA."""
-  rawdata = subprocess.check_output(["grep", "-a", "Linux version ", path])
-  pattern = b"Linux version (?P<release>(?P<version>[0-9]+[.][0-9]+[.][0-9]+)(-rc\d+)?(-\w+(-\d+)?)?-\d+-g(?P<sha>\w+)-ab\d+) \(.*@.*\) \((?P<compiler>.*)\) .*\n"
-  result = re.search(pattern, rawdata)
+  version = extract_version_from_kernel(path)
+  pattern = "(?P<release>(?P<version>[0-9]+[.][0-9]+[.][0-9]+)(-rc\d+)?(-\w+(-\d+)?)?-\d+-g(?P<sha>\w+)-ab\d+)"
+  result = re.search(pattern, version)
+
   if not result:
     raise Exception("Could not determine version in kernel binary " + path)
-  return (result.group("version").decode('ascii'),
-          result.group("sha").decode('ascii'))
+  return (result.group("version"), result.group("sha"))
 
 def get_binary_u_boot_version(path):
   """Returns a tuple of strings of the YYYY.MM(-rcXX) version and the SHA."""
@@ -570,6 +596,33 @@ def update_u_boot():
   else:
     print("Unknown u-boot branch %s for build" % branch)
 
+def update_microdroid_kernel():
+  url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_microdroid_aarch64")
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  branch = json.loads(data)["branch"]
+  version = get_build_kernel_version(data)
+
+  output_dir = os.environ["ANDROID_BUILD_TOP"]
+  base_dir = os.path.join(output_dir, "packages", "modules", "Virtualization",
+                          "microdroid", "kernel")
+
+  for arch in "arm64", "x86_64":
+    arch_suffix = "aarch64" if arch == "arm64" else arch
+    directory = os.path.join(base_dir, arch)
+    kernel = os.path.join(directory, "kernel-" + version)
+    (old_version, old_sha) = get_binary_kernel_version(kernel)
+
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=directory)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=directory)
+    download_kernel("kernel_microdroid_" + arch_suffix, version, directory)
+    write_prebuilt_info(directory)
+    (new_version, new_sha) = get_binary_kernel_version(kernel)
+    gitlog = get_git_log(old_sha, new_sha)
+    commit_prebuilts(directory, gitlog)
+
+
 def main():
   global _pool
   _pool = multiprocessing.Pool(10)
@@ -582,6 +635,10 @@ def main():
 
   if _args.update_u_boot:
     update_u_boot()
+    return
+
+  if _args.update_microdroid:
+    update_microdroid_kernel()
     return
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=_args.build_target)
