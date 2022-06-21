@@ -17,13 +17,13 @@
 test:ants --remote_cache=grpcs://remotebuildexecution.googleapis.com
 test:ants --google_default_credentials=true
 test:ants --remote_instance_name=projects/android-build-farm/instances/default_instance
-test:ants --project_id=android-build-farm
 test:ants --noremote_upload_local_results
 
 # Upload results to BES backend.
 # Refer to go/bazel-ants-docs
 test:ants --bes_backend=buildeventservice-pa.googleapis.com
 test:ants --bes_keywords=android-test-storage
+test:ants --bes_instance_name=android-build-farm
 test:ants --build_metadata=run_type=critical
 
 # Show URI to test results
