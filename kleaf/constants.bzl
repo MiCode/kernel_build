@@ -31,6 +31,7 @@ _common_outs = [
 aarch64_outs = _common_outs + [
     "Image",
     "Image.lz4",
+    "Image.gz",
 ]
 
 aarch64_gz_outs = _common_outs + [
