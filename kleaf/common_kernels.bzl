@@ -120,11 +120,27 @@ def _default_target_configs():
         "abi_definition": aarch64_abi_definition,
         "kmi_enforced": bool(aarch64_abi_definition),
         "module_outs": GKI_MODULES,
+        # Assume BUILD_GKI_ARTIFACTS=1
+        "build_gki_artifacts": True,
+        "gki_boot_img_sizes": {
+            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
+            "": "67108864",
+            # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
+            "lz4": "53477376",
+            # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
+            "gz": "47185920",
+        },
     }
 
     # Common configs for x86_64 and x86_64_debug
     x86_64_common = {
         "module_outs": GKI_MODULES,
+        # Assume BUILD_GKI_ARTIFACTS=1
+        "build_gki_artifacts": True,
+        "gki_boot_img_sizes": {
+            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
+            "": "67108864",
+        },
     }
 
     return {
