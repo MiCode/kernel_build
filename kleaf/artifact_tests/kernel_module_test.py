@@ -58,27 +58,6 @@ class ScmVersionTestCase(unittest.TestCase):
             self.assertTrue(mo, "no matching scmversion, found {}".format(
                 scmversion))
 
-    # Version.PatchLevel.SubLevel-AndroidRelease-KmiGeneration[-Tag]-Sha1
-    # e.g. 5.4.42-android12-0-00544-ged21d463f856
-    # e.g. 5.4.42-mainline-00544-ged21d463f856
-    _vermagic_pattern = re.compile(
-        r"[0-9]+[.][0-9]+[.][0-9]+(-android[0-9]+-[0-9]+|-mainline)(-[0-9]+)?-g[0-9a-f]{12,40}")
-
-    def _assert_contains_vermagic(self, module):
-        basename = os.path.basename(module)
-        try:
-            vermagic = subprocess.check_output(
-                [arguments.modinfo, module, "-F", "vermagic"],
-                text=True).strip()
-        except subprocess.CalledProcessError:
-            vermagic = None
-
-        mo = ScmVersionTestCase._vermagic_pattern.match(vermagic)
-
-        if basename not in ScmVersionTestCase._modinfo_exempt_list:
-            self.assertTrue(mo, "no matching vermagic, found {}".format(
-                vermagic))
-
 
 if __name__ == '__main__':
     arguments, unknown = load_arguments()
