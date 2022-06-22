@@ -47,7 +47,7 @@ def _gki_artifacts_impl(ctx):
             size_key = ""
             var_name = ""
         elif image.basename.startswith("Image."):
-            compression = utils.removeprefix(image.basename, "Image.")
+            compression = image.basename.removeprefix("Image.")
             outs.append(ctx.actions.declare_file("{}/boot-{}.img".format(ctx.label.name, compression)))
             size_key = compression
             var_name = "_" + compression.upper()
