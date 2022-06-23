@@ -44,6 +44,9 @@ def kernel_module_test(
         data = data,
         args = args,
         timeout = "short",
+        deps = [
+            "@io_abseil_py//absl/testing:absltest",
+        ],
         **kwargs
     )
 
@@ -75,5 +78,8 @@ def kernel_build_test(
         data = [target, strings],
         args = args,
         timeout = "short",
+        deps = [
+            "@io_abseil_py//absl/testing:absltest",
+        ],
         **kwargs
     )

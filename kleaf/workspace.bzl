@@ -30,6 +30,11 @@ def define_kleaf_workspace(common_kernel_package = None):
     )
 
     native.local_repository(
+        name = "io_abseil_py",
+        path = "external/python/absl-py",
+    )
+
+    native.local_repository(
         name = "io_bazel_stardoc",
         path = "external/stardoc",
     )
