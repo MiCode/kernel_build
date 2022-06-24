@@ -37,6 +37,13 @@ bool_flag(
     build_setting_default = False,
 )
 
+# If true, enable kasan. This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kasan",
+    build_setting_default = False,
+)
+
 # Debug options
 
 bool_flag(
@@ -66,6 +73,7 @@ _config_values = (
 print_flags(
     name = "print_flags",
     flags = [
+        ":kasan",
         ":kbuild_symtypes",
         ":lto",
     ] + [":config_" + value for value in _config_values],

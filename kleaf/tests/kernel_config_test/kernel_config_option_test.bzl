@@ -27,6 +27,7 @@ load(":kernel_config_aspect.bzl", "KernelConfigAspectInfo", "kernel_config_aspec
 
 # Helper functions and rules.
 
+_KASAN_FLAG = "//build/kernel/kleaf:kasan"
 _LTO_FLAG = "//build/kernel/kleaf:lto"
 
 def _symlink_config(ctx, kernel_build, filename):
@@ -143,6 +144,34 @@ def _lto_test(name, kernel_build):
         expected = ["data/{}_config".format(lto) for lto in LTO_VALUES],
     )
 
+## Tests on --kasan
+def _kasan_str(kasan):
+    return "kasan" if kasan else "nokasan"
+
+def _kasan_transition_impl(settings, attr):
+    return {_kasan_str(kasan): {_KASAN_FLAG: kasan} for kasan in (True, False)}
+
+_kasan_transition = transition(
+    implementation = _kasan_transition_impl,
+    inputs = [],
+    outputs = [_KASAN_FLAG],
+)
+
+_kasan_test_data = rule(
+    implementation = _get_transitioned_config_impl,
+    doc = "Get `.config` for a kernel with the LTO transition.",
+    attrs = _get_config_attrs_common(_kasan_transition),
+)
+
+def _kasan_test(name, kernel_build):
+    """Test the effect of a `--kasan` on `kernel_config`."""
+    _transition_test(
+        name = name,
+        kernel_build = kernel_build,
+        test_data_rule = _kasan_test_data,
+        expected = ["data/{}_config".format(_kasan_str(kasan)) for kasan in (True, False)],
+    )
+
 ## Tests on `trim_nonlisted_kmi`
 
 def _trim_test(name, kernels):
@@ -175,19 +204,46 @@ def _trim_test(name, kernels):
 
 ## Tests on all combinations.
 
-_combined_transition = _lto_transition
+def _combined_transition_impl(settings, attr):
+    ret = {}
+    for lto in LTO_VALUES:
+        for kasan in (True, False):
+            if kasan and lto not in ("default", "none"):
+                continue
+
+            key = {
+                "lto": lto,
+                "kasan": kasan,
+            }
+            key_str = json.encode(key)
+            ret[key_str] = {
+                _LTO_FLAG: lto,
+                _KASAN_FLAG: kasan,
+            }
+    return ret
+
+_combined_transition = transition(
+    implementation = _combined_transition_impl,
+    inputs = [],
+    outputs = [_KASAN_FLAG, _LTO_FLAG],
+)
 
 def _combined_test_actual_impl(ctx):
     files = []
-    for lto, kernel_build in ctx.split_attr.kernel_build.items():
+    for key_str, kernel_build in ctx.split_attr.kernel_build.items():
+        key = json.decode(key_str)
+
         # Directory to store symlinks for that specific flag combination
         flag_dir = paths.join(
-            lto,
+            key["lto"],
+            _kasan_str(key["kasan"]),
         )
 
         files += [
             # Test LTO setting
-            _symlink_config(ctx, kernel_build, paths.join(flag_dir, lto + "_config")),
+            _symlink_config(ctx, kernel_build, paths.join(flag_dir, key["lto"] + "_config")),
+            # Test kasan setting
+            _symlink_config(ctx, kernel_build, paths.join(flag_dir, _kasan_str(key["kasan"]) + "_config")),
             # Test trim setting
             _symlink_config(ctx, kernel_build, paths.join(flag_dir, ctx.attr.prefix + "_config")),
         ]
@@ -222,6 +278,7 @@ def _combined_option_test(name, kernels):
         native.filegroup(
             name = test_name + "_expected",
             srcs = ["data/{}_config".format(lto) for lto in LTO_VALUES] +
+                   ["data/{}_config".format(_kasan_str(kasan)) for kasan in (True, False)] +
                    ["data/{}_config".format(prefix)],
         )
         contain_lines_test(
@@ -270,6 +327,7 @@ def kernel_config_option_test_suite(name):
     unittest.suite(
         name,
         partial.make(_lto_test, kernel_build = name + "_kernel"),
+        partial.make(_kasan_test, kernel_build = name + "_kernel"),
         partial.make(_trim_test, kernels = trim_kernels),
         partial.make(_combined_option_test, kernels = trim_kernels),
     )

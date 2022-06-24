@@ -12,21 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":kasan_test.bzl", "kasan_test")
-load(":kernel_config_option_test.bzl", "kernel_config_option_test_suite")
+# Incoming edge transition for `kernel_config`.
+# If --kasan and --lto=default, --lto becomes none.
+# See https://bazel.build/rules/config#incoming-edge-transitions
 
-# Analysis test
+_LTO_FLAG = "//build/kernel/kleaf:lto"
+_KASAN_FLAG = "//build/kernel/kleaf:kasan"
 
-kasan_test(name = "kasan_test")
+def _impl(settings, attr):
+    if settings[_KASAN_FLAG] and settings[_LTO_FLAG] == "default":
+        return {_LTO_FLAG: "none"}
 
-# Quick test on artifacts.
+    return None  # keep values
 
-kernel_config_option_test_suite(name = "kernel_config_option_test_suite")
-
-test_suite(
-    name = "kernel_config_test",
-    tests = [
-        ":kasan_test",
-        ":kernel_config_option_test_suite",
-    ],
+kernel_config_transition = transition(
+    implementation = _impl,
+    inputs = [_KASAN_FLAG, _LTO_FLAG],
+    outputs = [_LTO_FLAG],
 )

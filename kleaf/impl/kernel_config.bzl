@@ -21,16 +21,21 @@ load(
     "KernelEnvInfo",
 )
 load(":debug.bzl", "debug")
+load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":stamp.bzl", "stamp")
 
 def _set_str(value):
     return "--set-str {{config}} {}".format(value)
+
+def _set_val(value):
+    return "--set-val {{config}} {}".format(value)
 
 # Helper to construct options to `scripts/config`.
 _config = struct(
     disable = "--disable {config}",
     enable = "--enable {config}",
     set_str = _set_str,
+    set_val = _set_val,
 )
 
 def _determine_raw_symbollist_path(ctx):
@@ -129,6 +134,33 @@ def _config_trim(ctx):
     )
     return struct(configs = configs, deps = [raw_symbol_list_path_file])
 
+def _config_kasan(ctx):
+    """Return configs for --kasan.
+
+    Key are configs names. Values are from `_config`, which is a format string that
+    can produce an option to `scripts/config`.
+    """
+    lto = ctx.attr.lto[BuildSettingInfo].value
+    kasan = ctx.attr.kasan[BuildSettingInfo].value
+
+    if not kasan:
+        return struct(configs = {}, deps = [])
+
+    if lto != "none":
+        fail("{}: --kasan requires --lto=none, but --lto is {}".format(ctx.label, lto))
+
+    configs = dicts.add(
+        KASAN = _config.enable,
+        KASAN_INLINE = _config.enable,
+        KCOV = _config.enable,
+        PANIC_ON_WARN_DEFAULT_ENABLE = _config.enable,
+        RANDOMIZE_BASE = _config.disable,
+        KASAN_OUTLINE = _config.disable,
+        FRAME_WARN = _config.set_val(0),
+        SHADOW_CALL_STACK = _config.disable,
+    )
+    return struct(configs = configs, deps = [])
+
 def _reconfig(ctx):
     """Return a command and extra inputs to re-configure `.config` file."""
     configs = {}
@@ -137,6 +169,7 @@ def _reconfig(ctx):
     for fn in (
         _config_lto,
         _config_trim,
+        _config_kasan,
     ):
         pair = fn(ctx)
         configs.update(pair.configs)
@@ -232,6 +265,7 @@ def _kernel_config_impl(ctx):
 kernel_config = rule(
     implementation = _kernel_config_impl,
     doc = "Defines a kernel config target that runs `make defconfig` etc.",
+    cfg = kernel_config_transition,
     attrs = {
         "env": attr.label(
             mandatory = True,
@@ -240,6 +274,7 @@ kernel_config = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
+        "kasan": attr.label(default = "//build/kernel/kleaf:kasan"),
         "lto": attr.label(default = "//build/kernel/kleaf:lto"),
         "trim_nonlisted_kmi": attr.bool(doc = "If true, modify the config to trim non-listed symbols."),
         "raw_kmi_symbol_list": attr.label(
@@ -249,5 +284,9 @@ kernel_config = rule(
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_allowlist_function_transition": attr.label(
+            # Allow everything because kernel_config is indirectly called in device packages.
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
 )
