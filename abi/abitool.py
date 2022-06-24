@@ -411,7 +411,7 @@ def _shorten_stgdiff(changed, diff_report, short_report):
         ], text)
         # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
         text = _remove_matching_lines([
-            r"^symbol changed from '.*' to '.*'$",
+            r"^symbol ('.*' changed|changed from '.*' to '.*')$",
             r"^  type '.*' was (added|removed)$",
             r"^$",
         ], text)
