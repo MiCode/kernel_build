@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(
@@ -109,40 +110,40 @@ def _default_target_configs():
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
     aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
     aarch64_abi_definition = aarch64_abi_definition[0] if aarch64_abi_definition else None
+
+    # Common configs for aarch64 and aarch64_debug
+    aarch64_common = {
+        # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
+        # for build.config.gki.aarch64
+        "kmi_symbol_list": aarch64_kmi_symbol_list,
+        "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+        "abi_definition": aarch64_abi_definition,
+        "kmi_enforced": bool(aarch64_abi_definition),
+        "module_outs": GKI_MODULES,
+    }
+
+    # Common configs for x86_64 and x86_64_debug
+    x86_64_common = {
+        "module_outs": GKI_MODULES,
+    }
+
     return {
-        "kernel_aarch64": {
-            # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
-            # for build.config.gki.aarch64
-            "kmi_symbol_list": aarch64_kmi_symbol_list,
-            "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-            "abi_definition": aarch64_abi_definition,
-            "kmi_enforced": bool(aarch64_abi_definition),
+        "kernel_aarch64": dicts.add(aarch64_common, {
             # In build.config.gki.aarch64:
             # - If there are symbol lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
             # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
             "trim_nonlisted_kmi": aarch64_trim_and_check,
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
-            "module_outs": GKI_MODULES,
-        },
-        "kernel_aarch64_debug": {
-            # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
-            # for build.config.gki-debug.aarch64
-            "kmi_symbol_list": aarch64_kmi_symbol_list,
-            "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-            "abi_definition": aarch64_abi_definition,
-            "kmi_enforced": bool(aarch64_abi_definition),
+        }),
+        "kernel_aarch64_debug": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
-            "module_outs": GKI_MODULES,
-        },
-        "kernel_x86_64": {
-            "module_outs": GKI_MODULES,
-        },
-        "kernel_x86_64_debug": {
+        }),
+        "kernel_x86_64": x86_64_common,
+        "kernel_x86_64_debug": dicts.add(x86_64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.x86_64
             "trim_nonlisted_kmi": False,
-            "module_outs": GKI_MODULES,
-        },
+        }),
     }
 
 def _filter_keys(d, valid_keys, what = "", allow_unknown_keys = False):
@@ -526,16 +527,9 @@ def define_common_kernels(
         )
 
         if target_config.get("build_gki_artifacts"):
-            gki_artifacts_srcs = []
-            transformed_boot_img_sizes = {}
-            for out in arch_config["outs"]:
-                basename = paths.basename(out)
-                if basename in ("Image", "bzImage") or basename.startswith("Image."):
-                    gki_artifacts_srcs.append("{}/{}".format(name, out))
-
             gki_artifacts(
                 name = name + "_gki_artifacts",
-                srcs = gki_artifacts_srcs,
+                kernel_build = name,
                 boot_img_sizes = target_config.get("gki_boot_img_sizes", {}),
                 arch = arch_config["arch"],
             )

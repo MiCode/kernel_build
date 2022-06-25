@@ -17,6 +17,7 @@ load(
     "kernel_build_config",
 )
 load(":diff_test.bzl", "diff_test")
+load(":kernel_build_analysis_test.bzl", "kernel_build_analysis_test_suite")
 
 kernel_build_config(
     name = "test_build_config",
@@ -33,9 +34,12 @@ diff_test(
     expected = "build.config.expected",
 )
 
+kernel_build_analysis_test_suite(name = "kernel_build_analysis_test_suite")
+
 test_suite(
     name = "tests",
     tests = [
         ":build_config_test",
+        ":kernel_build_analysis_test_suite",
     ],
 )
