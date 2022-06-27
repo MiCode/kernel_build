@@ -30,6 +30,11 @@ string_flag(
     values = LTO_VALUES,
 )
 
+string_flag(
+    name = "cache_dir",
+    build_setting_default = "",
+)
+
 # If true, set `KBUILD_SYMTYPES=1` for kernel_build() with
 # kbuild_symtypes="auto".
 bool_flag(

@@ -26,11 +26,6 @@ load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
 load(":utils.bzl", "utils")
 
-def _sanitize_label_as_filename(label):
-    """Sanitize a Bazel label so it is safe to be used as a filename."""
-    label_text = str(label)
-    return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
-
 def _get_kbuild_symtypes(ctx):
     if ctx.attr.kbuild_symtypes == "auto":
         return ctx.attr._kbuild_symtypes_flag[BuildSettingInfo].value
@@ -118,7 +113,7 @@ def _kernel_env_impl(ctx):
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
     command += """
           export OUT_DIR_SUFFIX={name}
-    """.format(name = _sanitize_label_as_filename(ctx.label).removesuffix("_env"))
+    """.format(name = utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"))
 
     set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
     command += set_source_date_epoch_ret.cmd

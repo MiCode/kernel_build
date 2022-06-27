@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
@@ -603,6 +604,23 @@ def _kernel_build_impl(ctx):
     command = ""
     command += ctx.attr.config[KernelEnvInfo].setup
 
+    # Use a local cache directory for ${OUT_DIR} so that, even when this _kernel_build
+    # target needs to be rebuilt, we are using $OUT_DIR from previous invocations. This
+    # boosts --config=local builds. See (b/235632059).
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        if not ctx.attr._cache_dir[BuildSettingInfo].value:
+            fail("--config=local requires --cache_dir.")
+        command += """
+              KLEAF_CACHED_OUT_DIR={cache_dir}/{name}
+              mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
+              rsync -aL "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+              export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
+              unset KLEAF_CACHED_OUT_DIR
+        """.format(
+            cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
+            name = utils.sanitize_label_as_filename(ctx.label),
+        )
+
     interceptor_command_prefix = ""
     if interceptor_output:
         interceptor_command_prefix = "interceptor -r -l {interceptor_output} --".format(
@@ -862,6 +880,8 @@ _kernel_build = rule(
         "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
+        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
