@@ -46,7 +46,7 @@ def main(root_dir, bazel_args, env):
     command_args = [
         bazel_path,
         f"--server_javabase={bazel_jdk_path}",
-        f"--output_user_root={absolute_out_dir}/bazel/output_user_root"
+        f"--output_user_root={absolute_out_dir}/bazel/output_user_root",
         f"--host_jvm_args=-Djava.io.tmpdir={absolute_out_dir}/bazel/javatmp",
         f"--bazelrc={root_dir}/{bazelrc_name}",
     ]
