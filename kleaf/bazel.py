@@ -20,11 +20,11 @@ import sys
 def main(root_dir, bazel_args, env):
     env = env.copy()
 
-    bazel_path = "{root_dir}/prebuilts/bazel/linux-x86_64/bazel".format(root_dir=root_dir)
-    bazel_jdk_path = "{root_dir}/prebuilts/jdk/jdk11/linux-x86".format(root_dir=root_dir)
+    bazel_path = f"{root_dir}/prebuilts/bazel/linux-x86_64/bazel"
+    bazel_jdk_path = f"{root_dir}/prebuilts/jdk/jdk11/linux-x86"
     bazelrc_name = "build/kernel/kleaf/common.bazelrc"
 
-    absolute_out_dir = "{root_dir}/out".format(root_dir=root_dir)
+    absolute_out_dir = f"{root_dir}/out"
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--use_prebuilt_gki")
@@ -39,19 +39,16 @@ def main(root_dir, bazel_args, env):
         except ValueError:
             idx = len(bazel_args)
         bazel_args.insert(idx, "--//common:use_prebuilt_gki")
-        env["KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = "gki_prebuilts=" + known_args.use_prebuilt_gki
+        env["KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = f"gki_prebuilts={known_args.use_prebuilt_gki}"
     if known_args.make_jobs is not None:
         env["KLEAF_MAKE_JOBS"] = str(known_args.make_jobs)
 
     command_args = [
         bazel_path,
-        "--server_javabase={}".format(bazel_jdk_path),
-        "--output_user_root={}/bazel/output_user_root".format(absolute_out_dir),
-        "--host_jvm_args=-Djava.io.tmpdir={}/bazel/javatmp".format(
-            absolute_out_dir),
-        "--bazelrc={root_dir}/{bazelrc_name}".format(
-            root_dir=root_dir,
-            bazelrc_name=bazelrc_name)
+        f"--server_javabase={bazel_jdk_path}",
+        f"--output_user_root={absolute_out_dir}/bazel/output_user_root",
+        f"--host_jvm_args=-Djava.io.tmpdir={absolute_out_dir}/bazel/javatmp",
+        f"--bazelrc={root_dir}/{bazelrc_name}",
     ]
     command_args += bazel_args
 
