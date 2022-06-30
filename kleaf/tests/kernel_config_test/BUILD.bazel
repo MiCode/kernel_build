@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(":kernel_config_option_test.bzl", "kernel_config_option_test_suite")
+
+kernel_config_option_test_suite(name = "kernel_config_option_test_suite")
+
 test_suite(
-    name = "tests",
+    name = "kernel_config_test",
     tests = [
-        "//build/kernel/kleaf/tests/kernel_build_config_test",
-        "//build/kernel/kleaf/tests/kernel_build_test",
-        "//build/kernel/kleaf/tests/kernel_config_test",
+        ":kernel_config_option_test_suite",
     ],
 )
