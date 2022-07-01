@@ -31,14 +31,14 @@ def _kmi_symbol_list_impl(ctx):
     command = ctx.attr.env[KernelEnvInfo].setup + """
         mkdir -p {out_dir}
         {process_symbols} --out-dir={out_dir} --out-file={out_file_base} \
-            --report-file={report_file_base} --in-dir="${{ROOT_DIR}}/${{KERNEL_DIR}}" \
+            --report-file={report_file_base} --in-dir="${{ROOT_DIR}}" \
             {srcs}
     """.format(
         process_symbols = ctx.file._process_symbols.path,
         out_dir = out_file.dirname,
         out_file_base = out_file.basename,
         report_file_base = report_file.basename,
-        srcs = " ".join(["$(rel_path {} ${{ROOT_DIR}}/${{KERNEL_DIR}})".format(f.path) for f in ctx.files.srcs]),
+        srcs = " ".join([f.path for f in ctx.files.srcs]),
     )
 
     debug.print_scripts(ctx, command)
