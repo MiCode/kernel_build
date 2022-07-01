@@ -86,20 +86,6 @@ def _intermediates_dir(ctx):
         ctx.attr.name + "_intermediates",
     )
 
-# https://github.com/bazelbuild/starlark/issues/185
-# TODO(b/233247849): Change this to s.removeprefix() when Bazel prebuilts are updated.
-def _removeprefix(s, prefix):
-    if s.startswith(prefix):
-        return s[len(prefix):]
-    return s
-
-# https://github.com/bazelbuild/starlark/issues/185
-# TODO(b/233247849): Change this to s.removesuffix() when Bazel prebuilts are updated.
-def _removesuffix(s, suffix):
-    if s.endswith(suffix):
-        return s[:-len(suffix)]
-    return s
-
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -108,8 +94,6 @@ utils = struct(
     getoptattr = _getoptattr,
     find_file = find_file,
     find_files = find_files,
-    removeprefix = _removeprefix,
-    removesuffix = _removesuffix,
 )
 
 def _filter_module_srcs(files):

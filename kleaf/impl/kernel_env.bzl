@@ -118,11 +118,13 @@ def _kernel_env_impl(ctx):
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
     command += """
           export OUT_DIR_SUFFIX={name}
-    """.format(name = utils.removesuffix(_sanitize_label_as_filename(ctx.label), "_env"))
+    """.format(name = _sanitize_label_as_filename(ctx.label).removesuffix("_env"))
 
     set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
     command += set_source_date_epoch_ret.cmd
     inputs += set_source_date_epoch_ret.deps
+
+    command += stamp.set_localversion_cmd(ctx)
 
     command += """
         # create a build environment

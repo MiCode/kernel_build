@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+load(":common_providers.bzl", "KernelBuildInfo")
 load(":utils.bzl", "utils")
 
 def _gki_artifacts_impl(ctx):
     inputs = [
         ctx.file.mkbootimg,
         ctx.file._build_utils_sh,
+        ctx.file._testkey,
     ]
-    inputs += ctx.files.srcs
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+
+    kernel_release = ctx.attr.kernel_build[KernelBuildInfo].kernel_release
+    inputs.append(kernel_release)
 
     outs = []
 
@@ -31,41 +36,58 @@ def _gki_artifacts_impl(ctx):
     if ctx.attr.arch == "arm64":
         tarball = ctx.actions.declare_file("{}/boot-img.tar.gz".format(ctx.label.name))
         outs.append(tarball)
+        gki_info = ctx.actions.declare_file("{}/gki-info.txt".format(ctx.label.name))
+        outs.append(gki_info)
 
     size_cmd = ""
-    for image in ctx.files.srcs:
+    images = []
+    for image in ctx.files.kernel_build:
         if image.basename in ("Image", "bzImage"):
             outs.append(ctx.actions.declare_file("{}/boot.img".format(ctx.label.name)))
             size_key = ""
             var_name = ""
-        else:
-            compression = utils.removeprefix(image.basename, "Image.")
+        elif image.basename.startswith("Image."):
+            compression = image.basename.removeprefix("Image.")
             outs.append(ctx.actions.declare_file("{}/boot-{}.img".format(ctx.label.name, compression)))
             size_key = compression
             var_name = "_" + compression.upper()
+        else:
+            # Not an image
+            continue
 
+        images.append(image)
         size = ctx.attr.boot_img_sizes.get(size_key)
         if not size:
-            fail("""{}: Missing key "{}" in boot_img_sizes for src {}.""".format(ctx.label, size_key, image.basename))
+            fail("""{}: Missing key "{}" in boot_img_sizes for image {}.""".format(ctx.label, size_key, image.basename))
         size_cmd += """
             export BUILD_GKI_BOOT_IMG{var_name}_SIZE={size}
         """.format(var_name = var_name, size = size)
 
+    inputs += images
+
+    # All declare_file's above are "<name>/<filename>" without subdirectories,
+    # so using outs[0] is good enough.
     dist_dir = outs[0].dirname
+    out_dir = paths.join(utils.intermediates_dir(ctx), "out_dir")
 
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         source {build_utils_sh}
-        cp -pl -t {dist_dir} {srcs}
+        cp -pl -t {dist_dir} {images}
+        mkdir -p {out_dir}/include/config
+        cp -pl {kernel_release} {out_dir}/include/config/kernel.release
         export GKI_KERNEL_CMDLINE={quoted_gki_kernel_cmdline}
         export ARCH={quoted_arch}
         export DIST_DIR=$(readlink -e {dist_dir})
+        export OUT_DIR=$(readlink -e {out_dir})
         export MKBOOTIMG_PATH={mkbootimg}
         {size_cmd}
         build_gki_artifacts
     """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         dist_dir = dist_dir,
-        srcs = " ".join([src.path for src in ctx.files.srcs]),
+        images = " ".join([image.path for image in images]),
+        out_dir = out_dir,
+        kernel_release = kernel_release.path,
         quoted_gki_kernel_cmdline = shell.quote(ctx.attr.gki_kernel_cmdline),
         quoted_arch = shell.quote(ctx.attr.arch),
         mkbootimg = ctx.file.mkbootimg.path,
@@ -86,9 +108,9 @@ gki_artifacts = rule(
     implementation = _gki_artifacts_impl,
     doc = "`BUILD_GKI_ARTIFACTS`. Build boot images and optionally `boot-img.tar.gz` as default outputs.",
     attrs = {
-        "srcs": attr.label_list(
-            allow_files = True,
-            doc = "A list of `Image` and `Image.*` from [`kernel_build`](#kernel_build).",
+        "kernel_build": attr.label(
+            providers = [KernelBuildInfo],
+            doc = "The [`kernel_build`](#kernel_build) that provides all `Image` and `Image.*`.",
         ),
         "mkbootimg": attr.label(
             allow_single_file = True,
@@ -115,5 +137,6 @@ For example:
             allow_single_file = True,
             default = Label("//build/kernel:build_utils.sh"),
         ),
+        "_testkey": attr.label(default = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem", allow_single_file = True),
     },
 )

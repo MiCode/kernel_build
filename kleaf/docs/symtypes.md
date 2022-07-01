@@ -32,7 +32,7 @@ and `notrim` targets. This corresponds to setting
 You may build the following to confirm the value of `--kbuild_symtypes`:
 
 ```shell
-$ tools/bazel build //build/kernel/kleaf:print_flags
+$ tools/bazel build [flags] //build/kernel/kleaf:print_flags
 ```
 
 **Note**: This only prints whether the flag is set or not for `kernel_build()`

@@ -126,6 +126,7 @@ docs(
         "//build/bazel_common_rules/exec",
         "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
+        "@bazel_skylib//lib:dicts",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
@@ -158,6 +159,9 @@ py_test(
     name = "check_declared_output_list_test",
     srcs = ["check_declared_output_list_test.py"],
     python_version = "PY3",
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
 )
 
 # Quick test on Kleaf static definitions and scripts, but not built artifacts

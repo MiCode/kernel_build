@@ -48,7 +48,7 @@ load(":modules_prepare.bzl", "modules_prepare")
 load(":raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
 load(":utils.bzl", "kernel_utils", "utils")
 
-# Outputs of a kernel_build rule needed to build kernel_module's
+# Outputs of a kernel_build rule needed to build kernel_* that depends on it
 _kernel_build_internal_outs = [
     "Module.symvers",
     "include/config/kernel.release",
@@ -748,6 +748,7 @@ def _kernel_build_impl(ctx):
         outs = all_output_files["outs"].values(),
         base_kernel_files = base_kernel_files,
         interceptor_output = interceptor_output,
+        kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
