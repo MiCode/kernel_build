@@ -92,3 +92,10 @@ CI_TARGET_MAPPING = {
         ],
     },
 }
+
+LTO_VALUES = (
+    "default",
+    "none",
+    "thin",
+    "full",
+)
