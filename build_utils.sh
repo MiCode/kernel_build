@@ -207,6 +207,55 @@ function create_modules_staging() {
   cp ${dest_dir}/modules.order ${dest_dir}/modules.load
 }
 
+function build_system_dlkm() {
+  echo "========================================================"
+  echo " Creating system_dlkm image"
+
+  rm -rf ${SYSTEM_DLKM_STAGING_DIR}
+  create_modules_staging "${SYSTEM_DLKM_MODULES_LIST:-${MODULES_LIST}}" "${MODULES_STAGING_DIR}" \
+    ${SYSTEM_DLKM_STAGING_DIR} "${MODULES_BLOCKLIST}" "-e"
+
+  local system_dlkm_root_dir=$(echo ${SYSTEM_DLKM_STAGING_DIR}/lib/modules/*)
+  cp ${system_dlkm_root_dir}/modules.load ${DIST_DIR}/system_dlkm.modules.load
+  local system_dlkm_props_file
+
+  if [ -z "${SYSTEM_DLKM_PROPS}" ]; then
+    system_dlkm_props_file="$(mktemp)"
+    echo -e "system_dlkm_fs_type=ext4\n" >> ${system_dlkm_props_file}
+    echo -e "use_dynamic_partition_size=true\n" >> ${system_dlkm_props_file}
+    echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${system_dlkm_props_file}
+    echo -e "ext4_share_dup_blocks=true\n" >> ${system_dlkm_props_file}
+  else
+    system_dlkm_props_file="${SYSTEM_DLKM_PROPS}"
+    if [[ -f "${ROOT_DIR}/${system_dlkm_props_file}" ]]; then
+      system_dlkm_props_file="${ROOT_DIR}/${system_dlkm_props_file}"
+    elif [[ "${system_dlkm_props_file}" != /* ]]; then
+      echo "SYSTEM_DLKM_PROPS must be an absolute path or relative to ${ROOT_DIR}: ${system_dlkm_props_file}"
+      exit 1
+    elif [[ ! -f "${system_dlkm_props_file}" ]]; then
+      echo "Failed to find SYSTEM_DLKM_PROPS: ${system_dlkm_props_file}"
+      exit 1
+    fi
+  fi
+
+  # Re-sign the stripped modules using kernel build time key
+  find ${SYSTEM_DLKM_STAGING_DIR} -type f -name "*.ko" \
+    -exec ${OUT_DIR}/scripts/sign-file sha1 \
+    ${OUT_DIR}/certs/signing_key.pem \
+    ${OUT_DIR}/certs/signing_key.x509 {} \;
+
+  build_image "${SYSTEM_DLKM_STAGING_DIR}" "${system_dlkm_props_file}" \
+    "${DIST_DIR}/system_dlkm.img" /dev/null
+
+  # No need to sign the image as modules are signed
+  avbtool add_hashtree_footer \
+    --partition_name system_dlkm \
+    --image "${DIST_DIR}/system_dlkm.img"
+
+  # Archive system_dlkm_staging_dir
+  tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
+}
+
 function build_vendor_dlkm() {
   echo "========================================================"
   echo " Creating vendor_dlkm image"
