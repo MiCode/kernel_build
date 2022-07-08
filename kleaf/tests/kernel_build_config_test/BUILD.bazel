@@ -12,10 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-test_suite(
-    name = "tests",
-    tests = [
-        "//build/kernel/kleaf/tests/kernel_build_config_test",
-        "//build/kernel/kleaf/tests/kernel_build_test",
+load("//build/kernel/kleaf:kernel.bzl", "kernel_build_config")
+load("//build/kernel/kleaf/tests:diff_test.bzl", "diff_test")
+
+# Test kernel_build_config
+
+kernel_build_config(
+    name = "kernel_build_config_test_actual",
+    srcs = [
+        # do not sort
+        "build.config.2",
+        "build.config.1",
     ],
+    tags = ["manual"],
+)
+
+diff_test(
+    name = "kernel_build_config_test",
+    actual = ":kernel_build_config_test_actual",
+    expected = "build.config.expected",
 )
