@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
@@ -20,7 +21,22 @@ load(
     "KernelEnvInfo",
 )
 load(":debug.bzl", "debug")
+load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":stamp.bzl", "stamp")
+
+def _set_str(value):
+    return "--set-str {{config}} {}".format(value)
+
+def _set_val(value):
+    return "--set-val {{config}} {}".format(value)
+
+# Helper to construct options to `scripts/config`.
+_config = struct(
+    disable = "--disable {config}",
+    enable = "--enable {config}",
+    set_str = _set_str,
+    set_val = _set_val,
+)
 
 def _determine_raw_symbollist_path(ctx):
     """A local action that stores the path to `abi_symbollist.raw` to a file object."""
@@ -64,6 +80,110 @@ def _determine_raw_symbollist_path(ctx):
     )
     return abspath
 
+def _config_lto(ctx):
+    """Return configs for LTO.
+
+    Keys are configs names. Values are from `_config`, which is a format string that
+    can produce an option to `scripts/config`.
+    """
+    lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
+
+    lto_configs = {}
+    if lto_config_flag != "default":
+        # none config
+        lto_configs.update(
+            LTO_CLANG = _config.disable,
+            LTO_NONE = _config.enable,
+            LTO_CLANG_THIN = _config.disable,
+            LTO_CLANG_FULL = _config.disable,
+            THINLTO = _config.disable,
+        )
+        if lto_config_flag == "thin":
+            lto_configs.update(
+                LTO_CLANG = _config.enable,
+                LTO_NONE = _config.disable,
+                LTO_CLANG_THIN = _config.enable,
+                THINLTO = _config.enable,
+            )
+        elif lto_config_flag == "full":
+            lto_configs.update(
+                LTO_CLANG = _config.enable,
+                LTO_NONE = _config.disable,
+                LTO_CLANG_FULL = _config.enable,
+            )
+
+    return struct(configs = lto_configs, deps = [])
+
+def _config_trim(ctx):
+    """Return configs for trimming and `raw_symbol_list_path_file`
+
+    Keys are configs names. Values are from `_config`, which is a format string that
+    can produce an option to `scripts/config`.
+    """
+    if ctx.attr.trim_nonlisted_kmi and not ctx.file.raw_kmi_symbol_list:
+        fail("{}: trim_nonlisted_kmi is set but raw_kmi_symbol_list is empty.".format(ctx.label))
+
+    if not ctx.attr.trim_nonlisted_kmi:
+        return struct(configs = {}, deps = [])
+
+    raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
+    configs = dicts.add(
+        UNUSED_SYMBOLS = _config.disable,
+        TRIM_UNUSED_KSYMS = _config.enable,
+        UNUSED_KSYMS_WHITELIST = _config.set_str("$(cat {})".format(raw_symbol_list_path_file.path)),
+    )
+    return struct(configs = configs, deps = [raw_symbol_list_path_file])
+
+def _config_kasan(ctx):
+    """Return configs for --kasan.
+
+    Key are configs names. Values are from `_config`, which is a format string that
+    can produce an option to `scripts/config`.
+    """
+    lto = ctx.attr.lto[BuildSettingInfo].value
+    kasan = ctx.attr.kasan[BuildSettingInfo].value
+
+    if not kasan:
+        return struct(configs = {}, deps = [])
+
+    if lto != "none":
+        fail("{}: --kasan requires --lto=none, but --lto is {}".format(ctx.label, lto))
+
+    configs = dicts.add(
+        KASAN = _config.enable,
+        KASAN_INLINE = _config.enable,
+        KCOV = _config.enable,
+        PANIC_ON_WARN_DEFAULT_ENABLE = _config.enable,
+        RANDOMIZE_BASE = _config.disable,
+        KASAN_OUTLINE = _config.disable,
+        FRAME_WARN = _config.set_val(0),
+        SHADOW_CALL_STACK = _config.disable,
+    )
+    return struct(configs = configs, deps = [])
+
+def _reconfig(ctx):
+    """Return a command and extra inputs to re-configure `.config` file."""
+    configs = {}
+    deps = []
+
+    for fn in (
+        _config_lto,
+        _config_trim,
+        _config_kasan,
+    ):
+        pair = fn(ctx)
+        configs.update(pair.configs)
+        deps += pair.deps
+
+    if not configs:
+        return struct(cmd = "", deps = deps)
+
+    config_opts = [fmt.format(config = config) for config, fmt in configs.items()]
+    return struct(cmd = """
+        ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config {configs}
+        make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+    """.format(configs = " ".join(config_opts)), deps = deps)
+
 def _kernel_config_impl(ctx):
     inputs = [
         s
@@ -82,57 +202,8 @@ def _kernel_config_impl(ctx):
     include_dir = ctx.actions.declare_directory(ctx.attr.name + "_include")
 
     scmversion_command = stamp.scmversion_config_cmd(ctx)
-
-    lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
-
-    lto_command = ""
-    if lto_config_flag != "default":
-        # none config
-        lto_config = {
-            "LTO_CLANG": "d",
-            "LTO_NONE": "e",
-            "LTO_CLANG_THIN": "d",
-            "LTO_CLANG_FULL": "d",
-            "THINLTO": "d",
-        }
-        if lto_config_flag == "thin":
-            lto_config.update(
-                LTO_CLANG = "e",
-                LTO_NONE = "d",
-                LTO_CLANG_THIN = "e",
-                THINLTO = "e",
-            )
-        elif lto_config_flag == "full":
-            lto_config.update(
-                LTO_CLANG = "e",
-                LTO_NONE = "d",
-                LTO_CLANG_FULL = "e",
-            )
-
-        lto_command = """
-            ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config {configs}
-            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
-        """.format(configs = " ".join([
-            "-%s %s" % (value, key)
-            for key, value in lto_config.items()
-        ]))
-
-    if ctx.attr.trim_nonlisted_kmi and not ctx.file.raw_kmi_symbol_list:
-        fail("{}: trim_nonlisted_kmi is set but raw_kmi_symbol_list is empty.".format(ctx.label))
-
-    trim_kmi_command = ""
-    if ctx.attr.trim_nonlisted_kmi:
-        raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
-        trim_kmi_command = """
-            # Modify .config to trim symbols not listed in KMI
-              ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config \\
-                  -d UNUSED_SYMBOLS -e TRIM_UNUSED_KSYMS \\
-                  --set-str UNUSED_KSYMS_WHITELIST $(cat {raw_symbol_list_path_file})
-              make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
-        """.format(
-            raw_symbol_list_path_file = raw_symbol_list_path_file.path,
-        )
-        inputs.append(raw_symbol_list_path_file)
+    reconfig = _reconfig(ctx)
+    inputs += reconfig.deps
 
     command = ctx.attr.env[KernelEnvInfo].setup + """
         # Pre-defconfig commands
@@ -143,10 +214,8 @@ def _kernel_config_impl(ctx):
           eval ${{POST_DEFCONFIG_CMDS}}
         # SCM version configuration
           {scmversion_command}
-        # LTO configuration
-        {lto_command}
-        # Trim nonlisted symbols
-          {trim_kmi_command}
+        # Re-config
+          {reconfig_cmd}
         # HACK: run syncconfig to avoid re-triggerring kernel_build
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
@@ -156,8 +225,7 @@ def _kernel_config_impl(ctx):
         config = config.path,
         include_dir = include_dir.path,
         scmversion_command = scmversion_command,
-        lto_command = lto_command,
-        trim_kmi_command = trim_kmi_command,
+        reconfig_cmd = reconfig.cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -197,6 +265,7 @@ def _kernel_config_impl(ctx):
 kernel_config = rule(
     implementation = _kernel_config_impl,
     doc = "Defines a kernel config target that runs `make defconfig` etc.",
+    cfg = kernel_config_transition,
     attrs = {
         "env": attr.label(
             mandatory = True,
@@ -205,6 +274,7 @@ kernel_config = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
+        "kasan": attr.label(default = "//build/kernel/kleaf:kasan"),
         "lto": attr.label(default = "//build/kernel/kleaf:lto"),
         "trim_nonlisted_kmi": attr.bool(doc = "If true, modify the config to trim non-listed symbols."),
         "raw_kmi_symbol_list": attr.label(
@@ -214,5 +284,9 @@ kernel_config = rule(
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_allowlist_function_transition": attr.label(
+            # Allow everything because kernel_config is indirectly called in device packages.
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
 )

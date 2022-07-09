@@ -41,6 +41,7 @@ bzl_library(
         "kernel_build_config.bzl",
         "kernel_compile_commands.bzl",
         "kernel_config.bzl",
+        "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
         "kernel_filegroup.bzl",
