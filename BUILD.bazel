@@ -33,7 +33,6 @@ hermetic_tools(
         "perl",
         "rsync",
         "sh",
-        "tar",
     ],
     deps = glob(
         ["build-tools/sysroot/**"],
