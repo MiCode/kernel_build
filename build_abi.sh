@@ -160,6 +160,7 @@ if [[ -z "$OUT_DIR" ]]; then
     wipe_out_dir=1
 fi
 
+source "${ROOT_DIR}/build/build_utils.sh"
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 if [ -z "${KMI_SYMBOL_LIST}" ]; then
