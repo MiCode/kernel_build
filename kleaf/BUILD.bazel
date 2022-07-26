@@ -17,6 +17,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
+load(":constants.bzl", "LTO_VALUES")
 load(":print_flags.bzl", "print_flags")
 
 package(default_visibility = ["//visibility:public"])
@@ -26,18 +27,20 @@ package(default_visibility = ["//visibility:public"])
 string_flag(
     name = "lto",
     build_setting_default = "default",
-    values = [
-        "default",
-        "none",
-        "thin",
-        "full",
-    ],
+    values = LTO_VALUES,
 )
 
 # If true, set `KBUILD_SYMTYPES=1` for kernel_build() with
 # kbuild_symtypes="auto".
 bool_flag(
     name = "kbuild_symtypes",
+    build_setting_default = False,
+)
+
+# If true, enable kasan. This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kasan",
     build_setting_default = False,
 )
 
@@ -70,6 +73,7 @@ _config_values = (
 print_flags(
     name = "print_flags",
     flags = [
+        ":kasan",
         ":kbuild_symtypes",
         ":lto",
     ] + [":config_" + value for value in _config_values],

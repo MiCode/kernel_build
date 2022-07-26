@@ -12,11 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-test_suite(
-    name = "tests",
-    tests = [
-        "//build/kernel/kleaf/tests/kernel_build_config_test",
-        "//build/kernel/kleaf/tests/kernel_build_test",
-        "//build/kernel/kleaf/tests/kernel_config_test",
-    ],
+# Incoming edge transition for `kernel_config`.
+# If --kasan and --lto=default, --lto becomes none.
+# See https://bazel.build/rules/config#incoming-edge-transitions
+
+_LTO_FLAG = "//build/kernel/kleaf:lto"
+_KASAN_FLAG = "//build/kernel/kleaf:kasan"
+
+def _impl(settings, attr):
+    if settings[_KASAN_FLAG] and settings[_LTO_FLAG] == "default":
+        return {_LTO_FLAG: "none"}
+
+    return None  # keep values
+
+kernel_config_transition = transition(
+    implementation = _impl,
+    inputs = [_KASAN_FLAG, _LTO_FLAG],
+    outputs = [_LTO_FLAG],
 )

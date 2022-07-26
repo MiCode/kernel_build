@@ -30,6 +30,7 @@ import %workspace%/build/kernel/kleaf/bazelrc/release.bazelrc
 # flag aliases for build settings
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
+build --flag_alias=kasan=//build/kernel/kleaf:kasan
 
 # add a flag alias to allow passing --debug_* flags
 build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts

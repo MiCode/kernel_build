@@ -24,33 +24,25 @@ def _system_dlkm_image_impl(ctx):
     system_dlkm_staging_dir = modules_staging_dir + "/system_dlkm_staging"
 
     command = """
-               mkdir -p {system_dlkm_staging_dir}
              # Build system_dlkm.img
-               create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
-                 {system_dlkm_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
-               modules_root_dir=$(readlink -e {system_dlkm_staging_dir}/lib/modules/*) || exit 1
-               cp ${{modules_root_dir}}/modules.load {system_dlkm_modules_load}
-             # Re-sign the stripped modules using kernel build time key
-               for module in $(find {system_dlkm_staging_dir} -type f -name '*.ko'); do
-                   "${{OUT_DIR}}"/scripts/sign-file sha1 \
-                   "${{OUT_DIR}}"/certs/signing_key.pem \
-                   "${{OUT_DIR}}"/certs/signing_key.x509 "${{module}}"
-               done
-             # Build system_dlkm.img with signed GKI modules
-               mkfs.erofs -zlz4hc "{system_dlkm_img}" "{system_dlkm_staging_dir}"
-             # No need to sign the image as modules are signed; add hash footer
-               avbtool add_hashtree_footer \
-                   --partition_name system_dlkm \
-                   --image "{system_dlkm_img}"
-             # Archive system_dlkm_staging_dir
-               tar czf {system_dlkm_staging_archive} -C {system_dlkm_staging_dir} .
+               mkdir -p {system_dlkm_staging_dir}
+               (
+                 MODULES_STAGING_DIR={modules_staging_dir}
+                 SYSTEM_DLKM_STAGING_DIR={system_dlkm_staging_dir}
+                 build_system_dlkm
+               )
+             # Move output files into place
+               mv "${{DIST_DIR}}/system_dlkm.img" {system_dlkm_img}
+               mv "${{DIST_DIR}}/system_dlkm.modules.load" {system_dlkm_modules_load}
+               mv "${{DIST_DIR}}/system_dlkm_staging_archive.tar.gz" {system_dlkm_staging_archive}
+
              # Remove staging directories
                rm -rf {system_dlkm_staging_dir}
     """.format(
         modules_staging_dir = modules_staging_dir,
         system_dlkm_staging_dir = system_dlkm_staging_dir,
-        system_dlkm_modules_load = system_dlkm_modules_load.path,
         system_dlkm_img = system_dlkm_img.path,
+        system_dlkm_modules_load = system_dlkm_modules_load.path,
         system_dlkm_staging_archive = system_dlkm_staging_archive.path,
     )
 

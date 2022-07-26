@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-test_suite(
-    name = "tests",
-    tests = [
-        "//build/kernel/kleaf/tests/kernel_build_config_test",
-        "//build/kernel/kleaf/tests/kernel_build_test",
-        "//build/kernel/kleaf/tests/kernel_config_test",
-    ],
-)
+# Test utilities.
+
+exports_files([
+    "contain_lines_test.py",
+])
