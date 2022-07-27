@@ -313,7 +313,7 @@ def _kernel_module_impl(ctx):
                     --declared $(cat {all_module_names_file}) \\
                     --actual $(cd {modules_staging_dir}/lib/modules/*/extra/{ext_mod} && find . -type f -name '*.ko' | sed 's:^[.]/::'))
                if [[ ${{remaining_ko_files}} ]]; then
-                 echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
+                 echo "ERROR: The following kernel modules are built but not copied. Add these lines to the outs attribute of {label}:" >&2
                  for ko in ${{remaining_ko_files}}; do
                    echo '    "'"${{ko}}"'",' >&2
                  done
