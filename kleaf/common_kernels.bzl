@@ -670,8 +670,6 @@ def _define_prebuilts(**kwargs):
         repo_name = value["repo_name"]
         main_target_outs = value["outs"]  # outs of target named {name}
 
-        source_package_name = ":" + name
-
         native.filegroup(
             name = name + "_downloaded",
             srcs = ["@{}//{}".format(repo_name, filename) for filename in main_target_outs],
@@ -691,20 +689,20 @@ def _define_prebuilts(**kwargs):
             name = name + "_download_or_build",
             srcs = select({
                 ":use_prebuilt_gki_set": [":" + name + "_downloaded"],
-                "//conditions:default": [source_package_name],
+                "//conditions:default": [name],
             }),
             deps = select({
                 ":use_prebuilt_gki_set": [
-                    source_package_name + "_ddk_artifacts_downloaded",
-                    source_package_name + "_unstripped_modules_archive_downloaded",
+                    name + "_ddk_artifacts_downloaded",
+                    name + "_unstripped_modules_archive_downloaded",
                 ],
                 "//conditions:default": [
-                    source_package_name + "_ddk_artifacts",
+                    name + "_ddk_artifacts",
                     # unstripped modules come from {name} in srcs
                 ],
             }),
-            kernel_srcs = [source_package_name + "_sources"],
-            kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",
+            kernel_srcs = [name + "_sources"],
+            kernel_uapi_headers = name + "_uapi_headers_download_or_build",
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             module_outs_file = select({
                 ":use_prebuilt_gki_set": "@{}//{}{}".format(repo_name, name, MODULE_OUTS_FILE_SUFFIX),
@@ -730,7 +728,7 @@ def _define_prebuilts(**kwargs):
                 name = name + "_" + target_suffix + "_download_or_build",
                 srcs = select({
                     ":use_prebuilt_gki_set": [":" + name + "_" + target_suffix + "_downloaded"],
-                    "//conditions:default": [source_package_name + "_" + target_suffix],
+                    "//conditions:default": [name + "_" + target_suffix],
                 }),
                 **kwargs
             )
