@@ -76,6 +76,9 @@ _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 * [`VENDOR_DLKM_MODULES_LIST`](#vendor_dlkm_modules_list)
 * [`VENDOR_DLKM_MODULES_BLOCKLIST`](#vendor_dlkm_modules_blocklist)
 * [`VENDOR_DLKM_PROPS`](#vendor_dlkm_props)
+* [`SYSTEM_DLKM_MODULES_LIST`](#system_dlkm_modules_list)
+* [`SYSTEM_DLKM_MODULES_BLOCKLIST`](#system_dlkm_modules_blocklist)
+* [`SYSTEM_DLKM_PROPS`](#system_dlkm_props)
 * [`LZ4_RAMDISK`](#lz4_ramdisk)
 * [`LZ4_RAMDISK_COMPRESS_ARGS`](#lz4_ramdisk_compress_args)
 * [`TRIM_NONLISTED_KMI`](#trim_nonlisted_kmi)
@@ -516,6 +519,30 @@ See [documentation for all rules].
 
 ```python
 kernel_images(vendor_dlkm_props=...)
+```
+
+See [documentation for all rules].
+
+## SYSTEM\_DLKM\_MODULES\_LIST
+
+```python
+kernel_images(system_dlkm_modules_list=...)
+```
+
+See [documentation for all rules].
+
+## SYSTEM\_DLKM\_MODULES\_BLOCKLIST
+
+```python
+kernel_images(system_dlkm_modules_blocklist=...)
+```
+
+See [documentation for all rules].
+
+## SYSTEM\_DLKM\_PROPS
+
+```python
+kernel_images(system_dlkm_props=...)
 ```
 
 See [documentation for all rules].

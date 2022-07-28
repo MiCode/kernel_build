@@ -22,6 +22,7 @@ def kernel_images(
         name,
         kernel_modules_install,
         kernel_build = None,
+        base_kernel_images = None,
         build_initramfs = None,
         build_vendor_dlkm = None,
         build_boot = None,
@@ -37,6 +38,9 @@ def kernel_images(
         modules_blocklist = None,
         modules_options = None,
         vendor_ramdisk_binaries = None,
+        system_dlkm_modules_list = None,
+        system_dlkm_modules_blocklist = None,
+        system_dlkm_props = None,
         vendor_dlkm_modules_list = None,
         vendor_dlkm_modules_blocklist = None,
         vendor_dlkm_props = None):
@@ -144,6 +148,10 @@ def kernel_images(
               ]
           )
           ```
+        base_kernel_images: The `kernel_images()` corresponding to the `base_kernel` of the
+          `kernel_build`. This is necessary for building a device-specific `system_dlkm` image.
+          For example, if `base_kernel` of `kernel_build()` is `//common:kernel_aarch64`,
+          then `base_kernel_images` is `//common:kernel_aarch64_images`.
         modules_list: A file containing list of modules to use for `vendor_boot.modules.load`.
 
           This corresponds to `MODULES_LIST` in `build.config` for `build.sh`.
@@ -164,6 +172,27 @@ def kernel_images(
           ```
 
           This corresponds to `MODULES_OPTIONS` in `build.config` for `build.sh`.
+        system_dlkm_modules_list: location of an optional file
+          containing the list of kernel modules which shall be copied into a
+          system_dlkm partition image.
+
+          This corresponds to `SYSTEM_DLKM_MODULES_LIST` in `build.config` for `build.sh`.
+        system_dlkm_modules_blocklist: location of an optional file containing a list of modules
+          which are blocked from being loaded.
+
+          This file is copied directly to the staging directory and should be in the format:
+          ```
+          blocklist module_name
+          ```
+
+          This corresponds to `SYSTEM_DLKM_MODULES_BLOCKLIST` in `build.config` for `build.sh`.
+        system_dlkm_props: location of a text file containing
+          the properties to be used for creation of a `system_dlkm` image
+          (filesystem, partition size, etc). If this is not set (and
+          `build_system_dlkm` is), a default set of properties will be used
+          which assumes an ext4 filesystem and a dynamic partition.
+
+          This corresponds to `SYSTEM_DLKM_PROPS` in `build.config` for `build.sh`.
         vendor_dlkm_modules_list: location of an optional file
           containing the list of kernel modules which shall be copied into a
           `vendor_dlkm` partition image. Any modules passed into `MODULES_LIST` which
@@ -249,10 +278,16 @@ def kernel_images(
     if build_system_dlkm:
         system_dlkm_image(
             name = "{}_system_dlkm_image".format(name),
+            # For GKI system_dlkm
             kernel_modules_install = kernel_modules_install,
+            # For device system_dlkm, give GKI's system_dlkm_staging_archive.tar.gz
+            base_kernel_images = base_kernel_images,
             deps = deps,
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
+            system_dlkm_modules_list = system_dlkm_modules_list,
+            system_dlkm_modules_blocklist = system_dlkm_modules_blocklist,
+            system_dlkm_props = system_dlkm_props,
         )
         all_rules.append(":{}_system_dlkm_image".format(name))
 

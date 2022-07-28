@@ -709,6 +709,7 @@ def _define_prebuilts(**kwargs):
             kernel_srcs = [name + "_sources"],
             kernel_uapi_headers = name + "_uapi_headers_download_or_build",
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+            images = name + "_images_download_or_build",
             module_outs_file = select({
                 ":use_prebuilt_gki_set": "@{}//{}{}".format(repo_name, name, MODULE_OUTS_FILE_SUFFIX),
                 "//conditions:default": ":" + name + "_module_outs_file",

@@ -18,6 +18,7 @@ load(
     "GKI_ARTIFACTS_AARCH64_OUTS",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
     "MODULE_OUTS_FILE_SUFFIX",
+    "SYSTEM_DLKM_OUTS",
     "TOOLCHAIN_VERSION_FILENAME",
 )
 
@@ -62,9 +63,7 @@ GKI_DOWNLOAD_CONFIGS = [
     },
     {
         "target_suffix": "images",
-        "outs": [
-            "system_dlkm.img",
-        ],
+        "outs": SYSTEM_DLKM_OUTS,
     },
     {
         "target_suffix": "gki_artifacts",

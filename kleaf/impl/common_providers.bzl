@@ -111,3 +111,10 @@ KernelModuleInfo = provider(
         "files": "The list of output `*.ko` files.",
     },
 )
+
+KernelImagesInfo = provider(
+    doc = "A provider that represents the expectation of [`kernel_images`](#kernel_images) to [`kernel_build`](#kernel_build)",
+    fields = {
+        "base_kernel": "the `base_kernel` target, if exists",
+    },
+)
