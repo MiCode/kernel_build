@@ -39,7 +39,6 @@ load(
     ":constants.bzl",
     "CI_TARGET_MAPPING",
     "GKI_DOWNLOAD_CONFIGS",
-    "GKI_MODULES",
     "aarch64_outs",
     "x86_64_outs",
 )
@@ -119,7 +118,6 @@ def _default_target_configs():
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
         "abi_definition": aarch64_abi_definition,
         "kmi_enforced": bool(aarch64_abi_definition),
-        "module_outs": GKI_MODULES,
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {
@@ -134,7 +132,6 @@ def _default_target_configs():
 
     # Common configs for x86_64 and x86_64_debug
     x86_64_common = {
-        "module_outs": GKI_MODULES,
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {
@@ -376,20 +373,16 @@ def define_common_kernels(
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
                 "trim_nonlisted_kmi": aarch64_trim_and_check,
                 "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
-                "module_outs": GKI_MODULES,
             },
             "kernel_aarch64_debug": {
                 "kmi_symbol_list": aarch64_kmi_symbol_list,
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
                 "trim_nonlisted_kmi": False,
-                "module_outs": GKI_MODULES,
             },
             "kernel_x86_64": {
-                "module_outs": GKI_MODULES,
             },
             "kernel_x86_64_debug": {
                 "trim_nonlisted_kmi": False,
-                "module_outs": GKI_MODULES,
             },
         }
         ```
