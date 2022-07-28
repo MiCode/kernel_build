@@ -742,7 +742,7 @@ def _define_prebuilts(**kwargs):
             name + "_headers",
             name + "_images",
             # TODO(b/240496668): Add _kmi_symbol_list
-            # TODO: Add gki_artifacts
+            name + "_gki_artifacts",
         ]
 
         native.filegroup(

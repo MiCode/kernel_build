@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load(":common_providers.bzl", "KernelModuleInfo")
 
 def _reverse_dict(d):
@@ -86,6 +87,27 @@ def _intermediates_dir(ctx):
         ctx.attr.name + "_intermediates",
     )
 
+def _compare_file_names(files, expected_file_names, what):
+    """Check that the list of files matches the given expected list.
+
+    The basenames of files are checked.
+
+    Args:
+      files: A list of [File](https://bazel.build/rules/lib/File)s.
+      expected_file_names: A list of file names to check files against.
+      what: description of the caller that compares the file names.
+    """
+
+    actual_file_names = [file.basename for file in files]
+    actual_set = sets.make(actual_file_names)
+    expected_set = sets.make(expected_file_names)
+    if not sets.is_equal(actual_set, expected_set):
+        fail("{}: Actual: {}\nExpected: {}".format(
+            what,
+            actual_file_names,
+            expected_file_names,
+        ))
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -94,6 +116,7 @@ utils = struct(
     getoptattr = _getoptattr,
     find_file = find_file,
     find_files = find_files,
+    compare_file_names = _compare_file_names,
 )
 
 def _filter_module_srcs(files):
