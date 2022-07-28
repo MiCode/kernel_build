@@ -66,7 +66,7 @@ GKI_DOWNLOAD_CONFIGS = [
             "kernel-headers.tar.gz",
             # _images
             "system_dlkm.img",
-        ] + GKI_MODULES,  # corresponding to _modules_install
+        ] + GKI_MODULES,
     },
     {
         "target_suffix": "ddk_artifacts",

@@ -523,6 +523,10 @@ def define_common_kernels(
 
         kernel_modules_install(
             name = name + "_modules_install",
+            # The GKI target does not have external modules. GKI modules goes
+            # into the in-tree kernel module list, aka kernel_build.module_outs.
+            # Hence, this is empty, and name + "_dist" does NOT include
+            # name + "_modules_install".
             kernel_modules = [],
             kernel_build = name,
         )
@@ -569,7 +573,6 @@ def define_common_kernels(
             srcs = [
                 # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
                 name + "_headers",
-                name + "_modules_install",
                 name + "_images",
                 name + "_kmi_symbol_list",
                 name + "_gki_artifacts",
