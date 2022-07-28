@@ -57,11 +57,14 @@ GKI_DOWNLOAD_CONFIGS = [
         ],
     },
     {
-        "target_suffix": "additional_artifacts",
+        "target_suffix": "headers",
         "outs": [
-            # _headers
             "kernel-headers.tar.gz",
-            # _images
+        ],
+    },
+    {
+        "target_suffix": "images",
+        "outs": [
             "system_dlkm.img",
         ],
     },

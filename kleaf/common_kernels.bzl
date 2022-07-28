@@ -533,7 +533,7 @@ def define_common_kernels(
             name = name + "_images",
             kernel_build = name,
             kernel_modules_install = name + "_modules_install",
-            # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
+            # Sync with GKI_DOWNLOAD_CONFIGS, "images"
             build_system_dlkm = True,
             # Keep in sync with build.config.gki* MODULES_LIST
             modules_list = "android/gki_system_dlkm_modules",
@@ -564,7 +564,7 @@ def define_common_kernels(
         native.filegroup(
             name = name + "_additional_artifacts",
             srcs = [
-                # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
+                # Sync with additional_artifacts_items
                 name + "_headers",
                 name + "_images",
                 name + "_kmi_symbol_list",
@@ -732,6 +732,23 @@ def _define_prebuilts(**kwargs):
                 }),
                 **kwargs
             )
+
+        additional_artifacts_items = [
+            name + "_headers",
+            name + "_images",
+            # TODO(b/240496668): Add _kmi_symbol_list
+            # TODO: Add gki_artifacts
+        ]
+
+        native.filegroup(
+            name = name + "_additional_artifacts_downloaded",
+            srcs = [item + "_downloaded" for item in additional_artifacts_items],
+        )
+
+        native.filegroup(
+            name = name + "_additional_artifacts_download_or_build",
+            srcs = [item + "_download_or_build" for item in additional_artifacts_items],
+        )
 
 def define_db845c(
         name,
