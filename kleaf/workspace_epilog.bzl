@@ -15,4 +15,15 @@
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 def define_kleaf_workspace_epilog():
+    """Optional epilog macro for defining repositories in a Kleaf workspace.
+
+    **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
+    files, not `BUILD` or `BUILD.bazel` files!**
+
+    The epilog macro is needed if you are running
+    [Bazel analysis tests](https://bazel.build/rules/testing).
+
+    If called, it must be called after
+    [`define_kleaf_workspace`](#define_kleaf_workspace) is called.
+    """
     bazel_skylib_workspace()
