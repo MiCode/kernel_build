@@ -15,50 +15,132 @@
 import argparse
 import os
 import sys
+from typing import Tuple, Optional
+
+_BAZEL_REL_PATH = "prebuilts/bazel/linux-x86_64/bazel"
+_BAZEL_JDK_REL_PATH = "prebuilts/jdk/jdk11/linux-x86"
+_BAZEL_RC_NAME = "build/kernel/kleaf/common.bazelrc"
 
 
-def main(root_dir, bazel_args, env):
-    env = env.copy()
+def _partition(lst: list[str], index: Optional[int]) \
+        -> Tuple[list[str], Optional[str], list[str]]:
+    """Returns the triple split by index.
 
-    bazel_path = f"{root_dir}/prebuilts/bazel/linux-x86_64/bazel"
-    bazel_jdk_path = f"{root_dir}/prebuilts/jdk/jdk11/linux-x86"
-    bazelrc_name = "build/kernel/kleaf/common.bazelrc"
+    That is, return a tuple:
+    (everything before index, the element at index, everything after index)
 
-    absolute_out_dir = f"{root_dir}/out"
+    If index is None, return (the list, None, empty list)
+    """
+    if index is None:
+        return lst[:], None, []
+    return lst[:index], lst[index], lst[index + 1:]
 
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--use_prebuilt_gki")
-    parser.add_argument("--experimental_strip_sandbox_path",
-                        action='store_true')
-    parser.add_argument("--make_jobs", type=int, default=None)
-    known_args, bazel_args = parser.parse_known_args(bazel_args)
-    if known_args.use_prebuilt_gki:
-        # Insert before positional arguments
+
+class BazelWrapper(object):
+    def __init__(self, root_dir: str, bazel_args: list[str], env):
+        """Splits arguments to the bazel binary based on the functionality.
+
+        bazel [startup_options] command         [command_args] --               [target_patterns]
+                                 ^- command_idx                ^- dash_dash_idx
+
+        See https://bazel.build/reference/command-line-reference
+
+        Args:
+            root_dir: root of repository
+            bazel_args: The list of arguments the user provides through command line
+            env: existing environment
+        """
+
+        self.root_dir = root_dir
+        self.env = env.copy()
+
+        self.bazel_path = f"{self.root_dir}/{_BAZEL_REL_PATH}"
+        self.absolute_out_dir = f"{self.root_dir}/out"
+
+        command_idx = None
+        for idx, arg in enumerate(bazel_args):
+            if not arg.startswith("-"):
+                command_idx = idx
+                break
+
+        self.startup_options, self.command, remaining_args = _partition(bazel_args,
+                                                                        command_idx)
+
+        # Split command_args into `command_args -- target_patterns`
+        dash_dash_idx = None
         try:
-            idx = bazel_args.index("--")
+            dash_dash_idx = remaining_args.index("--")
         except ValueError:
-            idx = len(bazel_args)
-        bazel_args.insert(idx, "--//common:use_prebuilt_gki")
-        env["KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = f"gki_prebuilts={known_args.use_prebuilt_gki}"
-    if known_args.make_jobs is not None:
-        env["KLEAF_MAKE_JOBS"] = str(known_args.make_jobs)
+            # If -- is not found, put everything in command_args. These arguments
+            # are not provided to the Bazel executable target.
+            pass
 
-    command_args = [
-        bazel_path,
-        f"--server_javabase={bazel_jdk_path}",
-        f"--output_user_root={absolute_out_dir}/bazel/output_user_root",
-        f"--host_jvm_args=-Djava.io.tmpdir={absolute_out_dir}/bazel/javatmp",
-        f"--bazelrc={root_dir}/{bazelrc_name}",
-    ]
-    command_args += bazel_args
+        self.command_args, self.dash_dash, self.target_patterns = _partition(remaining_args,
+                                                                             dash_dash_idx)
 
-    if known_args.experimental_strip_sandbox_path:
-        import asyncio
-        import re
-        filter_regex=re.compile(absolute_out_dir+"/\S+?/sandbox/.*?/__main__/")
-        asyncio.run(run(command_args, env, filter_regex))
-    else:
-        os.execve(path=bazel_path, argv=command_args, env=env)
+        self._parse_command_args()
+
+    def _parse_command_args(self):
+        """Parses the given list of command_args.
+
+        After calling this function, the following attributes are set:
+        - known_args: A namespace holding options known by this Bazel wrapper script
+        - transformed_command_args: The transformed list of command_args to replace
+          existing command_args to be fed to the Bazel binary
+        - env: A dictionary containing the new environment variables for the subprocess.
+        """
+
+        # Arguments known by this bazel wrapper.
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--use_prebuilt_gki")
+        parser.add_argument("--experimental_strip_sandbox_path",
+                            action='store_true')
+        parser.add_argument("--make_jobs", type=int, default=None)
+
+        # known_args: List of arguments known by this bazel wrapper. These
+        #   are stripped from the final bazel invocation.
+        # remaining_command_args: the rest of the arguments
+        # Skip startup options (before command) and target_patterns (after --)
+        self.known_args, self.transformed_command_args = parser.parse_known_args(self.command_args)
+
+        if self.known_args.use_prebuilt_gki:
+            self.transformed_command_args.append("--//common:use_prebuilt_gki")
+            self.env[
+                "KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = f"gki_prebuilts={self.known_args.use_prebuilt_gki}"
+
+        if self.known_args.make_jobs is not None:
+            self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
+
+    def _build_final_args(self) -> list[str]:
+        """Builds the final arguments for the subprocess."""
+        # final_args:
+        # bazel [startup_options] [additional_startup_options] command [transformed_command_args] -- [target_patterns]
+
+        bazel_jdk_path = f"{self.root_dir}/{_BAZEL_JDK_REL_PATH}"
+        final_args = [self.bazel_path] + self.startup_options + [
+            f"--server_javabase={bazel_jdk_path}",
+            f"--output_user_root={self.absolute_out_dir}/bazel/output_user_root",
+            f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
+            f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
+        ]
+        if self.command is not None:
+            final_args.append(self.command)
+        final_args += self.transformed_command_args
+        if self.dash_dash is not None:
+            final_args.append(self.dash_dash)
+        final_args += self.target_patterns
+
+        return final_args
+
+    def run(self):
+        final_args = self._build_final_args()
+        if self.known_args.experimental_strip_sandbox_path:
+            import asyncio
+            import re
+            filter_regex = re.compile(self.absolute_out_dir + r"/\S+?/sandbox/.*?/__main__/")
+            asyncio.run(run(final_args, self.env, filter_regex))
+        else:
+            os.execve(path=self.bazel_path, argv=final_args, env=self.env)
 
 
 async def output_filter(input_stream, output_stream, filter_regex):
@@ -87,4 +169,4 @@ async def run(command, env, filter_regex):
 
 
 if __name__ == "__main__":
-    main(root_dir=sys.argv[1], bazel_args=sys.argv[2:], env=os.environ)
+    BazelWrapper(root_dir=sys.argv[1], bazel_args=sys.argv[2:], env=os.environ).run()
