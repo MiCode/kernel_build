@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//build/kernel/kleaf/impl:utils.bzl", "utils")
+
 def kernel_module_test(
         name,
         modules = None,
@@ -76,6 +78,47 @@ def kernel_build_test(
         srcs = [script],
         python_version = "PY3",
         data = [target, strings],
+        args = args,
+        timeout = "short",
+        deps = [
+            "@io_abseil_py//absl/testing:absltest",
+        ],
+        **kwargs
+    )
+
+def initramfs_modules_options_test(
+        name,
+        kernel_images,
+        expected_modules_options,
+        **kwargs):
+    script = "//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test.py"
+    cpio = "//build/kernel:hermetic-tools/cpio"
+    diff = "//build/kernel:hermetic-tools/diff"
+    gzip = "//build/kernel:hermetic-tools/gzip"
+    args = [
+        "--cpio",
+        "$(location {})".format(cpio),
+        "--diff",
+        "$(location {})".format(diff),
+        "--gzip",
+        "$(location {})".format(gzip),
+        "--expected",
+        "$(location {})".format(expected_modules_options),
+        "$(locations {})".format(kernel_images),
+    ]
+
+    native.py_test(
+        name = name,
+        main = script,
+        srcs = [script],
+        python_version = "PY3",
+        data = [
+            cpio,
+            diff,
+            expected_modules_options,
+            gzip,
+            kernel_images,
+        ],
         args = args,
         timeout = "short",
         deps = [

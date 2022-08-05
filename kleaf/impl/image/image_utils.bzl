@@ -73,7 +73,6 @@ def _build_modules_image_impl_common(
     for attr_name in (
         "modules_list",
         "modules_blocklist",
-        "modules_options",
         "vendor_dlkm_modules_list",
         "vendor_dlkm_modules_blocklist",
         "vendor_dlkm_props",
