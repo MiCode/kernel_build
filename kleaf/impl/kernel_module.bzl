@@ -317,6 +317,9 @@ def _kernel_module_impl(ctx):
                  for ko in ${{remaining_ko_files}}; do
                    echo '    "'"${{ko}}"'",' >&2
                  done
+                 echo "Alternatively, install buildozer and execute:"
+                 echo "  $ buildozer 'add outs ${{remaining_ko_files}}' {label}"
+                 echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference"
                  exit 1
                fi
                touch {check_no_remaining}
