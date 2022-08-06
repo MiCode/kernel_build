@@ -160,6 +160,7 @@ if [[ -z "$OUT_DIR" ]]; then
     wipe_out_dir=1
 fi
 
+source "${ROOT_DIR}/build/build_utils.sh"
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 if [ -z "${KMI_SYMBOL_LIST}" ]; then
@@ -188,12 +189,21 @@ function check_config_for_abi_dump() {
 }
 export -f check_config_for_abi_dump
 
-# Disable mixed build when comparing ABI snapshots. Device kernel ABI should compared, even in a
-# mixed build environment.
-GKI_BUILD_CONFIG=
-# Mixed build device kernels would not compile vmlinux. When using build_abi.sh to compile, we
-# do want to compile vmlinux since we are comparing the ABI of the device kernel.
-MAKE_GOALS+=" vmlinux"
+if [ -n "${GKI_BUILD_CONFIG}" ]; then
+  # Disable mixed build when comparing ABI snapshots. Device kernel ABI should compared, even in a
+  # mixed build environment.
+  GKI_BUILD_CONFIG=
+  # Mixed build device kernels would not compile vmlinux. When using build_abi.sh to compile, we
+  # do want to compile vmlinux since we are comparing the ABI of the device kernel.
+  MAKE_GOALS+=" vmlinux"
+  FILES+="
+  System.map
+  vmlinux
+  vmlinux.symvers
+  modules.builtin
+  modules.builtin.modinfo
+  "
+fi
 
 function build_kernel() {
   # Delegate the actual build to build.sh.
@@ -251,7 +261,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         # In case of a simple --update-symbol-list call we can bail out early
         [ $UPDATE -eq 0 ] && exit 0
 
-        if [ -n "${TRIM_NONLISTED_KMI}" ]; then
+        if [ "${TRIM_NONLISTED_KMI:-0}" = "1" ]; then
             # Rerun the kernel build with symbol list trimming enabled, as applicable. That
             # influences the combined symbol list as well as the list of exported symbols in
             # the kernel binary. Possibly more.
@@ -266,7 +276,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
 fi
 
 # Already built the final kernel if updating symbol list and trimming symbol list is disabled
-if ! [ $UPDATE_SYMBOL_LIST -eq 1 -a -z "${TRIM_NONLISTED_KMI}" -a "$FULL_GKI_ABI" -eq 0 ]; then
+if ! [ $UPDATE_SYMBOL_LIST -eq 1 -a ! "${TRIM_NONLISTED_KMI:-0}" = "1" -a "$FULL_GKI_ABI" -eq 0 ]; then
     SKIP_MRPROPER="${SKIP_MRPROPER}" build_kernel "$@"
 fi
 

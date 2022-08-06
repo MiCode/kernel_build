@@ -42,9 +42,6 @@ aarch64_gz_outs = _common_outs + [
 # Common output files for x86_64 kernel builds.
 x86_64_outs = _common_outs + ["bzImage"]
 
-GKI_MODULES = [
-]
-
 # See common_kernels.bzl.
 GKI_DOWNLOAD_CONFIGS = [
     {
@@ -66,7 +63,7 @@ GKI_DOWNLOAD_CONFIGS = [
             "kernel-headers.tar.gz",
             # _images
             "system_dlkm.img",
-        ] + GKI_MODULES,  # corresponding to _modules_install
+        ],
     },
     {
         "target_suffix": "ddk_artifacts",
