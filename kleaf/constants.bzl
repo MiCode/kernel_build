@@ -14,6 +14,8 @@
 
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
+    "AARCH64_IMAGES",
+    "GKI_ARTIFACTS_AARCH64_OUTS",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
     "MODULE_OUTS_FILE_SUFFIX",
     "TOOLCHAIN_VERSION_FILENAME",
@@ -28,11 +30,7 @@ _common_outs = [
 ]
 
 # Common output files for aarch64 kernel builds.
-aarch64_outs = _common_outs + [
-    "Image",
-    "Image.lz4",
-    "Image.gz",
-]
+aarch64_outs = _common_outs + AARCH64_IMAGES
 
 aarch64_gz_outs = _common_outs + [
     "Image",
@@ -57,13 +55,22 @@ GKI_DOWNLOAD_CONFIGS = [
         ],
     },
     {
-        "target_suffix": "additional_artifacts",
+        "target_suffix": "headers",
         "outs": [
-            # _headers
             "kernel-headers.tar.gz",
-            # _images
+        ],
+    },
+    {
+        "target_suffix": "images",
+        "outs": [
             "system_dlkm.img",
         ],
+    },
+    {
+        "target_suffix": "gki_artifacts",
+        # We only download GKI for arm64, not x86_64
+        # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
+        "outs": GKI_ARTIFACTS_AARCH64_OUTS,
     },
     {
         "target_suffix": "ddk_artifacts",

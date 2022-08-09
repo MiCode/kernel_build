@@ -44,6 +44,19 @@ def _initramfs_impl(ctx):
             vendor_boot_modules_load = vendor_boot_modules_load.path,
         )
 
+    additional_inputs = []
+    if ctx.file.modules_options:
+        cp_modules_options_cmd = """
+            cp {modules_options} ${{modules_root_dir}}/modules.options
+    """.format(
+            modules_options = ctx.file.modules_options.path,
+        )
+        additional_inputs.append(ctx.file.modules_options)
+    else:
+        cp_modules_options_cmd = """
+            : > ${modules_root_dir}/modules.options
+    """
+
     command = """
                mkdir -p {initramfs_staging_dir}
              # Build initramfs
@@ -52,7 +65,7 @@ def _initramfs_impl(ctx):
                modules_root_dir=$(readlink -e {initramfs_staging_dir}/lib/modules/*) || exit 1
                cp ${{modules_root_dir}}/modules.load {modules_load}
                {cp_vendor_boot_modules_load_cmd}
-               echo "${{MODULES_OPTIONS}}" > ${{modules_root_dir}}/modules.options
+               {cp_modules_options_cmd}
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
                ${{RAMDISK_COMPRESS}} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
              # Archive initramfs_staging_dir
@@ -66,6 +79,7 @@ def _initramfs_impl(ctx):
         initramfs_img = initramfs_img.path,
         initramfs_staging_archive = initramfs_staging_archive.path,
         cp_vendor_boot_modules_load_cmd = cp_vendor_boot_modules_load_cmd,
+        cp_modules_options_cmd = cp_modules_options_cmd,
     )
 
     default_info = image_utils.build_modules_image_impl_common(
@@ -77,6 +91,7 @@ def _initramfs_impl(ctx):
         implicit_outputs = [
             initramfs_staging_archive,
         ],
+        additional_inputs = additional_inputs,
         mnemonic = "Initramfs",
     )
     return [

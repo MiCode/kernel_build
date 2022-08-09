@@ -15,8 +15,10 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 exports_files([
+    "fake_modules_options.txt",
     "kernel_build_test.py",
     "kernel_module_test.py",
+    "initramfs_modules_options_test.py",
 ])
 
 bzl_library(
@@ -25,4 +27,7 @@ bzl_library(
         "kernel_test.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [
+        "//build/kernel/kleaf/impl",
+    ],
 )

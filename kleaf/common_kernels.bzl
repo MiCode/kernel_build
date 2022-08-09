@@ -28,6 +28,7 @@ load(
     "kernel_unstripped_modules_archive",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
@@ -533,7 +534,7 @@ def define_common_kernels(
             name = name + "_images",
             kernel_build = name,
             kernel_modules_install = name + "_modules_install",
-            # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
+            # Sync with GKI_DOWNLOAD_CONFIGS, "images"
             build_system_dlkm = True,
             # Keep in sync with build.config.gki* MODULES_LIST
             modules_list = "android/gki_system_dlkm_modules",
@@ -564,7 +565,7 @@ def define_common_kernels(
         native.filegroup(
             name = name + "_additional_artifacts",
             srcs = [
-                # Sync with GKI_DOWNLOAD_CONFIGS, "additional_artifacts".
+                # Sync with additional_artifacts_items
                 name + "_headers",
                 name + "_images",
                 name + "_kmi_symbol_list",
@@ -616,6 +617,10 @@ def define_common_kernels(
             tests = [
                 name + "_test",
                 name + "_modules_test",
+                _define_common_kernels_additional_tests(
+                    kernel_build_name = name,
+                    kernel_modules_install = name + "_modules_install",
+                ),
             ],
         )
 
@@ -670,8 +675,6 @@ def _define_prebuilts(**kwargs):
         repo_name = value["repo_name"]
         main_target_outs = value["outs"]  # outs of target named {name}
 
-        source_package_name = ":" + name
-
         native.filegroup(
             name = name + "_downloaded",
             srcs = ["@{}//{}".format(repo_name, filename) for filename in main_target_outs],
@@ -691,20 +694,20 @@ def _define_prebuilts(**kwargs):
             name = name + "_download_or_build",
             srcs = select({
                 ":use_prebuilt_gki_set": [":" + name + "_downloaded"],
-                "//conditions:default": [source_package_name],
+                "//conditions:default": [name],
             }),
             deps = select({
                 ":use_prebuilt_gki_set": [
-                    source_package_name + "_ddk_artifacts_downloaded",
-                    source_package_name + "_unstripped_modules_archive_downloaded",
+                    name + "_ddk_artifacts_downloaded",
+                    name + "_unstripped_modules_archive_downloaded",
                 ],
                 "//conditions:default": [
-                    source_package_name + "_ddk_artifacts",
+                    name + "_ddk_artifacts",
                     # unstripped modules come from {name} in srcs
                 ],
             }),
-            kernel_srcs = [source_package_name + "_sources"],
-            kernel_uapi_headers = source_package_name + "_uapi_headers_download_or_build",
+            kernel_srcs = [name + "_sources"],
+            kernel_uapi_headers = name + "_uapi_headers_download_or_build",
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             module_outs_file = select({
                 ":use_prebuilt_gki_set": "@{}//{}{}".format(repo_name, name, MODULE_OUTS_FILE_SUFFIX),
@@ -730,10 +733,75 @@ def _define_prebuilts(**kwargs):
                 name = name + "_" + target_suffix + "_download_or_build",
                 srcs = select({
                     ":use_prebuilt_gki_set": [":" + name + "_" + target_suffix + "_downloaded"],
-                    "//conditions:default": [source_package_name + "_" + target_suffix],
+                    "//conditions:default": [name + "_" + target_suffix],
                 }),
                 **kwargs
             )
+
+        additional_artifacts_items = [
+            name + "_headers",
+            name + "_images",
+            # TODO(b/240496668): Add _kmi_symbol_list
+            name + "_gki_artifacts",
+        ]
+
+        native.filegroup(
+            name = name + "_additional_artifacts_downloaded",
+            srcs = [item + "_downloaded" for item in additional_artifacts_items],
+        )
+
+        native.filegroup(
+            name = name + "_additional_artifacts_download_or_build",
+            srcs = [item + "_download_or_build" for item in additional_artifacts_items],
+        )
+
+def _define_common_kernels_additional_tests(
+        kernel_build_name,
+        kernel_modules_install):
+    test_name = kernel_build_name + "_additional_tests"
+    fake_modules_options = "//build/kernel/kleaf/artifact_tests:fake_modules_options.txt"
+
+    kernel_images(
+        name = test_name + "_fake_images",
+        kernel_modules_install = kernel_build_name + "_modules_install",
+        build_initramfs = True,
+        modules_options = fake_modules_options,
+    )
+
+    initramfs_modules_options_test(
+        name = test_name + "_fake",
+        kernel_images = test_name + "_fake_images",
+        expected_modules_options = fake_modules_options,
+    )
+
+    native.genrule(
+        name = test_name + "_empty_modules_options",
+        outs = [test_name + "_empty_modules_options/modules.options"],
+        cmd = ": > $@",
+    )
+
+    kernel_images(
+        name = test_name + "_empty_images",
+        kernel_modules_install = kernel_build_name + "_modules_install",
+        build_initramfs = True,
+        # Not specify module_options
+    )
+
+    initramfs_modules_options_test(
+        name = test_name + "_empty",
+        kernel_images = test_name + "_empty_images",
+        expected_modules_options = test_name + "_empty_modules_options",
+    )
+
+    native.test_suite(
+        name = test_name,
+        tests = [
+            test_name + "_empty",
+            test_name + "_fake",
+        ],
+    )
+
+    return test_name
 
 def define_db845c(
         name,

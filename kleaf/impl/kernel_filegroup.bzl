@@ -77,7 +77,7 @@ def _kernel_filegroup_impl(ctx):
         unstripped_modules_info = KernelUnstrippedModulesInfo(directory = unstripped_dir)
 
     abi_info = KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
-    base_kernel_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
+    in_tree_modules_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
 
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
@@ -86,7 +86,7 @@ def _kernel_filegroup_impl(ctx):
         uapi_info,
         unstripped_modules_info,
         abi_info,
-        base_kernel_info,
+        in_tree_modules_info,
     ]
 
 kernel_filegroup = rule(

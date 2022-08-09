@@ -16,6 +16,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":common_providers.bzl", "KernelBuildInfo")
+load(":constants.bzl", "GKI_ARTIFACTS_AARCH64_OUTS")
 load(":utils.bzl", "utils")
 
 def _gki_artifacts_impl(ctx):
@@ -93,6 +94,13 @@ def _gki_artifacts_impl(ctx):
         mkbootimg = ctx.file.mkbootimg.path,
         size_cmd = size_cmd,
     )
+
+    if ctx.attr.arch == "arm64":
+        utils.compare_file_names(
+            outs,
+            GKI_ARTIFACTS_AARCH64_OUTS,
+            what = "{}: Internal error: not producing the expected list of outputs".format(ctx.label),
+        )
 
     ctx.actions.run_shell(
         command = command,

@@ -67,6 +67,7 @@ bzl_library(
         "//build/kernel/kleaf:hermetic_tools_def",
         "//build/kernel/kleaf:update_source_file_def",
         "@bazel_skylib//lib:paths",
+        "@bazel_skylib//lib:sets",
         "@bazel_skylib//lib:shell",
         "@bazel_skylib//rules:common_settings",
     ],
