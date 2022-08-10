@@ -435,20 +435,6 @@ class Libabigail(AbiTool):
         return abi_changed
 
 
-class Stg(AbiTool):
-    """" Concrete AbiTool implementation for STG """
-    def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
-                 symbol_list=None, full_report=None):
-        # shoehorn the interface
-        basename = diff_report
-        abi_changed = _run_stgdiff(old_dump, new_dump, basename, symbol_list)
-        small_report = f"{basename}.small"
-        abi_changed = _reinterpret_stgdiff(abi_changed, small_report)
-        if short_report is not None:
-            _shorten_stgdiff(small_report, short_report)
-        return abi_changed
-
-
 def _line_count(path):
     with open(path) as input:
         count = sum(1 for _ in input)
@@ -526,8 +512,6 @@ class Delegated(AbiTool):
 def get_abi_tool(abi_tool = "libabigail"):
     if abi_tool == "libabigail":
         return Libabigail()
-    if abi_tool == "STG":
-        return Stg()
     if abi_tool == "delegated":
         return Delegated()
 
