@@ -369,7 +369,7 @@ def _shorten_abidiff(diff_report, short_report):
 
 STGDIFF_ERROR      = (1<<0)
 STGDIFF_ABI_CHANGE = (1<<1)
-STGDIFF_FORMATS    = ["plain", "flat", "small", "viz"]
+STGDIFF_FORMATS    = ["plain", "flat", "small", "short", "viz"]
 
 
 def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
@@ -391,7 +391,11 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
                     ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
                 dumps[ix] = cooked
 
-        command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+        command = [
+            "stgdiff",
+            "--compare-options", "all",
+            "--abi", dumps[0], dumps[1]
+        ]
         for f in STGDIFF_FORMATS:
             command.extend(["--format", f, "--output", f"{basename}.{f}"])
 
@@ -458,7 +462,7 @@ class Delegated(AbiTool):
         abg_leaf = basename + ".leaf"
         abg_full = basename + ".full"
         stg_basename = basename + ".stg"
-        stg_small = stg_basename + ".small"
+        stg_short = stg_basename + ".short"
         links = {
             basename: abg_leaf,
             basename + ".short": abg_leaf + ".short",
@@ -483,13 +487,11 @@ class Delegated(AbiTool):
         # post-process
         for report in [abg_leaf, abg_full]:
            _shorten_abidiff(report, report + ".short")
-        stgdiff_changed = _shorten_stgdiff(stgdiff_changed, stg_small,
-                                           stg_small + ".short")
 
         print("ABI diff reports have been created")
         paths = [abg_leaf, abg_full,
                  *(f"{stg_basename}.{format}" for format in STGDIFF_FORMATS),
-                 *(f"{path}.short" for path in [abg_leaf, abg_full, stg_small])]
+                 *(f"{path}.short" for path in [abg_leaf, abg_full])]
         for path in paths:
             count = _line_count(path)
             print(f" {path} [{count} lines]")
@@ -498,16 +500,16 @@ class Delegated(AbiTool):
 
         changed = []
         if abidiff_leaf_changed:
-            changed.append(("abidiff (leaf changes)", abg_leaf))
+            changed.append(("abidiff (leaf changes)", abg_leaf + ".short"))
         if stgdiff_changed:
-            changed.append(("stgdiff", stg_small))
+            changed.append(("stgdiff", stg_short))
         if changed:
             print()
             print("ABI DIFFERENCES HAVE BEEN DETECTED!")
             for which, _ in changed:
                 print(f" by {which}")
             print()
-            with open(changed[0][1] + ".short") as input:
+            with open(changed[0][1]) as input:
                 print(input.read(), end="")
             return True
         return False
