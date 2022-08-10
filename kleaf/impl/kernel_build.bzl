@@ -685,9 +685,9 @@ def _kernel_build_impl(ctx):
              for ko in ${{remaining_ko_files}}; do
                echo '    "'"${{ko}}"'",' >&2
              done
-             echo "Alternatively, install buildozer and execute:"
-             echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}"
-             echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference"
+             echo "Alternatively, install buildozer and execute:" >&2
+             echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}" >&2
+             echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference" >&2
              exit 1
            fi
          # Clean up staging directories
