@@ -279,6 +279,14 @@ def _remove_matching_lines(regexes: List[str], text: str) -> str:
     return "".join(new_lines)
 
 
+def _link_file(src: str, dst: str):
+    try:
+        os.unlink(dst)
+    except FileNotFoundError:
+        pass
+    os.link(src, dst)
+
+
 def dump_kernel_abi(linux_tree, dump_path, symbol_list, vmlinux_path=None):
     with tempfile.NamedTemporaryFile() as temp_file:
         temp_path = temp_file.name
@@ -486,11 +494,7 @@ class Delegated(AbiTool):
             count = _line_count(path)
             print(f" {path} [{count} lines]")
         for link, target in links.items():
-            try:
-                os.unlink(link)
-            except FileNotFoundError:
-                pass
-            os.link(target, link)
+            _link_file(target, link)
 
         changed = []
         if abidiff_leaf_changed:
