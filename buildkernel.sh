@@ -1,6 +1,6 @@
 #!/bin/bash -xE
 
-# Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+# Copyright (c) 2019 The Linux Foundation. All rights reserved.
 # Not a Contribution.
 #
 # Copyright (C) 2019 The Android Open Source Project
@@ -35,6 +35,12 @@ export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
 export UNSTRIPPED_DIR=${DIST_DIR}/unstripped
 export CLANG_TRIPLE CROSS_COMPILE CROSS_COMPILE_ARM32 ARCH SUBARCH
 
+if [ -z ${TZ} ]
+then
+    TZ=$(cat /etc/timezone)
+fi
+echo "timezone for kernel: ${TZ}"
+
 #Setting up for build
 PREBUILT_KERNEL_IMAGE=$(basename ${TARGET_PREBUILT_INT_KERNEL})
 IMAGE_FILE_PATH=arch/${ARCH}/boot
@@ -49,25 +55,6 @@ System.map
 PRIMARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/primary_kernel
 SECONDARY_KERN_BINS=${KERNEL_PREBUILT_DIR}/secondary_kernel
 
-debugfs_disable()
-{
-	if [ ${TARGET_BUILD_VARIANT} == "user" ]; then
-		echo "combining fragments for user build"
-		(cd ${KERNEL_DIR} && \
-		ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} \
-		./scripts/kconfig/merge_config.sh ./arch/${ARCH}/configs/$DEFCONFIG ./arch/$ARCH/configs/vendor/debugfs.config
-		${MAKE_PATH}make ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} savedefconfig
-		mv defconfig ./arch/${ARCH}/configs/$DEFCONFIG
-		${MAKE_PATH}make mrproper)
-	else
-		if [[ ${DEFCONFIG} == *"perf_defconfig" ]]; then
-		echo "resetting perf defconfig"
-		(cd ${KERNEL_DIR} && \
-		git checkout arch/$ARCH/configs/$DEFCONFIG)
-		fi
-	fi
-}
-
 #defconfig
 make_defconfig()
 {
@@ -76,9 +63,33 @@ make_defconfig()
 		echo "Building defconfig"
 		set -x
 		(cd ${KERNEL_DIR} && \
-		${MAKE_PATH}make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		${MAKE_PATH}make TZ=${TZ} O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
 		set +x
 	fi
+
+	if [ ! -z "${KERNEL_CONFIG_OVERRIDE_FACTORY}"  ]; then
+		echo "Rebuilding defconfig"
+		echo "Overriding kernel config with" ${KERNEL_CONFIG_OVERRIDE_FACTORY};
+		echo ${KERNEL_CONFIG_OVERRIDE_FACTORY} >> ${OUT_DIR}/.config;
+		set -x
+		(cd ${KERNEL_DIR} && \
+		make TZ=${TZ} O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig)
+		set +x
+	fi
+
+	if [ ! -z "${KERNEL_CONFIG_OVERRIDE_DEBUGFS}"  ]; then
+		echo "Rebuilding defconfig"
+		echo "Overriding kernel config with" ${KERNEL_CONFIG_OVERRIDE_DEBUGFS};
+		echo ${KERNEL_CONFIG_OVERRIDE_DEBUGFS} >> ${OUT_DIR}/.config;
+		echo ${KERNEL_CONFIG_OVERRIDE_MSM_TZ_LOG} >> ${OUT_DIR}/.config;
+		echo ${KERNEL_CONFIG_OVERRIDE_QMP_DEBUGFS_CLIENT} >> ${OUT_DIR}/.config;
+		echo ${KERNEL_CONFIG_OVERRIDE_REGMAP_ALLOW_WRITE_DEBUGFS} >> ${OUT_DIR}/.config;
+		set -x
+		(cd ${KERNEL_DIR} && \
+		make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig)
+		set +x
+	fi
+
 }
 
 #Install headers
@@ -88,7 +99,7 @@ headers_install()
 	echo "Installing kernel headers"
 	set -x
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
+	${MAKE_PATH}make TZ=${TZ} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} headers_install)
 	set +x
 }
 
@@ -99,7 +110,7 @@ build_kernel()
 	echo "Building kernel"
 	set -x
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
+	${MAKE_PATH}make TZ=${TZ} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" O=${OUT_DIR} ${CC_ARG} ${MAKE_ARGS} -j$(nproc))
 	set +x
 }
 
@@ -112,7 +123,7 @@ modules_install()
 	mkdir -p ${MODULES_STAGING_DIR}
 	set -x
 	(cd ${OUT_DIR} && \
-	${MAKE_PATH}make O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
+	${MAKE_PATH}make TZ=${TZ} O=${OUT_DIR} ${CC_ARG} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} ${MAKE_ARGS} modules_install)
 	set +x
 }
 
@@ -309,7 +320,6 @@ else
 	KERNEL_BINS=${PRIMARY_KERN_BINS}
 fi
 
-debugfs_disable
 #use prebuilts if we want to use them, and they are available
 if [ ! -z ${USE_PREBUILT_KERNEL} ] && [ -d ${KERNEL_BINS} ]; then
 	make_defconfig
