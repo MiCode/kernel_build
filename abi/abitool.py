@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import concurrent.futures
 import os
 import re
 import subprocess
@@ -296,13 +295,7 @@ class Delegated(AbiTool):
             basename + ".short": stg_short,
         }
 
-        stgdiff_changed = None
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # fork
-            stgdiff = executor.submit(
-                _run_stgdiff, old_dump, new_dump, stg_basename, symbol_list)
-            # join
-            stgdiff_changed = stgdiff.result()
+        changed = _run_stgdiff(old_dump, new_dump, stg_basename, symbol_list)
 
         print("ABI diff reports have been created")
         paths = [*(f"{stg_basename}.{format}" for format in STGDIFF_FORMATS)]
@@ -312,19 +305,14 @@ class Delegated(AbiTool):
         for link, target in links.items():
             _link_file(target, link)
 
-        changed = []
-        if stgdiff_changed:
-            changed.append(("stgdiff", stg_short))
         if changed:
             print()
             print("ABI DIFFERENCES HAVE BEEN DETECTED!")
-            for which, _ in changed:
-                print(f" by {which}")
             print()
-            with open(changed[0][1]) as input:
+            with open(stg_short) as input:
                 print(input.read(), end="")
-            return True
-        return False
+
+        return changed
 
 
 def get_abi_tool(abi_tool = "libabigail"):
