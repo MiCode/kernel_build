@@ -75,68 +75,6 @@ def _collapse_abidiff_offset_changes(text):
     return "".join(new_text)
 
 
-def _collapse_stgdiff_offset_changes(text: str) -> str:
-    """Replaces "offset changed" lines with a one-line summary."""
-    regex1 = re.compile(r"^( *)member ('.*') changed$")
-    regex2 = re.compile(r"^( *)offset changed from (\d+) to (\d+)$")
-    regex3 = re.compile(r"^( *)")
-    items = []
-    indent = ""
-    offset = ""
-    new_text = []
-
-    def emit_pending() -> None:
-        if not items:
-            return
-        count = len(items)
-        if count == 1:
-            only = items[0]
-            lines = [
-                "{}member {} changed\n".format(indent, only),
-                "{}  offset changed by {}\n".format(indent, offset)
-            ]
-        else:
-            first = items[0]
-            last = items[-1]
-            lines = [
-                "{}{} members ({} .. {}) changed\n".format(indent, count, first, last),
-                "{}  offsets changed by {}\n".format(indent, offset)
-            ]
-        del items[:]
-        new_text.extend(lines)
-
-    lines = text.splitlines(keepends=True)
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        # Match over 3 lines to detect indentation changes.
-        if index + 2 < len(lines):
-            match1 = regex1.search(line)
-            match2 = regex2.search(lines[index + 1])
-            match3 = regex3.search(lines[index + 2])
-            if match1 and match2 and match3:
-                indent1, item = match1.group(1, 2)
-                indent2, before, after = match2.group(1, 2, 3)
-                indent3 = match3.group(1)
-                if len(indent1) + 2 == len(indent2) and len(indent1) >= len(indent3):
-                    new_indent = indent1
-                    new_offset = int(after) - int(before)
-                    if new_indent != indent or new_offset != offset:
-                        emit_pending()
-                        indent = new_indent
-                        offset = new_offset
-                    items.append(item)
-                    # Consume 2 lines.
-                    index += 2
-                    continue
-        emit_pending()
-        new_text.append(line)
-        index += 1
-
-    emit_pending()
-    return "".join(new_text)
-
-
 def _collapse_abidiff_CRC_changes(text, limit):
     """Preserves some CRC-only changes and summarises the rest.
 
@@ -192,90 +130,6 @@ def _collapse_abidiff_CRC_changes(text, limit):
         index += 1
 
     emit_pending()
-    return "".join(new_lines)
-
-
-def _collapse_stgdiff_CRC_changes(text: str, limit: int) -> str:
-    """Preserves some CRC-only changes and summarises the rest.
-
-    A CRC-only change is one like the following (indented and with a trailing
-    blank line).
-
-    symbol 'ufshcd_bkops_ctrl' changed
-        CRC changed from 0x34dac87f to 0xc7d9df6f
-
-    Up to the first 'limit' changes will be emitted at the end of the section. Any
-    remaining ones will be summarised with a line like the following.
-
-    ... 17 omitted; 27 symbols have only CRC changes
-
-    Args:
-        text: The report text.
-        limit: The maximum, integral number of CRC-only changes per diff section.
-
-    Returns:
-        Updated report text.
-    """
-    section_regex = re.compile(r"^[^ \n]")
-    symbol_regex = re.compile(r"^symbol ")
-    symbol_changed_regex = re.compile(r"^symbol '[^']*' changed$")
-    crc_regex = re.compile(r"^  CRC changed from [^ ]* to [^ ]*$")
-    blank_regex = re.compile(r"^$")
-    pending = []
-    new_lines = []
-
-    def emit_pending() -> None:
-        if not pending:
-            return
-        for (symbol_details, crc_details) in pending[0:limit]:
-            new_lines.extend([symbol_details, crc_details, "\n"])
-        count = len(pending)
-        if count > limit:
-            new_lines.append(
-                "... {} omitted; {} symbols have only CRC changes\n\n".format(
-                    count - limit, count))
-        del pending[:]
-
-    lines = text.splitlines(keepends=True)
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        if section_regex.search(line) and not symbol_regex.search(line):
-            emit_pending()
-        elif (symbol_changed_regex.search(line) and index + 2 < len(lines) and
-              crc_regex.search(lines[index + 1]) and
-              blank_regex.search(lines[index + 2])):
-            pending.append((line, lines[index + 1]))
-            index += 3
-            continue
-        new_lines.append(line)
-        index += 1
-
-    emit_pending()
-    return "".join(new_lines)
-
-
-def _remove_matching_lines(regexes: List[str], text: str) -> str:
-    """Removes consecutive lines matching consecutive regexes."""
-    if not regexes:
-        return text
-    num_regexes = len(regexes)
-    lines = text.splitlines(keepends=True)
-    num_lines = len(lines)
-    new_lines = []
-    index = 0
-    while index < num_lines:
-        match = True
-        for offset in range(0, num_regexes):
-            i = index + offset
-            if i == num_lines or not re.search(regexes[offset], lines[i]):
-                match = False
-                break
-        if match:
-            index += num_regexes
-        else:
-            new_lines.append(lines[index])
-            index += 1
     return "".join(new_lines)
 
 
@@ -410,30 +264,6 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
                 abi_changed = True
 
         return abi_changed
-
-
-def _shorten_stgdiff(changed, diff_report, short_report):
-    with open(diff_report) as input:
-        text = input.read()
-        # TODO(b/214966642): Remove once ABI XML type definitions are more stable.
-        text = _remove_matching_lines([
-            r"^type '.*' changed$",
-            r"^  was (fully defined|only declared), is now (fully defined|only declared)$",
-            r"^$",
-        ], text)
-        # TODO(b/221022839): Remove once ABI XML symbol definitions are more stable.
-        text = _remove_matching_lines([
-            r"^symbol ('.*' changed|changed from '.*' to '.*')$",
-            r"^  type '.*' was (added|removed)$",
-            r"^$",
-        ], text)
-        if not text:
-            changed = False
-        text = _collapse_stgdiff_offset_changes(text)
-        text = _collapse_stgdiff_CRC_changes(text, 3)
-        with open(short_report, "w") as output:
-            output.write(text)
-        return changed
 
 
 class Libabigail(AbiTool):
