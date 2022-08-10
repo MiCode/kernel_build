@@ -12,6 +12,7 @@
 | lmi-q-oss | Redmi K30 Pro| Android Q | LA.UM.8.12.r1-06000-sm8250.0 | [lmi-q-oss](https://github.com/MiCode/kernel_build/tree/lmi-q-oss) |
 | lime-q-oss | Redmi Note 9 4G,Redmi POCO M3 | Android Q | LA.UM.8.15.r1-06600-KAMORTA.0 | [lime-q-oss](https://github.com/MiCode/kernel_build/tree/lime-q-oss) |
 | mona-r-oss | Xiaomi Civi | Android R | LA.UM.9.14.r1-11500-LAHAINA.0 | [mona-r-oss](https://github.com/MiCode/kernel_build/tree/mona-r-oss) |
+| munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/kernel_build/tree/munch-s-oss) |
 | picasso-q-oss | Redmi K30 5G | Android Q | LA.UM.8.13.r1-03300-SAIPAN.0 | [picasso-q-oss](https://github.com/MiCode/kernel_build/tree/picasso-q-oss) |
 | picasso-r-oss | Mi 10 Lite 5G, Redmi K30 5G, Mi 10 Lite Zoom | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [picasso-r-oss](https://github.com/MiCode/kernel_build/tree/picasso-r-oss) |
 | psyche-r-oss | Mi 12X | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [psyche-r-oss](https://github.com/MiCode/kernel_build/tree/psyche-r-oss) |
