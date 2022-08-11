@@ -287,12 +287,10 @@ class Delegated(AbiTool):
     def diff_abi(self, old_dump, new_dump, diff_report, short_report=None,
                  symbol_list=None, full_report=None):
         # shoehorn the interface
-        basename = diff_report
-        stg_basename = basename + ".stg"
+        stg_basename = diff_report
         stg_short = stg_basename + ".short"
         links = {
-            basename: stg_short,
-            basename + ".short": stg_short,
+            stg_basename: stg_short,
         }
 
         changed = _run_stgdiff(old_dump, new_dump, stg_basename, symbol_list)
