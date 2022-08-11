@@ -294,8 +294,8 @@ class Delegated(AbiTool):
         stg_basename = basename + ".stg"
         stg_short = stg_basename + ".short"
         links = {
-            basename: abg_leaf,
-            basename + ".short": abg_leaf + ".short",
+            basename: stg_short,
+            basename + ".short": stg_short,
         }
 
         abidiff_leaf_changed = None
