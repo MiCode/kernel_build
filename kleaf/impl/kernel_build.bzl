@@ -29,6 +29,7 @@ load(
     "KernelBuildUapiInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
+    "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
 load(
@@ -782,6 +783,8 @@ def _kernel_build_impl(ctx):
         module_outs_file = all_module_names_file,
     )
 
+    images_info = KernelImagesInfo(base_kernel = ctx.attr.base_kernel)
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -808,6 +811,7 @@ def _kernel_build_impl(ctx):
         kernel_build_abi_info,
         kernel_unstripped_modules_info,
         in_tree_modules_info,
+        images_info,
         output_group_info,
         default_info,
     ]

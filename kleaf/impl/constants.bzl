@@ -37,3 +37,9 @@ GKI_ARTIFACTS_AARCH64_OUTS = [
     "boot.img" if e == "Image" else "boot-{}.img".format(e[len("Image."):])
     for e in AARCH64_IMAGES
 ]
+
+SYSTEM_DLKM_OUTS = [
+    "system_dlkm.img",
+    "system_dlkm_staging_archive.tar.gz",
+    "system_dlkm.modules.load",
+]
