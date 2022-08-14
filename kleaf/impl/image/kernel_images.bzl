@@ -84,7 +84,7 @@ def kernel_images(
             `VENDOR_BOOTCONFIG`
           - The list contains `dtb.img`
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
-        build_system_dlkm: Whether to build system_dlkm.img an erofs image with GKI modules.
+        build_system_dlkm: Whether to build system_dlkm.img an image with GKI modules.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `vendor_dlkm_modules_list` is set.
 
