@@ -65,34 +65,35 @@ def _download_artifact_repo_impl(repository_ctx):
 """.format(repository_ctx.name)
     repository_ctx.file("WORKSPACE.bazel", workspace_file, executable = False)
 
+    build_number = _get_build_number(repository_ctx)
+    if not build_number:
+        _handle_no_build_number(repository_ctx)
+    else:
+        _download_from_build_number(repository_ctx, build_number)
+
+def _get_build_number(repository_ctx):
+    """Gets the value of build number, setting defaults if necessary."""
     build_number = _parse_env(repository_ctx, _BUILD_NUM_ENV_VAR, repository_ctx.attr.parent_repo)
     if not build_number:
         build_number = repository_ctx.attr.build_number
+    return build_number
 
-    if build_number:
-        build_file = """filegroup(
-        name="file",
-        srcs=["{filename}"],
-        visibility=["@{parent_repo}//{filename}:__pkg__"],
-    )
-    """.format(
-            filename = repository_ctx.attr.filename,
-            parent_repo = repository_ctx.attr.parent_repo,
-        )
-    else:
-        SAMPLE_BUILD_NUMBER = "8077484"
-        if repository_ctx.attr.parent_repo == "gki_prebuilts":
-            msg = """
+def _handle_no_build_number(repository_ctx):
+    """Handles the case where the build number cannot be found."""
+
+    SAMPLE_BUILD_NUMBER = "8077484"
+    if repository_ctx.attr.parent_repo == "gki_prebuilts":
+        msg = """
 ERROR: {parent_repo}: No build_number specified. Fix by specifying `--use_prebuilt_gki=<build_number>"`, e.g.
     bazel build --use_prebuilt_gki={build_number} @{parent_repo}//{filename}
 """.format(
-                filename = repository_ctx.attr.filename,
-                parent_repo = repository_ctx.attr.parent_repo,
-                build_number = SAMPLE_BUILD_NUMBER,
-            )
+            filename = repository_ctx.attr.filename,
+            parent_repo = repository_ctx.attr.parent_repo,
+            build_number = SAMPLE_BUILD_NUMBER,
+        )
 
-        else:
-            msg = """
+    else:
+        msg = """
 ERROR: {parent_repo}: No build_number specified.
 
 Fix by one of the following:
@@ -102,12 +103,12 @@ Fix by one of the following:
       --action_env={build_num_var}="{parent_repo}={build_number}" \\
       @{parent_repo}//{filename}
 """.format(
-                filename = repository_ctx.attr.filename,
-                parent_repo = repository_ctx.attr.parent_repo,
-                build_number = SAMPLE_BUILD_NUMBER,
-                build_num_var = _BUILD_NUM_ENV_VAR,
-            )
-        build_file = """
+            filename = repository_ctx.attr.filename,
+            parent_repo = repository_ctx.attr.parent_repo,
+            build_number = SAMPLE_BUILD_NUMBER,
+            build_num_var = _BUILD_NUM_ENV_VAR,
+        )
+    build_file = """
 load("@//build/kernel/kleaf:fail.bzl", "fail_rule")
 
 fail_rule(
@@ -118,18 +119,39 @@ fail_rule(
 
     repository_ctx.file("file/BUILD.bazel", build_file, executable = False)
 
-    if build_number:
-        urls = [_ARTIFACT_URL_FMT.format(
-            build_number = build_number,
-            target = repository_ctx.attr.target,
-            filename = repository_ctx.attr.filename,
-        )]
-        download_path = repository_ctx.path("file/{}".format(repository_ctx.attr.filename))
-        download_info = repository_ctx.download(
-            url = urls,
-            output = download_path,
-            sha256 = repository_ctx.attr.sha256,
-        )
+def _download_from_build_number(repository_ctx, build_number):
+    # Download the requested file
+    urls = [_ARTIFACT_URL_FMT.format(
+        build_number = build_number,
+        target = repository_ctx.attr.target,
+        filename = repository_ctx.attr.filename,
+    )]
+    download_path = repository_ctx.path("file/{}".format(repository_ctx.attr.filename))
+    download_info = repository_ctx.download(
+        url = urls,
+        output = download_path,
+        sha256 = repository_ctx.attr.sha256,
+        allow_fail = repository_ctx.attr.allow_fail,
+    )
+
+    # Define the filegroup to contain the file.
+    # If failing and it is allowed, set filegroup to empty
+    if not download_info.success and repository_ctx.attr.allow_fail:
+        srcs = ""
+    else:
+        srcs = '"{}"'.format(repository_ctx.attr.filename)
+
+    build_file = """filegroup(
+    name="file",
+    srcs=[{srcs}],
+    visibility=["@{parent_repo}//{filename}:__pkg__"],
+)
+""".format(
+        srcs = srcs,
+        filename = repository_ctx.attr.filename,
+        parent_repo = repository_ctx.attr.parent_repo,
+    )
+    repository_ctx.file("file/BUILD.bazel", build_file, executable = False)
 
 _download_artifact_repo = repository_rule(
     implementation = _download_artifact_repo_impl,
@@ -139,6 +161,7 @@ _download_artifact_repo = repository_rule(
         "filename": attr.string(),
         "target": attr.string(doc = "Name of target on [ci.android.com](http://ci.android.com), e.g. `kernel_kleaf`"),
         "sha256": attr.string(default = ""),
+        "allow_fail": attr.bool(),
     },
     environ = [
         _BUILD_NUM_ENV_VAR,
@@ -165,7 +188,8 @@ _alias_repo = repository_rule(
 def download_artifacts_repo(
         name,
         target,
-        files,
+        files = None,
+        optional_files = None,
         build_number = None):
     """Create a [repository](https://docs.bazel.build/versions/main/build-ref.html#repositories) that contains artifacts downloaded from [ci.android.com](http://ci.android.com).
 
@@ -178,6 +202,7 @@ def download_artifacts_repo(
         target = "kernel_kleaf",
         build_number = "8077484"
         files = ["vmlinux"],
+        optional_files = ["abi_symbollist"],
     )
     ```
 
@@ -204,23 +229,35 @@ def download_artifacts_repo(
           - If a list, this is a list of file names on [ci.android.com](http://ci.android.com).
           - If a dict, keys are file names on [ci.android.com](http://ci.android.com), and values
             are corresponding SHA256 hash.
+        optional_files: Same as `files`, but it is optional. If the file is not in the given
+          build, it will not be downloaded, and the label (e.g. `@gki_prebuilts//abi_symbollist`)
+          points to an empty filegroup.
     """
 
     if type(files) == type([]):
         files = {filename: None for filename in files}
+    elif files == None:
+        files = {}
 
-    for filename, sha256 in files.items():
-        # Need a repo for each file because repository_ctx.download is blocking. Defining multiple
-        # repos allows downloading in parallel.
-        # e.g. @gki_prebuilts_vmlinux
-        _download_artifact_repo(
-            name = name + "_" + _sanitize_repo_name(filename),
-            parent_repo = name,
-            filename = filename,
-            build_number = build_number,
-            target = target,
-            sha256 = sha256,
-        )
+    if type(optional_files) == type([]):
+        optional_files = {filename: None for filename in optional_files}
+    elif optional_files == None:
+        optional_files = {}
+
+    for files_dict, allow_fail in ((files, False), (optional_files, True)):
+        for filename, sha256 in files_dict.items():
+            # Need a repo for each file because repository_ctx.download is blocking. Defining multiple
+            # repos allows downloading in parallel.
+            # e.g. @gki_prebuilts_vmlinux
+            _download_artifact_repo(
+                name = name + "_" + _sanitize_repo_name(filename),
+                parent_repo = name,
+                filename = filename,
+                build_number = build_number,
+                target = target,
+                sha256 = sha256,
+                allow_fail = allow_fail,
+            )
 
     # Define a repo named @gki_prebuilts that contains aliases to individual files, e.g.
     # @gki_prebuilts//vmlinux
@@ -228,6 +265,6 @@ def download_artifacts_repo(
         name = name,
         aliases = {
             filename: "@" + name + "_" + _sanitize_repo_name(filename) + "//file"
-            for filename in files.keys()
+            for filename in (list(files.keys()) + list(optional_files.keys()))
         },
     )
