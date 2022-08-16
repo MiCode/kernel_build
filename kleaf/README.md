@@ -22,6 +22,8 @@
 
 [Building against downloaded prebuilts](docs/download_prebuilt.md)
 
+[Customize workspace](docs/workspace.md)
+
 [Cheatsheet](docs/cheatsheet.md)
 
 ### Configurations

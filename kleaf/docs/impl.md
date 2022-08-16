@@ -18,6 +18,7 @@ Make the following changes to the kernel manifest to support Bazel build.
       any more.
 * Add `tools/bazel` symlink to `build/kernel/kleaf/bazel.sh`
 * Add `WORKSPACE` symlink to `build/kernel/kleaf/bazel.WORKSPACE`
+  * See [workspace.md](workspace.md) for building with a custom workspace.
 * Dependent repositories for Bazel, including:
     * [prebuilts/bazel/linux-x86\_64](https://android.googlesource.com/platform/prebuilts/bazel/linux-x86_64/)
     * [prebuilts/jdk/jdk11](https://android.googlesource.com/platform/prebuilts/jdk/jdk11/)

@@ -14,12 +14,21 @@
 
 import argparse
 import os
+import pathlib
+import shutil
 import sys
 from typing import Tuple, Optional
 
 _BAZEL_REL_PATH = "prebuilts/bazel/linux-x86_64/bazel"
 _BAZEL_JDK_REL_PATH = "prebuilts/jdk/jdk11/linux-x86"
 _BAZEL_RC_NAME = "build/kernel/kleaf/common.bazelrc"
+
+
+def _require_absolute_path(p: str) -> pathlib.Path:
+    p = pathlib.Path(p)
+    if not p.is_absolute():
+        raise argparse.ArgumentTypeError("need to specify an absolute path")
+    return p
 
 
 def _partition(lst: list[str], index: Optional[int]) \
@@ -90,12 +99,17 @@ class BazelWrapper(object):
         - env: A dictionary containing the new environment variables for the subprocess.
         """
 
+        absolute_cache_dir = f"{self.absolute_out_dir}/cache"
+
         # Arguments known by this bazel wrapper.
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("--use_prebuilt_gki")
         parser.add_argument("--experimental_strip_sandbox_path",
                             action='store_true')
         parser.add_argument("--make_jobs", type=int, default=None)
+        parser.add_argument("--cache_dir",
+                            type=_require_absolute_path,
+                            default=absolute_cache_dir)
 
         # known_args: List of arguments known by this bazel wrapper. These
         #   are stripped from the final bazel invocation.
@@ -110,6 +124,9 @@ class BazelWrapper(object):
 
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
+
+        self.transformed_command_args.append(
+            f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
 
     def _build_final_args(self) -> list[str]:
         """Builds the final arguments for the subprocess."""
@@ -129,6 +146,13 @@ class BazelWrapper(object):
         if self.dash_dash is not None:
             final_args.append(self.dash_dash)
         final_args += self.target_patterns
+
+        if self.command == "clean":
+            sys.stderr.write(
+                f"INFO: Removing cache directory for $OUT_DIR: {self.known_args.cache_dir}\n")
+            shutil.rmtree(self.known_args.cache_dir, ignore_errors=True)
+        else:
+            os.makedirs(self.known_args.cache_dir, exist_ok=True)
 
         return final_args
 

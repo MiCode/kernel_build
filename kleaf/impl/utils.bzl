@@ -108,6 +108,11 @@ def _compare_file_names(files, expected_file_names, what):
             expected_file_names,
         ))
 
+def _sanitize_label_as_filename(label):
+    """Sanitize a Bazel label so it is safe to be used as a filename."""
+    label_text = str(label)
+    return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -117,6 +122,7 @@ utils = struct(
     find_file = find_file,
     find_files = find_files,
     compare_file_names = _compare_file_names,
+    sanitize_label_as_filename = _sanitize_label_as_filename,
 )
 
 def _filter_module_srcs(files):

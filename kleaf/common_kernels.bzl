@@ -277,9 +277,11 @@ def define_common_kernels(
 
     Args:
       branch: The value of `BRANCH` in `build.config`. If not set, it is loaded
-        from `common/build.config.constants` **in package `//common`**. Hence,
-        if `define_common_kernels()` is called in a different package, it must
-        be supplied.
+        from `common/build.config.constants` **in `//{common_kernel_packgae}`**
+        where `common_kernel_package` is supplied to `define_kleaf_workspace()`
+        in the `WORKSPACE` file. Usually, `common_kernel_package = "common"`.
+        Hence, if `define_common_kernels()` is called in a different package, it
+        must be supplied.
       target_configs: A dictionary, where keys are target names, and
         values are a dictionary of configurations to override the default
         configuration for this target.

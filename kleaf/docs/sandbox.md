@@ -62,6 +62,18 @@ you'll get a build error.
 
 See [scmversion.md](scmversion.md).
 
+## Local cache dir
+
+The `--config=local` mode makes use of a persistent `$OUT_DIR`
+across invocations to cache the rule execution state. The default cache
+directory is `$WORKSPACE/out/cache`, but can be overridden by passing
+`--cache_dir=/some/fast/disk` in order to make use of a file system that
+performs well or better for the kernel build workload. Full example:
+
+```shell
+$ tools/bazel run --config=local --cache_dir=/some/fast/disk //common:kernel_aarch64_dist
+```
+
 ## Other flags
 
 The flag `--config=local` is also implied by other flags, e.g.:
