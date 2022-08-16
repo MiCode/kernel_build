@@ -744,7 +744,7 @@ def _define_prebuilts(**kwargs):
         additional_artifacts_items = [
             name + "_headers",
             name + "_images",
-            # TODO(b/240496668): Add _kmi_symbol_list
+            name + "_kmi_symbol_list",
             name + "_gki_artifacts",
         ]
 
