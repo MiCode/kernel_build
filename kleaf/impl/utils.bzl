@@ -47,7 +47,7 @@ def find_file(name, files, what, required = False):
             actual_len = len(result),
             name = name,
             expected_len = "1" if required else "0 or 1",
-            files = ":\n  " + ("\n  ".join(result)) if result else "",
+            files = ":\n  " + ("\n  ".join([e.path for e in result])) if result else "",
         ))
     return result[0] if result else None
 
