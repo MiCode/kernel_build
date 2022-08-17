@@ -85,7 +85,7 @@ def kernel_images(
           - `RAMDISK_EXT=lz4`. If the build configuration has a different value, replace
             `ramdisk.lz4` with `ramdisk.{RAMDISK_EXT}` accordingly.
           - `BOOT_IMAGE_HEADER_VERSION >= 4`, which creates `vendor-bootconfig.img` to contain
-            `VENDOR_BOOTCONFIG`
+            `VENDOR_BOOTCONFIG if `build_vendor_boot`.
           - The list contains `dtb.img`
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
         build_system_dlkm: Whether to build system_dlkm.img an image with GKI modules.
@@ -243,7 +243,6 @@ def kernel_images(
             boot_image_outs = [
                 "dtb.img",
                 "ramdisk.lz4",
-                "vendor-bootconfig.img",
             ]
 
     boot_image_outs = list(boot_image_outs)
@@ -253,6 +252,7 @@ def kernel_images(
 
     if build_vendor_boot and "vendor_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_boot.img")
+        boot_image_outs.append("vendor-bootconfig.img")
 
     if build_vendor_kernel_boot and "vendor_kernel_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_kernel_boot.img")
