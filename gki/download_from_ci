@@ -40,14 +40,19 @@ from abitool import dump_kernel_abi
 
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 ARM_TARGETS = ["u-boot_qemu_arm"]
-ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64",
-                 "u-boot_crosvm_aarch64", "u-boot_qemu_aarch64",
+ARM64_TARGETS = ["kernel_aarch64",
+                 "kernel_debug_aarch64",
+                 "kernel_microdroid_aarch64",
+                 "u-boot_crosvm_aarch64",
                  "u-boot_crosvm_locked_aarch64",
-                 "kernel_microdroid_aarch64"]
-X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64",
-                  "u-boot_crosvm_x86_64", "u-boot_qemu_x86_64",
+                 "u-boot_gem5_aarch64",
+                 "u-boot_qemu_aarch64"]
+X86_64_TARGETS = ["kernel_x86_64",
+                  "kernel_debug_x86_64",
+                  "kernel_microdroid_x86_64",
+                  "u-boot_crosvm_x86_64",
                   "u-boot_crosvm_locked_x86_64",
-                  "kernel_microdroid_x86_64"]
+                  "u-boot_qemu_x86_64"]
 GIT_COMMIT_LOG_LENGTH = 100
 
 # Arguments from argparse.
@@ -521,8 +526,12 @@ def download_u_boot(target, output_dir):
   if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
 
-  build_is_arm = target in ARM_TARGETS + ARM64_TARGETS
-  files = ["u-boot.bin"] if build_is_arm else ["u-boot.rom"]
+  extension = "rom"
+  if target == "u-boot_gem5_aarch64":
+    extension = "elf"
+  elif target in ARM_TARGETS + ARM64_TARGETS:
+    extension = "bin"
+  files = [f"u-boot.{extension}"]
   files.append("System.map")
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
@@ -549,6 +558,7 @@ def update_u_boot_mainline(output_dir):
   crosvm_x86_64_dir = os.path.join(bootloader_dir, "crosvm_x86_64")
   crosvm_locked_aarch64_dir = os.path.join(bootloader_dir, "crosvm_locked_aarch64")
   crosvm_locked_x86_64_dir = os.path.join(bootloader_dir, "crosvm_locked_x86_64")
+  gem5_aarch64_dir = os.path.join(bootloader_dir, "gem5_aarch64")
   qemu_aarch64_dir = os.path.join(bootloader_dir, "qemu_aarch64")
   qemu_arm_dir = os.path.join(bootloader_dir, "qemu_arm")
   qemu_x86_64_dir = os.path.join(bootloader_dir, "qemu_x86_64")
@@ -565,6 +575,8 @@ def update_u_boot_mainline(output_dir):
   download_u_boot("u-boot_crosvm_aarch64", crosvm_aarch64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
   download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=gem5_aarch64_dir)
+  download_u_boot("u-boot_gem5_aarch64", gem5_aarch64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
   download_u_boot("u-boot_qemu_aarch64", qemu_aarch64_dir)
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_arm_dir)
