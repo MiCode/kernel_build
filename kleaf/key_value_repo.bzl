@@ -17,8 +17,8 @@ bzl_library(
     srcs = ["dict.bzl"],
     visibility = ["//visibility:public"],
 )
-""")
-    repository_ctx.file("dict.bzl", repository_content)
+""", executable = False)
+    repository_ctx.file("dict.bzl", repository_content, executable = False)
 
 key_value_repo = repository_rule(
     implementation = _impl,
