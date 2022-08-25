@@ -30,6 +30,11 @@ string_flag(
     values = LTO_VALUES,
 )
 
+string_flag(
+    name = "cache_dir",
+    build_setting_default = "",
+)
+
 # If true, set `KBUILD_SYMTYPES=1` for kernel_build() with
 # kbuild_symtypes="auto".
 bool_flag(
@@ -123,15 +128,20 @@ docs(
         "key_value_repo.bzl",
         "print_debug.bzl",
         "update_source_file.bzl",
+        "workspace.bzl",
+        "workspace_epilog.bzl",
     ],
     default = "kernel.bzl",
     deps = [
         "//build/bazel_common_rules/dist",
         "//build/bazel_common_rules/exec",
+        "//build/bazel_common_rules/workspace",
         "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
+        "@bazel_skylib//:workspace",
         "@bazel_skylib//lib:dicts",
         "@bazel_skylib//lib:paths",
+        "@bazel_skylib//lib:unittest",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
     ],

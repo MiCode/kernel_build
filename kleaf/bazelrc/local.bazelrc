@@ -17,6 +17,6 @@
 # Let rules know what configs we are using now
 build:local --//build/kernel/kleaf:config_local
 
-# Skip sandboxing to cache $OUT_DIR.
+# A list of actions to skip sandboxing.
 build:local --strategy KernelConfig=local
 build:local --strategy KernelBuild=local

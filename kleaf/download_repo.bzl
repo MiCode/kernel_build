@@ -63,7 +63,7 @@ _ARTIFACT_URL_FMT = "https://androidbuildinternal.googleapis.com/android/interna
 def _download_artifact_repo_impl(repository_ctx):
     workspace_file = """workspace(name = "{}")
 """.format(repository_ctx.name)
-    repository_ctx.file("WORKSPACE.bazel", workspace_file)
+    repository_ctx.file("WORKSPACE.bazel", workspace_file, executable = False)
 
     build_number = _parse_env(repository_ctx, _BUILD_NUM_ENV_VAR, repository_ctx.attr.parent_repo)
     if not build_number:
@@ -116,7 +116,7 @@ fail_rule(
 )
 """.format(msg)
 
-    repository_ctx.file("file/BUILD.bazel", build_file)
+    repository_ctx.file("file/BUILD.bazel", build_file, executable = False)
 
     if build_number:
         urls = [_ARTIFACT_URL_FMT.format(
@@ -148,12 +148,12 @@ _download_artifact_repo = repository_rule(
 def _alias_repo_impl(repository_ctx):
     workspace_file = """workspace(name = "{}")
 """.format(repository_ctx.name)
-    repository_ctx.file("WORKSPACE.bazel", workspace_file)
+    repository_ctx.file("WORKSPACE.bazel", workspace_file, executable = False)
 
     for filename, actual in repository_ctx.attr.aliases.items():
         build_file = """alias(name="{filename}", actual="{actual}", visibility=["//visibility:public"])
 """.format(filename = filename, actual = actual)
-        repository_ctx.file("{}/BUILD.bazel".format(filename), build_file)
+        repository_ctx.file("{}/BUILD.bazel".format(filename), build_file, executable = False)
 
 _alias_repo = repository_rule(
     implementation = _alias_repo_impl,

@@ -22,6 +22,20 @@ load("//build/kernel/kleaf:download_repo.bzl", "download_artifacts_repo")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
 
 def define_kleaf_workspace(common_kernel_package = None):
+    """Common macro for defining repositories in a Kleaf workspace.
+
+    **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
+    files, not `BUILD` or `BUILD.bazel` files!**
+
+    If [`define_kleaf_workspace_epilog`](#define_kleaf_workspace_epilog) is
+    called, it must be called after `define_kleaf_workspace` is called.
+
+    Args:
+      common_kernel_package: The path to the common kernel source tree. By
+        default, it is `"common"`.
+
+        Do not provide the trailing `/`.
+    """
     if common_kernel_package == None:
         common_kernel_package = "common"
 

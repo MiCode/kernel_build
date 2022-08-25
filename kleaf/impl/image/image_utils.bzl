@@ -28,6 +28,7 @@ def _build_modules_image_impl_common(
         outputs,
         build_command,
         modules_staging_dir,
+        restore_modules_install = None,
         implicit_outputs = None,
         additional_inputs = None,
         mnemonic = None):
@@ -41,7 +42,12 @@ def _build_modules_image_impl_common(
         modules_staging_dir: a staging directory for module installation
         implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not returned in
           `DefaultInfo`)
+        restore_modules_install: If `True`, restore `ctx.attr.kernel_modules_install`. Default is `True`.
     """
+
+    if restore_modules_install == None:
+        restore_modules_install = True
+
     kernel_build = ctx.attr.kernel_modules_install[KernelModuleInfo].kernel_build
     kernel_build_outs = kernel_build[KernelBuildInfo].outs + kernel_build[KernelBuildInfo].base_kernel_files
     system_map = utils.find_file(
@@ -50,7 +56,9 @@ def _build_modules_image_impl_common(
         required = True,
         what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build),
     )
-    modules_install_staging_dws = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws
+
+    if restore_modules_install:
+        modules_install_staging_dws = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws
 
     inputs = []
     if additional_inputs != None:
@@ -58,7 +66,8 @@ def _build_modules_image_impl_common(
     inputs += [
         system_map,
     ]
-    inputs += dws.files(modules_install_staging_dws)
+    if restore_modules_install:
+        inputs += dws.files(modules_install_staging_dws)
     inputs += ctx.files.deps
     inputs += kernel_build[KernelEnvInfo].dependencies
 
@@ -73,10 +82,12 @@ def _build_modules_image_impl_common(
     for attr_name in (
         "modules_list",
         "modules_blocklist",
-        "modules_options",
         "vendor_dlkm_modules_list",
         "vendor_dlkm_modules_blocklist",
         "vendor_dlkm_props",
+        "system_dlkm_modules_list",
+        "system_dlkm_modules_blocklist",
+        "system_dlkm_props",
     ):
         # Checks if attr_name is a valid attribute name in the current rule.
         # If not, do not touch its value.
@@ -98,11 +109,20 @@ def _build_modules_image_impl_common(
         )
 
     # Allow writing to files because create_modules_staging wants to overwrite modules.order.
-    command += dws.restore(
-        modules_install_staging_dws,
-        dst = modules_staging_dir,
-        options = "-aL --chmod=F+w",
-    )
+    if restore_modules_install:
+        command += dws.restore(
+            modules_install_staging_dws,
+            dst = modules_staging_dir,
+            options = "-aL --chmod=F+w --exclude=source --exclude=build",
+        )
+
+        # source/ and build/ are symlinks to the source tree and $OUT_DIR, respectively,
+        # so they are copied as links.
+        command += dws.restore(
+            modules_install_staging_dws,
+            dst = modules_staging_dir,
+            options = "-al --chmod=F+w --include=source --include=build --exclude='*'",
+        )
 
     command += """
              # Restore System.map to DIST_DIR for run_depmod in create_modules_staging

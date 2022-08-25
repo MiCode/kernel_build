@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
@@ -29,6 +30,7 @@ load(
     "KernelBuildUapiInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
+    "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
 load(
@@ -602,6 +604,23 @@ def _kernel_build_impl(ctx):
     command = ""
     command += ctx.attr.config[KernelEnvInfo].setup
 
+    # Use a local cache directory for ${OUT_DIR} so that, even when this _kernel_build
+    # target needs to be rebuilt, we are using $OUT_DIR from previous invocations. This
+    # boosts --config=local builds. See (b/235632059).
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        if not ctx.attr._cache_dir[BuildSettingInfo].value:
+            fail("--config=local requires --cache_dir.")
+        command += """
+              KLEAF_CACHED_OUT_DIR={cache_dir}/{name}
+              mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
+              rsync -aL "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+              export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
+              unset KLEAF_CACHED_OUT_DIR
+        """.format(
+            cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
+            name = utils.sanitize_label_as_filename(ctx.label),
+        )
+
     interceptor_command_prefix = ""
     if interceptor_output:
         interceptor_command_prefix = "interceptor -r -l {interceptor_output} --".format(
@@ -685,9 +704,9 @@ def _kernel_build_impl(ctx):
              for ko in ${{remaining_ko_files}}; do
                echo '    "'"${{ko}}"'",' >&2
              done
-             echo "Alternatively, install buildozer and execute:"
-             echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}"
-             echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference"
+             echo "Alternatively, install buildozer and execute:" >&2
+             echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}" >&2
+             echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference" >&2
              exit 1
            fi
          # Clean up staging directories
@@ -778,9 +797,11 @@ def _kernel_build_impl(ctx):
         directory = unstripped_dir,
     )
 
-    base_kernel_info = KernelBuildInTreeModulesInfo(
+    in_tree_modules_info = KernelBuildInTreeModulesInfo(
         module_outs_file = all_module_names_file,
     )
+
+    images_info = KernelImagesInfo(base_kernel = ctx.attr.base_kernel)
 
     output_group_kwargs = {}
     for d in all_output_files.values():
@@ -807,7 +828,8 @@ def _kernel_build_impl(ctx):
         kernel_build_uapi_info,
         kernel_build_abi_info,
         kernel_unstripped_modules_info,
-        base_kernel_info,
+        in_tree_modules_info,
+        images_info,
         output_group_info,
         default_info,
     ]
@@ -858,6 +880,8 @@ _kernel_build = rule(
         "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
+        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the

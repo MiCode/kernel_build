@@ -20,7 +20,7 @@ In particular, look out for these places:
 
 See Pixel 2021 mainline for an example (search for `//common:kernel_aarch64`):
 
-[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/slider.bzl](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/slider.bzl)
+[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)
 
 ## Step 2: Build with `--use_prebuilt_gki=<BUILD_ID>`
 

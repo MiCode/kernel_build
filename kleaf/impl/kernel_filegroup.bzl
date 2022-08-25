@@ -19,6 +19,7 @@ load(
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildUapiInfo",
+    "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
 load(":debug.bzl", "debug")
@@ -77,7 +78,9 @@ def _kernel_filegroup_impl(ctx):
         unstripped_modules_info = KernelUnstrippedModulesInfo(directory = unstripped_dir)
 
     abi_info = KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
-    base_kernel_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
+    in_tree_modules_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
+
+    images_info = KernelImagesInfo(base_kernel = None)
 
     return [
         DefaultInfo(files = depset(ctx.files.srcs)),
@@ -86,7 +89,8 @@ def _kernel_filegroup_impl(ctx):
         uapi_info,
         unstripped_modules_info,
         abi_info,
-        base_kernel_info,
+        in_tree_modules_info,
+        images_info,
     ]
 
 kernel_filegroup = rule(
@@ -173,6 +177,10 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "module_outs_file": attr.label(
             allow_single_file = True,
             doc = """A file containing `module_outs` of the original [`kernel_build`](#kernel_build) target.""",
+        ),
+        "images": attr.label(
+            allow_files = True,
+            doc = """A label providing files similar to a [`kernel_images`](#kernel_images) target.""",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
