@@ -125,8 +125,9 @@ class BazelWrapper(object):
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
 
-        self.transformed_command_args.append(
-            f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
+        if self.command != "query":
+            self.transformed_command_args.append(
+                f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
 
     def _build_final_args(self) -> list[str]:
         """Builds the final arguments for the subprocess."""
