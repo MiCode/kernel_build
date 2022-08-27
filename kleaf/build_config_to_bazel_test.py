@@ -255,12 +255,17 @@ class BuildConfigToBazelTest(unittest.TestCase):
                     outs = None,  # FIXME: set to the list of external modules in this package. You may run `tools/bazel build //{_TEST_DATA}/ext_module2:ext_module2` and follow the instructions in the error message.
                     kernel_build = "//{_TEST_DATA}:everything",
                 )'''),
-            f'"//{_TEST_DATA}/ext_module1"',
-            f'"//{_TEST_DATA}/ext_module2"',
+            (3, f'"//{_TEST_DATA}/ext_module1"'),
+            (3, f'"//{_TEST_DATA}/ext_module2"'),
 
-            # TODO(b/241320850): Support these variables in build_config_to_bazel
-            'ABI_DEFINITION',
-            'KMI_ENFORCED',
+            # ABI_DEFINITION
+            f'abi_definition = "//common:androidabi.xml"',
+            # KMI_ENFORCED
+            f'kmi_enforced = True',
+            # KMI_SYMBOL_LIST_ADD_ONLY
+            f'kmi_symbol_list_add_only = True',
+            # KMI_SYMBOL_LIST_MODULE_GROUPING
+            f'module_grouping = True',
         ]
 
         expected_files = {
