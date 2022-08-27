@@ -492,6 +492,27 @@ class BuildozerCommandBuilder(object):
             # We could flatten this list, but we don't care about the in-memory value for now.
             attr_val.value += f" + [{command_value}]"
 
+    def _rename(self, target: str, old_attr: str, new_attr: str):
+        """Writes a buildozer command that renames an attribute.
+
+        Args:
+            target: full label of target
+            old_attr: old attribute name
+            new_attr: new attribute name
+        """
+        self.out_file.write(f"rename {old_attr} {new_attr}|{target}\n")
+
+        old_key = AttributeKey(target, old_attr)
+        new_key = AttributeKey(target, new_attr)
+
+        # move value in self.existing
+        if old_key not in self.existing:
+            # This will fail when executing buildozer, but let buildozer
+            # provide a detailed error message. Don't fail here.
+            self.existing[old_key] = AttributeValue()
+        self.existing[new_key] = self.existing[old_key]
+        self.existing[old_key] = AttributeValue()
+
     def _create_extra_file(self, path: str, content: str):
         """Creates an extra file in the filesystem."""
         if self.args.stdout:
@@ -515,6 +536,7 @@ class BuildozerCommandBuilder(object):
 
         images = None
         need_unstripped_modules = False
+        modules = []
 
         target_comment = []
 
@@ -551,11 +573,23 @@ class BuildozerCommandBuilder(object):
                 for elem in value.split():
                     self._add_attr(target, "outs", elem, quote=True)
             elif key == "EXT_MODULES":
-                # TODO(b/241320850): add kernel_modules_install (modules_install) to EXT_MODULES
-                modules = value.split()
-                if modules:
-                    target_comment.append(
-                        f"FIXME: {key}={esc_value}: Please manually convert to kernel_module")
+                module_packages = [token.strip() for token in value.split() if token.strip()]
+                for module_package in module_packages:
+                    module = self._new("kernel_module",
+                                              name=os.path.basename(module_package),
+                                              package=module_package,
+                                              add_to_dist=False)
+                    self._set_attr(module, "kernel_build", target, quote=True)
+                    # buildozer converts None to ["None"] for outs, so use a different name
+                    # then rename.
+                    self._add_comment(module, "temp_outs",
+                          f"FIXME: set to the list of external modules in this package. You may "
+                          f"run `tools/bazel build {module}` and follow the instructions "
+                          f"in the error message.",
+                          lambda attr_val: attr_val.value is InfoValue.MISSING or
+                                           attr_val.value == InfoValue.NONE)
+                    self._rename(module, "temp_outs", "outs")
+                    modules.append(module)
             elif key == "KERNEL_DIR":
                 if value != self.package:
                     if value.removesuffix("/") == common:
@@ -675,17 +709,16 @@ class BuildozerCommandBuilder(object):
             unstripped_modules = self._new("kernel_unstripped_modules_archive",
                                            self.unstripped_modules_name)
             self._set_attr(unstripped_modules, "kernel_build", target, quote=True)
-            self._add_comment(unstripped_modules, "kernel_modules",
-                              f"FIXME: set kernel_modules to the list of kernel_module()s")
+            for module in modules:
+                self._add_attr(unstripped_modules, "kernel_modules", module, quote=True)
 
         modules_install = None
-        need_modules_install = images
+        need_modules_install = images or modules
         if need_modules_install:
             modules_install = self._new("kernel_modules_install", self.modules_install_name)
             self._set_attr(modules_install, "kernel_build", target, quote=True)
-            self._add_comment(modules_install, "kernel_modules",
-                              "FIXME: kernel_modules should include the list of "
-                              "kernel_module()s")
+            for module in modules:
+                self._add_attr(modules_install, "kernel_modules", module, quote=True)
 
         if images:
             self._set_attr(images, "kernel_build", target, quote=True)

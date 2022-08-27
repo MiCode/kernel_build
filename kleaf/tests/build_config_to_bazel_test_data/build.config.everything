@@ -13,7 +13,10 @@ myfile/myfile1
 
 myfile/myfile2
 "
-EXT_MODULES=${DEVICE_KERNEL_DIR}
+EXT_MODULES="
+${DEVICE_KERNEL_DIR}/ext_module1
+${DEVICE_KERNEL_DIR}/ext_module2
+"
 KCONFIG_EXT_PREFIX=${DEVICE_KERNEL_DIR}
 UNSTRIPPED_MODULES=*
 KMI_SYMBOL_LIST=android/abi_symbollist_mydevice

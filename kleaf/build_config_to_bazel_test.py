@@ -75,6 +75,7 @@ class BuildConfigToBazelTest(unittest.TestCase):
                     stdout=self.stdout,
                     stderr=self.stderr,
                     environ=self.environ)
+                builder._add_package_comment_for_test = True
                 builder.run()
             except Exception:
                 self.stderr.seek(0)
@@ -241,8 +242,23 @@ class BuildConfigToBazelTest(unittest.TestCase):
             # UNKNOWN_BUILD_CONFIG
             f'# FIXME: Unknown in build config: UNKNOWN_BUILD_CONFIG=1',
 
+            # EXT_MODULES
+            textwrap.dedent(f'''\
+                kernel_module(
+                    name = "ext_module1",  # //{_TEST_DATA}/ext_module1:ext_module1
+                    outs = None,  # FIXME: set to the list of external modules in this package. You may run `tools/bazel build //{_TEST_DATA}/ext_module1:ext_module1` and follow the instructions in the error message.
+                    kernel_build = "//{_TEST_DATA}:everything",
+                )'''),
+            textwrap.dedent(f'''\
+                kernel_module(
+                    name = "ext_module2",  # //{_TEST_DATA}/ext_module2:ext_module2
+                    outs = None,  # FIXME: set to the list of external modules in this package. You may run `tools/bazel build //{_TEST_DATA}/ext_module2:ext_module2` and follow the instructions in the error message.
+                    kernel_build = "//{_TEST_DATA}:everything",
+                )'''),
+            f'"//{_TEST_DATA}/ext_module1"',
+            f'"//{_TEST_DATA}/ext_module2"',
+
             # TODO(b/241320850): Support these variables in build_config_to_bazel
-            'EXT_MODULES',
             'ABI_DEFINITION',
             'KMI_ENFORCED',
         ]
