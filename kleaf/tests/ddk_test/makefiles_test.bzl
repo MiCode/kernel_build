@@ -169,6 +169,25 @@ def makefiles_test_suite(name):
     )
     tests.append(name + "_bad_dep")
 
+    _makefiles_test_make(
+        name = name + "_export_other_headers",
+        module_srcs = ["dep.c"],
+        module_out = "dep.ko",
+        module_hdrs = [name + "_base_headers"],
+        expected_includes = [native.package_name()],
+    )
+    tests.append(name + "_export_other_headers")
+
+    _makefiles_test_make(
+        name = name + "_export_local_headers",
+        module_srcs = ["dep.c"],
+        module_out = "dep.ko",
+        module_hdrs = ["self.h"],
+        module_includes = ["."],
+        expected_includes = [native.package_name()],
+    )
+    tests.append(name + "_export_local_headers")
+
     native.test_suite(
         name = name,
         tests = tests,

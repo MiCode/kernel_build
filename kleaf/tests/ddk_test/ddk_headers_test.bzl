@@ -18,10 +18,10 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 
-def _good_includes_test_impl(ctx):
-    env = analysistest.begin(ctx)
-
+def check_ddk_headers_info(ctx, env):
+    """Check that the target implements DdkHeadersInfo with the expected `includes` and `hdrs`."""
     target_under_test = analysistest.target_under_test(env)
+
     asserts.set_equals(
         env,
         sets.make(ctx.attr.expected_includes),
@@ -33,6 +33,9 @@ def _good_includes_test_impl(ctx):
         sets.make(target_under_test[DdkHeadersInfo].files.to_list()),
     )
 
+def _good_includes_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    check_ddk_headers_info(ctx, env)
     return analysistest.end(env)
 
 _good_includes_test = analysistest.make(

@@ -38,8 +38,8 @@ def _makefiles_impl(ctx):
 
     include_dirs = get_include_depset(
         module_label,
-        ctx.attr.module_deps,
-        [],
+        ctx.attr.module_deps + ctx.attr.module_hdrs,
+        ctx.attr.module_includes,
     )
 
     args = ctx.actions.args()
@@ -84,6 +84,8 @@ makefiles = rule(
         # module_X is the X attribute of the ddk_module. Prefixed with `module_`
         # because they aren't real srcs / hdrs / deps to the makefiles rule.
         "module_srcs": attr.label_list(allow_files = [".c", ".h", ".s", ".rs"]),
+        "module_hdrs": attr.label_list(allow_files = [".h"]),
+        "module_includes": attr.string_list(),
         "module_deps": attr.label_list(),
         "module_out": attr.string(),
         "_gen_makefile": attr.label(

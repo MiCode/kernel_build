@@ -28,7 +28,7 @@ load(
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
+load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_headers_depset")
 load(":debug.bzl", "debug")
 load(":stamp.bzl", "stamp")
 
@@ -273,8 +273,13 @@ def _kernel_module_impl(ctx):
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
     transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs]
+
+    # Add targets with DdkHeadersInfo in deps
     for hdr in hdr_deps:
         transitive_inputs.append(hdr[DdkHeadersInfo].files)
+
+    # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
+    transitive_inputs.append(get_headers_depset(ctx.attr.internal_hdrs))
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -519,6 +524,7 @@ def _kernel_module_impl(ctx):
             # It is needed to remove the `target_name` because we declare_file({name}/{internal_module_symvers_name}) above.
             restore_path = paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name),
         ),
+        ddk_headers_common_impl(ctx.label, ctx.attr.internal_hdrs, ctx.attr.internal_includes),
     ]
 
 _kernel_module = rule(
@@ -540,6 +546,8 @@ _kernel_module = rule(
         ),
         "internal_module_symvers_name": attr.string(default = "Module.symvers"),
         "internal_drop_modules_order": attr.bool(),
+        "internal_hdrs": attr.label_list(allow_files = [".h"]),
+        "internal_includes": attr.string_list(doc = "exported include directories"),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [KernelEnvInfo, KernelBuildExtModuleInfo],

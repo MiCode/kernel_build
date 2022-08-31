@@ -20,6 +20,7 @@ load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
+load(":ddk_headers_test.bzl", "check_ddk_headers_info")
 
 def _ddk_module_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -53,18 +54,24 @@ def _ddk_module_test_impl(ctx):
         ),
     )
 
+    check_ddk_headers_info(ctx, env)
+
     return analysistest.end(env)
 
 _ddk_module_test = analysistest.make(
     impl = _ddk_module_test_impl,
     attrs = {
         "expected_inputs": attr.label_list(allow_files = True),
+        "expected_includes": attr.string_list(),
+        "expected_hdrs": attr.label_list(allow_files = [".h"]),
     },
 )
 
 def _ddk_module_test_make(
         name,
         expected_inputs = None,
+        expected_hdrs = None,
+        expected_includes = None,
         **kwargs):
     ddk_module(
         name = name + "_module",
@@ -76,6 +83,8 @@ def _ddk_module_test_make(
         name = name,
         target_under_test = name + "_module",
         expected_inputs = expected_inputs,
+        expected_hdrs = expected_hdrs,
+        expected_includes = expected_includes,
     )
 
 def ddk_module_test_suite(name):
@@ -186,6 +195,18 @@ def ddk_module_test_suite(name):
         ],
     )
     tests.append(name + "_depend_on_legacy_modules_in_the_same_package")
+
+    _ddk_module_test_make(
+        name = name + "_exported_headers",
+        srcs = ["dep.c"],
+        kernel_build = name + "_kernel_build",
+        hdrs = ["include/subdir.h"],
+        includes = ["include"],
+        expected_inputs = ["include/subdir.h"],
+        expected_hdrs = ["include/subdir.h"],
+        expected_includes = [native.package_name() + "/include"],
+    )
+    tests.append(name + "_exported_headers")
 
     native.test_suite(
         name = name,
