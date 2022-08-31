@@ -105,6 +105,8 @@ def main():
                       help='combined symbol list file name')
   parser.add_argument('--report-file', required=True,
                       help='symbol list report file name')
+  parser.add_argument('--verbose', action='store_true',
+                      help='increase verbosity of the output')
 
   args = parser.parse_args()
 
@@ -119,13 +121,15 @@ def main():
   symbols = _get_symbols(lines)
   report = _check_symbols(config, symbols)
 
-  print('========================================================')
-  print(f'Generating ABI symbol list definition in {out_file}')
+  if args.verbose:
+    print('========================================================')
+    print(f'Generating ABI symbol list definition in {out_file}')
   with open(out_file, 'w') as sl:
     sl.writelines(lines)
 
   exit_status = 0
-  print(f'Generating ABI symbol report {report_file}')
+  if args.verbose:
+    print(f'Generating ABI symbol report {report_file}')
   with open(report_file, 'w') as rf:
     for symbol, status, reason in report:
       rf.write(f'{symbol}\t{status.name}\t{reason}\n')
