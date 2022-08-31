@@ -14,8 +14,10 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "unittest")
 load(":ddk_headers_test.bzl", "ddk_headers_test_suite")
+load(":makefiles_test.bzl", "makefiles_test_suite")
 
 unittest.suite(
     "ddk_test",
     ddk_headers_test_suite,
+    makefiles_test_suite,
 )
