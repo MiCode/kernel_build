@@ -107,7 +107,7 @@ For other build configurations defined in the `build.config` file, see
 
 Example for Pixel 2021 (see the `kernel_build` target named `slider`):
 
-[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)
+[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel)
 
 ### Step 2: Define targets to build external kernel modules
 
@@ -161,7 +161,7 @@ See Step 2 to determine the `kernel_build` attribute of the target.
 Example for Pixel 2021 (see the `kernel_modules_install` target
 named `slider_modules_install`):
 
-[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)
+[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel)
 
 ### Step 4: (Optional) Define a target to build all boot images
 
@@ -176,7 +176,7 @@ If you do not need to build any partition images, skip this step.
 
 Example for Pixel 2021 (see the `kernel_images` target named `slider_images`):
 
-[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)
+[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel)
 
 ### Step 5: Define a target for distribution {#step-5}
 
@@ -233,7 +233,7 @@ that the outputs are analogous to those produced by `build/build.sh`:
 
 Example for Pixel 2021 (see the `copy_to_dist_dir` target named `slider_dist`):
 
-[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel)
+[https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel](https://android.googlesource.com/kernel/google-modules/raviole-device/+/refs/heads/android13-gs-raviole-5.15/BUILD.bazel)
 
 ### Step 6: Build, flash and test
 
