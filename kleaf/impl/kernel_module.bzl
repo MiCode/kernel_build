@@ -330,7 +330,7 @@ def _kernel_module_impl(ctx):
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
         label = ctx.label,
-        ext_mod = ctx.attr.ext_mod,
+        ext_mod = ctx.label.package,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dws.directory.path,
         outdir = outdir,
@@ -372,7 +372,7 @@ def _kernel_module_impl(ctx):
         """.format(
             search_and_cp_output = ctx.file._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dws.directory.path,
-            ext_mod = ctx.attr.ext_mod,
+            ext_mod = ctx.label.package,
             outdir = outdir,
             outs = " ".join(original_outs),
         )
@@ -403,7 +403,7 @@ def _kernel_module_impl(ctx):
              # New shell ends
                )
     """.format(
-        ext_mod = ctx.attr.ext_mod,
+        ext_mod = ctx.label.package,
         module_symvers = module_symvers.path,
     )
 
@@ -452,7 +452,6 @@ _kernel_module = rule(
         "kernel_module_deps": attr.label_list(
             providers = [KernelEnvInfo, KernelModuleInfo],
         ),
-        "ext_mod": attr.string(mandatory = True),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
@@ -478,9 +477,6 @@ def _kernel_module_set_defaults(kwargs):
     """
     if kwargs.get("makefile") == None:
         kwargs["makefile"] = native.glob(["Makefile"])
-
-    if kwargs.get("ext_mod") == None:
-        kwargs["ext_mod"] = native.package_name()
 
     if kwargs.get("outs") == None:
         kwargs["outs"] = ["{}.ko".format(kwargs["name"])]

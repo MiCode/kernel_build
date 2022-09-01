@@ -175,7 +175,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
 """,
     attrs = {
         "kernel_modules": attr.label_list(
-            providers = [KernelEnvInfo, KernelModuleInfo],
+            providers = [KernelModuleInfo],
             doc = "A list of labels referring to `kernel_module`s to install. Must have the same `kernel_build` as this rule.",
         ),
         "kernel_build": attr.label(
