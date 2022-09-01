@@ -63,6 +63,7 @@ def kernel_build(
         srcs = None,
         module_outs = None,
         implicit_outs = None,
+        module_implicit_outs = None,
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
@@ -245,6 +246,11 @@ def kernel_build(
         implicit_outs: Like `outs`, but not copied to the distribution directory.
 
           Labels are created for each item in `implicit_outs` as in `outs`.
+
+        module_implicit_outs: like `module_outs`, but not copied to the distribution directory.
+
+          Labels are created for each item in `module_implicit_outs` as in `outs`.
+
         kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_list`.
 
           This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
@@ -405,6 +411,7 @@ def kernel_build(
         outs = kernel_utils.transform_kernel_build_outs(name, "outs", outs),
         module_outs = kernel_utils.transform_kernel_build_outs(name, "module_outs", module_outs),
         implicit_outs = kernel_utils.transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
+        module_implicit_outs = kernel_utils.transform_kernel_build_outs(name, "module_implicit_outs", module_implicit_outs),
         internal_outs = kernel_utils.transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
@@ -426,6 +433,7 @@ def kernel_build(
         ("outs", outs),
         ("module_outs", module_outs),
         ("implicit_outs", implicit_outs),
+        ("module_implicit_outs", module_implicit_outs),
         # internal_outs are opaque to the user, hence we don't create a alias (filegroup) for them.
     ):
         if out_attr_val == None:
@@ -483,9 +491,10 @@ def kernel_build(
         target = name,
         **kwargs
     )
+
     kernel_module_test(
         name = name + "_modules_test",
-        modules = real_outs.get("module_outs"),
+        modules = (real_outs.get("module_outs") or []) + (real_outs.get("module_implicit_outs") or []),
         **kwargs
     )
 
@@ -551,15 +560,15 @@ def _kernel_build_impl(ctx):
     # => all_output_names = ["foo", "Module.symvers", ...]
     #    all_output_files = {"out": {"foo": File(...)}, "internal_outs": {"Module.symvers": File(...)}, ...}
     all_output_files = {}
-    for attr in ("outs", "module_outs", "implicit_outs", "internal_outs"):
+    for attr in ("outs", "module_outs", "implicit_outs", "module_implicit_outs", "internal_outs"):
         all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
     all_output_names_minus_modules = []
     for attr, d in all_output_files.items():
-        if attr != "module_outs":
+        if attr not in ("module_outs", "module_implicit_outs"):
             all_output_names_minus_modules += d.keys()
 
     # A file containing all module_outs
-    all_module_names = all_output_files["module_outs"].keys()
+    all_module_names = all_output_files["module_outs"].keys() + all_output_files["module_implicit_outs"].keys()
     all_module_names_file = ctx.actions.declare_file("{name}_all_module_names/{name}{suffix}".format(name = ctx.label.name, suffix = MODULE_OUTS_FILE_SUFFIX))
     ctx.actions.write(
         output = all_module_names_file,
@@ -848,6 +857,7 @@ _kernel_build = rule(
         "outs": attr.string_list(),
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
+        "module_implicit_outs": attr.string_list(doc = "Like `module_outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_check_declared_output_list": attr.label(
             allow_single_file = True,
@@ -867,7 +877,7 @@ _kernel_build = rule(
         ),
         "base_kernel_for_module_outs": attr.label(
             providers = [KernelBuildInTreeModulesInfo],
-            doc = "If set, use the `module_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
+            doc = "If set, use the `module_outs` and `module_implicit_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
         ),
         "kmi_symbol_list_strict_mode": attr.bool(),
         "raw_kmi_symbol_list": attr.label(

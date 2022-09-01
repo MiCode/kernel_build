@@ -221,6 +221,15 @@ that the outputs are analogous to those produced by `build/build.sh`:
   * `//common:kernel_aarch64`
   * `//common:kernel_aarch64_additional_artifacts`
 * UAPI headers, e.g. `//common:kernel_aarch64_uapi_headers`
+* GKI modules
+  * If you are using all GKI modules, add `//common:kernel_aarch64_modules`.
+  * If you are using part of the GKI modules, add them individually, e.g.:
+    * `//common:kernel_aarch64/drivers/block/zram/zram.ko`
+    * `//common:kernel_aarch64/mm/zsmalloc.ko`
+  * Modules from the device kernel build with the same name as GKI modules
+    (e.g. on android13-5.15, you have `zram.ko` in `kernel_build.module_outs`)
+    does not need to be specified, because `module_outs` are added to
+    distribution.
 
 Example for Pixel 2021 (see the `copy_to_dist_dir` target named `slider_dist`):
 
