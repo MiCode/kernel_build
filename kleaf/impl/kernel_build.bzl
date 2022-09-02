@@ -441,6 +441,8 @@ def kernel_build(
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
                 native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out, **kwargs)
+                if out != paths.basename(out):
+                    native.filegroup(name = name + "/" + paths.basename(out), srcs = [":" + name], output_group = out, **kwargs)
             real_outs[out_name] = [name + "/" + out for out in out_attr_val]
         elif type(out_attr_val) == type({}):
             # out_attr_val = {config_setting: [out, ...], ...}
@@ -457,6 +459,18 @@ def kernel_build(
                     # Use "manual" tags to prevent it to be built with ...
                     **kwargs_with_manual
                 )
+                if out != paths.basename(out):
+                    native.filegroup(
+                        name = name + "/" + paths.basename(out),
+                        # Use a select() to prevent this rule to build when config_setting is not fulfilled.
+                        srcs = select({
+                            config_setting: [":" + name]
+                            for config_setting in config_settings
+                        }),
+                        output_group = out,
+                        # Use "manual" tags to prevent it to be built with ...
+                        **kwargs_with_manual
+                    )
             real_outs[out_name] = [name + "/" + out for out, _ in utils.reverse_dict(out_attr_val).items()]
         else:
             fail("Unexpected type {} for {}: {}".format(type(out_attr_val), out_name, out_attr_val))
