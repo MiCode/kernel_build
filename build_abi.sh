@@ -256,7 +256,7 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         # Redo what build.sh has done, with possibly fresher symbol lists.
         ${ROOT_DIR}/build/abi/process_symbols --out-dir="$DIST_DIR" --out-file=abi_symbollist \
           --report-file=abi_symbollist.report --in-dir="$ROOT_DIR/$KERNEL_DIR" \
-          "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
+          "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS} --verbose
 
         # In case of a simple --update-symbol-list call we can bail out early
         [ $UPDATE -eq 0 ] && exit 0
