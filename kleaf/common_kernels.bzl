@@ -852,6 +852,8 @@ def define_db845c(
         module_outs = module_outs,
         build_config = build_config,
         kmi_symbol_list = kmi_symbol_list,
+        # Enable mixed build.
+        base_kernel = "//common:kernel_aarch64",
     )
 
     kernel_modules_install(
