@@ -39,18 +39,19 @@ build:fast --lto=none
 build --lto=none
 ```
 
-**WARNING**: Due to
-[Issue 15679](https://github.com/bazelbuild/bazel/issues/15679), specifying
-`--lto` in the command line does not take effect with `--config=fast`
-as of 2022-06-15. Consider using `--config=local` until the issue is resolved.
-For example:
+**NOTE**: If you are using `--lto` with `--config=fast`, `--lto` must be
+specified after `--config=fast` because flags specified later take
+precedence. If unsure, use `--config=local` instead. For example:
 
 ```shell
-# DO NOT USE: --lto may be set to thin due to Issue 15679
-# tools/bazel run --config=fast --lto=none //common:kernel_dist
+# CORRECT:
+$ tools/bazel run --config=fast --lto=none //common:kernel_dist
 
-# Instead, use:
+# CORRECT:
 $ tools/bazel run --config=local --lto=none //common:kernel_dist
+
+# WRONG: --lto is set to thin
+# tools/bazel run --lto=none --config=fast //common:kernel_dist
 ```
 
 You may build the following to confirm the value of LTO setting:
