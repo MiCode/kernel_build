@@ -125,7 +125,7 @@ class BazelWrapper(object):
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
 
-        if self.command != "query":
+        if self.command not in ("query", "version"):
             self.transformed_command_args.append(
                 f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
 
