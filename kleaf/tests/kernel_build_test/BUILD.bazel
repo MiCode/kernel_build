@@ -13,9 +13,9 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "unittest")
-load(":kernel_build_analysis_test.bzl", "kernel_build_analysis_test_suite")
+load(":kernel_build_symtypes_test.bzl", "kernel_build_symtypes_test")
 
 unittest.suite(
     "kernel_build_test",
-    kernel_build_analysis_test_suite,
+    kernel_build_symtypes_test,
 )
