@@ -227,11 +227,17 @@ def _kernel_env_impl(ctx):
     ]
 
 def _get_tools(toolchain_version):
+    if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
+        # Using a test toolchain
+        clang_binaries = toolchain_version
+    else:
+        clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
+
     return [
         Label(e)
         for e in (
             "//build/kernel:kernel-build-scripts",
-            "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version,
+            clang_binaries,
         )
     ]
 
