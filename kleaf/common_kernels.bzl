@@ -727,10 +727,12 @@ def _define_prebuilts(**kwargs):
                 ":use_prebuilt_gki_set": [
                     name + "_ddk_artifacts_downloaded",
                     name + "_unstripped_modules_archive_downloaded",
+                    name + "_" + TOOLCHAIN_VERSION_FILENAME + "_downloaded",
                 ],
                 "//conditions:default": [
                     name + "_ddk_artifacts",
-                    # unstripped modules come from {name} in srcs
+                    name + "_" + TOOLCHAIN_VERSION_FILENAME,
+                    # unstripped modules come from {name} in srcs, KernelUnstrippedModulesInfo
                 ],
             }),
             kernel_srcs = [name + "_sources"],

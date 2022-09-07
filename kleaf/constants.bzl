@@ -62,6 +62,12 @@ GKI_DOWNLOAD_CONFIGS = [
         "outs": SYSTEM_DLKM_OUTS,
     },
     {
+        "target_suffix": "toolchain_version",
+        "outs": [
+            TOOLCHAIN_VERSION_FILENAME,
+        ],
+    },
+    {
         "target_suffix": "gki_artifacts",
         # We only download GKI for arm64, not x86_64
         # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
@@ -94,7 +100,6 @@ CI_TARGET_MAPPING = {
     "kernel_aarch64": {
         "repo_name": "gki_prebuilts",
         "outs": aarch64_outs + [
-            TOOLCHAIN_VERSION_FILENAME,
             "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
         ],
     },
