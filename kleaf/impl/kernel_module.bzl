@@ -206,7 +206,6 @@ def _kernel_module_impl(ctx):
     _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
     inputs = []
-    inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_prepare_deps
     inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs
@@ -217,6 +216,8 @@ def _kernel_module_impl(ctx):
     ]
     for kernel_module_dep in ctx.attr.kernel_module_deps:
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
+
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -347,7 +348,7 @@ def _kernel_module_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModule",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = command_outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),

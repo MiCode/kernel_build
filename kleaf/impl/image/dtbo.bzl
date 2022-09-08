@@ -20,7 +20,7 @@ def _dtbo_impl(ctx):
     output = ctx.actions.declare_file("{}/dtbo.img".format(ctx.label.name))
     inputs = []
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
-    inputs += ctx.files.srcs
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
     command = ""
     command += ctx.attr.kernel_build[KernelEnvInfo].setup
 
@@ -35,7 +35,7 @@ def _dtbo_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "Dtbo",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [output],
         progress_message = "Building dtbo {}".format(ctx.label),
         command = command,

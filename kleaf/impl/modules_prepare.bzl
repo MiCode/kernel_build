@@ -26,7 +26,7 @@ def _modules_prepare_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "ModulesPrepare",
-        inputs = ctx.files.srcs,
+        inputs = depset(transitive = [target.files for target in ctx.attr.srcs]),
         outputs = [ctx.outputs.outdir_tar_gz],
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Preparing for module build %s" % ctx.label,

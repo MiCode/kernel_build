@@ -21,7 +21,7 @@ load(":debug.bzl", "debug")
 
 def _kernel_headers_impl(ctx):
     inputs = []
-    inputs += ctx.files.srcs
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
     inputs += ctx.attr.env[KernelEnvInfo].dependencies
     inputs += [
         ctx.attr.kernel_build[KernelBuildInfo].out_dir_kernel_headers_tar,
@@ -51,7 +51,7 @@ def _kernel_headers_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelHeaders",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
         progress_message = "Building kernel headers %s" % ctx.attr.name,
         command = command,
