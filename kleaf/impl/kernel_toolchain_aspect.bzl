@@ -29,8 +29,11 @@ def _kernel_toolchain_aspect_impl(target, ctx):
         return KernelToolchainInfo(toolchain_version = ctx.rule.attr.toolchain_version)
 
     if ctx.rule.kind == "kernel_filegroup":
-        # Create a depset that contains all files referenced by "srcs"
-        all_srcs = depset([], transitive = [src.files for src in ctx.rule.attr.srcs])
+        # Create a depset that contains all files referenced by "srcs" and "deps"
+        all_srcs = depset(
+            [],
+            transitive = [target.files for target in (ctx.rule.attr.deps + ctx.rule.attr.srcs)],
+        )
 
         # Traverse this depset and look for a file named "toolchain_version".
         # If no file matches, leave it as None so that _kernel_build_check_toolchain prints a

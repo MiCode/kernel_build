@@ -84,16 +84,12 @@ def _make_kbuild_symtypes_test(kbuild_symtypes_flag_value):
 kbuild_symtypes_flag_true_test = _make_kbuild_symtypes_test(True)
 kbuild_symtypes_flag_false_test = _make_kbuild_symtypes_test(False)
 
-def kernel_build_symtypes_test(test_suite_name):
+def kernel_build_symtypes_test(name):
     """Define tests for `kbuild_symtypes`.
 
     Args:
-      test_suite_name: Name of the main test suite.
-
-    Returns:
-      Name of the sub-test-suite.
+      name: Name of this test suite.
     """
-    name = test_suite_name + "_test_kbuild_symtypes"
     tests = []
 
     for kbuild_symtypes in ("true", "false", "auto"):
@@ -123,4 +119,3 @@ def kernel_build_symtypes_test(test_suite_name):
         name = name,
         tests = tests,
     )
-    return name
