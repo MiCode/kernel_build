@@ -457,17 +457,22 @@ def define_common_kernels(
                     default_target_configs = _default_target_configs()
                 target_configs[name][key] = default_target_configs.get(name, {}).get(key)
 
+    native.filegroup(
+        name = "common_kernel_sources",
+        srcs = native.glob(
+            ["**"],
+            exclude = [
+                "BUILD.bazel",
+                "**/*.bzl",
+                ".git/**",
+            ],
+        ),
+    )
+
     for name, arch_config in _ARCH_CONFIGS.items():
-        native.filegroup(
+        native.alias(
             name = name + "_sources",
-            srcs = native.glob(
-                ["**"],
-                exclude = [
-                    "BUILD.bazel",
-                    "**/*.bzl",
-                    ".git/**",
-                ],
-            ),
+            actual = ":common_kernel_sources",
         )
 
         target_config = target_configs[name]
@@ -844,6 +849,8 @@ def define_db845c(
 
     Note: This does not use mixed builds.
 
+    Requires [`define_common_kernels`](#define_common_kernels) to be called in the same package.
+
     Args:
         name: name of target. Usually `"db845c"`.
         build_config: See [kernel_build.build_config](#kernel_build-build_config). If `None`,
@@ -864,6 +871,7 @@ def define_db845c(
     kernel_build(
         name = name,
         outs = outs,
+        srcs = [":common_kernel_sources"],
         # List of in-tree kernel modules.
         module_outs = module_outs,
         build_config = build_config,
