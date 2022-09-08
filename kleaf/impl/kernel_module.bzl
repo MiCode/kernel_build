@@ -208,7 +208,6 @@ def _kernel_module_impl(ctx):
     inputs = []
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_prepare_deps
-    inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
         ctx.file._search_and_cp_output,
@@ -218,6 +217,7 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))

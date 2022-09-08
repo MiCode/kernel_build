@@ -127,14 +127,14 @@ utils = struct(
 
 def _filter_module_srcs(files):
     """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
-    return [
+    return depset([
         s
         for s in files
         if s.path.endswith(".h") or any([token in s.path for token in [
             "Makefile",
             "scripts/",
         ]])
-    ]
+    ])
 
 def _transform_kernel_build_outs(name, what, outs):
     """Transform `*outs` attributes for `kernel_build`.
