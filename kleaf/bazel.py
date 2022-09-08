@@ -111,6 +111,9 @@ class BazelWrapper(object):
                             type=_require_absolute_path,
                             default=absolute_cache_dir)
 
+        # Disable fetching //external:local_config_cc
+        self.env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] = "1"
+
         # known_args: List of arguments known by this bazel wrapper. These
         #   are stripped from the final bazel invocation.
         # remaining_command_args: the rest of the arguments
