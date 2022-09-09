@@ -196,7 +196,7 @@ function create_modules_staging() {
     # Trim modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
-      find * -type f -name "*.ko" | grep -v -w -f modules.order -f $used_blocklist_modules - | xargs -r rm
+      find * -type f -name "*.ko" | (grep -v -w -f modules.order -f $used_blocklist_modules - || true) | xargs -r rm
     )
     rm $used_blocklist_modules
   fi
