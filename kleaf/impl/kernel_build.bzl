@@ -551,8 +551,8 @@ def _kernel_build_impl(ctx):
         ctx.file._search_and_cp_output,
         ctx.file._check_declared_output_list,
     ]
-    inputs += ctx.files.srcs
-    inputs += ctx.files.deps
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs += [target.files for target in ctx.attr.deps]
     if check_toolchain_out:
         inputs.append(check_toolchain_out)
     if kbuild_mixed_tree:
@@ -756,7 +756,7 @@ def _kernel_build_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = command_outputs,
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,

@@ -34,7 +34,6 @@ def _kernel_modules_install_impl(ctx):
     inputs = []
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_prepare_deps
-    inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs
     inputs += [
         ctx.file._search_and_cp_output,
         ctx.file._check_duplicated_files_in_archives,
@@ -46,6 +45,8 @@ def _kernel_modules_install_impl(ctx):
         for module_file in kernel_module[KernelModuleInfo].files:
             declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
             external_modules.append(declared_file)
+
+    transitive_inputs = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
@@ -126,7 +127,7 @@ def _kernel_modules_install_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModulesInstall",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = external_modules + dws.files(modules_staging_dws),
         command = command,
         progress_message = "Running depmod {}".format(ctx.label),

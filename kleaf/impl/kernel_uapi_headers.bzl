@@ -33,7 +33,10 @@ def _kernel_uapi_headers_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelUapiHeaders",
-        inputs = ctx.files.srcs + ctx.attr.config[KernelEnvInfo].dependencies,
+        inputs = depset(
+            ctx.attr.config[KernelEnvInfo].dependencies,
+            transitive = [target.files for target in ctx.attr.srcs],
+        ),
         outputs = [out_file],
         progress_message = "Building UAPI kernel headers %s" % ctx.attr.name,
         command = command,
