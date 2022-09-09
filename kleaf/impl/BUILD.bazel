@@ -28,6 +28,7 @@ bzl_library(
         "btf.bzl",
         "common_providers.bzl",
         "constants.bzl",
+        "ddk/ddk_headers.bzl",
         "debug.bzl",
         "gki_artifacts.bzl",
         "image/boot_images.bzl",
