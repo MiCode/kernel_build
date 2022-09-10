@@ -49,7 +49,7 @@ def _build_modules_image_impl_common(
         restore_modules_install = True
 
     kernel_build = ctx.attr.kernel_modules_install[KernelModuleInfo].kernel_build
-    kernel_build_outs = kernel_build[KernelBuildInfo].outs + kernel_build[KernelBuildInfo].base_kernel_files
+    kernel_build_outs = kernel_build[KernelBuildInfo].outs + kernel_build[KernelBuildInfo].base_kernel_files.to_list()
     system_map = utils.find_file(
         name = "System.map",
         files = kernel_build_outs,

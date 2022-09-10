@@ -82,8 +82,10 @@ def _kernel_filegroup_impl(ctx):
 
     images_info = KernelImagesInfo(base_kernel = None)
 
+    srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
+
     return [
-        DefaultInfo(files = depset(ctx.files.srcs)),
+        DefaultInfo(files = srcs_depset),
         kernel_module_dev_info,
         # TODO(b/219112010): implement KernelEnvInfo for kernel_filegroup
         uapi_info,

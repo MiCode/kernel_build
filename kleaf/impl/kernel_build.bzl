@@ -514,7 +514,7 @@ def kernel_build(
 
 def _kernel_build_impl(ctx):
     kbuild_mixed_tree = None
-    base_kernel_files = []
+    base_kernel_files = depset()
     check_toolchain_out = None
     if ctx.attr.base_kernel:
         check_toolchain_out = _kernel_build_check_toolchain(ctx)
@@ -523,7 +523,7 @@ def _kernel_build_impl(ctx):
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
         # only change when the dependent ctx.attr.base_kernel changes.
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
-        base_kernel_files = ctx.files.base_kernel
+        base_kernel_files = ctx.attr.base_kernel.files
         kbuild_mixed_tree_command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
@@ -533,13 +533,13 @@ def _kernel_build_impl(ctx):
               ln -s $(readlink -m ${{base_kernel_file}}) ${{KBUILD_MIXED_TREE}}
             done
         """.format(
-            base_kernel_files = " ".join([file.path for file in base_kernel_files]),
+            base_kernel_files = " ".join([file.path for file in base_kernel_files.to_list()]),
             kbuild_mixed_tree = kbuild_mixed_tree.path,
         )
         debug.print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildKbuildMixedTree",
-            inputs = base_kernel_files + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+            inputs = depset(ctx.attr._hermetic_tools[HermeticToolsInfo].deps, transitive = [base_kernel_files]),
             outputs = [kbuild_mixed_tree],
             progress_message = "Creating KBUILD_MIXED_TREE",
             command = kbuild_mixed_tree_command,

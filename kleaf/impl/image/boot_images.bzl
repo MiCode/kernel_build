@@ -30,7 +30,10 @@ def _boot_images_impl(ctx):
     for out in ctx.outputs.outs:
         outs.append(out.short_path[len(outdir.short_path) + 1:])
 
-    kernel_build_outs = ctx.attr.kernel_build[KernelBuildInfo].outs + ctx.attr.kernel_build[KernelBuildInfo].base_kernel_files
+    kernel_build_outs = depset(
+        ctx.attr.kernel_build[KernelBuildInfo].outs,
+        transitive = [ctx.attr.kernel_build[KernelBuildInfo].base_kernel_files],
+    )
 
     inputs = [
         ctx.file.mkbootimg,
@@ -43,8 +46,9 @@ def _boot_images_impl(ctx):
         ]
     inputs += ctx.files.deps
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
-    inputs += kernel_build_outs
     inputs += ctx.files.vendor_ramdisk_binaries
+
+    transitive_inputs = [kernel_build_outs]
 
     command = ""
     command += ctx.attr.kernel_build[KernelEnvInfo].setup
@@ -90,7 +94,7 @@ def _boot_images_impl(ctx):
                mkdir -p ${{DIST_DIR}}
                cp {kernel_build_outs} ${{DIST_DIR}}
     """.format(
-        kernel_build_outs = " ".join([out.path for out in kernel_build_outs]),
+        kernel_build_outs = " ".join([out.path for out in kernel_build_outs.to_list()]),
     )
 
     if ctx.attr.initramfs:
@@ -142,7 +146,7 @@ def _boot_images_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "BootImages",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = ctx.outputs.outs + [outdir],
         progress_message = "Building boot images {}".format(ctx.label),
         command = command,
