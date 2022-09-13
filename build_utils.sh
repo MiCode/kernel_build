@@ -196,7 +196,7 @@ function create_modules_staging() {
     # Trim modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
-      find * -type f -name "*.ko" | grep -v -w -f modules.order -f $used_blocklist_modules - | xargs -r rm
+      find * -type f -name "*.ko" | (grep -v -w -f modules.order -f $used_blocklist_modules - || true) | xargs -r rm
     )
     rm $used_blocklist_modules
   fi
@@ -560,26 +560,6 @@ function gki_add_avb_footer() {
     --partition_name boot --partition_size "$2"
 }
 
-function build_gki_artifacts_x86_64() {
-  kernel_path="${DIST_DIR}/bzImage"
-  boot_image_path="${DIST_DIR}/boot.img"
-
-  if ! [ -f "${kernel_path}" ]; then
-    echo "ERROR: '${kernel_path}' doesn't exist" >&2
-    exit 1
-  fi
-
-  GKI_MKBOOTIMG_ARGS=("--header_version" "4")
-  if [ -n "${GKI_KERNEL_CMDLINE}" ]; then
-    GKI_MKBOOTIMG_ARGS+=("--cmdline" "${GKI_KERNEL_CMDLINE}")
-  fi
-  GKI_MKBOOTIMG_ARGS+=("--kernel" "${kernel_path}")
-  GKI_MKBOOTIMG_ARGS+=("--output" "${boot_image_path}")
-  "${MKBOOTIMG_PATH}" "${GKI_MKBOOTIMG_ARGS[@]}"
-
-  gki_add_avb_footer "${boot_image_path}" "$(gki_get_boot_img_size)"
-}
-
 # gki_dry_run_certify_bootimg <boot_image> <gki_artifacts_info_file>
 # The certify_bootimg script will be executed on a server over a GKI
 # boot.img during the official certification process, which embeds
@@ -609,11 +589,22 @@ function build_gki_artifacts_info() {
   echo "${artifacts_info}" > "$1"
 }
 
-function build_gki_artifacts_aarch64() {
-  if ! [ -f "${DIST_DIR}/Image" ]; then
-    echo "ERROR: '${DIST_DIR}/Image' doesn't exist" >&2
+# build_gki_boot_images <uncompressed kernel path>.
+# The function builds boot-*.img for kernel images
+# with the prefix of <uncompressed kernel path>.
+# It also generates a boot-img.tar.gz containing those
+# boot-*.img files. The uncompressed kernel image should
+# exist, e.g., ${DIST_DIR}/Image, while other compressed
+# kernel images are optional, e.g., ${DIST_DIR}/Image.gz.
+function build_gki_boot_images() {
+  local uncompressed_kernel_path=$1
+
+  if ! [ -f "${uncompressed_kernel_path}" ]; then
+    echo "ERROR: '${uncompressed_kernel_path}' doesn't exist" >&2
     exit 1
   fi
+
+  uncompressed_kernel_image="$(basename "${uncompressed_kernel_path}")"
 
   DEFAULT_MKBOOTIMG_ARGS=("--header_version" "4")
   if [ -n "${GKI_KERNEL_CMDLINE}" ]; then
@@ -624,15 +615,17 @@ function build_gki_artifacts_aarch64() {
   build_gki_artifacts_info "${GKI_ARTIFACTS_INFO_FILE}"
   local images_to_pack=("$(basename "${GKI_ARTIFACTS_INFO_FILE}")")
 
-  for kernel_path in "${DIST_DIR}"/Image*; do
+  # Compressed kernel images, e.g., Image.gz, Image.lz4 have the same
+  # prefix as the uncompressed kernel image, e.g., Image.
+  for kernel_path in "${uncompressed_kernel_path}"*; do
     GKI_MKBOOTIMG_ARGS=("${DEFAULT_MKBOOTIMG_ARGS[@]}")
     GKI_MKBOOTIMG_ARGS+=("--kernel" "${kernel_path}")
 
-    kernel_image="$(basename "${kernel_path}")"
-    if [ "${kernel_image}" == "Image" ]; then
+    if [ "${kernel_path}" = "${uncompressed_kernel_path}" ]; then
         boot_image="boot.img"
     else
-        compression="${kernel_image#Image.}"
+        kernel_image="$(basename "${kernel_path}")"
+        compression="${kernel_image#"${uncompressed_kernel_image}".}"
         boot_image="boot-${compression}.img"
     fi
 
@@ -657,9 +650,9 @@ function build_gki_artifacts() {
   check_mkbootimg_path
 
   if [ "${ARCH}" = "arm64" ]; then
-    build_gki_artifacts_aarch64
+    build_gki_boot_images "${DIST_DIR}/Image"
   elif [ "${ARCH}" = "x86_64" ]; then
-    build_gki_artifacts_x86_64
+    build_gki_boot_images "${DIST_DIR}/bzImage"
   else
     echo "ERROR: unknown ARCH to BUILD_GKI_ARTIFACTS: '${ARCH}'" >&2
     exit 1

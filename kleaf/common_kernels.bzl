@@ -847,7 +847,7 @@ def define_db845c(
         dist_dir = None):
     """Define target for db845c.
 
-    Note: This does not use mixed builds.
+    Note: This is a mixed build.
 
     Requires [`define_common_kernels`](#define_common_kernels) to be called in the same package.
 
