@@ -27,6 +27,7 @@ load(
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildInfo",
+    "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
@@ -523,7 +524,7 @@ def _kernel_build_impl(ctx):
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
         # only change when the dependent ctx.attr.base_kernel changes.
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
-        base_kernel_files = ctx.attr.base_kernel.files
+        base_kernel_files = ctx.attr.base_kernel[KernelBuildMixedTreeInfo].files
         kbuild_mixed_tree_command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
@@ -834,6 +835,11 @@ def _kernel_build_impl(ctx):
     output_group_kwargs[TOOLCHAIN_VERSION_FILENAME] = depset([toolchain_version_out])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
+    kbuild_mixed_tree_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
+    kbuild_mixed_tree_info = KernelBuildMixedTreeInfo(
+        files = depset(kbuild_mixed_tree_files),
+    )
+
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
@@ -846,6 +852,7 @@ def _kernel_build_impl(ctx):
 
     return [
         env_info,
+        kbuild_mixed_tree_info,
         kernel_build_info,
         kernel_build_module_info,
         kernel_build_uapi_info,
@@ -887,7 +894,7 @@ _kernel_build = rule(
         ),
         "base_kernel": attr.label(
             aspects = [kernel_toolchain_aspect],
-            providers = [KernelBuildInTreeModulesInfo],
+            providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo],
         ),
         "base_kernel_for_module_outs": attr.label(
             providers = [KernelBuildInTreeModulesInfo],

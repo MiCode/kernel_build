@@ -18,6 +18,7 @@ load(
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
+    "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
@@ -86,6 +87,7 @@ def _kernel_filegroup_impl(ctx):
 
     return [
         DefaultInfo(files = srcs_depset),
+        KernelBuildMixedTreeInfo(files = srcs_depset),
         kernel_module_dev_info,
         # TODO(b/219112010): implement KernelEnvInfo for kernel_filegroup
         uapi_info,
