@@ -26,6 +26,7 @@ load(
     "kernel_kythe",
     "kernel_modules_install",
     "kernel_unstripped_modules_archive",
+    "merged_kernel_uapi_headers",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
@@ -877,14 +878,22 @@ def define_db845c(
         build_config = build_config,
         kmi_symbol_list = kmi_symbol_list,
         # Enable mixed build.
-        base_kernel = "//common:kernel_aarch64",
+        base_kernel = ":kernel_aarch64",
     )
+
+    _kernel_modules = []
 
     kernel_modules_install(
         name = name + "_modules_install",
         kernel_build = name,
         # List of external modules.
-        kernel_modules = [],
+        kernel_modules = _kernel_modules,
+    )
+
+    merged_kernel_uapi_headers(
+        name = name + "_merged_kernel_uapi_headers",
+        kernel_build = name,
+        kernel_modules = _kernel_modules,
     )
 
     kernel_images(
@@ -900,8 +909,10 @@ def define_db845c(
             name,
             name + "_images",
             name + "_modules_install",
-            # mixed build.
-            "//common:kernel_aarch64",
+            # Mixed build: Additional GKI artifacts.
+            ":kernel_aarch64",
+            ":kernel_aarch64_additional_artifacts",
+            name + "_merged_kernel_uapi_headers",
         ],
         dist_dir = dist_dir,
         flat = True,
