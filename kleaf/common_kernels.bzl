@@ -900,6 +900,8 @@ def define_db845c(
             name,
             name + "_images",
             name + "_modules_install",
+            # mixed build.
+            "//common:kernel_aarch64",
         ],
         dist_dir = dist_dir,
         flat = True,
