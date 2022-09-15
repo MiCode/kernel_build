@@ -13,18 +13,30 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
+load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers")
 
 def _good_includes_test_impl(ctx):
     env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    asserts.set_equals(
+        env,
+        sets.make(ctx.attr.expected_includes),
+        sets.make(target_under_test[DdkHeadersInfo].includes.to_list()),
+    )
+
     return analysistest.end(env)
 
 _good_includes_test = analysistest.make(
     impl = _good_includes_test_impl,
+    attrs = {
+        "expected_includes": attr.string_list(),
+    },
 )
 
-def _ddk_headers_good_includes_test(name, includes):
+def _ddk_headers_good_includes_test(name, includes, expected_includes):
     ddk_headers(
         name = name + "_headers",
         includes = includes,
@@ -33,6 +45,7 @@ def _ddk_headers_good_includes_test(name, includes):
     _good_includes_test(
         name = name,
         target_under_test = name + "_headers",
+        expected_includes = expected_includes,
     )
 
 def _bad_includes_test_impl(ctx):
@@ -66,24 +79,32 @@ def ddk_headers_test_suite(name):
     _ddk_headers_good_includes_test(
         name = name + "_self",
         includes = ["."],
+        expected_includes = [native.package_name()],
     )
     tests.append(name + "_self")
 
     _ddk_headers_good_includes_test(
         name = name + "_subdir",
         includes = ["include"],
+        expected_includes = ["{}/include".format(native.package_name())],
     )
     tests.append(name + "_subdir")
 
     _ddk_headers_good_includes_test(
         name = name + "_subdir_subdir",
         includes = ["include/foo"],
+        expected_includes = ["{}/include/foo".format(native.package_name())],
     )
     tests.append(name + "_subdir_subdir")
 
     _ddk_headers_good_includes_test(
         name = name + "_multiple",
         includes = [".", "include", "include/foo"],
+        expected_includes = [
+            native.package_name(),
+            "{}/include".format(native.package_name()),
+            "{}/include/foo".format(native.package_name()),
+        ],
     )
     tests.append(name + "_multiple")
 

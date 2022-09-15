@@ -53,7 +53,7 @@ def ddk_headers_common_impl(label, hdrs, includes):
 
     ret_files = depset(transitive = transitive_deps)
     ret_includes = depset(
-        [paths.join(label.package, d) for d in includes],
+        [paths.normalize(paths.join(label.package, d)) for d in includes],
         transitive = transitive_includes,
     )
 
