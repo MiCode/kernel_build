@@ -181,6 +181,7 @@ def ddk_headers_test_suite(name):
         ],
         expected_hdrs = ["include/base/base.h", "include/transitive/transitive.h"],
     )
+    tests.append(name + "_transitive")
 
     native.test_suite(
         name = name,
