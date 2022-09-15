@@ -174,7 +174,7 @@ def kernel_module(
         sibling_kwargs = dict(kwargs)
         sibling_target_name = name + "_" + sibling_name
         sibling_kwargs["name"] = sibling_target_name
-        sibling_kwargs["outs"] = ["{sibling_target_name}/{out}".format(sibling_target_name = sibling_target_name, out = out) for out in outs]
+        sibling_kwargs["outs"] = ["{sibling_target_name}/{out}".format(sibling_target_name = sibling_target_name, out = out) for out in sibling_kwargs["outs"]]
 
         # This assumes the target is a kernel_build_abi with define_abi_targets
         # etc., which may not be the case. See below for adding "manual" tag.
