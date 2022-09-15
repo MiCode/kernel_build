@@ -168,6 +168,7 @@ def ddk_headers_test_suite(name):
         name = name + "_base_headers",
         includes = ["include/base"],
         hdrs = ["include/base/base.h"],
+        tags = ["manual"],
     )
 
     _ddk_headers_good_includes_test(
