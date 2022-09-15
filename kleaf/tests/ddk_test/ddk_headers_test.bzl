@@ -26,6 +26,11 @@ def _good_includes_test_impl(ctx):
         sets.make(ctx.attr.expected_includes),
         sets.make(target_under_test[DdkHeadersInfo].includes.to_list()),
     )
+    asserts.set_equals(
+        env,
+        sets.make(ctx.files.expected_hdrs),
+        sets.make(target_under_test[DdkHeadersInfo].files.to_list()),
+    )
 
     return analysistest.end(env)
 
@@ -33,19 +38,27 @@ _good_includes_test = analysistest.make(
     impl = _good_includes_test_impl,
     attrs = {
         "expected_includes": attr.string_list(),
+        "expected_hdrs": attr.label_list(allow_files = [".h"]),
     },
 )
 
-def _ddk_headers_good_includes_test(name, includes, expected_includes):
+def _ddk_headers_good_includes_test(
+        name,
+        includes,
+        expected_includes,
+        hdrs = None,
+        expected_hdrs = None):
     ddk_headers(
         name = name + "_headers",
         includes = includes,
+        hdrs = hdrs,
         tags = ["manual"],
     )
     _good_includes_test(
         name = name,
         target_under_test = name + "_headers",
         expected_includes = expected_includes,
+        expected_hdrs = expected_hdrs,
     )
 
 def _bad_includes_test_impl(ctx):
@@ -80,6 +93,8 @@ def ddk_headers_test_suite(name):
         name = name + "_self",
         includes = ["."],
         expected_includes = [native.package_name()],
+        hdrs = ["self.h"],
+        expected_hdrs = ["self.h"],
     )
     tests.append(name + "_self")
 
@@ -87,6 +102,8 @@ def ddk_headers_test_suite(name):
         name = name + "_subdir",
         includes = ["include"],
         expected_includes = ["{}/include".format(native.package_name())],
+        hdrs = ["include/subdir.h"],
+        expected_hdrs = ["include/subdir.h"],
     )
     tests.append(name + "_subdir")
 
@@ -94,6 +111,8 @@ def ddk_headers_test_suite(name):
         name = name + "_subdir_subdir",
         includes = ["include/foo"],
         expected_includes = ["{}/include/foo".format(native.package_name())],
+        hdrs = ["include/foo/foo.h"],
+        expected_hdrs = ["include/foo/foo.h"],
     )
     tests.append(name + "_subdir_subdir")
 
@@ -105,6 +124,8 @@ def ddk_headers_test_suite(name):
             "{}/include".format(native.package_name()),
             "{}/include/foo".format(native.package_name()),
         ],
+        hdrs = ["self.h", "include/subdir.h", "include/foo/foo.h"],
+        expected_hdrs = ["self.h", "include/subdir.h", "include/foo/foo.h"],
     )
     tests.append(name + "_multiple")
 
@@ -142,6 +163,23 @@ def ddk_headers_test_suite(name):
         error_message = "Invalid include directory",
     )
     tests.append(name + "_parent_self_include")
+
+    ddk_headers(
+        name = name + "_base_headers",
+        includes = ["include/base"],
+        hdrs = ["include/base/base.h"],
+    )
+
+    _ddk_headers_good_includes_test(
+        name = name + "_transitive",
+        includes = ["include/transitive"],
+        hdrs = [name + "_base_headers"] + ["include/transitive/transitive.h"],
+        expected_includes = [
+            "{}/include/base".format(native.package_name()),
+            "{}/include/transitive".format(native.package_name()),
+        ],
+        expected_hdrs = ["include/base/base.h", "include/transitive/transitive.h"],
+    )
 
     native.test_suite(
         name = name,
