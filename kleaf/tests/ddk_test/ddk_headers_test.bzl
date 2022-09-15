@@ -16,6 +16,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers")
+load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 
 def _good_includes_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -61,27 +62,16 @@ def _ddk_headers_good_includes_test(
         expected_hdrs = expected_hdrs,
     )
 
-def _bad_includes_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, ctx.attr.error_message)
-    return analysistest.end(env)
-
-_bad_includes_test = analysistest.make(
-    impl = _bad_includes_test_impl,
-    attrs = {"error_message": attr.string()},
-    expect_failure = True,
-)
-
 def _ddk_headers_bad_includes_test(name, includes, error_message):
     ddk_headers(
         name = name + "_headers",
         includes = includes,
         tags = ["manual"],
     )
-    _bad_includes_test(
+    failure_test(
         name = name,
         target_under_test = name + "_headers",
-        error_message = error_message,
+        error_message_substrs = [error_message],
     )
 
 def ddk_headers_test_suite(name):
