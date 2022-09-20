@@ -1031,6 +1031,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         all_module_names_file,
     ]
     inputs += ctx.attr.config[KernelEnvInfo].dependencies
+    inputs += ctx.files._compare_to_symbol_list
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
     command = ctx.attr.config[KernelEnvInfo].setup + """
