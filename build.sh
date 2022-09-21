@@ -660,7 +660,8 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e LTO_NONE \
       -d LTO_CLANG_THIN \
       -d LTO_CLANG_FULL \
-      -d THINLTO
+      -d THINLTO \
+      --set-val FRAME_WARN 0
   elif [ "${LTO}" = "thin" ]; then
     # This is best-effort; some kernels don't support LTO_THIN mode
     # THINLTO was the old name for LTO_THIN, and it was 'default y'

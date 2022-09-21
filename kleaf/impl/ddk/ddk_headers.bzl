@@ -19,13 +19,14 @@ DdkHeadersInfo = provider(fields = {
     "includes": "A [depset](https://bazel.build/rules/lib/depset) containing the `includes` attribute of the rule",
 })
 
-def ddk_headers_common_impl(label, hdrs, includes):
-    """Common implementation for rules that returns `DdkHeadersInfo`.
+def get_include_depset(label, deps, includes):
+    """Returns a depset containing include directories from the list of dependencies and direct includes.
 
     Args:
-        label: Label of this target.
-        hdrs: The list of exported headers, e.g. [`ddk_headers.hdrs`](#ddk_headers-hdrs)
-        includes: The list of exported include directories, e.g. [`ddk_headers.includes`](#ddk_headers-includes)
+        label: Label of this target
+        deps: A list of depended targets. If [`DdkHeadersInfo`](#DdkHeadersInfo) is in the target,
+          their `includes` are included in the returned depset.
+        includes: A list of local include directories included in the returned depset.
     """
     for include_dir in includes:
         if paths.normalize(include_dir) != include_dir:
@@ -41,25 +42,46 @@ def ddk_headers_common_impl(label, hdrs, includes):
         if include_dir == ".." or include_dir.startswith("../"):
             fail("{}: Invalid include directory: {}".format(label, include_dir))
 
-    transitive_deps = []
     transitive_includes = []
+    for dep in deps:
+        if DdkHeadersInfo in dep:
+            transitive_includes.append(dep[DdkHeadersInfo].includes)
 
-    for hdr in hdrs:
-        if DdkHeadersInfo in hdr:
-            transitive_deps.append(hdr[DdkHeadersInfo].files)
-            transitive_includes.append(hdr[DdkHeadersInfo].includes)
-        else:
-            transitive_deps.append(hdr.files)
-
-    ret_files = depset(transitive = transitive_deps)
-    ret_includes = depset(
+    return depset(
         [paths.normalize(paths.join(label.package, d)) for d in includes],
         transitive = transitive_includes,
     )
 
+def get_headers_depset(deps):
+    """Returns a depset containing headers from the list of dependencies
+
+    Args:
+        deps: A list of depended targets. If [`DdkHeadersInfo`](#DdkHeadersInfo) is in the target,
+          `target[DdkHeadersInfo].files` are included in the returned depset. Otherwise
+          the default output files are included in the returned depset.
+    """
+    transitive_deps = []
+
+    for dep in deps:
+        if DdkHeadersInfo in dep:
+            transitive_deps.append(dep[DdkHeadersInfo].files)
+        else:
+            transitive_deps.append(dep.files)
+
+    return depset(transitive = transitive_deps)
+
+def ddk_headers_common_impl(label, hdrs, includes):
+    """Common implementation for rules that returns `DdkHeadersInfo`.
+
+    Args:
+        label: Label of this target.
+        hdrs: The list of exported headers, e.g. [`ddk_headers.hdrs`](#ddk_headers-hdrs)
+        includes: The list of exported include directories, e.g. [`ddk_headers.includes`](#ddk_headers-includes)
+    """
+
     return DdkHeadersInfo(
-        files = ret_files,
-        includes = ret_includes,
+        files = get_headers_depset(hdrs),
+        includes = get_include_depset(label, hdrs, includes),
     )
 
 def _ddk_headers_impl(ctx):
@@ -107,6 +129,9 @@ ddk_headers(
 """),
         "includes": attr.string_list(
             doc = """A list of directories, relative to the current package, that are re-exported as include directories.
+
+[`ddk_module`](#ddk_module) with `deps` including this target automatically
+adds the given include directory in the generated `Kbuild` files.
 
 You still need to add the actual header files to `hdrs`.
 """,

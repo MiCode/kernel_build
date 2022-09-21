@@ -16,16 +16,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
-
-def _kernel_toolchain_mismatch_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "They must use the same `toolchain_version`.")
-    return analysistest.end(env)
-
-_kernel_toolchain_mismatch_test = analysistest.make(
-    impl = _kernel_toolchain_mismatch_test_impl,
-    expect_failure = True,
-)
+load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 
 def _find_check_action(actions):
     for action in actions:
@@ -152,9 +143,10 @@ def kernel_toolchain_aspect_test(name):
                         target_under_test = test_name + "_device_kernel",
                     )
                 else:
-                    _kernel_toolchain_mismatch_test(
+                    failure_test(
                         name = test_name,
                         target_under_test = test_name + "_device_kernel",
+                        error_message_substrs = ["They must use the same `toolchain_version`."],
                     )
 
                 tests.append(test_name)
