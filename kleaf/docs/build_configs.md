@@ -369,7 +369,11 @@ You may skip building external modules by leaving them out in the
 
 ## DO\_NOT\_STRIP\_MODULES
 
-Specify in the build config.
+```python
+kernel_build(strip_modules=...)
+```
+
+See [documentation for all rules].
 
 ## EXTRA\_CMDS
 
