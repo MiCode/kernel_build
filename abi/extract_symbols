@@ -320,7 +320,11 @@ def main():
     return 1
 
   # Get required symbols of all modules
-  undefined_symbols = extract_undefined_symbols(modules + gki_modules)
+  gki_undefined_symbols = extract_undefined_symbols(gki_modules)
+  local_undefined_symbols = extract_undefined_symbols(modules)
+  undefined_symbols = {}
+  undefined_symbols.update(gki_undefined_symbols)
+  undefined_symbols.update(local_undefined_symbols)
 
   # Get the actually defined and exported symbols
   generic_exports = extract_generic_exports(vmlinux, gki_modules)
@@ -344,7 +348,7 @@ def main():
   if args.symbol_list:
     create_symbol_list(
         args.symbol_list,
-        { "full-gki-abi": generic_exports } if args.full_gki_abi else undefined_symbols,
+        { "full-gki-abi": generic_exports } if args.full_gki_abi else local_undefined_symbols,
         all_exported if args.include_module_exports else generic_exports,
         args.emit_module_symbol_lists,
         args.module_grouping,
