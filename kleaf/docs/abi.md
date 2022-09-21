@@ -32,7 +32,9 @@ $ tools/bazel build //common:kernel_aarch64_abi_dump
 ```
 
 This command extracts the ABI, but does not compare it. This is similar to
-`build/build_abi.sh --nodiff`.
+`ABI_OUT_TAG=generated build/build_abi.sh --nodiff`.
+
+Note: Unlike `build_abi.sh`, the `ABI_OUT_TAG` is always set to `generated`.
 
 ### Update the ABI definition {#update-abi}
 
