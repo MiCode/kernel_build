@@ -124,6 +124,14 @@ KernelModuleInfo = provider(
     },
 )
 
+ModuleSymversInfo = provider(
+    doc = "A provider that provides `Module.symvers` for `modpost`.",
+    fields = {
+        "restore_path": """The path relative to <the root of the output directory> (e.g. `<sandbox_root>/out/<branch>`)
+                           where the file will be restored to by `KernelEnvInfo`.""",
+    },
+)
+
 KernelImagesInfo = provider(
     doc = "A provider that represents the expectation of [`kernel_images`](#kernel_images) to [`kernel_build`](#kernel_build)",
     fields = {
