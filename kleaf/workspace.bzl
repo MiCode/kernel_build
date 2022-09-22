@@ -79,10 +79,10 @@ def define_kleaf_workspace(common_kernel_package = None):
     )
 
     # Fake local_jdk to avoid fetching rules_java for any exec targets.
-    # See b/245624185.
+    # See build/kernel/kleaf/impl/fake_local_jdk/README.md.
     native.local_repository(
         name = "local_jdk",
-        path = "build/kernel/kleaf/fake_local_jdk",
+        path = "build/kernel/kleaf/impl/fake_local_jdk",
     )
 
     native.register_toolchains(
