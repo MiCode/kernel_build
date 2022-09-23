@@ -94,6 +94,7 @@ _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 * [`MKBOOTIMG_PATH`](#mkbootimg_path)
 * [`BUILD_GKI_ARTIFACTS`](#build_gki_artifacts)
 * [`GKI_KERNEL_CMDLINE`](#gki_kernel_cmdline)
+* [`KMI_SYMBOL_LIST_ADD_ONLY`](#kmi_symbol_list_add_only)
 
 ## BUILD\_CONFIG
 
@@ -551,7 +552,7 @@ See [documentation for all rules].
 
 Specify in the build config.
 
-## LZ4\_RAMDISK_COMPRESS_ARGS
+## LZ4\_RAMDISK\_COMPRESS\_ARGS
 
 Specify in the build config.
 
@@ -566,7 +567,7 @@ See [documentation for all rules].
 
 See [documentation for ABI monitoring].
 
-## KMI\_SYMBOL_LIST\_STRICT\_MODE
+## KMI\_SYMBOL\_LIST\_STRICT\_MODE
 
 ```python
 kernel_build(kmi_symbol_list_strict_mode=...)
@@ -732,6 +733,16 @@ $ bazel build --kbuild_symtypes ...
 ```
 
 See [symtypes.md](symtypes.md) for details.
+
+## KMI\_SYMBOL\_LIST\_ADD\_ONLY
+
+```python
+kernel_build_abi(kmi_symbol_list_add_only=...)
+```
+
+See [documentation for all rules].
+
+See [documentation for ABI monitoring].
 
 [documentation for all rules]: https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html
 
