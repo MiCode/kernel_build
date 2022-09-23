@@ -78,6 +78,13 @@ def define_kleaf_workspace(common_kernel_package = None):
         target = "kernel_kleaf",
     )
 
+    # Fake local_jdk to avoid fetching rules_java for any exec targets.
+    # See b/245624185.
+    native.local_repository(
+        name = "local_jdk",
+        path = "build/kernel/kleaf/fake_local_jdk",
+    )
+
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
     )
