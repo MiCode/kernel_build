@@ -200,6 +200,12 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+py_binary(
+    name = "ddk/analyze_inputs",
+    srcs = ["ddk/analyze_inputs.py"],
+    visibility = ["//visibility:public"],
+)
+
 # Local build platforms
 platform(
     name = "linux_x86_64",
