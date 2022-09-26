@@ -96,6 +96,7 @@ def _config_lto(ctx):
             LTO_CLANG_THIN = _config.disable,
             LTO_CLANG_FULL = _config.disable,
             THINLTO = _config.disable,
+            FRAME_WARN = _config.set_val(0),
         )
     elif lto_config_flag == "thin":
         lto_configs.update(
