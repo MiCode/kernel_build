@@ -32,6 +32,7 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
 load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
+load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
@@ -547,6 +548,14 @@ def define_common_kernels(
 
         if arch_config.get("enable_interceptor"):
             continue
+
+        # A subset of headers in OUT_DIR that only contains scripts/. This is useful
+        # for DDK headers interpolation.
+        out_headers_allowlist_archive(
+            name = name + "_script_headers",
+            kernel_build = name,
+            subdirs = ["scripts"],
+        )
 
         kernel_modules_install(
             name = name + "_modules_install",
