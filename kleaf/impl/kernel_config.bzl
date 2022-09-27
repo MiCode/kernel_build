@@ -89,28 +89,31 @@ def _config_lto(ctx):
     lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
 
     lto_configs = {}
-    if lto_config_flag != "default":
-        # none config
+    if lto_config_flag == "none":
         lto_configs.update(
             LTO_CLANG = _config.disable,
             LTO_NONE = _config.enable,
             LTO_CLANG_THIN = _config.disable,
             LTO_CLANG_FULL = _config.disable,
             THINLTO = _config.disable,
+            FRAME_WARN = _config.set_val(0),
         )
-        if lto_config_flag == "thin":
-            lto_configs.update(
-                LTO_CLANG = _config.enable,
-                LTO_NONE = _config.disable,
-                LTO_CLANG_THIN = _config.enable,
-                THINLTO = _config.enable,
-            )
-        elif lto_config_flag == "full":
-            lto_configs.update(
-                LTO_CLANG = _config.enable,
-                LTO_NONE = _config.disable,
-                LTO_CLANG_FULL = _config.enable,
-            )
+    elif lto_config_flag == "thin":
+        lto_configs.update(
+            LTO_CLANG = _config.enable,
+            LTO_NONE = _config.disable,
+            LTO_CLANG_THIN = _config.enable,
+            LTO_CLANG_FULL = _config.disable,
+            THINLTO = _config.enable,
+        )
+    elif lto_config_flag == "full":
+        lto_configs.update(
+            LTO_CLANG = _config.enable,
+            LTO_NONE = _config.disable,
+            LTO_CLANG_THIN = _config.disable,
+            LTO_CLANG_FULL = _config.enable,
+            THINLTO = _config.disable,
+        )
 
     return struct(configs = lto_configs, deps = [])
 
