@@ -284,10 +284,6 @@ def main():
       help="Only process modules matching the filter. Can be passed multiple times."
   )
 
-  parser.add_argument(
-      "--gki-modules",
-      help="List of GKI modules which must be provided when the search directory contains both vendor and GKI modules")
-
   args = parser.parse_args()
 
   if not os.path.isdir(args.directory):

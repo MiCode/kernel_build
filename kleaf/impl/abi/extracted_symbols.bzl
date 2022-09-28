@@ -34,11 +34,9 @@ def _extracted_symbols_impl(ctx):
     out = ctx.actions.declare_file("{}/extracted_symbols".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
 
-    gki_modules_list = ctx.attr.gki_modules_list_kernel_build[KernelBuildAbiInfo].module_outs_file
     vmlinux = utils.find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
     in_tree_modules = utils.find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
     srcs = [
-        gki_modules_list,
         vmlinux,
     ]
     srcs += in_tree_modules
@@ -51,7 +49,6 @@ def _extracted_symbols_impl(ctx):
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
-    flags += ["--gki-modules", gki_modules_list.path]
     if not ctx.attr.module_grouping:
         flags.append("--skip-module-grouping")
     if ctx.attr.kmi_symbol_list_add_only:
@@ -102,7 +99,6 @@ extracted_symbols = rule(
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
-        "gki_modules_list_kernel_build": attr.label(doc = "The `kernel_build` which `module_outs` is treated as GKI modules list.", providers = [KernelBuildAbiInfo]),
         "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
