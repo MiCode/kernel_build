@@ -168,6 +168,7 @@ def kernel_module(
     kernel_module_test(
         name = name + "_test",
         modules = [name],
+        tags = kwargs.get("tags"),
     )
 
     # Define external module for sibling kernel_build's.
