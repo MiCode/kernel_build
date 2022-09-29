@@ -31,7 +31,6 @@ hermetic_tools(
         "tar",
     ],
     test_host_tools = [
-        "modinfo",
         "strings",
     ],
     deps = glob(
