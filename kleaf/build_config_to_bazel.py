@@ -67,7 +67,6 @@ _IGNORED_BUILD_CONFIGS = dict.fromkeys(
         "SKIP_UNPACKING_RAMDISK",
         "POST_DEFCONFIG_CMDS",
         "IN_KERNEL_MODULES",
-        "DO_NOT_STRIP_MODULES",
         "AVB_SIGN_BOOT_IMG",
         "AVB_BOOT_PARTITION_SIZE",
         "AVB_BOOT_KEY",
@@ -574,6 +573,8 @@ class BuildozerCommandBuilder(object):
                 rel_dist_dir = os.path.relpath(value)
                 self._add_comment(dist, "dist_dir",
                                   f'FIXME: or dist_dir = "{rel_dist_dir}"')
+            elif key == "DO_NOT_STRIP_MODULES":
+                self._set_attr(target, "strip_modules", value != "1")
             elif key == "FILES":
                 for elem in value.split():
                     self._add_attr(target, "outs", elem, quote=True)
