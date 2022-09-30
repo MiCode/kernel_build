@@ -50,8 +50,12 @@ def _kernel_filegroup_impl(ctx):
         module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs),
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
+
+    kernel_uapi_depsets = []
+    if ctx.attr.kernel_uapi_headers:
+        kernel_uapi_depsets.append(ctx.attr.kernel_uapi_headers.files)
     uapi_info = KernelBuildUapiInfo(
-        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
+        kernel_uapi_headers = depset(transitive = kernel_uapi_depsets, order = "postorder"),
     )
 
     unstripped_modules_info = None

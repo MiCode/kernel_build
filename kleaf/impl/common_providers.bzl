@@ -62,8 +62,12 @@ KernelBuildExtModuleInfo = provider(
 KernelBuildUapiInfo = provider(
     doc = "A provider that specifies the expecation of a `merged_uapi_headers` rule from its `kernel_build` attribute.",
     fields = {
-        "base_kernel": "the `base_kernel` target, if exists",
-        "kernel_uapi_headers": "the `*_kernel_uapi_headers` target",
+        "kernel_uapi_headers": """A [depset](https://bazel.build/extending/depsets) containing
+            kernel UAPI headers archive.
+
+            Order matters; earlier elements in the traverse order has higher priority. Hence,
+            this depset must have `order` argument specified.
+            """,
     },
 )
 

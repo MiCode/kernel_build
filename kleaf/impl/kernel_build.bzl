@@ -1022,9 +1022,12 @@ def _create_infos(
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
 
+    kernel_uapi_depsets = []
+    if ctx.attr.base_kernel:
+        kernel_uapi_depsets.append(ctx.attr.base_kernel[KernelBuildUapiInfo].kernel_uapi_headers)
+    kernel_uapi_depsets.append(ctx.attr.kernel_uapi_headers.files)
     kernel_build_uapi_info = KernelBuildUapiInfo(
-        base_kernel = ctx.attr.base_kernel,
-        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
+        kernel_uapi_headers = depset(transitive = kernel_uapi_depsets, order = "postorder"),
     )
 
     kernel_build_abi_info = KernelBuildAbiInfo(
