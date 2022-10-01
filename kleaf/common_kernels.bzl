@@ -54,6 +54,11 @@ _ARCH_CONFIGS = {
         "build_config": "build.config.gki.aarch64",
         "outs": aarch64_outs,
     },
+    "kernel_aarch64_16k": {
+        "arch": "arm64",
+        "build_config": "build.config.gki.aarch64.16k",
+        "outs": aarch64_outs,
+    },
     "kernel_aarch64_interceptor": {
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64",
@@ -151,6 +156,10 @@ def _default_target_configs():
             "trim_nonlisted_kmi": aarch64_trim_and_check,
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
         }),
+        "kernel_aarch64_16k": {
+            # Assume TRIM_NONLISTED_KMI="" in build.config.gki.aarch64.16k
+            "trim_nonlisted_kmi": False,
+        },
         "kernel_aarch64_debug": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
@@ -194,6 +203,9 @@ def define_common_kernels(
       - `kernel_aarch64_uapi_headers`
       - `kernel_aarch64_additional_artifacts`
       - `kernel_aarch64_modules`
+    - `kernel_aarch64_16k_dist`
+      - `kernel_aarch64_16k`
+      - `kernel_aarch64_modules`
     - `kernel_aarch64_debug_dist`
       - `kernel_aarch64_debug`
     - `kernel_x86_64_sources`
@@ -204,7 +216,7 @@ def define_common_kernels(
     - `kernel_x86_64_debug_dist`
       - `kernel_x86_64_debug`
 
-    `<name>` (aka `kernel_{aarch64,x86}{_debug,}`) targets build the
+    `<name>` (aka `kernel_{aarch64,x86}{_16k,_debug}`) targets build the
     main kernel build artifacts, e.g. `vmlinux`, etc.
 
     `<name>_sources` are convenience filegroups that refers to all sources required to
@@ -301,6 +313,7 @@ def define_common_kernels(
 
         The keys of the `target_configs` may be one of the following:
         - `kernel_aarch64`
+        - `kernel_aarch64_16k`
         - `kernel_aarch64_debug`
         - `kernel_x86_64`
         - `kernel_x86_64_debug`
@@ -350,6 +363,10 @@ def define_common_kernels(
           - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
           - `TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}` in `build.config` if there are symbol lists, else empty
           - `KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}` in `build.config` if there are symbol lists, else empty
+        - `kernel_aarch64_16k`:
+          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
+          - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
         - `kernel_aarch64_debug`:
           - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
           - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
@@ -380,6 +397,8 @@ def define_common_kernels(
                 "trim_nonlisted_kmi": aarch64_trim_and_check,
                 "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
             },
+            "kernel_aarch64_16k": {
+            },
             "kernel_aarch64_debug": {
                 "kmi_symbol_list": aarch64_kmi_symbol_list,
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
@@ -403,6 +422,9 @@ def define_common_kernels(
         |-----------------------------------|--------------|
         |`kernel_aarch64`                   |NO TRIM       |
         |(no symbol lists)                  |              |
+        |(`trim_nonlisted_kmi=None`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64_16k`               |NO TRIM       |
         |(`trim_nonlisted_kmi=None`)        |              |
         |-----------------------------------|--------------|
         |`kernel_aarch64_debug`             |NO TRIM       |
