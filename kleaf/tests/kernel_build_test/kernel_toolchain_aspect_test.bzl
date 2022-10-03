@@ -14,6 +14,10 @@
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load(
+    "//build/kernel/kleaf/impl:constants.bzl",
+    "MODULES_STAGING_ARCHIVE",
+)
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
@@ -82,6 +86,10 @@ def kernel_toolchain_aspect_test(name):
         filegroup_name = name + "_filegroup_" + base_suffix
 
         write_file(
+            name = filegroup_name + "_staging_archive",
+            out = filegroup_name + "_staging_archive/" + MODULES_STAGING_ARCHIVE,
+        )
+        write_file(
             name = filegroup_name + "_unstripped_modules",
             out = filegroup_name + "_unstripped_modules/unstripped_modules.tar.gz",
         )
@@ -96,6 +104,7 @@ def kernel_toolchain_aspect_test(name):
             deps = [
                 base_toolchain.file,
                 filegroup_name + "_unstripped_modules",
+                filegroup_name + "_staging_archive",
             ],
             module_outs_file = filegroup_name + "_module_outs_file",
             tags = ["manual"],

@@ -814,14 +814,23 @@ def _build_main_action(
 
     ## Declare implicit outputs of the command
     ruledir = ctx.actions.declare_directory(ctx.label.name)
-    modules_staging_archive = ctx.actions.declare_file(
-        "{}/{}".format(ctx.label.name, MODULES_STAGING_ARCHIVE),
-    )
+
+    if ctx.attr.base_kernel:
+        # We will re-package MODULES_STAGING_ARCHIVE in _repack_module_staging_archive,
+        # so use a different name.
+        modules_staging_archive_self = ctx.actions.declare_file(
+            "{}/modules_staging_dir_self.tar.gz".format(ctx.label.name),
+        )
+    else:
+        modules_staging_archive_self = ctx.actions.declare_file(
+            "{}/{}".format(ctx.label.name, MODULES_STAGING_ARCHIVE),
+        )
+
     out_dir_kernel_headers_tar = ctx.actions.declare_file(
         "{name}/out-dir-kernel-headers.tar.gz".format(name = ctx.label.name),
     )
 
-    modules_staging_dir = modules_staging_archive.dirname + "/staging"
+    modules_staging_dir = modules_staging_archive_self.dirname + "/staging"
 
     # Individual steps of the final command.
     interceptor_step = _get_interceptor_step(ctx)
@@ -872,7 +881,7 @@ def _build_main_action(
          # Grab outputs. If unable to find from OUT_DIR, look at KBUILD_MIXED_TREE as well.
            {search_and_cp_output} --srcdir ${{OUT_DIR}} {kbuild_mixed_tree_arg} {dtstree_arg} --dstdir {ruledir} {all_output_names_minus_modules}
          # Archive modules_staging_dir
-           tar czf {modules_staging_archive} -C {modules_staging_dir} .
+           tar czf {modules_staging_archive_self} -C {modules_staging_dir} .
          # Grab *.symtypes
            {grab_symtypes_cmd}
          # Grab in-tree modules
@@ -910,7 +919,7 @@ def _build_main_action(
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
-        modules_staging_archive = modules_staging_archive.path,
+        modules_staging_archive_self = modules_staging_archive_self.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
         interceptor_command_prefix = interceptor_step.command_prefix,
         label = ctx.label,
@@ -941,7 +950,7 @@ def _build_main_action(
     # all outputs that |command| generates
     command_outputs = [
         ruledir,
-        modules_staging_archive,
+        modules_staging_archive_self,
         out_dir_kernel_headers_tar,
     ]
     for d in all_output_files.values():
@@ -963,7 +972,7 @@ def _build_main_action(
         all_output_files = all_output_files,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
         interceptor_output = interceptor_step.output_file,
-        modules_staging_archive = modules_staging_archive,
+        modules_staging_archive_self = modules_staging_archive_self,
         unstripped_dir = grab_unstripped_modules_step.unstripped_dir,
         ruledir = ruledir,
     )
@@ -973,6 +982,7 @@ def _create_infos(
         kbuild_mixed_tree_ret,
         all_module_names_file,
         main_action_ret,
+        modules_staging_archive,
         toolchain_version_out,
         kmi_strict_mode_out):
     """Creates and returns a list of provided infos that the `kernel_build` target should return.
@@ -982,6 +992,7 @@ def _create_infos(
         kbuild_mixed_tree_ret: from `_create_kbuild_mixed_tree`
         all_module_names_file: A file containing all module names
         main_action_ret: from `_build_main_action`
+        modules_staging_archive: from `_repack_modules_staging_archive`
         toolchain_version_out: from `_kernel_build_dump_toolchain_version`
         kmi_strict_mode_out: from `_kmi_symbol_list_strict_mode`
     """
@@ -1014,7 +1025,7 @@ def _create_infos(
     )
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
-        modules_staging_archive = main_action_ret.modules_staging_archive,
+        modules_staging_archive = modules_staging_archive,
         module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs),
         modules_prepare_setup = ctx.attr.modules_prepare[KernelEnvInfo].setup,
         modules_prepare_deps = ctx.attr.modules_prepare[KernelEnvInfo].dependencies,
@@ -1049,7 +1060,7 @@ def _create_infos(
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
-    output_group_kwargs["modules_staging_archive"] = depset([main_action_ret.modules_staging_archive])
+    output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
     output_group_kwargs[MODULE_OUTS_FILE_OUTPUT_GROUP] = depset([all_module_names_file])
     output_group_kwargs[TOOLCHAIN_VERSION_FILENAME] = depset([toolchain_version_out])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
@@ -1112,6 +1123,12 @@ def _kernel_build_impl(ctx):
         check_toolchain_outs = check_toolchain_outs,
     )
 
+    modules_staging_archive = _repack_modules_staging_archive(
+        ctx = ctx,
+        modules_staging_archive_self = main_action_ret.modules_staging_archive_self,
+        all_module_basenames_file = all_module_basenames_file,
+    )
+
     toolchain_version_out = _kernel_build_dump_toolchain_version(ctx)
 
     kmi_strict_mode_out = _kmi_symbol_list_strict_mode(
@@ -1125,6 +1142,7 @@ def _kernel_build_impl(ctx):
         kbuild_mixed_tree_ret = kbuild_mixed_tree_ret,
         all_module_names_file = all_module_names_file,
         main_action_ret = main_action_ret,
+        modules_staging_archive = modules_staging_archive,
         toolchain_version_out = toolchain_version_out,
         kmi_strict_mode_out = kmi_strict_mode_out,
     )
@@ -1329,3 +1347,68 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         progress_message = "Checking for kmi_symbol_list_strict_mode {}".format(ctx.label),
     )
     return out
+
+def _repack_modules_staging_archive(
+        ctx,
+        modules_staging_archive_self,
+        all_module_basenames_file):
+    """Repackages `modules_staging_archive` to contain kernel modules from `base_kernel` as well.
+
+    Args:
+        ctx: ctx
+        modules_staging_archive_self: The `modules_staging_archive` from `make`
+            in `_build_main_action`.
+    """
+    if not ctx.attr.base_kernel:
+        # No need to repack.
+        if not modules_staging_archive_self.basename == MODULES_STAGING_ARCHIVE:
+            fail("\nFATAL: {}: modules_staging_archive_self.basename == {}, but not {}".format(
+                ctx.label,
+                modules_staging_archive_self.basename,
+                MODULES_STAGING_ARCHIVE,
+            ))
+        return modules_staging_archive_self
+
+    modules_staging_archive = ctx.actions.declare_file(
+        "{}_module_staging_archive/{}".format(ctx.label.name, MODULES_STAGING_ARCHIVE),
+    )
+
+    # Re-package module_staging_dir to also include the one from base_kernel.
+    # Pick ko files only from base_kernel, while keeping all depmod files from self.
+    modules_staging_dir = modules_staging_archive.dirname + "/staging"
+    cmd = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        mkdir -p {modules_staging_dir}
+        tar xf {self_archive} -C {modules_staging_dir}
+
+        # Filter out device-customized modules that has the same name as GKI modules
+        base_modules=$(tar tf {base_archive} | grep '[.]ko$' || true)
+        for module in $(cat {all_module_basenames_file}); do
+          base_modules=$(echo "${{base_modules}}" | grep -v "${{module}}"'$' || true)
+        done
+
+        if [[ -n "${{base_modules}}" ]]; then
+            tar xf {base_archive} -C {modules_staging_dir} ${{base_modules}}
+        fi
+        tar czf {out_archive} -C  {modules_staging_dir} .
+        rm -rf {modules_staging_dir}
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        self_archive = modules_staging_archive_self.path,
+        base_archive = ctx.attr.base_kernel[KernelBuildExtModuleInfo].modules_staging_archive.path,
+        out_archive = modules_staging_archive.path,
+        all_module_basenames_file = all_module_basenames_file.path,
+    )
+    debug.print_scripts(ctx, cmd, what = "repackage_module_staging_archive")
+    ctx.actions.run_shell(
+        mnemonic = "KernelBuildModuleStagingArchive",
+        inputs = [
+            modules_staging_archive_self,
+            ctx.attr.base_kernel[KernelBuildExtModuleInfo].modules_staging_archive,
+            all_module_basenames_file,
+        ],
+        outputs = [modules_staging_archive],
+        tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        progress_message = "Repackaging module_staging_archive {}".format(ctx.label),
+        command = cmd,
+    )
+    return modules_staging_archive
