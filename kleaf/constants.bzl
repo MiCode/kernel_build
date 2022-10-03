@@ -16,6 +16,7 @@ load(
     "//build/kernel/kleaf/impl:constants.bzl",
     "AARCH64_IMAGES",
     "GKI_ARTIFACTS_AARCH64_OUTS",
+    "MODULES_STAGING_ARCHIVE",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
     "MODULE_OUTS_FILE_SUFFIX",
     "SYSTEM_DLKM_OUTS",
@@ -79,7 +80,7 @@ GKI_DOWNLOAD_CONFIGS = [
             # _modules_prepare
             "modules_prepare_outdir.tar.gz",
             # _modules_staging_archive
-            "modules_staging_dir.tar.gz",
+            MODULES_STAGING_ARCHIVE,
         ],
     },
     {

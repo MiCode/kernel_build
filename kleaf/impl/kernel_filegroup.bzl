@@ -23,6 +23,10 @@ load(
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
+load(
+    ":constants.bzl",
+    "MODULES_STAGING_ARCHIVE",
+)
 load(":debug.bzl", "debug")
 load(
     ":utils.bzl",
@@ -43,7 +47,7 @@ def _kernel_filegroup_impl(ctx):
     modules_prepare_deps = [modules_prepare_out_dir_tar_gz]
 
     kernel_module_dev_info = KernelBuildExtModuleInfo(
-        modules_staging_archive = utils.find_file("modules_staging_dir.tar.gz", all_deps, what = ctx.label),
+        modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
         modules_prepare_setup = modules_prepare_setup,
         modules_prepare_deps = modules_prepare_deps,
         # TODO(b/211515836): module_srcs might also be downloaded
