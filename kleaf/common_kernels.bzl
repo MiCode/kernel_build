@@ -30,6 +30,7 @@ load(
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
+load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
@@ -669,7 +670,11 @@ def define_common_kernels(
 
         _define_common_kernels_additional_tests(
             name = name + "_additional_tests",
+            kernel_build_name = name,
             kernel_modules_install = name + "_modules_install",
+            modules = (target_config.get("module_outs") or []) +
+                      (target_config.get("module_implicit_outs") or []),
+            arch = arch_config["arch"],
         )
 
         native.test_suite(
@@ -817,7 +822,10 @@ def _define_prebuilts(**kwargs):
 
 def _define_common_kernels_additional_tests(
         name,
-        kernel_modules_install):
+        kernel_build_name,
+        kernel_modules_install,
+        modules,
+        arch):
     fake_modules_options = "//build/kernel/kleaf/artifact_tests:fake_modules_options.txt"
 
     kernel_images(
@@ -852,11 +860,19 @@ def _define_common_kernels_additional_tests(
         expected_modules_options = name + "_empty_modules_options",
     )
 
+    device_modules_test(
+        name = name + "_device_modules_test",
+        base_kernel_label = Label("//{}:{}".format(native.package_name(), kernel_build_name)),
+        base_kernel_module = min(modules) if modules else None,
+        arch = arch,
+    )
+
     native.test_suite(
         name = name,
         tests = [
             name + "_empty",
             name + "_fake",
+            name + "_device_modules_test",
         ],
     )
 
