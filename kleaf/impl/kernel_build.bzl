@@ -727,7 +727,7 @@ def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, rul
         outputs = [],
     )
 
-def _get_grab_unstripped_modules_step(ctx, all_module_names):
+def _get_grab_unstripped_modules_step(ctx, has_any_modules, all_module_basenames_file):
     """Returns a step for grabbing the unstripped in-tree modules from `OUT_DIR`.
 
     Returns:
@@ -750,14 +750,7 @@ def _get_grab_unstripped_modules_step(ctx, all_module_names):
         unstripped_dir = ctx.actions.declare_directory("{name}/unstripped".format(name = ctx.label.name))
         outputs.append(unstripped_dir)
 
-        if all_module_names:
-            all_module_basenames = [paths.basename(filename) for filename in all_module_names]
-            all_module_basenames_file = _write_module_names_to_file(
-                ctx,
-                "all_module_basenames.txt",
-                all_module_basenames,
-            )
-
+        if has_any_modules:
             tools.append(ctx.file._search_and_cp_output)
             inputs.append(all_module_basenames_file)
             grab_unstripped_intree_modules_cmd = """
@@ -810,6 +803,7 @@ def _build_main_action(
         kbuild_mixed_tree_ret,
         all_output_names,
         all_module_names_file,
+        all_module_basenames_file,
         check_toolchain_outs):
     """Adds the main action for the `kernel_build`."""
     base_kernel_all_module_names_file = _get_base_kernel_all_module_names_file(ctx)
@@ -839,7 +833,11 @@ def _build_main_action(
         ruledir = ruledir,
         all_module_names_file = all_module_names_file,
     )
-    grab_unstripped_modules_step = _get_grab_unstripped_modules_step(ctx, all_output_names.modules)
+    grab_unstripped_modules_step = _get_grab_unstripped_modules_step(
+        ctx = ctx,
+        has_any_modules = bool(all_output_names.modules),
+        all_module_basenames_file = all_module_basenames_file,
+    )
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
     steps = (
         interceptor_step,
@@ -1098,11 +1096,19 @@ def _kernel_build_impl(ctx):
         all_output_names.modules,
     )
 
+    # A file containing the basenames of the modules
+    all_module_basenames_file = _write_module_names_to_file(
+        ctx,
+        "all_module_basenames.txt",
+        [paths.basename(filename) for filename in all_output_names.modules],
+    )
+
     main_action_ret = _build_main_action(
         ctx = ctx,
         kbuild_mixed_tree_ret = kbuild_mixed_tree_ret,
         all_output_names = all_output_names,
         all_module_names_file = all_module_names_file,
+        all_module_basenames_file = all_module_basenames_file,
         check_toolchain_outs = check_toolchain_outs,
     )
 
