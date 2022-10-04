@@ -63,6 +63,7 @@ def kernel_build(
         srcs = None,
         module_outs = None,
         implicit_outs = None,
+        module_implicit_outs = None,
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
@@ -245,6 +246,11 @@ def kernel_build(
         implicit_outs: Like `outs`, but not copied to the distribution directory.
 
           Labels are created for each item in `implicit_outs` as in `outs`.
+
+        module_implicit_outs: like `module_outs`, but not copied to the distribution directory.
+
+          Labels are created for each item in `module_implicit_outs` as in `outs`.
+
         kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_list`.
 
           This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
@@ -405,6 +411,7 @@ def kernel_build(
         outs = kernel_utils.transform_kernel_build_outs(name, "outs", outs),
         module_outs = kernel_utils.transform_kernel_build_outs(name, "module_outs", module_outs),
         implicit_outs = kernel_utils.transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
+        module_implicit_outs = kernel_utils.transform_kernel_build_outs(name, "module_implicit_outs", module_implicit_outs),
         internal_outs = kernel_utils.transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
@@ -426,6 +433,7 @@ def kernel_build(
         ("outs", outs),
         ("module_outs", module_outs),
         ("implicit_outs", implicit_outs),
+        ("module_implicit_outs", module_implicit_outs),
         # internal_outs are opaque to the user, hence we don't create a alias (filegroup) for them.
     ):
         if out_attr_val == None:
@@ -433,6 +441,8 @@ def kernel_build(
         if type(out_attr_val) == type([]):
             for out in out_attr_val:
                 native.filegroup(name = name + "/" + out, srcs = [":" + name], output_group = out, **kwargs)
+                if out != paths.basename(out):
+                    native.filegroup(name = name + "/" + paths.basename(out), srcs = [":" + name], output_group = out, **kwargs)
             real_outs[out_name] = [name + "/" + out for out in out_attr_val]
         elif type(out_attr_val) == type({}):
             # out_attr_val = {config_setting: [out, ...], ...}
@@ -449,6 +459,18 @@ def kernel_build(
                     # Use "manual" tags to prevent it to be built with ...
                     **kwargs_with_manual
                 )
+                if out != paths.basename(out):
+                    native.filegroup(
+                        name = name + "/" + paths.basename(out),
+                        # Use a select() to prevent this rule to build when config_setting is not fulfilled.
+                        srcs = select({
+                            config_setting: [":" + name]
+                            for config_setting in config_settings
+                        }),
+                        output_group = out,
+                        # Use "manual" tags to prevent it to be built with ...
+                        **kwargs_with_manual
+                    )
             real_outs[out_name] = [name + "/" + out for out, _ in utils.reverse_dict(out_attr_val).items()]
         else:
             fail("Unexpected type {} for {}: {}".format(type(out_attr_val), out_name, out_attr_val))
@@ -483,9 +505,10 @@ def kernel_build(
         target = name,
         **kwargs
     )
+
     kernel_module_test(
         name = name + "_modules_test",
-        modules = real_outs.get("module_outs"),
+        modules = (real_outs.get("module_outs") or []) + (real_outs.get("module_implicit_outs") or []),
         **kwargs
     )
 
@@ -528,8 +551,8 @@ def _kernel_build_impl(ctx):
         ctx.file._search_and_cp_output,
         ctx.file._check_declared_output_list,
     ]
-    inputs += ctx.files.srcs
-    inputs += ctx.files.deps
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs += [target.files for target in ctx.attr.deps]
     if check_toolchain_out:
         inputs.append(check_toolchain_out)
     if kbuild_mixed_tree:
@@ -551,15 +574,15 @@ def _kernel_build_impl(ctx):
     # => all_output_names = ["foo", "Module.symvers", ...]
     #    all_output_files = {"out": {"foo": File(...)}, "internal_outs": {"Module.symvers": File(...)}, ...}
     all_output_files = {}
-    for attr in ("outs", "module_outs", "implicit_outs", "internal_outs"):
+    for attr in ("outs", "module_outs", "implicit_outs", "module_implicit_outs", "internal_outs"):
         all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
     all_output_names_minus_modules = []
     for attr, d in all_output_files.items():
-        if attr != "module_outs":
+        if attr not in ("module_outs", "module_implicit_outs"):
             all_output_names_minus_modules += d.keys()
 
     # A file containing all module_outs
-    all_module_names = all_output_files["module_outs"].keys()
+    all_module_names = all_output_files["module_outs"].keys() + all_output_files["module_implicit_outs"].keys()
     all_module_names_file = ctx.actions.declare_file("{name}_all_module_names/{name}{suffix}".format(name = ctx.label.name, suffix = MODULE_OUTS_FILE_SUFFIX))
     ctx.actions.write(
         output = all_module_names_file,
@@ -733,7 +756,7 @@ def _kernel_build_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = command_outputs,
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Building kernel %s" % ctx.attr.name,
@@ -808,10 +831,10 @@ def _kernel_build_impl(ctx):
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
     output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
     output_group_kwargs[MODULE_OUTS_FILE_OUTPUT_GROUP] = depset([all_module_names_file])
+    output_group_kwargs[TOOLCHAIN_VERSION_FILENAME] = depset([toolchain_version_out])
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
-    default_info_files.append(toolchain_version_out)
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
@@ -848,6 +871,7 @@ _kernel_build = rule(
         "outs": attr.string_list(),
         "module_outs": attr.string_list(doc = "output *.ko files"),
         "internal_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
+        "module_implicit_outs": attr.string_list(doc = "Like `module_outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_check_declared_output_list": attr.label(
             allow_single_file = True,
@@ -867,7 +891,7 @@ _kernel_build = rule(
         ),
         "base_kernel_for_module_outs": attr.label(
             providers = [KernelBuildInTreeModulesInfo],
-            doc = "If set, use the `module_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
+            doc = "If set, use the `module_outs` and `module_implicit_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
         ),
         "kmi_symbol_list_strict_mode": attr.bool(),
         "raw_kmi_symbol_list": attr.label(

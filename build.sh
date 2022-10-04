@@ -784,7 +784,7 @@ fi
 if [ -n "${KMI_SYMBOL_LIST}" ]; then
   ${ROOT_DIR}/build/abi/process_symbols --out-dir="$DIST_DIR" --out-file=abi_symbollist \
     --report-file=abi_symbollist.report --in-dir="$ROOT_DIR/$KERNEL_DIR" \
-    "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS}
+    "${KMI_SYMBOL_LIST}" ${ADDITIONAL_KMI_SYMBOL_LISTS} --verbose
   pushd $ROOT_DIR/$KERNEL_DIR
   if [ "${TRIM_NONLISTED_KMI}" = "1" ]; then
       # Create the raw symbol list

@@ -494,7 +494,7 @@ Reason: The Bazel build already sets the order of loading modules for you, and
 
 Not customizable in Bazel.
 
-Reason: This is set to a fixed value in the `module_outs` attribute of
+Reason: This is set to a fixed value in the `module_implicit_outs` attribute of
 `//common:kernel_aarch64`.
 
 See [documentation for all rules].

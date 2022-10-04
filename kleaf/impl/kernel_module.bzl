@@ -38,6 +38,7 @@ def kernel_module(
         kernel_build,
         outs = None,
         srcs = None,
+        deps = None,
         kernel_module_deps = None,
         **kwargs):
     """Generates a rule that builds an external kernel module.
@@ -73,11 +74,12 @@ def kernel_module(
           ])
           ```
         kernel_build: Label referring to the kernel_build module.
-        kernel_module_deps: A list of other kernel_module dependencies.
+        deps: A list of other `kernel_module` dependencies.
 
           Before building this target, `Modules.symvers` from the targets in
-          `kernel_module_deps` are restored, so this target can be built against
+          `deps` are restored, so this target can be built against
           them.
+        kernel_module_deps: **Deprecated**. Same as `deps`.
         outs: The expected output files. If unspecified or value is `None`, it
           is `["{name}.ko"]` by default.
 
@@ -133,13 +135,23 @@ def kernel_module(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
+
+    # TODO(b/245348323): Stop supporting kernel_module_deps after all mainline
+    #   users cleans up.
+    if kernel_module_deps:
+        print("\nWARNING: //{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
+            native.package_name(),
+            name,
+        ))
+        deps = (deps or []) + kernel_module_deps
+
     kwargs.update(
         # This should be the exact list of arguments of kernel_module.
         # Default arguments of _kernel_module go into _kernel_module_set_defaults.
         name = name,
         srcs = srcs,
         kernel_build = kernel_build,
-        kernel_module_deps = kernel_module_deps,
+        deps = deps,
         outs = outs,
     )
     kwargs = _kernel_module_set_defaults(kwargs)
@@ -168,8 +180,8 @@ def kernel_module(
         # etc., which may not be the case. See below for adding "manual" tag.
         # TODO(b/231647455): clean up dependencies on implementation details.
         sibling_kwargs["kernel_build"] = sibling_kwargs["kernel_build"] + "_" + sibling_name
-        if sibling_kwargs.get("kernel_module_deps") != None:
-            sibling_kwargs["kernel_module_deps"] = [dep + "_" + sibling_name for dep in sibling_kwargs["kernel_module_deps"]]
+        if sibling_kwargs.get("deps") != None:
+            sibling_kwargs["deps"] = [dep + "_" + sibling_name for dep in sibling_kwargs["deps"]]
 
         # We don't know if {kernel_build}_{sibling_name} exists or not, so
         # add "manual" tag to prevent it from being built by default.
@@ -203,20 +215,22 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
             ))
 
 def _kernel_module_impl(ctx):
-    _check_kernel_build(ctx.attr.kernel_module_deps, ctx.attr.kernel_build, ctx.label)
+    kernel_module_deps = ctx.attr.deps
+    _check_kernel_build(kernel_module_deps, ctx.attr.kernel_build, ctx.label)
 
     inputs = []
-    inputs += ctx.files.srcs
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_prepare_deps
-    inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs
     inputs += ctx.files.makefile
     inputs += [
         ctx.file._search_and_cp_output,
         ctx.file._check_declared_output_list,
     ]
-    for kernel_module_dep in ctx.attr.kernel_module_deps:
+    for kernel_module_dep in kernel_module_deps:
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
+
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -271,7 +285,7 @@ def _kernel_module_impl(ctx):
     """.format(
         kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
     )
-    for kernel_module_dep in ctx.attr.kernel_module_deps:
+    for kernel_module_dep in kernel_module_deps:
         command += kernel_module_dep[KernelEnvInfo].setup
 
     grab_unstripped_cmd = ""
@@ -330,7 +344,7 @@ def _kernel_module_impl(ctx):
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
                """.format(
         label = ctx.label,
-        ext_mod = ctx.attr.ext_mod,
+        ext_mod = ctx.label.package,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dws.directory.path,
         outdir = outdir,
@@ -347,7 +361,7 @@ def _kernel_module_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModule",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = command_outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),
@@ -372,7 +386,7 @@ def _kernel_module_impl(ctx):
         """.format(
             search_and_cp_output = ctx.file._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dws.directory.path,
-            ext_mod = ctx.attr.ext_mod,
+            ext_mod = ctx.label.package,
             outdir = outdir,
             outs = " ".join(original_outs),
         )
@@ -403,7 +417,7 @@ def _kernel_module_impl(ctx):
              # New shell ends
                )
     """.format(
-        ext_mod = ctx.attr.ext_mod,
+        ext_mod = ctx.label.package,
         module_symvers = module_symvers.path,
     )
 
@@ -449,10 +463,9 @@ _kernel_module = rule(
             mandatory = True,
             providers = [KernelEnvInfo, KernelBuildExtModuleInfo],
         ),
-        "kernel_module_deps": attr.label_list(
+        "deps": attr.label_list(
             providers = [KernelEnvInfo, KernelModuleInfo],
         ),
-        "ext_mod": attr.string(mandatory = True),
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
@@ -478,9 +491,6 @@ def _kernel_module_set_defaults(kwargs):
     """
     if kwargs.get("makefile") == None:
         kwargs["makefile"] = native.glob(["Makefile"])
-
-    if kwargs.get("ext_mod") == None:
-        kwargs["ext_mod"] = native.package_name()
 
     if kwargs.get("outs") == None:
         kwargs["outs"] = ["{}.ko".format(kwargs["name"])]

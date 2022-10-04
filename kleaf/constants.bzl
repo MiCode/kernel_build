@@ -33,15 +33,11 @@ _common_outs = [
 # Common output files for aarch64 kernel builds.
 aarch64_outs = _common_outs + AARCH64_IMAGES
 
-aarch64_gz_outs = _common_outs + [
-    "Image",
-    "Image.gz",
-]
-
 # Common output files for x86_64 kernel builds.
 x86_64_outs = _common_outs + ["bzImage"]
 
-# See common_kernels.bzl.
+# See common_kernels.bzl and download_repo.bzl.
+# - mandatory: If False, download errors are ignored. Default is True; see workspace.bzl
 GKI_DOWNLOAD_CONFIGS = [
     {
         "target_suffix": "uapi_headers",
@@ -66,6 +62,12 @@ GKI_DOWNLOAD_CONFIGS = [
         "outs": SYSTEM_DLKM_OUTS,
     },
     {
+        "target_suffix": "toolchain_version",
+        "outs": [
+            TOOLCHAIN_VERSION_FILENAME,
+        ],
+    },
+    {
         "target_suffix": "gki_artifacts",
         # We only download GKI for arm64, not x86_64
         # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
@@ -80,6 +82,14 @@ GKI_DOWNLOAD_CONFIGS = [
             "modules_staging_dir.tar.gz",
         ],
     },
+    {
+        "target_suffix": "kmi_symbol_list",
+        "mandatory": False,
+        "outs": [
+            "abi_symbollist",
+            "abi_symbollist.report",
+        ],
+    },
 ]
 
 # Key: Bazel target name in common_kernels.bzl
@@ -90,7 +100,6 @@ CI_TARGET_MAPPING = {
     "kernel_aarch64": {
         "repo_name": "gki_prebuilts",
         "outs": aarch64_outs + [
-            TOOLCHAIN_VERSION_FILENAME,
             "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
         ],
     },

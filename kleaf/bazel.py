@@ -111,6 +111,9 @@ class BazelWrapper(object):
                             type=_require_absolute_path,
                             default=absolute_cache_dir)
 
+        # Disable fetching //external:local_config_cc
+        self.env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] = "1"
+
         # known_args: List of arguments known by this bazel wrapper. These
         #   are stripped from the final bazel invocation.
         # remaining_command_args: the rest of the arguments
@@ -125,8 +128,9 @@ class BazelWrapper(object):
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
 
-        self.transformed_command_args.append(
-            f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
+        if self.command not in ("query", "version"):
+            self.transformed_command_args.append(
+                f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
 
     def _build_final_args(self) -> list[str]:
         """Builds the final arguments for the subprocess."""
