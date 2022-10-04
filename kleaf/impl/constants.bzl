@@ -43,3 +43,5 @@ SYSTEM_DLKM_OUTS = [
     "system_dlkm_staging_archive.tar.gz",
     "system_dlkm.modules.load",
 ]
+
+MODULES_STAGING_ARCHIVE = "modules_staging_dir.tar.gz"

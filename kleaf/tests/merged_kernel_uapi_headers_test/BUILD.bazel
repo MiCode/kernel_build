@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-test_suite(
-    name = "tests",
-    tests = [
-        "//build/kernel/kleaf/tests/ddk_test",
-        "//build/kernel/kleaf/tests/kernel_build_config_test",
-        "//build/kernel/kleaf/tests/kernel_build_test",
-        "//build/kernel/kleaf/tests/kernel_config_test",
-        "//build/kernel/kleaf/tests/merged_kernel_uapi_headers_test",
-    ],
+load("@bazel_skylib//lib:unittest.bzl", "unittest")
+load(":order_test.bzl", "order_test")
+
+unittest.suite(
+    "merged_kernel_uapi_headers_test",
+    order_test,
 )
