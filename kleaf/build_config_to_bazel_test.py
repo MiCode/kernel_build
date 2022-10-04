@@ -66,11 +66,11 @@ class BuildConfigToBazelTest(unittest.TestCase):
         self.environ['BUILD_CONFIG'] = f'{_TEST_DATA}/{name}'
         argv = ['--stdout'] + list(argv)
 
-        with unittest.mock.patch.object(build_config_to_bazel.BuildozerCommandBuilder,
+        with unittest.mock.patch.object(build_config_to_bazel.BuildConfigToBazel,
                                         '_create_extra_file') as create_extra_file:
             try:
                 args = build_config_to_bazel.parse_args(argv)
-                builder = build_config_to_bazel.BuildozerCommandBuilder(
+                builder = build_config_to_bazel.BuildConfigToBazel(
                     args=args,
                     stdout=self.stdout,
                     stderr=self.stderr,
