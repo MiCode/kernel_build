@@ -206,6 +206,15 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+py_binary(
+    name = "ddk/gen_ddk_headers",
+    srcs = ["ddk/gen_ddk_headers.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/kernel/kleaf:buildozer_command_builder",
+    ],
+)
+
 # Local build platforms
 platform(
     name = "linux_x86_64",
