@@ -70,6 +70,16 @@ rule.
 Example:
 [Power Reset module depends on BMS](https://android.googlesource.com/kernel/google-modules/power/reset/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel).
 
+## ERROR: modpost: "foo" [.../mod_using_foo.ko] undefined! {#modpost-symbol-undefined}
+
+Solution:
+
+* First, ensure the `Module.symvers` file from the module defining `foo` is present.
+  See [this section](#module-symvers-missing).
+* For `kernel_module`s, set `KBUILD_EXTRA_SYMBOLS` accordingly in `Makefile`. Example:
+  [Makefile for Power Reset module](https://android.googlesource.com/kernel/google-modules/power/reset/+/refs/heads/android-gs-raviole-mainline/Makefile)
+  . This is unnecessary for `ddk_module` because `Makefile` is generated.
+
 ## Exception: Unable to find \[some file\] in any of the following directories: ... {#no-files-match}
 
 First, check whether `[some_module].ko` should be an output of the
