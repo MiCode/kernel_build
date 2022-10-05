@@ -108,10 +108,20 @@ def order_test(name):
         tags = ["manual"],
     )
 
+    native.filegroup(
+        name = name + "_base_modules_staging_archive",
+        srcs = [name + "_base"],
+        output_group = "modules_staging_archive",
+        tags = ["manual"],
+    )
+
     kernel_filegroup(
         name = name + "_fg",
         srcs = [name + "_base"],
-        deps = [name + "_base_" + TOOLCHAIN_VERSION_FILENAME],
+        deps = [
+            name + "_base_" + TOOLCHAIN_VERSION_FILENAME,
+            name + "_base_modules_staging_archive",
+        ],
         kernel_uapi_headers = name + "_base_uapi_headers",
         module_outs_file = name + "_module_outs_file",
         tags = ["manual"],
