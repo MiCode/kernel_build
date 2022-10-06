@@ -274,7 +274,8 @@ def _kernel_module_impl(ctx):
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
     transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts]
-    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs]
+    if not ctx.attr.internal_exclude_kernel_build_module_srcs:
+        transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs]
 
     # Add targets with DdkHeadersInfo in deps
     for hdr in hdr_deps:
@@ -550,6 +551,7 @@ _kernel_module = rule(
         ),
         "internal_module_symvers_name": attr.string(default = "Module.symvers"),
         "internal_drop_modules_order": attr.bool(),
+        "internal_exclude_kernel_build_module_srcs": attr.bool(),
         "internal_hdrs": attr.label_list(allow_files = [".h"]),
         "internal_includes": attr.string_list(doc = "exported include directories"),
         "kernel_build": attr.label(

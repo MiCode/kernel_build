@@ -105,6 +105,7 @@ def ddk_module(
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
         internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
         internal_drop_modules_order = True,
+        internal_exclude_kernel_build_module_srcs = True,
         internal_hdrs = hdrs,
         internal_includes = includes,
         **kwargs
