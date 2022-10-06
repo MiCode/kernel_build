@@ -284,6 +284,7 @@ def _define_abi_targets(
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
         tags = tags,
+        kernel_build_for_base_modules = kernel_build_kwargs.get("base_kernel", name),
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",

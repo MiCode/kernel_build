@@ -62,10 +62,22 @@ def _extracted_symbols_impl(ctx):
             out = out.path,
         )
 
+    # Get the signed and stripped module archive for the GKI modules
+    base_modules_archive = ctx.attr.kernel_build_for_base_modules[KernelBuildAbiInfo].modules_staging_archive
+    inputs.append(base_modules_archive)
+
     command = ctx.attr.kernel_build_notrim[KernelEnvInfo].setup
     command += """
         mkdir -p {intermediates_dir}
-        cp -pl {srcs} {intermediates_dir}
+        # Extract archive and copy the GKI modules First
+        # TODO(/b/243570975): Use tar wildcards & xform once prebuilt supports it, as below:
+        # tar --directory={intermediates_dir} --wildcards --xform='s#^.+/##x' -xf {base_modules_archive} '*.ko
+        mkdir -p {intermediates_dir}/temp
+        tar xf {base_modules_archive} -C {intermediates_dir}/temp
+        find {intermediates_dir}/temp -name '*.ko' -exec mv -t {intermediates_dir} {{}} \\;
+        rm -rf {intermediates_dir}/temp
+        # Copy other inputs including vendor modules; this will overwrite modules being overridden
+        cp -pfl {srcs} {intermediates_dir}
         {cp_src_cmd}
         {extract_symbols} {flags} {intermediates_dir}
         rm -rf {intermediates_dir}
@@ -75,6 +87,7 @@ def _extracted_symbols_impl(ctx):
         extract_symbols = ctx.file._extract_symbols.path,
         flags = " ".join(flags),
         cp_src_cmd = cp_src_cmd,
+        base_modules_archive = base_modules_archive.path,
     )
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
@@ -99,6 +112,7 @@ extracted_symbols = rule(
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
+        "kernel_build_for_base_modules": attr.label(doc = "The `kernel_build` which `modules_staging_archive` is treated as GKI modules.", providers = [KernelBuildAbiInfo]),
         "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },

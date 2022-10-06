@@ -1056,6 +1056,7 @@ def _create_infos(
         trim_nonlisted_kmi = ctx.attr.trim_nonlisted_kmi,
         combined_abi_symbollist = ctx.file.combined_abi_symbollist,
         module_outs_file = all_module_names_file,
+        modules_staging_archive = modules_staging_archive,
     )
 
     kernel_unstripped_modules_info = KernelUnstrippedModulesInfo(
