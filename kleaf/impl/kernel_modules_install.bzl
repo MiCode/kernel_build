@@ -47,7 +47,6 @@ def _kernel_modules_install_impl(ctx):
             external_modules.append(declared_file)
 
     transitive_inputs = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts]
-    transitive_inputs = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
