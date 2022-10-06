@@ -16,11 +16,12 @@ import argparse
 import dataclasses
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Callable, Optional, TextIO, Any, Iterable, Mapping
+from typing import Callable, Optional, TextIO, Iterable, Mapping
 
 _BUILDOZER_RETURN_CODE_NO_CHANGES_MADE = 3
 
@@ -82,7 +83,7 @@ class AttributeValue(InfoValue):
     # String-representation of the attribute value.
     # - If attribute value is None, this is the string "None" (InfoValue.NONE).
     # - If attribute value is not set, this is the value None (InfoValue.MISSING)
-    value: Optional[str] = InfoValue.MISSING
+    value: Optional[str | list[str]] = InfoValue.MISSING
 
     # String that contains the comment.
     # If comment is not found, this is the value None.
@@ -169,7 +170,8 @@ class BuildozerCommandBuilder(object):
             ret[tup[0]] = tup[1]
         return ret
 
-    def _buildozer_print(self, target, print_command, attribute) -> Optional[str | list[Any]]:
+    def _buildozer_print(self, target, print_command, attribute,
+                         parse_list=False) -> Optional[str | list[str]]:
         """Executes a buildozer print command."""
         value = InfoValue.MISSING
 
@@ -180,7 +182,21 @@ class BuildozerCommandBuilder(object):
         except subprocess.CalledProcessError:
             pass
 
+        if value is not InfoValue.MISSING and parse_list:
+            list_value = type(self)._parse_label_list(value)
+            if list_value is not None:
+                return list_value
+
         return value
+
+    @staticmethod
+    def _parse_label_list(value: str) -> Optional[list[str]]:
+        # https://bazel.build/concepts/labels#target-names
+        label_re = r"([a-zA-Z0-9@^_\"#$&'()*+,;<=>?\[\]{\|}~/.-]+)"
+        label_list_re = r"^\[(%s( %s)*)?\]$" % (label_re, label_re)
+        if not re.match(label_list_re, value):
+            return None
+        return value.removeprefix("[").removesuffix("]").split(" ")
 
     def _get_target(self, target: str) -> tuple[InfoKey, InfoValue]:
         """Gets information about a single target from existing BUILD files.
@@ -197,7 +213,7 @@ class BuildozerCommandBuilder(object):
         Args:
             key: the InfoKey.
         """
-        value = self._buildozer_print(key.target, "print", key.attribute)
+        value = self._buildozer_print(key.target, "print", key.attribute, parse_list=True)
         comment = self._buildozer_print(key.target, "print_comment", key.attribute)
         return key, AttributeValue(value=value, comment=comment)
 
@@ -279,7 +295,8 @@ class BuildozerCommandBuilder(object):
         if content:
             self.out_file.write(f"""comment {content}|{target}\n""")
 
-    def _set_attr(self, target: str, attribute: str, value: Any, quote: bool = False,
+    def _set_attr(self, target: str, attribute: str, value: Optional[bool | str],
+                  quote: bool = False,
                   command: str = "set"):
         """Writes a buildozer command that sets an attribute.
 
@@ -322,10 +339,13 @@ class BuildozerCommandBuilder(object):
             self.existing[key] = AttributeValue()
         attr_val: AttributeValue = isinstance_or_die(self.existing[key], AttributeValue)
         if attr_val.value is InfoValue.MISSING:
-            attr_val.value = f"[{command_value}]"
+            attr_val.value = [command_value]
         else:
-            # We could flatten this list, but we don't care about the in-memory value for now.
-            attr_val.value += f" + [{command_value}]"
+            if isinstance(attr_val.value, list):
+                attr_val.value.append(command_value)
+            else:
+                # This may be an expression that we can't parse. Just do something naive.
+                attr_val.value += f" + [{command_value}]"
 
     def _rename(self, target: str, old_attr: str, new_attr: str):
         """Writes a buildozer command that renames an attribute.
