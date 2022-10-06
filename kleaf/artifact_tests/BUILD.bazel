@@ -15,6 +15,8 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 exports_files([
+    "build.config.modules",
+    "check_module_signature.py",
     "fake_modules_options.txt",
     "kernel_build_test.py",
     "kernel_module_test.py",
@@ -24,10 +26,13 @@ exports_files([
 bzl_library(
     name = "artifact_tests",
     srcs = [
+        "device_modules_test.bzl",
         "kernel_test.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
         "//build/kernel/kleaf/impl",
+        "//build/kernel/kleaf/tests:empty_test",
+        "@bazel_skylib//rules:write_file",
     ],
 )

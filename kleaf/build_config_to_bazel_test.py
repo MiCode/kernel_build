@@ -118,6 +118,7 @@ class BuildConfigToBazelTest(unittest.TestCase):
     ) + ["//common:kernel_aarch64_sources"],''',
             'build_config = "build.config.simple"',
             'name = "simple_dist"',
+            'strip_modules = True,',
         ]
         self._run_test('build.config.simple', expected_list, {})
 
@@ -266,6 +267,9 @@ class BuildConfigToBazelTest(unittest.TestCase):
             f'kmi_symbol_list_add_only = True',
             # KMI_SYMBOL_LIST_MODULE_GROUPING
             f'module_grouping = True',
+
+            # DO_NOT_STRIP_MODULES
+            f'strip_modules = False,',
         ]
 
         expected_files = {

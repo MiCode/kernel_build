@@ -84,6 +84,7 @@ def kernel_build(
         enable_interceptor = None,
         kbuild_symtypes = None,
         toolchain_version = None,
+        strip_modules = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -323,6 +324,10 @@ def kernel_build(
           If the value is `"false"`; or the value is `"auto"` and
           `--kbuild_symtypes` is not specified, then `KBUILD_SYMTYPES=`.
         toolchain_version: The toolchain version to depend on.
+        strip_modules: If `None` or not specified, default is `False`.
+          If set to `True`, debug information for distributed modules is stripped.
+
+          This corresponds to negated value of `DO_NOT_STRIP_MODULES` in `build.config`.
         kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -347,6 +352,9 @@ def kernel_build(
                 "**/*.bzl",
             ],
         )
+
+    if strip_modules == None:
+        strip_modules = False
 
     internal_kwargs = dict(kwargs)
     internal_kwargs.pop("visibility", default = None)
@@ -429,6 +437,7 @@ def kernel_build(
         collect_unstripped_modules = collect_unstripped_modules,
         combined_abi_symbollist = abi_symbollist_target_name if all_kmi_symbol_lists else None,
         enable_interceptor = enable_interceptor,
+        strip_modules = strip_modules,
         **kwargs
     )
 
@@ -856,6 +865,10 @@ def _build_main_action(
         grab_symtypes_step,
     )
 
+    module_strip_flag = "INSTALL_MOD_STRIP="
+    if ctx.attr.strip_modules:
+        module_strip_flag += "1"
+
     # Build the command for the main action.
     command = ctx.attr.config[KernelEnvInfo].setup
     command += """
@@ -864,12 +877,9 @@ def _build_main_action(
          # Actual kernel build
            {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
          # Set variables and create dirs for modules
-           if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
-             module_strip_flag="INSTALL_MOD_STRIP=1"
-           fi
            mkdir -p {modules_staging_dir}
          # Install modules
-           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} ${{module_strip_flag}} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
          # Archive headers in OUT_DIR
            find ${{OUT_DIR}} -name *.h -print0                          \
                | tar czf {out_dir_kernel_headers_tar}                   \
@@ -920,6 +930,7 @@ def _build_main_action(
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
+        module_strip_flag = module_strip_flag,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
         interceptor_command_prefix = interceptor_step.command_prefix,
         label = ctx.label,
@@ -1030,6 +1041,7 @@ def _create_infos(
         modules_prepare_setup = ctx.attr.modules_prepare[KernelEnvInfo].setup,
         modules_prepare_deps = ctx.attr.modules_prepare[KernelEnvInfo].dependencies,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
+        strip_modules = ctx.attr.strip_modules,
     )
 
     kernel_uapi_depsets = []
@@ -1205,6 +1217,7 @@ _kernel_build = rule(
         "kernel_uapi_headers": attr.label(),
         "trim_nonlisted_kmi": attr.bool(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
+        "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
     },
 )
 

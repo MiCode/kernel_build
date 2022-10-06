@@ -49,9 +49,8 @@ def _hermetic_tools_impl(ctx):
     all_outputs += hermetic_outs
     deps += hermetic_outs
 
-    for attr in ("host_tools", "test_host_tools"):
-        host_outs = getattr(ctx.outputs, attr)
-        command = """
+    host_outs = ctx.outputs.host_tools
+    command = """
             set -e
           # export PATH so which can work
             export PATH
@@ -59,20 +58,20 @@ def _hermetic_tools_impl(ctx):
                 {hermetic_base}/ln -s $({hermetic_base}/which $({hermetic_base}/basename $i)) $i
             done
         """.format(
-            host_outs = " ".join([f.path for f in host_outs]),
-            hermetic_base = hermetic_outs[0].dirname,
-        )
-        ctx.actions.run_shell(
-            inputs = deps,
-            outputs = host_outs,
-            command = command,
-            progress_message = "Creating symlinks to {}".format(attr),
-            mnemonic = "HermeticTools",
-            execution_requirements = {
-                "no-remote": "1",
-            },
-        )
-        all_outputs += host_outs
+        host_outs = " ".join([f.path for f in host_outs]),
+        hermetic_base = hermetic_outs[0].dirname,
+    )
+    ctx.actions.run_shell(
+        inputs = deps,
+        outputs = host_outs,
+        command = command,
+        progress_message = "Creating symlinks to {}".format(attr),
+        mnemonic = "HermeticTools",
+        execution_requirements = {
+            "no-remote": "1",
+        },
+    )
+    all_outputs += host_outs
 
     deps += ctx.outputs.host_tools
 
@@ -107,7 +106,6 @@ _hermetic_tools = rule(
     doc = "",
     attrs = {
         "host_tools": attr.output_list(),
-        "test_host_tools": attr.output_list(),
         "outs": attr.output_list(),
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
@@ -118,7 +116,6 @@ def hermetic_tools(
         name,
         srcs,
         host_tools = None,
-        test_host_tools = None,
         deps = None):
     """Provide tools for a hermetic build.
 
@@ -130,17 +127,11 @@ def hermetic_tools(
         host_tools: An allowlist of names of tools that are allowed to be used from the host.
 
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
-        test_host_tools: An allowlist of names of tools that are allowed to be used from the host for testing only.
-
-          For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
     """
 
     if host_tools:
         host_tools = ["{}/{}".format(name, tool) for tool in host_tools]
-
-    if test_host_tools:
-        test_host_tools = ["{}/{}".format(name, tool) for tool in test_host_tools]
 
     outs = None
     if srcs:
@@ -151,6 +142,5 @@ def hermetic_tools(
         srcs = srcs,
         outs = outs,
         host_tools = host_tools,
-        test_host_tools = test_host_tools,
         deps = deps,
     )

@@ -30,9 +30,6 @@ hermetic_tools(
         "sh",
         "tar",
     ],
-    test_host_tools = [
-        "strings",
-    ],
     deps = glob(
         ["build-tools/sysroot/**"],
         allow_empty = False,

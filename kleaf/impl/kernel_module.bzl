@@ -373,11 +373,12 @@ def _kernel_module_impl(ctx):
             ext_mod = ctx.label.package,
         )
 
+    module_strip_flag = "INSTALL_MOD_STRIP="
+    if ctx.attr.kernel_build[KernelBuildExtModuleInfo].strip_modules:
+        module_strip_flag += "1"
+
     command += """
              # Set variables
-               if [ "${{DO_NOT_STRIP_MODULES}}" != "1" ]; then
-                 module_strip_flag="INSTALL_MOD_STRIP=1"
-               fi
                ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
 
              # Actual kernel module build
@@ -389,7 +390,7 @@ def _kernel_module_impl(ctx):
                    INSTALL_MOD_DIR=extra/{ext_mod}                             \
                    KERNEL_UAPI_HEADERS_DIR=$(realpath {kernel_uapi_headers_dir}) \
                    INSTALL_HDR_PATH=$(realpath {kernel_uapi_headers_dir}/usr)  \
-                   ${{module_strip_flag}} modules_install
+                   {module_strip_flag} modules_install
 
              # Check if there are remaining *.ko files
                remaining_ko_files=$({check_declared_output_list} \\
@@ -420,6 +421,7 @@ def _kernel_module_impl(ctx):
         modules_staging_dir = modules_staging_dws.directory.path,
         outdir = outdir,
         kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
+        module_strip_flag = module_strip_flag,
         check_declared_output_list = ctx.file._check_declared_output_list.path,
         all_module_names_file = all_module_names_file.path,
         grab_unstripped_cmd = grab_unstripped_cmd,

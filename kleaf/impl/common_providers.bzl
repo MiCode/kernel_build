@@ -56,6 +56,7 @@ KernelBuildExtModuleInfo = provider(
         "modules_prepare_setup": "A command that is equivalent to running `make modules_prepare`. Requires env setup.",
         "modules_prepare_deps": "A list of deps to run `modules_prepare_cmd`.",
         "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
+        "strip_modules": "Whether debug information for distributed modules is stripped",
     },
 )
 
