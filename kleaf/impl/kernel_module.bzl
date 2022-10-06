@@ -273,7 +273,8 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
-    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs]
+    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts]
+    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs]
 
     # Add targets with DdkHeadersInfo in deps
     for hdr in hdr_deps:
