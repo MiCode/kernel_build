@@ -283,10 +283,6 @@ def _define_abi_targets(
         module_grouping = module_grouping,
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        # If base_kernel is set, this is a device build, so use the GKI
-        # modules list from base_kernel (GKI). If base_kernel is not set, this
-        # likely a GKI build, so use modules_outs from itself.
-        gki_modules_list_kernel_build = kernel_build_kwargs.get("base_kernel", name),
         tags = tags,
     )
     update_source_file(

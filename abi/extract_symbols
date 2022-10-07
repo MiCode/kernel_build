@@ -220,6 +220,11 @@ def create_symbol_list(symbol_list, undefined_symbols, exported,
       wl.write("\n  ".join(symbol_sort(precious_symbols)))
       wl.write("\n")
 
+def is_signature_present(module):
+  """Checks whether module has a signature appended (GKI) or not (vendor)"""
+  out = subprocess.check_output(["modinfo", "-F", "sig_id", module],
+                                stderr=subprocess.STDOUT).decode("ascii")
+  return out == "PKCS#7\n"
 
 def main():
   """Extracts the required symbols for a directory full of kernel modules."""
@@ -279,10 +284,6 @@ def main():
       help="Only process modules matching the filter. Can be passed multiple times."
   )
 
-  parser.add_argument(
-      "--gki-modules",
-      help="List of GKI modules which must be provided when the search directory contains both vendor and GKI modules")
-
   args = parser.parse_args()
 
   if not os.path.isdir(args.directory):
@@ -306,25 +307,25 @@ def main():
             [re.search(f, os.path.basename(mod)) for f in args.module_filters])
     ]
 
-  # Partition vendor and GKI modules in two lists
-  gki_modules = []
-  if args.gki_modules is not None:
-    with open(args.gki_modules) as f:
-      gki_modules = [ os.path.basename(mod) for mod in f.read().splitlines() ]
-    gki_modules = [ mod for mod in modules if os.path.basename(mod) in gki_modules ]
-    modules = [ mod for mod in modules if mod not in gki_modules ]
-
+  # Partition vendor (unsigned) and GKI modules (signed) in two lists
+  t1, t2 = itertools.tee(modules)
+  gki_modules = list(filter(is_signature_present, t1))
+  local_modules = list(itertools.filterfalse(is_signature_present, t2))
 
   if vmlinux is None or not os.path.isfile(vmlinux):
     print("Could not find a suitable vmlinux file.")
     return 1
 
   # Get required symbols of all modules
-  undefined_symbols = extract_undefined_symbols(modules + gki_modules)
+  gki_undefined_symbols = extract_undefined_symbols(gki_modules)
+  local_undefined_symbols = extract_undefined_symbols(local_modules)
+  undefined_symbols = {}
+  undefined_symbols.update(gki_undefined_symbols)
+  undefined_symbols.update(local_undefined_symbols)
 
   # Get the actually defined and exported symbols
   generic_exports = extract_generic_exports(vmlinux, gki_modules)
-  local_exports = extract_exported_in_modules(modules)
+  local_exports = extract_exported_in_modules(local_modules)
 
   # Build the list of all exported symbols (generic and local)
   all_exported = list(
@@ -344,17 +345,22 @@ def main():
   if args.symbol_list:
     create_symbol_list(
         args.symbol_list,
-        { "full-gki-abi": generic_exports } if args.full_gki_abi else undefined_symbols,
+        { "full-gki-abi": generic_exports } if args.full_gki_abi else local_undefined_symbols,
         all_exported if args.include_module_exports else generic_exports,
         args.emit_module_symbol_lists,
         args.module_grouping,
         args.additions_only)
 
   if args.print_modules:
-    print("These modules have been considered when creating the symbol list:")
-    print("  " +
-          "\n  ".join(sorted([os.path.basename(mod) for mod in modules])))
+    if local_modules:
+      print("These modules have been considered when creating the symbol list:")
+      print("  " +
+            "\n  ".join(sorted([os.path.basename(mod) for mod in local_modules])))
 
+    if gki_modules:
+      print("These modules have *NOT* been considered when creating the symbol list:")
+      print("  " +
+            "\n  ".join(sorted([os.path.basename(mod) for mod in gki_modules])))
 
 if __name__ == "__main__":
   sys.exit(main())
