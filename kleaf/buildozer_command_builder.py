@@ -176,7 +176,7 @@ class BuildozerCommandBuilder(object):
         try:
             value = subprocess.check_output(
                 [self.buildozer, f"{print_command} {attribute}", target],
-                text=True, stderr=self.stderr, env=self.environ).strip()
+                text=True, stderr=subprocess.PIPE, env=self.environ).strip()
         except subprocess.CalledProcessError:
             pass
 
