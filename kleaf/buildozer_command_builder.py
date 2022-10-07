@@ -16,6 +16,7 @@ import argparse
 import dataclasses
 import logging
 import os
+import pathlib
 import re
 import shutil
 import subprocess
@@ -37,12 +38,13 @@ def isinstance_or_die(obj, clazz):
     return obj
 
 
-def ensure_build_file(package: str):
+def ensure_build_file(package: str, cwd: pathlib.Path):
     if os.path.isabs(package):
         die("%s is not a relative path.", package)
-    if not os.path.exists(os.path.join(package, "BUILD.bazel")) and not os.path.exists(
-            os.path.join(package, "BUILD")):
-        build_file = os.path.join(package, "BUILD.bazel")
+    abs_package = cwd / package
+    if not (abs_package / "BUILD.bazel").is_file() and \
+            not (abs_package / "BUILD").is_file():
+        build_file = abs_package / "BUILD.bazel"
         logging.info(f"Creating {build_file}")
         with open(build_file, "w"):
             pass
@@ -178,7 +180,8 @@ class BuildozerCommandBuilder(object):
         try:
             value = subprocess.check_output(
                 [self.buildozer, f"{print_command} {attribute}", target],
-                text=True, stderr=subprocess.PIPE, env=self.environ).strip()
+                text=True, stderr=subprocess.PIPE, env=self.environ,
+                cwd=self._workspace_root()).strip()
         except subprocess.CalledProcessError:
             pass
 
@@ -230,7 +233,7 @@ class BuildozerCommandBuilder(object):
         """
         if package is None:
             die("No package specified in _new()")
-        ensure_build_file(package)
+        ensure_build_file(package, self._workspace_root())
         new_target_pkg = f"//{package}:__pkg__"
         new_target = f"//{package}:{name}"
         key = TargetKey(new_target)
@@ -375,7 +378,7 @@ class BuildozerCommandBuilder(object):
             return
         logging.info(f"Creating file at {path}")
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
+        with open(self._workspace_root() / path, "w") as f:
             f.write(content)
 
     def _run_buildozer(self) -> None:
@@ -394,7 +397,7 @@ class BuildozerCommandBuilder(object):
             buildozer_args.append("-stdout")
         try:
             subprocess.check_call(buildozer_args, stdout=self.stdout, stderr=self.stderr,
-                                  env=self.environ)
+                                  env=self.environ, cwd=self._workspace_root())
         except subprocess.CalledProcessError as e:
             if e.returncode == _BUILDOZER_RETURN_CODE_NO_CHANGES_MADE:
                 logging.info("No files were changed.")
@@ -426,3 +429,6 @@ class BuildozerCommandBuilder(object):
 
     def _create_buildozer_commands(self):
         raise AttributeError
+
+    def _workspace_root(self) -> pathlib.Path:
+        return pathlib.Path(self.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd()))
