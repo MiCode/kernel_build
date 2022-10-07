@@ -23,6 +23,7 @@ load(
 load(":debug.bzl", "debug")
 load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":stamp.bzl", "stamp")
+load(":utils.bzl", "kernel_utils")
 
 def _set_str(value):
     return "--set-str {{config}} {}".format(value)
@@ -233,7 +234,7 @@ def _kernel_config_impl(ctx):
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelConfig",
+        mnemonic = "KernelConfig" + kernel_utils.local_mnemonic_suffix(ctx),
         inputs = inputs,
         outputs = [config, include_dir],
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
@@ -285,6 +286,7 @@ kernel_config = rule(
             allow_single_file = True,
         ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_allowlist_function_transition": attr.label(

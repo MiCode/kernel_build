@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":common_providers.bzl", "KernelModuleInfo")
 
 def _reverse_dict(d):
@@ -212,9 +213,19 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
                 dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
             ))
 
+def _local_mnemonic_suffix(ctx):
+    """Returns a suffix for the mnemonic if `--config=local`.
+
+    This should only be used on the actions specified in `local.bazelrc`.
+    """
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        return "Local"
+    return ""
+
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
     kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,
+    local_mnemonic_suffix = _local_mnemonic_suffix,
 )
