@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
@@ -23,6 +24,7 @@ load(
 load(
     ":common_providers.bzl",
     "KernelBuildExtModuleInfo",
+    "KernelCmdsInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
     "KernelUnstrippedModulesInfo",
@@ -30,6 +32,7 @@ load(
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_headers_depset")
 load(":debug.bzl", "debug")
+load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
 
 _sibling_names = [
@@ -362,6 +365,10 @@ def _kernel_module_impl(ctx):
             modules_staging_dir = modules_staging_dws.directory.path,
         )
 
+    grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
+    inputs += grab_cmd_step.inputs
+    command_outputs += grab_cmd_step.outputs
+
     scmversion_ret = stamp.get_ext_mod_scmversion(ctx)
     inputs += scmversion_ret.deps
     command += scmversion_ret.cmd
@@ -412,6 +419,8 @@ def _kernel_module_impl(ctx):
 
              # Grab unstripped modules
                {grab_unstripped_cmd}
+             # Grab *.cmd
+               {grab_cmd_cmd}
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
 
@@ -429,6 +438,7 @@ def _kernel_module_impl(ctx):
         grab_unstripped_cmd = grab_unstripped_cmd,
         check_no_remaining = check_no_remaining.path,
         drop_modules_order_cmd = drop_modules_order_cmd,
+        grab_cmd_cmd = grab_cmd_step.cmd,
     )
 
     command += dws.record(modules_staging_dws)
@@ -530,6 +540,7 @@ def _kernel_module_impl(ctx):
             restore_path = paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name),
         ),
         ddk_headers_common_impl(ctx.label, ctx.attr.internal_hdrs, ctx.attr.internal_includes),
+        KernelCmdsInfo(directories = depset([grab_cmd_step.cmd_dir])),
     ]
 
 _kernel_module = rule(
@@ -573,6 +584,7 @@ _kernel_module = rule(
             default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
         ),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
+        "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
