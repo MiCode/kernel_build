@@ -26,6 +26,8 @@
 
 [Cheatsheet](docs/cheatsheet.md)
 
+[Kleaf Development](docs/kleaf_development.md)
+
 ### Configurations
 
 `--config=release`: [Release builds](docs/release.md)
