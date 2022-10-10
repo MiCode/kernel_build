@@ -40,6 +40,7 @@ def _kernel_headers_impl(ctx):
                         --absolute-names                                 \
                         --dereference                                    \
                         --transform "s,.*$OUT_DIR,,"                     \
+                        --transform "s,^/,,"                             \
                         --transform "s,^,kernel-headers/,"               \
                         --null -T -
               )
