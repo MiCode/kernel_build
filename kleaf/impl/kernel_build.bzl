@@ -1035,10 +1035,12 @@ def _create_infos(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
+    module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
+
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
-        module_hdrs = kernel_utils.filter_module_hdrs(ctx.files.srcs),
-        module_scripts = kernel_utils.filter_module_scripts(ctx.files.srcs),
+        module_hdrs = module_srcs.module_hdrs,
+        module_scripts = module_srcs.module_scripts,
         modules_prepare_setup = ctx.attr.modules_prepare[KernelEnvInfo].setup,
         modules_prepare_deps = ctx.attr.modules_prepare[KernelEnvInfo].dependencies,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
