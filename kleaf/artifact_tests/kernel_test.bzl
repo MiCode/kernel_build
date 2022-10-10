@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
+load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 
 def kernel_module_test(
         name,
@@ -67,7 +68,7 @@ def kernel_build_test(
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
     script = "//build/kernel/kleaf/artifact_tests:kernel_build_test.py"
-    strings = "//build/kernel:hermetic-tools/strings"
+    strings = "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(CLANG_VERSION)
     args = ["--strings", "$(location {})".format(strings)]
     if target:
         args += ["--artifacts", "$(locations {})".format(target)]

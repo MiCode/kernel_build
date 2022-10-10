@@ -434,8 +434,8 @@
 #     ${DIST_DIR}.
 #
 #     if defined when $ARCH is x86_64, build a boot.img with the kernel image,
-#     bzImage under ${DIST_DIR}. No boot-img.tar.gz will be generated because
-#     currently there is only a x86_64 GKI image: the bzImage.
+#     bzImage under ${DIST_DIR}. Additionally, create an archive boot-img.tar.gz
+#     containing boot.img.
 #
 #     if defined when $ARCH is neither arm64 nor x86_64, print an error message
 #     then exist the build process.
@@ -709,7 +709,8 @@ if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
       -e LTO_NONE \
       -d LTO_CLANG_THIN \
       -d LTO_CLANG_FULL \
-      -d THINLTO
+      -d THINLTO \
+      --set-val FRAME_WARN 0
   elif [ "${LTO}" = "thin" ]; then
     # This is best-effort; some kernels don't support LTO_THIN mode
     # THINLTO was the old name for LTO_THIN, and it was 'default y'

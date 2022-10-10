@@ -12,11 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 test_suite(
     name = "tests",
     tests = [
+        "//build/kernel/kleaf/tests/ddk_test",
         "//build/kernel/kleaf/tests/kernel_build_config_test",
         "//build/kernel/kleaf/tests/kernel_build_test",
         "//build/kernel/kleaf/tests/kernel_config_test",
+        "//build/kernel/kleaf/tests/merged_kernel_uapi_headers_test",
     ],
+)
+
+bzl_library(
+    name = "empty_test",
+    srcs = [
+        "empty_test.bzl",
+    ],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
 )

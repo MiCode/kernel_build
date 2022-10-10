@@ -178,16 +178,20 @@ def _define_other_targets(
     else:
         native.alias(name = name + "_with_vmlinux", actual = name)
 
+    tags = kernel_build_kwargs.get("tags")
+
     abi_dump(
         name = name + "_abi_dump",
         kernel_build = name + "_with_vmlinux",
         kernel_modules = [module + "_with_vmlinux" for module in kernel_modules] if kernel_modules else kernel_modules,
+        tags = tags,
     )
 
     if not define_abi_targets:
         _not_define_abi_targets(
             name = name,
             abi_dump_target = name + "_abi_dump",
+            tags = tags,
         )
     else:
         _define_abi_targets(
@@ -208,7 +212,8 @@ def _define_other_targets(
 
 def _not_define_abi_targets(
         name,
-        abi_dump_target):
+        abi_dump_target,
+        tags):
     """Helper to `_define_other_targets` when `define_abi_targets = False.`
 
     Defines `{name}_abi` filegroup that only contains the ABI dump, provided
@@ -221,12 +226,14 @@ def _not_define_abi_targets(
     native.filegroup(
         name = name + "_abi",
         srcs = [abi_dump_target],
+        tags = tags,
     )
 
     # For kernel_build_abi_dist to use when define_abi_targets is not set.
     exec(
         name = name + "_abi_diff_executable",
         script = "",
+        tags = tags,
     )
 
 def _define_abi_targets(
@@ -266,6 +273,8 @@ def _define_abi_targets(
     else:
         native.alias(name = name + "_notrim", actual = name)
 
+    tags = kernel_build_kwargs.get("tags")
+
     # extract_symbols ...
     extracted_symbols(
         name = name + "_abi_extracted_symbols",
@@ -274,15 +283,13 @@ def _define_abi_targets(
         module_grouping = module_grouping,
         src = kernel_build_kwargs.get("kmi_symbol_list"),
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        # If base_kernel is set, this is a device build, so use the GKI
-        # modules list from base_kernel (GKI). If base_kernel is not set, this
-        # likely a GKI build, so use modules_outs from itself.
-        gki_modules_list_kernel_build = kernel_build_kwargs.get("base_kernel", name),
+        tags = tags,
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",
         src = name + "_abi_extracted_symbols",
         dst = kernel_build_kwargs.get("kmi_symbol_list"),
+        tags = tags,
     )
 
     default_outputs += _define_abi_definition_targets(
@@ -304,6 +311,7 @@ def _define_abi_targets(
     native.filegroup(
         name = name + "_abi",
         srcs = default_outputs,
+        tags = tags,
     )
 
 def _define_abi_definition_targets(

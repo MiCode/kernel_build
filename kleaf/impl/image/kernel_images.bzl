@@ -43,7 +43,8 @@ def kernel_images(
         system_dlkm_props = None,
         vendor_dlkm_modules_list = None,
         vendor_dlkm_modules_blocklist = None,
-        vendor_dlkm_props = None):
+        vendor_dlkm_props = None,
+        **kwargs):
     """Build multiple kernel images.
 
     Args:
@@ -227,6 +228,10 @@ def kernel_images(
           ```
 
           This corresponds to `VENDOR_RAMDISK_BINARY` in `build.config` for `build.sh`.
+        kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
     all_rules = []
 
@@ -272,6 +277,7 @@ def kernel_images(
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
             modules_options = modules_options,
+            **kwargs
         )
         all_rules.append(":{}_initramfs".format(name))
 
@@ -288,6 +294,7 @@ def kernel_images(
             system_dlkm_modules_list = system_dlkm_modules_list,
             system_dlkm_modules_blocklist = system_dlkm_modules_blocklist,
             system_dlkm_props = system_dlkm_props,
+            **kwargs
         )
         all_rules.append(":{}_system_dlkm_image".format(name))
 
@@ -300,6 +307,7 @@ def kernel_images(
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
             vendor_dlkm_props = vendor_dlkm_props,
+            **kwargs
         )
         all_rules.append(":{}_vendor_dlkm_image".format(name))
 
@@ -320,6 +328,7 @@ def kernel_images(
             vendor_ramdisk_binaries = vendor_ramdisk_binaries,
             build_boot = build_boot,
             vendor_boot_name = vendor_boot_name,
+            **kwargs
         )
         all_rules.append(":{}_boot_images".format(name))
 
@@ -335,10 +344,12 @@ def kernel_images(
             name = "{}_dtbo".format(name),
             srcs = dtbo_srcs,
             kernel_build = kernel_build,
+            **kwargs
         )
         all_rules.append(":{}_dtbo".format(name))
 
     native.filegroup(
         name = name,
         srcs = all_rules,
+        **kwargs
     )

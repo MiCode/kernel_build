@@ -39,7 +39,9 @@ KernelBuildInfo = provider(
     fields = {
         "out_dir_kernel_headers_tar": "Archive containing headers in `OUT_DIR`",
         "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs`, `implicit_outs` and `internal_outs`)",
-        "base_kernel_files": "[Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs) of the rule specified by `base_kernel`",
+        "base_kernel_files": """A [depset](https://bazel.build/extending/depsets) containing
+            [Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs)
+            of the rule specified by `base_kernel`""",
         "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
         "kernel_release": "The file `kernel.release`.",
     },
@@ -54,14 +56,19 @@ KernelBuildExtModuleInfo = provider(
         "modules_prepare_setup": "A command that is equivalent to running `make modules_prepare`. Requires env setup.",
         "modules_prepare_deps": "A list of deps to run `modules_prepare_cmd`.",
         "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
+        "strip_modules": "Whether debug information for distributed modules is stripped",
     },
 )
 
 KernelBuildUapiInfo = provider(
     doc = "A provider that specifies the expecation of a `merged_uapi_headers` rule from its `kernel_build` attribute.",
     fields = {
-        "base_kernel": "the `base_kernel` target, if exists",
-        "kernel_uapi_headers": "the `*_kernel_uapi_headers` target",
+        "kernel_uapi_headers": """A [depset](https://bazel.build/extending/depsets) containing
+            kernel UAPI headers archive.
+
+            Order matters; earlier elements in the traverse order has higher priority. Hence,
+            this depset must have `order` argument specified.
+            """,
     },
 )
 
@@ -76,9 +83,19 @@ KernelBuildAbiInfo = provider(
 
 KernelBuildInTreeModulesInfo = provider(
     doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
-[`base_kernel`](#kernel_build-base_kernel) or [`base_kernel_for_module_outs`](#kernel_build-base_kernel_for_module_outs).""",
+[`base_kernel`](#kernel_build-base_kernel) or [`base_kernel_for_module_outs`](#kernel_build-base_kernel_for_module_outs)
+for the list of in-tree modules in the `base_kernel`.""",
     fields = {
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
+    },
+)
+
+KernelBuildMixedTreeInfo = provider(
+    doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
+[`base_kernel`](#kernel_build-base_kernel) for constructing `KBUILD_MIXED_TREE`.""",
+    fields = {
+        "files": """A [depset](https://bazel.build/extending/depsets) containing the list of
+files required to build `KBUILD_MIXED_TREE` for the device kernel.""",
     },
 )
 
@@ -109,6 +126,14 @@ KernelModuleInfo = provider(
                                "Contains the lib/modules/* suffix.",
         "kernel_uapi_headers_dws": "`directory_with_structure` containing UAPI headers to use the module.",
         "files": "The list of output `*.ko` files.",
+    },
+)
+
+ModuleSymversInfo = provider(
+    doc = "A provider that provides `Module.symvers` for `modpost`.",
+    fields = {
+        "restore_path": """The path relative to <the root of the output directory> (e.g. `<sandbox_root>/out/<branch>`)
+                           where the file will be restored to by `KernelEnvInfo`.""",
     },
 )
 

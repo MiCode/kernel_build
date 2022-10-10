@@ -44,7 +44,7 @@ def _abi_dump_epilog_cmd(path, append_version):
 
 def _abi_dump_full(ctx):
     abi_linux_tree = utils.intermediates_dir(ctx) + "/abi_linux_tree"
-    full_abi_out_file = ctx.actions.declare_file("{}/abi-full.xml".format(ctx.attr.name))
+    full_abi_out_file = ctx.actions.declare_file("{}/abi-full-generated.xml".format(ctx.attr.name))
     vmlinux = utils.find_file(name = "vmlinux", files = ctx.files.kernel_build, what = "{}: kernel_build".format(ctx.attr.name), required = True)
 
     unstripped_dir_provider_targets = [ctx.attr.kernel_build] + ctx.attr.kernel_modules
@@ -87,7 +87,7 @@ def _abi_dump_full(ctx):
     return full_abi_out_file
 
 def _abi_dump_filtered(ctx, full_abi_out_file):
-    abi_out_file = ctx.actions.declare_file("{}/abi.xml".format(ctx.attr.name))
+    abi_out_file = ctx.actions.declare_file("{}/abi-generated.xml".format(ctx.attr.name))
     inputs = [full_abi_out_file]
 
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps

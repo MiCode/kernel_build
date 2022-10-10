@@ -18,9 +18,14 @@ load(
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
+    "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
+)
+load(
+    ":constants.bzl",
+    "MODULES_STAGING_ARCHIVE",
 )
 load(":debug.bzl", "debug")
 load(
@@ -42,15 +47,19 @@ def _kernel_filegroup_impl(ctx):
     modules_prepare_deps = [modules_prepare_out_dir_tar_gz]
 
     kernel_module_dev_info = KernelBuildExtModuleInfo(
-        modules_staging_archive = utils.find_file("modules_staging_dir.tar.gz", all_deps, what = ctx.label),
+        modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
         modules_prepare_setup = modules_prepare_setup,
         modules_prepare_deps = modules_prepare_deps,
         # TODO(b/211515836): module_srcs might also be downloaded
         module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs),
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
+
+    kernel_uapi_depsets = []
+    if ctx.attr.kernel_uapi_headers:
+        kernel_uapi_depsets.append(ctx.attr.kernel_uapi_headers.files)
     uapi_info = KernelBuildUapiInfo(
-        kernel_uapi_headers = ctx.attr.kernel_uapi_headers,
+        kernel_uapi_headers = depset(transitive = kernel_uapi_depsets, order = "postorder"),
     )
 
     unstripped_modules_info = None
@@ -82,8 +91,11 @@ def _kernel_filegroup_impl(ctx):
 
     images_info = KernelImagesInfo(base_kernel = None)
 
+    srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
+
     return [
-        DefaultInfo(files = depset(ctx.files.srcs)),
+        DefaultInfo(files = srcs_depset),
+        KernelBuildMixedTreeInfo(files = srcs_depset),
         kernel_module_dev_info,
         # TODO(b/219112010): implement KernelEnvInfo for kernel_filegroup
         uapi_info,

@@ -24,14 +24,10 @@ load(":utils.bzl", "utils")
 
 def _merged_kernel_uapi_headers_impl(ctx):
     kernel_build = ctx.attr.kernel_build
-    base_kernel = kernel_build[KernelBuildUapiInfo].base_kernel
 
     # srcs and dws_srcs are the list of sources to merge.
     # Early elements = higher priority. srcs has higher priority than dws_srcs.
-    srcs = []
-    if base_kernel:
-        srcs += base_kernel[KernelBuildUapiInfo].kernel_uapi_headers.files.to_list()
-    srcs += kernel_build[KernelBuildUapiInfo].kernel_uapi_headers.files.to_list()
+    srcs = kernel_build[KernelBuildUapiInfo].kernel_uapi_headers.to_list()
     dws_srcs = [kernel_module[KernelModuleInfo].kernel_uapi_headers_dws for kernel_module in ctx.attr.kernel_modules]
 
     inputs = srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
