@@ -50,8 +50,9 @@ def _kernel_filegroup_impl(ctx):
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
         modules_prepare_setup = modules_prepare_setup,
         modules_prepare_deps = modules_prepare_deps,
-        # TODO(b/211515836): module_srcs might also be downloaded
-        module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs),
+        # TODO(b/211515836): module_hdrs / module_scripts might also be downloaded
+        module_hdrs = kernel_utils.filter_module_hdrs(ctx.files.kernel_srcs),
+        module_scripts = kernel_utils.filter_module_scripts(ctx.files.kernel_srcs),
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
 
@@ -86,7 +87,10 @@ def _kernel_filegroup_impl(ctx):
         )
         unstripped_modules_info = KernelUnstrippedModulesInfo(directory = unstripped_dir)
 
-    abi_info = KernelBuildAbiInfo(module_outs_file = ctx.file.module_outs_file)
+    abi_info = KernelBuildAbiInfo(
+        module_outs_file = ctx.file.module_outs_file,
+        modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
+    )
     in_tree_modules_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
 
     images_info = KernelImagesInfo(base_kernel = None)

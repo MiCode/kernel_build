@@ -1037,7 +1037,8 @@ def _create_infos(
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
-        module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs),
+        module_hdrs = kernel_utils.filter_module_hdrs(ctx.files.srcs),
+        module_scripts = kernel_utils.filter_module_scripts(ctx.files.srcs),
         modules_prepare_setup = ctx.attr.modules_prepare[KernelEnvInfo].setup,
         modules_prepare_deps = ctx.attr.modules_prepare[KernelEnvInfo].dependencies,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
@@ -1056,6 +1057,7 @@ def _create_infos(
         trim_nonlisted_kmi = ctx.attr.trim_nonlisted_kmi,
         combined_abi_symbollist = ctx.file.combined_abi_symbollist,
         module_outs_file = all_module_names_file,
+        modules_staging_archive = modules_staging_archive,
     )
 
     kernel_unstripped_modules_info = KernelUnstrippedModulesInfo(
