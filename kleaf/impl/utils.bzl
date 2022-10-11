@@ -125,24 +125,19 @@ utils = struct(
     sanitize_label_as_filename = _sanitize_label_as_filename,
 )
 
-def _filter_module_scripts(files):
-    """Create the list of `module_scripts` for a [`kernel_build`] or similar."""
-    return depset([
-        s
-        for s in files
-        if any([token in s.path for token in [
-            "Makefile",
-            "scripts/",
-        ]])
-    ])
-
-def _filter_module_hdrs(files):
-    """Create the list of `module_hdrs` for a [`kernel_build`] or similar."""
-    return depset([
-        s
-        for s in files
-        if s.path.endswith(".h")
-    ])
+def _filter_module_srcs(files):
+    """Filters and categorizes sources for building `kernel_module`."""
+    hdrs = []
+    scripts = []
+    for file in files:
+        if file.path.endswith(".h"):
+            hdrs.append(file)
+        elif "Makefile" in file.path or "scripts/" in file.path:
+            scripts.append(file)
+    return struct(
+        module_scripts = depset(scripts),
+        module_hdrs = depset(hdrs),
+    )
 
 def _transform_kernel_build_outs(name, what, outs):
     """Transform `*outs` attributes for `kernel_build`.
@@ -218,8 +213,7 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
             ))
 
 kernel_utils = struct(
-    filter_module_hdrs = _filter_module_hdrs,
-    filter_module_scripts = _filter_module_scripts,
+    filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
     kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,

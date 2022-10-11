@@ -46,13 +46,15 @@ def _kernel_filegroup_impl(ctx):
     """.format(outdir_tar_gz = modules_prepare_out_dir_tar_gz)
     modules_prepare_deps = [modules_prepare_out_dir_tar_gz]
 
+    module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs)
+
     kernel_module_dev_info = KernelBuildExtModuleInfo(
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
         modules_prepare_setup = modules_prepare_setup,
         modules_prepare_deps = modules_prepare_deps,
         # TODO(b/211515836): module_hdrs / module_scripts might also be downloaded
-        module_hdrs = kernel_utils.filter_module_hdrs(ctx.files.kernel_srcs),
-        module_scripts = kernel_utils.filter_module_scripts(ctx.files.kernel_srcs),
+        module_hdrs = module_srcs.module_hdrs,
+        module_scripts = module_srcs.module_scripts,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
 
