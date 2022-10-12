@@ -26,7 +26,6 @@ def _kernel_unstripped_modules_archive_impl(ctx):
     # Early elements = higher priority. In-tree modules from base_kernel has highest priority,
     # then in-tree modules of the device kernel_build, then external modules (in an undetermined
     # order).
-    # TODO(b/228557644): kernel module names should not collide. Detect collsions.
     srcs = []
     for kernel_build_object in (base_kernel, kernel_build):
         if not kernel_build_object:
@@ -53,7 +52,7 @@ def _kernel_unstripped_modules_archive_impl(ctx):
     for src in reversed(srcs):
         # src could be empty, so use find + cp
         command += """
-            find {src} -name '*.ko' -exec cp -l -t {unstripped_dir} {{}} +
+            find {src} -name '*.ko' -exec cp -f -l -t {unstripped_dir} {{}} +
         """.format(
             src = src.path,
             unstripped_dir = unstripped_dir,
