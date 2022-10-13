@@ -16,7 +16,7 @@
 
 if [ "$#" -ne 2 ]; then
 	echo "ERROR: illegal number of parameters" >&2
-	echo "Usage: compare_to_wl <path/to/Module.symvers> <path/to/symbol-list>" >&2
+	echo "Usage: $(basename "$0") <path/to/Module.symvers> <path/to/symbol-list>" >&2
 	exit 1
 fi
 
