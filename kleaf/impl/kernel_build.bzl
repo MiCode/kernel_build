@@ -971,7 +971,7 @@ def _build_main_action(
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelBuild",
+        mnemonic = "KernelBuild" + kernel_utils.local_mnemonic_suffix(ctx),
         inputs = depset(_uniq(inputs), transitive = transitive_inputs),
         outputs = command_outputs,
         tools = _uniq(tools),
