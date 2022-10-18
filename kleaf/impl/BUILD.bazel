@@ -15,6 +15,7 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_setting")
 
 bzl_library(
     name = "impl",
@@ -76,6 +77,14 @@ bzl_library(
         "@bazel_skylib//lib:shell",
         "@bazel_skylib//rules:common_settings",
     ],
+)
+
+# If true, also pack .cmd files as output.
+bool_setting(
+    name = "preserve_cmd",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
 )
 
 py_binary(

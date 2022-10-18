@@ -12,19 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test `strip_modules`.
+"""
+ Test `strip_modules`.
+"""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", "kernel_build_abi")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
+load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 
 # Check effect of strip_modules
 def _strip_modules_test_impl(ctx):
     env = analysistest.begin(ctx)
     found_action = False
     for action in analysistest.target_actions(env):
-        if action.mnemonic == ctx.attr.action_mnemonic:
+        mnemonic = ctx.attr.action_mnemonic
+        if mnemonic == "KernelBuild":
+            mnemonic += kernel_utils.local_mnemonic_suffix(ctx)
+        if mnemonic == action.mnemonic:
             for arg in action.argv:
                 if "INSTALL_MOD_STRIP=1" in arg:
                     found_action = True
@@ -43,10 +49,16 @@ def _strip_modules_test_impl(ctx):
 _strip_modules_test = analysistest.make(
     impl = _strip_modules_test_impl,
     attrs = {
-        "expect_strip_modules": attr.bool(),
         "action_mnemonic": attr.string(
             mandatory = True,
-            values = ["KernelBuild", "KernelModule"],
+            values = [
+                "KernelBuild",
+                "KernelModule",
+            ],
+        ),
+        "expect_strip_modules": attr.bool(),
+        "_config_is_local": attr.label(
+            default = "//build/kernel/kleaf:config_local",
         ),
     },
 )
@@ -106,7 +118,8 @@ def kernel_build_strip_modules_test(name):
             )
             _strip_modules_test(
                 name = test_prefix + str(define_abi_targets) + "_abi_test",
-                target_under_test = name_prefix + str(define_abi_targets) + "_abi",
+                target_under_test = name_prefix +
+                                    str(define_abi_targets) + "_abi",
                 action_mnemonic = "KernelBuild",
                 expect_strip_modules = strip_modules,
             )

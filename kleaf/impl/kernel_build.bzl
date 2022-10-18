@@ -30,6 +30,7 @@ load(
     "KernelBuildInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
+    "KernelCmdsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelImagesInfo",
@@ -807,6 +808,37 @@ def _get_grab_symtypes_step(ctx):
         outputs = outputs,
     )
 
+def get_grab_cmd_step(ctx, src_dir):
+    """Returns a step for grabbing the `*.cmd` from `src_dir`.
+
+    Returns:
+        A struct with these fields:
+        * inputs
+        * tools
+        * outputs
+        * cmd
+        * cmd_dir
+    """
+    cmd = ""
+    cmd_dir = None
+    outputs = []
+    if ctx.attr._preserve_cmd[BuildSettingInfo].value:
+        cmd_dir = ctx.actions.declare_directory("{name}/cmds".format(name = ctx.label.name))
+        outputs.append(cmd_dir)
+        cmd = """
+            rsync -a --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+        """.format(
+            src_dir = src_dir,
+            cmd_dir = cmd_dir.path,
+        )
+    return struct(
+        inputs = [],
+        tools = [],
+        cmd = cmd,
+        outputs = outputs,
+        cmd_dir = cmd_dir,
+    )
+
 def _build_main_action(
         ctx,
         kbuild_mixed_tree_ret,
@@ -857,12 +889,14 @@ def _build_main_action(
         all_module_basenames_file = all_module_basenames_file,
     )
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
+    grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
     steps = (
         interceptor_step,
         cache_dir_step,
         grab_intree_modules_step,
         grab_unstripped_modules_step,
         grab_symtypes_step,
+        grab_cmd_step,
     )
 
     module_strip_flag = "INSTALL_MOD_STRIP="
@@ -894,6 +928,8 @@ def _build_main_action(
            tar czf {modules_staging_archive_self} -C {modules_staging_dir} .
          # Grab *.symtypes
            {grab_symtypes_cmd}
+         # Grab *.cmd
+           {grab_cmd_cmd}
          # Grab in-tree modules
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
@@ -926,6 +962,7 @@ def _build_main_action(
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_modules_step.cmd,
         grab_symtypes_cmd = grab_symtypes_step.cmd,
+        grab_cmd_cmd = grab_cmd_step.cmd,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
@@ -986,6 +1023,7 @@ def _build_main_action(
         modules_staging_archive_self = modules_staging_archive_self,
         unstripped_dir = grab_unstripped_modules_step.unstripped_dir,
         ruledir = ruledir,
+        cmd_dir = grab_cmd_step.cmd_dir,
     )
 
 def _create_infos(
@@ -1086,6 +1124,8 @@ def _create_infos(
         files = depset(kbuild_mixed_tree_files),
     )
 
+    cmds_info = KernelCmdsInfo(directories = depset([main_action_ret.cmd_dir]))
+
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
@@ -1097,6 +1137,7 @@ def _create_infos(
     )
 
     return [
+        cmds_info,
         env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
@@ -1213,6 +1254,7 @@ _kernel_build = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
