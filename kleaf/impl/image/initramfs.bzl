@@ -11,14 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Build initramfs.
+"""
 
-load(":debug.bzl", "debug")
 load(":image/image_utils.bzl", "image_utils")
 
-InitramfsInfo = provider(fields = {
-    "initramfs_img": "Output image",
-    "initramfs_staging_archive": "Archive of initramfs staging directory",
-})
+InitramfsInfo = provider(
+    doc = "Provides information about initramfs outputs.",
+    fields = {
+        "initramfs_img": "Output image",
+        "initramfs_staging_archive": "Archive of initramfs staging directory",
+    },
+)
 
 def _initramfs_impl(ctx):
     initramfs_img = ctx.actions.declare_file("{}/initramfs.img".format(ctx.label.name))
