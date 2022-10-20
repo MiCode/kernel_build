@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Common utilities for working with kernel images.
+"""
 
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load(
@@ -35,14 +38,17 @@ def _build_modules_image_impl_common(
     """Command implementation for building images that directly contain modules.
 
     Args:
-        ctx: ctx
-        what: what is being built, for logging
+        ctx: ctx.
+        what: what is being built, for logging.
         outputs: list of `ctx.actions.declare_file`
-        build_command: the command to build `outputs` and `implicit_outputs`
-        modules_staging_dir: a staging directory for module installation
-        implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not returned in
-          `DefaultInfo`)
-        restore_modules_install: If `True`, restore `ctx.attr.kernel_modules_install`. Default is `True`.
+        build_command: the command to build `outputs` and `implicit_outputs`.
+        modules_staging_dir: a staging directory for module installation.
+        restore_modules_install: If `True`, restore `ctx.attr.kernel_modules_install`.
+         Default is `True`.
+        implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not
+         returned in `DefaultInfo`).
+        additional_inputs: Additional files to be included.
+        mnemonic: string to reference the build operation.
     """
 
     if restore_modules_install == None:
@@ -57,15 +63,14 @@ def _build_modules_image_impl_common(
         what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build),
     )
 
+    modules_install_staging_dws = None
     if restore_modules_install:
         modules_install_staging_dws = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws
 
     inputs = []
     if additional_inputs != None:
         inputs += additional_inputs
-    inputs += [
-        system_map,
-    ]
+    inputs.append(system_map)
     if restore_modules_install:
         inputs += dws.files(modules_install_staging_dws)
     inputs += ctx.files.deps

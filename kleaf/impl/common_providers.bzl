@@ -112,9 +112,12 @@ files required to build `KBUILD_MIXED_TREE` for the device kernel.""",
 KernelUnstrippedModulesInfo = provider(
     doc = "A provider that provides unstripped modules",
     fields = {
-        "base_kernel": "the `base_kernel` target, if exists",
-        "directory": """A [`File`](https://bazel.build/rules/lib/File) that
-points to a directory containing unstripped modules.
+        "directories": """A [depset](https://bazel.build/extending/depsets) of
+[`File`](https://bazel.build/rules/lib/File)s, where
+each item points to a directory containing unstripped modules.
+
+Order matters; earlier elements in the traverse order has higher priority. Hence,
+this depset must have `order` argument specified.
 
 For [`kernel_build()`](#kernel_build), this is a directory containing unstripped in-tree modules.
 - This is `None` if and only if `collect_unstripped_modules = False`

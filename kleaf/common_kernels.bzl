@@ -561,8 +561,7 @@ def define_common_kernels(
             name = name + "_modules_install",
             # The GKI target does not have external modules. GKI modules goes
             # into the in-tree kernel module list, aka kernel_build.module_implicit_outs.
-            # Hence, this is empty, and name + "_dist" does NOT include
-            # name + "_modules_install".
+            # Hence, this is empty.
             kernel_modules = [],
             kernel_build = name,
         )
@@ -655,6 +654,7 @@ def define_common_kernels(
             name + "_additional_artifacts",
             name + "_ddk_artifacts",
             name + "_modules",
+            name + "_modules_install",
             name + "_" + TOOLCHAIN_VERSION_FILENAME,
             # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
             "//build/kernel:gki_certification_tools",
