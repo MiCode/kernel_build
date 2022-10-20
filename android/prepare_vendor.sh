@@ -283,8 +283,28 @@ if [ "${COPY_NEEDED}" == "1" ]; then
     cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
   fi
 
+  system_dlkm_kos=$(mktemp)
+  if [ -s ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load ]; then
+    cat ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load | \
+    xargs -L 1 basename | \
+    xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${system_dlkm_kos}
+  else
+    echo "  system_dlkm_kos.modules.load file is not found or is empty"
+  fi
+
+  rm -rf ${ANDROID_KERNEL_OUT}/system_dlkm/*
+  if [ -s "${system_dlkm_kos}" ]; then
+    mkdir -p ${ANDROID_KERNEL_OUT}/system_dlkm/
+    # Unzip the system_dlkm staging tar copied from kernel_platform to system_dlkm out directory
+    tar -xf ${ANDROID_KP_OUT_DIR}/dist/system_dlkm_staging_archive.tar.gz \
+	-C ${ANDROID_KERNEL_OUT}/system_dlkm/
+  else
+    echo "  WARNING!! No system_dlkm (second stage) modules found"
+  fi
+
   rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
-  second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | grep -v -F -f ${first_stage_kos} || true)
+  second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | \
+	grep -v -F -f ${first_stage_kos} -f ${system_dlkm_kos} || true)
   if [ -n "${second_stage_kos}" ]; then
     mkdir -p ${ANDROID_KERNEL_OUT}/vendor_dlkm
     cp ${second_stage_kos} ${ANDROID_KERNEL_OUT}/vendor_dlkm
@@ -300,6 +320,11 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load ]; then
     cp ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.load \
       ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.load
+  fi
+
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.blocklist ]; then
+    cp ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.blocklist \
+      ${ANDROID_KERNEL_OUT}/vendor_dlkm/system_dlkm.modules.blocklist
   fi
 
   for file in Image vmlinux System.map .config Module.symvers kernel-uapi-headers.tar.gz ; do
@@ -322,6 +347,9 @@ if [ "${COPY_NEEDED}" == "1" ]; then
     KERNEL_VARIANT=${2}
     echo "$KERNEL_VARIANT" > ${ANDROID_KERNEL_OUT}/_variant
   fi
+
+  rm ${first_stage_kos}
+  rm ${system_dlkm_kos}
 fi
 
 
