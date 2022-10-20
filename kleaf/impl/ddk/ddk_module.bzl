@@ -30,6 +30,7 @@ def ddk_module(
         deps = None,
         hdrs = None,
         includes = None,
+        out = None,
         **kwargs):
     """
     Defines a DDK (Driver Development Kit) module.
@@ -79,7 +80,8 @@ def ddk_module(
     ```
 
     Args:
-        name: Name of target. This should be name of the output `.ko` file without the suffix.
+        name: Name of target. This should usually be name of the output `.ko` file without the
+          suffix.
         srcs: sources and local headers.
         deps: A list of dependent targets. Each of them must be one of the following:
 
@@ -89,12 +91,14 @@ def ddk_module(
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         kernel_build: [`kernel_build`](#kernel_build)
+        out: The output module file. By default, this is `"{name}.ko"`.
         kwargs: Additional attributes to the internal rule.
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
-    out = "{}.ko".format(name)
+    if out == None:
+        out = "{}.ko".format(name)
 
     kernel_module(
         name = name,
