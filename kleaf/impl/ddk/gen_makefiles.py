@@ -63,6 +63,12 @@ def _gen_makefile(
         out_file.write(content)
 
 
+def _write_ccflag(out_file, ccflag):
+    out_file.write(textwrap.dedent(f"""\
+        ccflags-y += {shlex.quote(ccflag)}
+        """))
+
+
 def gen_ddk_makefile(
         output_makefiles: pathlib.Path,
         kernel_module_out: pathlib.Path,
@@ -70,6 +76,7 @@ def gen_ddk_makefile(
         include_dirs: list[pathlib.Path],
         module_symvers_list: list[pathlib.Path],
         package: pathlib.Path,
+        local_defines: list[str],
 ):
     _gen_makefile(
         package=package,
@@ -124,13 +131,19 @@ def gen_ddk_makefile(
         rel_root = "/".join([".."] * len(rel_root_reversed.parts))
 
         for include_dir in include_dirs:
-            ccflag = f"-I$(srctree)/$(src)/{rel_root}/{include_dir}"
             out_file.write(textwrap.dedent(f"""\
                 # Include {include_dir}
-                ccflags-y += {shlex.quote(ccflag)}
+                """))
+            _write_ccflag(out_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
+
+        if local_defines:
+            out_file.write("\n")
+            out_file.write(textwrap.dedent("""\
+                # local defines
                 """))
 
-        out_file.write("\n")
+        for local_define in local_defines:
+            _write_ccflag(out_file, f"-D{local_define}")
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -157,4 +170,5 @@ if __name__ == "__main__":
     parser.add_argument("--output-makefiles", type=pathlib.Path)
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--local-defines", nargs="*", default=[])
     gen_ddk_makefile(**vars(parser.parse_args()))

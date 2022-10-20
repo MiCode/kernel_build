@@ -31,6 +31,7 @@ def ddk_module(
         hdrs = None,
         includes = None,
         out = None,
+        local_defines = None,
         **kwargs):
     """
     Defines a DDK (Driver Development Kit) module.
@@ -92,6 +93,29 @@ def ddk_module(
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         kernel_build: [`kernel_build`](#kernel_build)
         out: The output module file. By default, this is `"{name}.ko"`.
+        local_defines: List of defines to add to the compile line.
+
+          **Order matters**. To prevent buildifier from sorting the list, use the
+          `# do not sort` magic line.
+
+          Each string is prepended with `-D` and added to the compile command
+          line for this target, but not to its dependents.
+
+          Unlike
+          [`cc_library.local_defines`](https://bazel.build/reference/be/c-cpp#cc_library.local_defines),
+          this is not subject to
+          ["Make" variable substitution](https://bazel.build/reference/be/make-variables) or
+          [`$(location)` substitution](https://bazel.build/reference/be/make-variables#predefined_label_variables).
+
+          Each string is treated as a single Bourne shell token. Unlike
+          [`cc_library.local_defines`](https://bazel.build/reference/be/c-cpp#cc_library.local_defines),
+          this is not subject to
+          [Bourne shell tokenization](https://bazel.build/reference/be/common-definitions#sh-tokenization).
+          The behavior is similar to `cc_library` with the `no_copts_tokenization`
+          [feature](https://bazel.build/reference/be/functions#package.features).
+          For details about `no_copts_tokenization`, see
+          [`cc_library.copts`](https://bazel.build/reference/be/c-cpp#cc_library.copts).
+
         kwargs: Additional attributes to the internal rule.
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
@@ -125,5 +149,6 @@ def ddk_module(
         module_includes = includes,
         module_out = out,
         module_deps = deps,
+        module_local_defines = local_defines,
         **private_kwargs
     )
