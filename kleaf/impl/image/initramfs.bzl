@@ -62,6 +62,11 @@ def _initramfs_impl(ctx):
             : > ${modules_root_dir}/modules.options
     """
 
+    ramdisk_compress = image_utils.ramdisk_options(
+        ramdisk_compression = ctx.attr.ramdisk_compression,
+        ramdisk_compression_args = ctx.attr.ramdisk_compression_args,
+    ).ramdisk_compress
+
     command = """
                mkdir -p {initramfs_staging_dir}
              # Build initramfs
@@ -72,7 +77,7 @@ def _initramfs_impl(ctx):
                {cp_vendor_boot_modules_load_cmd}
                {cp_modules_options_cmd}
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
-               ${{RAMDISK_COMPRESS}} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
+               {ramdisk_compress} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
              # Archive initramfs_staging_dir
                tar czf {initramfs_staging_archive} -C {initramfs_staging_dir} .
              # Remove staging directories
@@ -80,6 +85,7 @@ def _initramfs_impl(ctx):
     """.format(
         modules_staging_dir = modules_staging_dir,
         initramfs_staging_dir = initramfs_staging_dir,
+        ramdisk_compress = ramdisk_compress,
         modules_load = modules_load.path,
         initramfs_img = initramfs_img.path,
         initramfs_staging_archive = initramfs_staging_archive.path,
@@ -126,5 +132,13 @@ corresponding files.
         "modules_list": attr.label(allow_single_file = True),
         "modules_blocklist": attr.label(allow_single_file = True),
         "modules_options": attr.label(allow_single_file = True),
+        "ramdisk_compression": attr.string(
+            doc = "If provided it specfies the format used for any ramdisks generated." +
+                  "If not provided a fallback value from build.config is used.",
+            values = ["lz4", "gzip"],
+        ),
+        "ramdisk_compression_args": attr.string(
+            doc = "Command line arguments passed only to lz4 command to control compression level.",
+        ),
     }),
 )

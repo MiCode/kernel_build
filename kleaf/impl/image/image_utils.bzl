@@ -168,7 +168,45 @@ def _build_modules_image_attrs_common(additional = None):
         ret.update(additional)
     return ret
 
+def _ramdisk_options(ramdisk_compression, ramdisk_compression_args):
+    """Options for how to treat ramdisk images.
+
+    Args:
+        ramdisk_compression: If provided it specfies the format used for any ramdisks generated.
+         If not provided a fallback value from build.config is used.
+         Possible values are `lz4`, `gzip`, None.
+        ramdisk_compression_args: Command line arguments passed to lz4 command
+         to control compression level (defaults to `-12 --favor-decSpeed`).
+         For iterative kernel development where faster compression is more
+         desirable than a high compression ratio, it can be useful to control
+         the compression ratio.
+    """
+
+    # Initially fallback to values from build.config.* files.
+    _ramdisk_compress = "${RAMDISK_COMPRESS}"
+    _ramdisk_decompress = "${RAMDISK_DECOMPRESS}"
+    _ramdisk_ext = "lz4"
+
+    if ramdisk_compression == "lz4":
+        _ramdisk_compress = "lz4 -c -l "
+        if ramdisk_compression_args:
+            _ramdisk_compress += ramdisk_compression_args
+        else:
+            _ramdisk_compress += "-12 --favor-decSpeed"
+        _ramdisk_decompress = "lz4 -c -d -l"
+    if ramdisk_compression == "gzip":
+        _ramdisk_compress = "gzip -c -f"
+        _ramdisk_decompress = "gzip -c -d"
+        _ramdisk_ext = "gz"
+
+    return struct(
+        ramdisk_compress = _ramdisk_compress,
+        ramdisk_decompress = _ramdisk_decompress,
+        ramdisk_ext = _ramdisk_ext,
+    )
+
 image_utils = struct(
     build_modules_image_impl_common = _build_modules_image_impl_common,
     build_modules_image_attrs_common = _build_modules_image_attrs_common,
+    ramdisk_options = _ramdisk_options,
 )
