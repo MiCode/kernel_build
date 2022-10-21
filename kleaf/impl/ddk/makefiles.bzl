@@ -20,6 +20,45 @@ load(":debug.bzl", "debug")
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "get_include_depset")
 load(":utils.bzl", "utils")
 
+def _handle_copt(ctx):
+    # copt values contains prefixing "-", so we must use --copt=-x --copt=-y to avoid confusion.
+    # We treat $(location) differently because paths must be relative to the Makefile
+    # under {package}, e.g. for -include option.
+
+    expand_targets = []
+    expand_targets += ctx.attr.module_srcs
+    expand_targets += ctx.attr.module_hdrs
+    expand_targets += ctx.attr.module_deps
+
+    copt_content = []
+    for copt in ctx.attr.module_copts:
+        expanded = ctx.expand_location(copt, targets = expand_targets)
+
+        if copt != expanded:
+            if not copt.startswith("$(") or not copt.endswith(")") or \
+               copt.count("$(") > 1:
+                # This may be an item like "-include=$(location X)", which is
+                # not allowed. "$(location X) $(location Y)" is also not allowed.
+                # The predicate here may not be accurate, but it is a good heuristic.
+                fail(
+                    """{}: {} is not allowed. An $(location) expression must be its own item.
+                       For example, Instead of specifying "-include=$(location X)",
+                       specify two items ["-include", "$(location X)"] instead.""",
+                    ctx.label,
+                    copt,
+                )
+
+        copt_content.append({
+            "expanded": expanded,
+            "is_path": copt != expanded,
+        })
+    out = ctx.actions.declare_file("{}/copts.json".format(ctx.attr.name))
+    ctx.actions.write(
+        output = out,
+        content = json.encode_indent(copt_content, indent = "  "),
+    )
+    return out
+
 def _makefiles_impl(ctx):
     module_label = Label(str(ctx.label).removesuffix("_makefiles"))
 
@@ -70,7 +109,12 @@ def _makefiles_impl(ctx):
 
     args.add_all("--local-defines", ctx.attr.module_local_defines)
 
+    copt_file = _handle_copt(ctx)
+    args.add("--copt-file", copt_file)
+
     ctx.actions.run(
+        mnemonic = "DdkMakefiles",
+        inputs = [copt_file],
         outputs = [output_makefiles],
         executable = ctx.executable._gen_makefile,
         arguments = [args],
@@ -91,6 +135,7 @@ makefiles = rule(
         "module_deps": attr.label_list(),
         "module_out": attr.string(),
         "module_local_defines": attr.string_list(),
+        "module_copts": attr.string_list(),
         "_gen_makefile": attr.label(
             default = "//build/kernel/kleaf/impl:ddk/gen_makefiles",
             executable = True,
