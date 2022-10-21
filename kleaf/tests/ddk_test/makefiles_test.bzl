@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//build/kernel/kleaf/impl:ddk/makefiles.bzl", "makefiles")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
@@ -122,8 +123,26 @@ def _bad_dep_test_make(
         error_message_substrs = [error_message],
     )
 
+def _makefiles_build_test(name):
+    """Define build tests for `makefiles`"""
+    makefiles(
+        name = name + "_subdir_sources_makefiles",
+        module_out = name + "_subdir_sources.ko",
+        module_srcs = [
+            "subdir/foo.c",
+        ],
+        tags = ["manual"],
+    )
+
+    build_test(
+        name = name,
+        targets = [
+            name + "_subdir_sources_makefiles",
+        ],
+    )
+
 def makefiles_test_suite(name):
-    """Defines analysis test for `makefiles`."""
+    """Defines tests for `makefiles`."""
     tests = []
 
     _makefiles_test_make(
@@ -187,6 +206,9 @@ def makefiles_test_suite(name):
         expected_includes = [native.package_name()],
     )
     tests.append(name + "_export_local_headers")
+
+    _makefiles_build_test(name = name + "_build_test")
+    tests.append(name + "_build_test")
 
     native.test_suite(
         name = name,

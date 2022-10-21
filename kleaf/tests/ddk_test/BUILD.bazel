@@ -13,39 +13,14 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "unittest")
-load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//build/kernel/kleaf/impl:ddk/makefiles.bzl", "makefiles")
 load(":ddk_headers_test.bzl", "ddk_headers_test_suite")
 load(":ddk_module_test.bzl", "ddk_module_test_suite")
 load(":makefiles_test.bzl", "makefiles_test_suite")
 
 unittest.suite(
-    "ddk_analysis_test",
+    "ddk_test",
     ddk_headers_test_suite,
     ddk_module_test_suite,
     makefiles_test_suite,
-)
-
-makefiles(
-    name = "subdir_sources_makefiles",
-    module_out = "subdir_sources.ko",
-    module_srcs = [
-        "subdir/foo.c",
-    ],
-    tags = ["manual"],
-)
-
-build_test(
-    name = "ddk_build_test",
-    targets = [
-        ":subdir_sources_makefiles",
-    ],
-)
-
-test_suite(
-    name = "ddk_test",
-    tests = [
-        ":ddk_analysis_test",
-        ":ddk_build_test",
-    ],
 )
