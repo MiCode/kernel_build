@@ -110,7 +110,7 @@ def gen_ddk_makefile(
             if not src.is_relative_to(kernel_module_out.parent):
                 die("%s is not a valid source because it is not under %s",
                     src, kernel_module_out.parent)
-            out = src.with_suffix(".o")
+            out = src.with_suffix(".o").relative_to(kernel_module_out.parent)
             out_file.write(textwrap.dedent(f"""\
                 # Source: {package / src}
                 {kernel_module_out.with_suffix('').name}-y += {out}
