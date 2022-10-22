@@ -4,6 +4,7 @@
 | apollo-q-oss | Redmi K30S Ultra | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [apollo-q-oss](https://github.com/MiCode/kernel_build/tree/apollo-q-oss) |
 | cas-q-oss | Mi 10 Ultra, Mi 10 Pro, Mi 10, Redmi K30 Pro | Android Q | LA.UM.8.12.r1-10600-sm8250.0 | [cas-q-oss](https://github.com/MiCode/kernel_build/tree/cas-q-oss) |
 | cmi-r-oss | Redmi K30S Ultra, Mi 10 Ultra, Mi 10 Pro, Redmi K30 Pro, Mi 10 | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [cmi-r-oss](https://github.com/MiCode/kernel_build/tree/cmi-r-oss) |
+| dagu-s-oss | Xiaomi Pad 5 pro 12.4 | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [dagu-s-oss](https://github.com/MiCode/kernel_build/tree/dagu-s-oss) |
 | elish-r-oss | Xiaomi Pad 5 Pro, Xiaomi Pad 5 Pro 5G | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [elish-r-oss](https://github.com/MiCode/kernel_build/tree/elish-r-oss) |
 | gauguin-q-oss | Redmi Note 9 Pro | Android Q | LA.UM.8.13.r1-09200-SAIPAN.0 | [gauguin-q-oss](https://github.com/MiCode/kernel_build/tree/gauguin-q-oss) |
 | gauguin-r-oss | Redmi Note 9 Pro | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [gauguin-r-oss](https://github.com/MiCode/kernel_build/tree/gauguin-r-oss) |
