@@ -50,6 +50,19 @@ bool_flag(
     build_setting_default = False,
 )
 
+# If true, //{common}:all_headers also includes //{common}:all_headers_unsafe.
+bool_flag(
+    name = "allow_ddk_unsafe_headers",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "allow_ddk_unsafe_headers_set",
+    flag_values = {
+        ":allow_ddk_unsafe_headers": "1",
+    },
+)
+
 # Debug options
 
 bool_flag(
