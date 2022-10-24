@@ -22,10 +22,11 @@ def check_ddk_headers_info(ctx, env):
     """Check that the target implements DdkHeadersInfo with the expected `includes` and `hdrs`."""
     target_under_test = analysistest.target_under_test(env)
 
-    asserts.set_equals(
+    # Check content + ordering of include dirs, so do list comparison.
+    asserts.equals(
         env,
-        sets.make(ctx.attr.expected_includes),
-        sets.make(target_under_test[DdkHeadersInfo].includes.to_list()),
+        ctx.attr.expected_includes,
+        target_under_test[DdkHeadersInfo].includes.to_list(),
     )
     asserts.set_equals(
         env,
@@ -164,10 +165,17 @@ def ddk_headers_test_suite(name):
         tags = ["manual"],
     )
 
+    ddk_headers(
+        name = name + "_foo_headers",
+        includes = ["include/foo"],
+        hdrs = ["include/foo/foo.h"],
+        tags = ["manual"],
+    )
+
     _ddk_headers_good_includes_test(
         name = name + "_transitive",
         includes = ["include/transitive"],
-        hdrs = [name + "_base_headers"] + ["include/transitive/transitive.h"],
+        hdrs = [name + "_base_headers", "include/transitive/transitive.h"],
         expected_includes = [
             "{}/include/base".format(native.package_name()),
             "{}/include/transitive".format(native.package_name()),
@@ -175,6 +183,36 @@ def ddk_headers_test_suite(name):
         expected_hdrs = ["include/base/base.h", "include/transitive/transitive.h"],
     )
     tests.append(name + "_transitive")
+
+    _ddk_headers_good_includes_test(
+        name = name + "_include_ordering",
+        includes = [
+            # do not sort
+            "b",
+            "a",
+            "c",
+        ],
+        hdrs = [
+            # do not sort
+            name + "_foo_headers",
+            name + "_base_headers",
+        ],
+        expected_includes = [
+            # do not sort
+            # First, hdrs
+            "{}/include/foo".format(native.package_name()),
+            "{}/include/base".format(native.package_name()),
+            # Then, includes
+            "{}/b".format(native.package_name()),
+            "{}/a".format(native.package_name()),
+            "{}/c".format(native.package_name()),
+        ],
+        expected_hdrs = [
+            "include/base/base.h",
+            "include/foo/foo.h",
+        ],
+    )
+    tests.append(name + "_include_ordering")
 
     native.test_suite(
         name = name,

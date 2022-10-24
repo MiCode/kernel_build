@@ -81,6 +81,100 @@ def ddk_module(
     ddk_module(name = "module_B", deps = ["module_A", "module_A_hdrs"], ...)
     ```
 
+    **Ordering of `includes`**
+
+    **The best practice is to not have conflicting header names and search paths.**
+    But if you do, see below for ordering of include directories to be
+    searched for header files.
+
+    A [`ddk_module`](#ddk_module) is compiled with the following order of include directories
+    (`-I` options):
+
+    1. `LINUXINCLUDE` (See `common/Makefile`)
+    2. All `deps`, in the specified order (recursively apply #3 ~ #4 on each target)
+    3. All `hdrs`, in the specified order (recursively apply #3 ~ #4 on each target)
+    4. All `includes` of this target, in the specified order
+
+    In other words, except that `LINUXINCLUDE` always has the highest priority,
+    this uses the "postorder" of [depset](https://bazel.build/rules/lib/depset).
+
+    "In the specified order" means that order matters within these lists.
+    To prevent buildifier from sorting these lists, use the `# do not sort` magic line.
+
+    To export a target `:x` in `hdrs` before other targets in `deps`
+    (that is, if you need #3 before #2), specify `:x` in the `deps`
+    list in the position you want. See example below.
+
+    To export an include directory in `includes` that needs to be included
+    before other targets in `hdrs` or `deps` (that is, if you need #4 before #3
+    or #2), specify the include directory in a separate `ddk_headers` target,
+    then specify this `ddk_headers` target in `hdrs` and/or `deps` based on
+    your needs.
+
+    For example:
+
+    ```
+    ddk_headers(name = "dep_a", includes = ["dep_a"])
+    ddk_headers(name = "dep_b", includes = ["dep_b"])
+    ddk_headers(name = "dep_c", includes = ["dep_c"], hdrs = ["dep_a"])
+    ddk_headers(name = "hdrs_a", includes = ["hdrs_a"])
+    ddk_headers(name = "hdrs_b", includes = ["hdrs_b"])
+    ddk_headers(name = "x", includes = ["x"])
+
+    ddk_module(
+        name = "module",
+        deps = [":dep_b", ":x", ":dep_c"],
+        hdrs = [":hdrs_a", ":x", ":hdrs_b"],
+        includes = ["self_1", "self_2"],
+    )
+    ```
+
+    Then `":module"` is compiled with these flags, in this order:
+
+    ```
+    # 1.
+    $(LINUXINCLUDE)
+
+    # 2. deps, recursively
+    -Idep_b
+    -Ix
+    -Idep_a   # :dep_c depends on :dep_a, so include dep_a/ first
+    -Idep_c
+
+    # 3. hdrs
+    -Ihdrs_a
+    # x is already included, skip
+    -Ihdrs_b
+
+    # 4. includes
+    -Iself_1
+    -Iself_2
+    ```
+
+    A dependent module automatically gets #3 and #4, in this order. For example:
+
+    ```
+    ddk_module(
+        name = "child",
+        deps = [":module"],
+        # ...
+    )
+    ```
+
+    Then `":child"` is compiled with these flags, in this order:
+
+    ```
+    # 1.
+    $(LINUXINCLUDE)
+
+    # 2. deps, recursively
+    -Ihdrs_a
+    -Ix
+    -Ihdrs_b
+    -Iself_1
+    -Iself_2
+    ```
+
     Args:
         name: Name of target. This should usually be name of the output `.ko` file without the
           suffix.
