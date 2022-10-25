@@ -2,6 +2,31 @@
 
 To run `make *config` or `config.sh` in Kleaf, follow the following steps.
 
+## Step 0: Try the old `config.sh` command to guess the Kleaf equivalent
+
+If you already know what `kernel_build` or `kernel_build_abi` target you
+need to run on, go to step 1.
+
+Run the old `config.sh` command with appropriate environment variables
+and arguments. The `config.sh` guesses an equivalent command for you.
+You may execute this command directly in the future.
+
+Example:
+
+```shell
+$ BUILD_CONFIG=common/build.config.gki.aarch64 build/kernel/config.sh
+Inferring equivalent Bazel command...
+*****************************************************************************
+* WARNING: build.sh is deprecated for this branch. Please migrate to Bazel.
+*   See build/kernel/kleaf/README.md
+*          Possibly equivalent Bazel command:
+*
+*   $ tools/bazel run //common:kernel_aarch64_config --
+*
+* To suppress this warning, set KLEAF_SUPPRESS_BUILD_SH_DEPRECATION_WARNING=1
+*****************************************************************************
+```
+
 ## Step 1: Run the following Kleaf command
 
 The command you may run to replace `config.sh` is:
