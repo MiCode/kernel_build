@@ -50,13 +50,6 @@
 #     property is intended to prevent unintentional shrinkage of a stable ABI.
 #     It is disabled by default.
 #
-#   GKI_MODULES_LIST
-#     If set to a file name, then this file will be read to determine the list
-#     of GKI modules (those subject to ABI monitoring) and, by elimination, the
-#     list of vendor modules (those which can rely on a stable ABI). Only vendor
-#     modules' undefined symbols are considered when updating the symbol list.
-#     GKI_MODULES_LIST is supposed to be defined relative to $KERNEL_DIR/
-#
 #   FULL_GKI_ABI
 #     If this is set to 1 then, when updating the symbol list, use all defined
 #     symbols from vmlinux and GKI modules, instead of the undefined symbols
@@ -236,10 +229,6 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
         echo "========================================================"
         echo " Updating the ABI symbol list"
 
-        # Exclude GKI modules from non-GKI builds
-        if [ -n "${GKI_MODULES_LIST}" ]; then
-            GKI_MOD_FLAG="--gki-modules ${DIST_DIR}/$(basename ${GKI_MODULES_LIST})"
-        fi
         if [ "$KMI_SYMBOL_LIST_ADD_ONLY" -eq 1 ]; then
             ADD_ONLY_FLAG="--additions-only"
         fi
@@ -256,7 +245,6 @@ if [ -n "$KMI_SYMBOL_LIST" ]; then
             --symbol-list $KERNEL_DIR/$KMI_SYMBOL_LIST \
             ${SKIP_MODULE_GROUPING}                    \
             ${ADD_ONLY_FLAG}                           \
-            ${GKI_MOD_FLAG}                            \
             ${FULL_ABI_FLAG}                           \
             ${DIST_DIR}
 

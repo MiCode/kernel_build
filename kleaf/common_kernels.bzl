@@ -26,9 +26,11 @@ load(
     "kernel_kythe",
     "kernel_modules_install",
     "kernel_unstripped_modules_archive",
+    "merged_kernel_uapi_headers",
 )
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
+load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
@@ -51,6 +53,11 @@ _ARCH_CONFIGS = {
     "kernel_aarch64": {
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64",
+        "outs": aarch64_outs,
+    },
+    "kernel_aarch64_16k": {
+        "arch": "arm64",
+        "build_config": "build.config.gki.aarch64.16k",
         "outs": aarch64_outs,
     },
     "kernel_aarch64_interceptor": {
@@ -150,6 +157,10 @@ def _default_target_configs():
             "trim_nonlisted_kmi": aarch64_trim_and_check,
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
         }),
+        "kernel_aarch64_16k": {
+            # Assume TRIM_NONLISTED_KMI="" in build.config.gki.aarch64.16k
+            "trim_nonlisted_kmi": False,
+        },
         "kernel_aarch64_debug": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
@@ -193,6 +204,9 @@ def define_common_kernels(
       - `kernel_aarch64_uapi_headers`
       - `kernel_aarch64_additional_artifacts`
       - `kernel_aarch64_modules`
+    - `kernel_aarch64_16k_dist`
+      - `kernel_aarch64_16k`
+      - `kernel_aarch64_modules`
     - `kernel_aarch64_debug_dist`
       - `kernel_aarch64_debug`
     - `kernel_x86_64_sources`
@@ -203,7 +217,7 @@ def define_common_kernels(
     - `kernel_x86_64_debug_dist`
       - `kernel_x86_64_debug`
 
-    `<name>` (aka `kernel_{aarch64,x86}{_debug,}`) targets build the
+    `<name>` (aka `kernel_{aarch64,x86}{_16k,_debug}`) targets build the
     main kernel build artifacts, e.g. `vmlinux`, etc.
 
     `<name>_sources` are convenience filegroups that refers to all sources required to
@@ -300,6 +314,7 @@ def define_common_kernels(
 
         The keys of the `target_configs` may be one of the following:
         - `kernel_aarch64`
+        - `kernel_aarch64_16k`
         - `kernel_aarch64_debug`
         - `kernel_x86_64`
         - `kernel_x86_64_debug`
@@ -349,6 +364,10 @@ def define_common_kernels(
           - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
           - `TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}` in `build.config` if there are symbol lists, else empty
           - `KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}` in `build.config` if there are symbol lists, else empty
+        - `kernel_aarch64_16k`:
+          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
+          - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
         - `kernel_aarch64_debug`:
           - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
           - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
@@ -379,6 +398,8 @@ def define_common_kernels(
                 "trim_nonlisted_kmi": aarch64_trim_and_check,
                 "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
             },
+            "kernel_aarch64_16k": {
+            },
             "kernel_aarch64_debug": {
                 "kmi_symbol_list": aarch64_kmi_symbol_list,
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
@@ -402,6 +423,9 @@ def define_common_kernels(
         |-----------------------------------|--------------|
         |`kernel_aarch64`                   |NO TRIM       |
         |(no symbol lists)                  |              |
+        |(`trim_nonlisted_kmi=None`)        |              |
+        |-----------------------------------|--------------|
+        |`kernel_aarch64_16k`               |NO TRIM       |
         |(`trim_nonlisted_kmi=None`)        |              |
         |-----------------------------------|--------------|
         |`kernel_aarch64_debug`             |NO TRIM       |
@@ -644,15 +668,21 @@ def define_common_kernels(
             log = "info",
         )
 
+        _define_common_kernels_additional_tests(
+            name = name + "_additional_tests",
+            kernel_build_name = name,
+            kernel_modules_install = name + "_modules_install",
+            modules = (target_config.get("module_outs") or []) +
+                      (target_config.get("module_implicit_outs") or []),
+            arch = arch_config["arch"],
+        )
+
         native.test_suite(
             name = name + "_tests",
             tests = [
+                name + "_additional_tests",
                 name + "_test",
                 name + "_modules_test",
-                _define_common_kernels_additional_tests(
-                    kernel_build_name = name,
-                    kernel_modules_install = name + "_modules_install",
-                ),
             ],
         )
 
@@ -791,52 +821,60 @@ def _define_prebuilts(**kwargs):
         )
 
 def _define_common_kernels_additional_tests(
+        name,
         kernel_build_name,
-        kernel_modules_install):
-    test_name = kernel_build_name + "_additional_tests"
+        kernel_modules_install,
+        modules,
+        arch):
     fake_modules_options = "//build/kernel/kleaf/artifact_tests:fake_modules_options.txt"
 
     kernel_images(
-        name = test_name + "_fake_images",
-        kernel_modules_install = kernel_build_name + "_modules_install",
+        name = name + "_fake_images",
+        kernel_modules_install = kernel_modules_install,
         build_initramfs = True,
         modules_options = fake_modules_options,
     )
 
     initramfs_modules_options_test(
-        name = test_name + "_fake",
-        kernel_images = test_name + "_fake_images",
+        name = name + "_fake",
+        kernel_images = name + "_fake_images",
         expected_modules_options = fake_modules_options,
     )
 
     native.genrule(
-        name = test_name + "_empty_modules_options",
-        outs = [test_name + "_empty_modules_options/modules.options"],
+        name = name + "_empty_modules_options",
+        outs = [name + "_empty_modules_options/modules.options"],
         cmd = ": > $@",
     )
 
     kernel_images(
-        name = test_name + "_empty_images",
-        kernel_modules_install = kernel_build_name + "_modules_install",
+        name = name + "_empty_images",
+        kernel_modules_install = kernel_modules_install,
         build_initramfs = True,
         # Not specify module_options
     )
 
     initramfs_modules_options_test(
-        name = test_name + "_empty",
-        kernel_images = test_name + "_empty_images",
-        expected_modules_options = test_name + "_empty_modules_options",
+        name = name + "_empty",
+        kernel_images = name + "_empty_images",
+        expected_modules_options = name + "_empty_modules_options",
+    )
+
+    device_modules_test(
+        name = name + "_device_modules_test",
+        base_kernel_label = Label("//{}:{}".format(native.package_name(), kernel_build_name)),
+        base_kernel_module = min(modules) if modules else None,
+        arch = arch,
     )
 
     native.test_suite(
-        name = test_name,
+        name = name,
         tests = [
-            test_name + "_empty",
-            test_name + "_fake",
+            name + "_empty",
+            name + "_fake",
+            name + "_device_modules_test",
         ],
     )
-
-    return test_name
 
 def define_db845c(
         name,
@@ -847,7 +885,7 @@ def define_db845c(
         dist_dir = None):
     """Define target for db845c.
 
-    Note: This does not use mixed builds.
+    Note: This is a mixed build.
 
     Requires [`define_common_kernels`](#define_common_kernels) to be called in the same package.
 
@@ -877,14 +915,22 @@ def define_db845c(
         build_config = build_config,
         kmi_symbol_list = kmi_symbol_list,
         # Enable mixed build.
-        base_kernel = "//common:kernel_aarch64",
+        base_kernel = ":kernel_aarch64",
     )
+
+    _kernel_modules = []
 
     kernel_modules_install(
         name = name + "_modules_install",
         kernel_build = name,
         # List of external modules.
-        kernel_modules = [],
+        kernel_modules = _kernel_modules,
+    )
+
+    merged_kernel_uapi_headers(
+        name = name + "_merged_kernel_uapi_headers",
+        kernel_build = name,
+        kernel_modules = _kernel_modules,
     )
 
     kernel_images(
@@ -900,6 +946,10 @@ def define_db845c(
             name,
             name + "_images",
             name + "_modules_install",
+            # Mixed build: Additional GKI artifacts.
+            ":kernel_aarch64",
+            ":kernel_aarch64_additional_artifacts",
+            name + "_merged_kernel_uapi_headers",
         ],
         dist_dir = dist_dir,
         flat = True,

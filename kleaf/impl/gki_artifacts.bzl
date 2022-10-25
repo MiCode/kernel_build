@@ -32,13 +32,10 @@ def _gki_artifacts_impl(ctx):
 
     outs = []
 
-    # build_gki_artifacts_aarch64 builds boot-img.tar.gz additionally.
-    # build_gki_artifacts_x86_64 does not build boot-img.tar.gz.
-    if ctx.attr.arch == "arm64":
-        tarball = ctx.actions.declare_file("{}/boot-img.tar.gz".format(ctx.label.name))
-        outs.append(tarball)
-        gki_info = ctx.actions.declare_file("{}/gki-info.txt".format(ctx.label.name))
-        outs.append(gki_info)
+    tarball = ctx.actions.declare_file("{}/boot-img.tar.gz".format(ctx.label.name))
+    outs.append(tarball)
+    gki_info = ctx.actions.declare_file("{}/gki-info.txt".format(ctx.label.name))
+    outs.append(gki_info)
 
     size_cmd = ""
     images = []
