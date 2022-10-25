@@ -70,6 +70,42 @@ kernel_build(
 
 ## Building kernel modules and DTB files
 
+### Step 0: (Optional) Create a skeleton `BUILD.bazel` file
+
+This step automates most of the following steps for you.
+
+First, install
+[Buildozer](https://github.com/bazelbuild/buildtools/tree/master/buildozer).
+Make sure that it is available in `$PATH`, or under `$GOPATH/bin`, or under 
+`$HOME/go/bin`. See the script below for details on how `buildozer` is searched
+for.
+
+Next, execute `build_config_to_bazel.py` script. Set `BUILD_CONFIG` accordingly
+if you don't have a top level `build.config` file. Example:
+
+```shell
+$ BUILD_CONFIG=common-modules/virtual-device/build.config.virtual_device.x86_64 \
+    build/kernel/kleaf/build_config_to_bazel.py
+```
+
+Sample output:
+
+```text
+fixed /home/elsk/android/kernel/common-modules/virtual-device/BUILD.bazel
+```
+
+Then, examine the modified file(s), indicated in the command output.
+There may be several `FIXME` comments that requires human intervention.
+Go through the steps below to fix them accordingly.
+
+**NOTE**: Human intervention is still required for the generated file.
+
+**NOTE**: The script may modify multiple files. All of them should be examined.
+
+**NOTE**: The file is generated based on a number of heuristics. Even if some
+attributes aren't commented with `FIXME`, they may not be 100% correct. Go
+through the steps below to fix the file to suit your needs.
+
 ### Step 1: (Optional) Define a target to build in-tree drivers and DTB files {#step-1}
 
 If you have a separate kernel tree to build in-tree drivers, define
