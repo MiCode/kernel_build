@@ -126,12 +126,15 @@ def _kernel_env_impl(ctx):
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
           source {setup_env}
+        # Add to MAKE_GOALS if necessary
+          export MAKE_GOALS="${{MAKE_GOALS}} {internal_additional_make_goals}"
         # capture it as a file to be sourced in downstream rules
           {preserve_env} > {out}
         """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
         setup_env = setup_env.path,
+        internal_additional_make_goals = " ".join(ctx.attr.internal_additional_make_goals),
         preserve_env = preserve_env.path,
         out = out_file.path,
     )
@@ -296,6 +299,7 @@ kernel_env = rule(
             default = "auto",
             values = ["true", "false", "auto"],
         ),
+        "internal_additional_make_goals": attr.string_list(),
         "_tools": attr.label_list(default = _get_tools),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(

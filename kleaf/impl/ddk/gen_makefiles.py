@@ -17,12 +17,15 @@ Generate a DDK module Makefile
 """
 
 import absl.flags.argparse_flags
+import argparse
+import json
 import logging
 import os
 import pathlib
 import shlex
 import sys
 import textwrap
+from typing import Optional, TextIO
 
 _SOURCE_SUFFIXES = (
     ".c",
@@ -63,6 +66,12 @@ def _gen_makefile(
         out_file.write(content)
 
 
+def _write_ccflag(out_file, ccflag):
+    out_file.write(textwrap.dedent(f"""\
+        ccflags-y += {shlex.quote(ccflag)}
+        """))
+
+
 def gen_ddk_makefile(
         output_makefiles: pathlib.Path,
         kernel_module_out: pathlib.Path,
@@ -70,6 +79,8 @@ def gen_ddk_makefile(
         include_dirs: list[pathlib.Path],
         module_symvers_list: list[pathlib.Path],
         package: pathlib.Path,
+        local_defines: list[str],
+        copt_file: Optional[TextIO],
 ):
     _gen_makefile(
         package=package,
@@ -121,16 +132,24 @@ def gen_ddk_makefile(
         #    //path/to/package:target/name/foo.ko
         # =>   path/to/package/target/name
         rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
-        rel_root = "/".join([".."] * len(rel_root_reversed.parts))
+        rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
 
         for include_dir in include_dirs:
-            ccflag = f"-I$(srctree)/$(src)/{rel_root}/{include_dir}"
             out_file.write(textwrap.dedent(f"""\
                 # Include {include_dir}
-                ccflags-y += {shlex.quote(ccflag)}
+                """))
+            _write_ccflag(out_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
+
+        if local_defines:
+            out_file.write("\n")
+            out_file.write(textwrap.dedent("""\
+                # local defines
                 """))
 
-        out_file.write("\n")
+        for local_define in local_defines:
+            _write_ccflag(out_file, f"-D{local_define}")
+
+        _handle_copt_file(out_file, copt_file, rel_root)
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -141,6 +160,23 @@ def gen_ddk_makefile(
                 obj-y += {kernel_module_out.parent}/
                 """))
 
+def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: pathlib.Path):
+    if not copt_file:
+        return
+
+    out_file.write("\n")
+    out_file.write(textwrap.dedent("""\
+        # copts
+        """))
+
+    for d in json.load(copt_file):
+        expanded: str = d["expanded"]
+        is_path: bool = d["is_path"]
+
+        if is_path:
+            expanded = str(rel_root / expanded)
+
+        _write_ccflag(out_file, expanded)
 
 if __name__ == "__main__":
     # argparse_flags.ArgumentParser only accepts --flagfile if there
@@ -157,4 +193,8 @@ if __name__ == "__main__":
     parser.add_argument("--output-makefiles", type=pathlib.Path)
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--local-defines", nargs="*", default=[])
+
+    parser.add_argument("--copt-file", type=argparse.FileType("r"))
+
     gen_ddk_makefile(**vars(parser.parse_args()))
