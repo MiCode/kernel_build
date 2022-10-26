@@ -100,7 +100,8 @@ def _create_one_device_modules_test(
 
                 MAKE_GOALS="modules"
                 DEFCONFIG="device_modules_test_gki_defconfig"
-                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{ARCH}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{ARCH}}/configs/gki_defconfig && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{ARCH}}/configs/${{DEFCONFIG}};"
+                # For x86_64, ARCH should be x86 for config purposes (b/254348147)
+                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{ARCH/x86_64/x86}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{ARCH/x86_64/x86}}/configs/gki_defconfig && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{ARCH/x86_64/x86}}/configs/${{DEFCONFIG}};"
                 POST_DEFCONFIG_CMDS=""
                 """.format(
         common_package = base_kernel_label.package,
