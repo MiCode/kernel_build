@@ -76,7 +76,7 @@ This step automates most of the following steps for you.
 
 First, install
 [Buildozer](https://github.com/bazelbuild/buildtools/tree/master/buildozer).
-Make sure that it is available in `$PATH`, or under `$GOPATH/bin`, or under 
+Make sure that it is available in `$PATH`, or under `$GOPATH/bin`, or under
 `$HOME/go/bin`. See the script below for details on how `buildozer` is searched
 for.
 
