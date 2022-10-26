@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load(":constants.bzl", "LTO_VALUES")
@@ -61,6 +59,12 @@ config_setting(
     flag_values = {
         ":allow_ddk_unsafe_headers": "1",
     },
+)
+
+# If true, kmi_symbol_list_strict_mode attribute in kernel_build is respected.
+bool_flag(
+    name = "kmi_symbol_list_strict_mode",
+    build_setting_default = True,
 )
 
 # Debug options
