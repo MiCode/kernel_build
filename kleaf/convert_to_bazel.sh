@@ -17,14 +17,21 @@
 set -e
 
 ABI=0
+CONFIG=0
+ARGS=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --abi)
             ABI=1
             shift
             ;;
+        --config)
+            CONFIG=1
+            shift
+            ;;
         -*|--*|*)
-            shift # ignore
+            ARGS="$ARGS $1"
+            shift
             ;;
     esac
 done
@@ -74,8 +81,9 @@ EOF
         let pkg_targets = siblings($build_config_label) in
         let dists = filter(\"_dist\$\", \$pkg_targets) except kind(alias, \$pkg_targets) in
         let kernel_builds = kind(_kernel_build, \$pkg_targets) in
+        let kernel_configs = kind(kernel_config, \$pkg_targets) in
 
-        let build_config_rdeps = attr(build_config, \"$build_config_label\", \$pkg_targets) in
+        let build_config_rdeps = attr(build_config, \"^$build_config_label\$\", \$pkg_targets) in
         let kernel_builds_on_build_config = \$kernel_builds intersect allpaths(\$kernel_builds, \$build_config_rdeps) except filter(\"_interceptor\$\", \$pkg_targets) in
 
         let dists_on_kernel_builds = \$dists intersect allpaths(\$dists, \$kernel_builds_on_build_config) in
@@ -91,6 +99,14 @@ EOF
         let dists_with_abi_without_kythe = \$dists_with_abi_dep intersect \$dists_without_kythe_dep in
         let dists_without_abi_without_kythe = \$dists_without_abi_dep intersect \$dists_without_kythe_dep in
         let abi_targets_on_build_config = \$abi_targets intersect allpaths(\$abi_targets, \$build_config_rdeps) in
+
+        let kernel_configs_on_build_config = \$kernel_configs intersect allpaths(\$kernel_configs, \$build_config_rdeps) in
+        let kernel_configs_with_abi = filter(\"_with_vmlinux_config\$\", \$kernel_configs_on_build_config) in
+        let kernel_configs_interceptor = filter(\"_interceptor_config\$\", \$kernel_configs_on_build_config) in
+        let kernel_configs_without_abi = \$kernel_configs_on_build_config
+                  except \$kernel_configs_with_abi
+                  except \$kernel_configs_interceptor in
+
         $result_var
 "
 
@@ -101,11 +117,11 @@ EOF
 function determine_targets() {
     targets=$(determine_targets_internal "$@")
     if [[ $? != 0 ]]; then
-        echo "WARNING: Unable to determine the copy_to_dist_dir target corresponding to the build config." >&2
+        echo "WARNING: Unable to determine the target corresponding to the build config." >&2
         exit 1
     fi
     if [[ -z "$targets" ]]; then
-        echo "WARNING: No matching copy_to_dist_dir targets depend on the given build config." >&2
+        echo "WARNING: No matching targets depend on the given build config." >&2
         exit 1
     fi
     echo "$targets"
@@ -153,6 +169,11 @@ if [[ "$ABI" == "1" ]]; then
             echo "$BAZEL run" $flags "$target -- --dist_dir=$my_dist_dir"
         done
     fi
+elif [[ "$CONFIG" == "1" ]]; then
+    config_targets=$(determine_targets "\$kernel_configs_without_abi")
+    for target in $config_targets; do
+        echo "$BAZEL run" $flags "$target -- $ARGS"
+    done
 else
     dist_targets=$(determine_targets "\$dists_without_abi_without_kythe")
     for target in $dist_targets; do

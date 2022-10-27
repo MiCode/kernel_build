@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Defines a kernel build target.
+"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
@@ -264,10 +267,10 @@ def kernel_build(
 
           Labels are created for each item in `module_implicit_outs` as in `outs`.
 
-        kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_list`.
+        kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_lists`.
 
           This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
-        additional_kmi_symbol_list: A list of labels referring to additional KMI symbol list files.
+        additional_kmi_symbol_lists: A list of labels referring to additional KMI symbol list files.
 
           This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
 
@@ -334,7 +337,8 @@ def kernel_build(
           If set to `True`, debug information for distributed modules is stripped.
 
           This corresponds to negated value of `DO_NOT_STRIP_MODULES` in `build.config`.
-        kwargs: Additional attributes to the internal rule, e.g.
+        dtstree: Device tree support.
+        **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
@@ -551,7 +555,6 @@ def _create_kbuild_mixed_tree(ctx):
     kbuild_mixed_tree = None
     cmd = ""
     arg = ""
-    env_info_setup = ""
     if ctx.attr.base_kernel:
         # Create a directory for KBUILD_MIXED_TREE. Flatten the directory structure of the files
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
@@ -816,6 +819,10 @@ def _get_grab_symtypes_step(ctx):
 
 def get_grab_cmd_step(ctx, src_dir):
     """Returns a step for grabbing the `*.cmd` from `src_dir`.
+
+    Args:
+        ctx: Context from the rule.
+        src_dir: Source directory.
 
     Returns:
         A struct with these fields:
@@ -1266,6 +1273,7 @@ _kernel_build = rule(
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
+        "_use_kmi_symbol_list_strict_mode": attr.label(default = "//build/kernel/kleaf:kmi_symbol_list_strict_mode"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
@@ -1296,6 +1304,7 @@ def _kernel_build_check_toolchain(ctx):
     base_toolchain_file = utils.getoptattr(base_kernel[KernelToolchainInfo], "toolchain_version_file")
 
     if base_toolchain == None and base_toolchain_file == None:
+        # buildifier: disable=print
         print(("\nWARNING: {this_label}: No check is performed between the toolchain " +
                "version of the base build ({base_kernel}) and the toolchain version of " +
                "{this_name} ({this_toolchain}), because the toolchain version of {base_kernel} " +
@@ -1376,6 +1385,14 @@ def _kernel_build_dump_toolchain_version(ctx):
 def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     """Run for `KMI_SYMBOL_LIST_STRICT_MODE`.
     """
+    if not ctx.attr._use_kmi_symbol_list_strict_mode[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --nokmi_symbol_list_strict_mode is set!".format(
+            this_label = ctx.label,
+        ))
+        return None
+
     if not ctx.attr.kmi_symbol_list_strict_mode:
         return None
     if not ctx.file.raw_kmi_symbol_list:
@@ -1428,6 +1445,7 @@ def _repack_modules_staging_archive(
         ctx: ctx
         modules_staging_archive_self: The `modules_staging_archive` from `make`
             in `_build_main_action`.
+        all_module_basenames_file: Complete list of base names.
     """
     if not ctx.attr.base_kernel:
         # No need to repack.

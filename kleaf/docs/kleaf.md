@@ -21,7 +21,7 @@ As of today, *Kleaf* does not support the same feature set as `build/build.sh`.
 Nevertheless, some targets work and can be exercised. In particular this might
 be helpful to evaluate any future infrastructure integrations.
 
-### Prerequistes
+### Prerequisites
 
 There are no additional host dependencies. The Bazel toolchain and environment
 are provided through `repo sync`. The corresponding entries are in the kernel
