@@ -474,41 +474,6 @@ export -p > ${OLD_ENVIRONMENT}
 ABL_OLD_ENVIRONMENT=$(mktemp)
 export -p > ${ABL_OLD_ENVIRONMENT}
 
-function build_super() {
-  echo "========================================================"
-  echo " Creating super.img"
-
-  local super_props_file=$(mktemp)
-  local dynamic_partitions=""
-  # Default to 256 MB
-  local super_image_size="$((${SUPER_IMAGE_SIZE:-268435456}))"
-  local group_size="$((${super_image_size} - 0x400000))"
-  echo -e "lpmake=lpmake" >> ${super_props_file}
-  echo -e "super_metadata_device=super" >> ${super_props_file}
-  echo -e "super_block_devices=super" >> ${super_props_file}
-  echo -e "super_super_device_size=${super_image_size}" >> ${super_props_file}
-  echo -e "super_partition_size=${super_image_size}" >> ${super_props_file}
-  echo -e "super_partition_groups=kb_dynamic_partitions" >> ${super_props_file}
-  echo -e "super_kb_dynamic_partitions_group_size=${group_size}" >> ${super_props_file}
-
-  for image in "${SUPER_IMAGE_CONTENTS[@]}"; do
-    echo "  Adding ${image}"
-    partition_name=$(basename -s .img "${image}")
-    dynamic_partitions="${dynamic_partitions} ${partition_name}"
-    echo -e "${partition_name}_image=${image}" >> ${super_props_file}
-  done
-
-  echo -e "dynamic_partition_list=${dynamic_partitions}" >> ${super_props_file}
-  echo -e "super_kb_dynamic_partitions_partition_list=${dynamic_partitions}" >> ${super_props_file}
-  build_super_image -v ${super_props_file} ${DIST_DIR}/super.img
-  rm ${super_props_file}
-
-  echo "super image created at ${DIST_DIR}/super.img"
-
-  simg2img ${DIST_DIR}/super.img ${DIST_DIR}/super_unsparsed.img
-  echo "Unsparsed super image created at ${DIST_DIR}/super_unsparsed.img"
-}
-
 export ROOT_DIR=$($(dirname $(readlink -f $0))/gettop.sh)
 source "${ROOT_DIR}/build/build_utils.sh"
 source "${ROOT_DIR}/build/_setup_env.sh"
