@@ -11,16 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Rules for building boot images.
+"""
 
 load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvInfo")
 load(":debug.bzl", "debug")
-load(":image/image_utils.bzl", "image_utils")
 load(":image/initramfs.bzl", "InitramfsInfo")
 
 def _boot_images_impl(ctx):
     outdir = ctx.actions.declare_directory(ctx.label.name)
     modules_staging_dir = outdir.path + "/staging"
     mkbootimg_staging_dir = modules_staging_dir + "/mkbootimg_staging"
+
+    # Initialized conditionally below.
+    initramfs_staging_archive = None
+    initramfs_staging_dir = None
 
     if ctx.attr.initramfs:
         initramfs_staging_archive = ctx.attr.initramfs[InitramfsInfo].initramfs_staging_archive

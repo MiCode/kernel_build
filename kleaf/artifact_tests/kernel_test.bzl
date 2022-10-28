@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-load("//build/kernel/kleaf/impl:utils.bzl", "utils")
-load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
+"""
+Tests for artifacts produced by kernel_module.
+"""
 
 def kernel_module_test(
         name,
@@ -25,7 +25,7 @@ def kernel_module_test(
         name: name of test
         modules: The list of `*.ko` kernel modules, or targets that produces
             `*.ko` kernel modules (e.g. [kernel_module](#kernel_module)).
-        kwargs: Additional attributes to the internal rule, e.g.
+        **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
@@ -62,13 +62,13 @@ def kernel_build_test(
     Args:
         name: name of test
         target: The [`kernel_build()`](#kernel_build).
-        kwargs: Additional attributes to the internal rule, e.g.
+        **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
     script = "//build/kernel/kleaf/artifact_tests:kernel_build_test.py"
-    strings = "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(CLANG_VERSION)
+    strings = "//build/kernel:hermetic-tools/llvm-strings"
     args = ["--strings", "$(location {})".format(strings)]
     if target:
         args += ["--artifacts", "$(locations {})".format(target)]
