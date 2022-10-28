@@ -8,6 +8,8 @@
 
 [`build.sh` build configs](docs/build_configs.md)
 
+[Running `make *config`](docs/kernel_config.md)
+
 [Support ABI monitoring (GKI)](docs/abi.md)
 
 [Support ABI monitoring (Device)](docs/abi_device.md)
@@ -26,6 +28,8 @@
 
 [Cheatsheet](docs/cheatsheet.md)
 
+[Kleaf Development](docs/kleaf_development.md)
+
 ### Configurations
 
 `--config=release`: [Release builds](docs/release.md)
@@ -36,7 +40,7 @@
 
 `--config=stamp`: [Handling SCM version](docs/scmversion.md)
 
-`--lto`: [Disable LTO during development](docs/lto.md)
+`--lto`: [Configure LTO during development](docs/lto.md)
 
 `--kbuild_symtypes`: [KBUILD\_SYMTYPES](docs/symtypes.md)
 

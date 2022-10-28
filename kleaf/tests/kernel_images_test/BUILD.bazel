@@ -13,14 +13,9 @@
 # limitations under the License.
 
 load("@bazel_skylib//lib:unittest.bzl", "unittest")
-load("//build/kernel/kleaf/impl:ddk/makefiles.bzl", "makefiles")
-load(":ddk_headers_test.bzl", "ddk_headers_test_suite")
-load(":ddk_module_test.bzl", "ddk_module_test_suite")
-load(":makefiles_test.bzl", "makefiles_test_suite")
+load(":kernel_images_test.bzl", "initramfs_test")
 
 unittest.suite(
-    "ddk_test",
-    ddk_headers_test_suite,
-    ddk_module_test_suite,
-    makefiles_test_suite,
+    "kernel_images_test",
+    initramfs_test,
 )

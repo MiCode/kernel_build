@@ -557,11 +557,29 @@ See [documentation for all rules].
 
 ## LZ4\_RAMDISK
 
-Specify in the build config.
+**NOTE**: Rather than specifying if `lz4` is used or not, kleaf expects you to
+ specify the value as one of the strings `lz4` or `gzip`.
+
+* If `ramdisk_compression =` `lz4` or `gzip`, do not specify `LZ4_RAMDISK` in
+  build configs, as the value will be ignored.
+* If `ramdisk_compression =` `None` or unspecified, the value in build configs
+ will be respected.
+
+```python
+kernel_image(ramdisk_compression="lz4",...)
+```
+
+See [documentation for all rules].
 
 ## LZ4\_RAMDISK\_COMPRESS\_ARGS
 
-Specify in the build config.
+**NOTE**: Use in combination with [`LZ4_RAMDISK`](#lz4_ramdisk).
+
+```python
+kernel_image(ramdisk_compression_args=...)
+```
+
+See [documentation for all rules].
 
 ## TRIM\_NONLISTED\_KMI
 

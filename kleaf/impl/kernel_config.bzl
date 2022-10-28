@@ -23,6 +23,7 @@ load(
 load(":debug.bzl", "debug")
 load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":stamp.bzl", "stamp")
+load(":utils.bzl", "kernel_utils")
 
 def _set_str(value):
     return "--set-str {{config}} {}".format(value)
@@ -233,7 +234,7 @@ def _kernel_config_impl(ctx):
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelConfig",
+        mnemonic = "KernelConfig" + kernel_utils.local_mnemonic_suffix(ctx),
         inputs = inputs,
         outputs = [config, include_dir],
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
@@ -256,18 +257,75 @@ def _kernel_config_impl(ctx):
         # at the absolute path specified in abi_symbollist.raw.abspath
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
 
+    config_script_ret = _get_config_script(ctx)
+
     return [
         KernelEnvInfo(
             dependencies = setup_deps,
             setup = setup,
         ),
         ctx.attr.env[KernelEnvAttrInfo],
-        DefaultInfo(files = depset([config, include_dir])),
+        DefaultInfo(
+            files = depset([config, include_dir]),
+            executable = config_script_ret.executable,
+            runfiles = config_script_ret.runfiles,
+        ),
     ]
+
+def _get_config_script(ctx):
+    """Handles config.sh."""
+    executable = ctx.actions.declare_file("{}/config.sh".format(ctx.attr.name))
+
+    script = """
+          cd ${BUILD_WORKSPACE_DIRECTORY}
+    """
+    script += ctx.attr.env[KernelEnvInfo].setup
+
+    # TODO(b/254348147): Support ncurses for hermetic tools
+    script += """
+          export HOSTCFLAGS="${HOSTCFLAGS} --sysroot="
+          export HOSTLDFLAGS="${HOSTLDFLAGS} --sysroot="
+    """
+
+    script += """
+          menucommand="${1:-savedefconfig}"
+          if ! [[ "${menucommand}" =~ .*config ]]; then
+            echo "Invalid command $menucommand. Must be *config." >&2
+            exit 1
+          fi
+
+          # Pre-defconfig commands
+            eval ${PRE_DEFCONFIG_CMDS}
+          # Actual defconfig
+            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+
+          # Show UI
+            menuconfig ${menucommand}
+
+          # Post-defconfig commands
+            eval ${POST_DEFCONFIG_CMDS}
+    """
+
+    ctx.actions.write(
+        output = executable,
+        content = script,
+        is_executable = True,
+    )
+
+    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].dependencies)
+
+    return struct(
+        executable = executable,
+        runfiles = runfiles,
+    )
 
 kernel_config = rule(
     implementation = _kernel_config_impl,
-    doc = "Defines a kernel config target that runs `make defconfig` etc.",
+    doc = """Defines a kernel config target.
+
+- When `bazel build <target>`, this target runs `make defconfig` etc. during the build.
+- When `bazel run <target> -- Xconfig`, this target runs `make Xconfig`.
+""",
     cfg = kernel_config_transition,
     attrs = {
         "env": attr.label(
@@ -285,6 +343,7 @@ kernel_config = rule(
             allow_single_file = True,
         ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_allowlist_function_transition": attr.label(
@@ -292,4 +351,5 @@ kernel_config = rule(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
+    executable = True,
 )

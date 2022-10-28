@@ -18,5 +18,8 @@
 build:local --//build/kernel/kleaf:config_local
 
 # A list of actions to skip sandboxing.
-build:local --strategy KernelConfig=local
-build:local --strategy KernelBuild=local
+# No matter what config we are in, only actions with a mnemonic that ends
+# with Local have the local strategy. This is so that --config=local can
+# be tweaked by transitions.
+build --strategy KernelConfigLocal=local
+build --strategy KernelBuildLocal=local

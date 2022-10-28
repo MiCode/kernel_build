@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":common_providers.bzl", "KernelModuleInfo")
 
 def _reverse_dict(d):
@@ -126,15 +127,18 @@ utils = struct(
 )
 
 def _filter_module_srcs(files):
-    """Create the list of `module_srcs` for a [`kernel_build`] or similar."""
-    return depset([
-        s
-        for s in files
-        if s.path.endswith(".h") or any([token in s.path for token in [
-            "Makefile",
-            "scripts/",
-        ]])
-    ])
+    """Filters and categorizes sources for building `kernel_module`."""
+    hdrs = []
+    scripts = []
+    for file in files:
+        if file.path.endswith(".h"):
+            hdrs.append(file)
+        elif "Makefile" in file.path or "scripts/" in file.path:
+            scripts.append(file)
+    return struct(
+        module_scripts = depset(scripts),
+        module_hdrs = depset(hdrs),
+    )
 
 def _transform_kernel_build_outs(name, what, outs):
     """Transform `*outs` attributes for `kernel_build`.
@@ -209,9 +213,19 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
                 dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
             ))
 
+def _local_mnemonic_suffix(ctx):
+    """Returns a suffix for the mnemonic if `--config=local`.
+
+    This should only be used on the actions specified in `local.bazelrc`.
+    """
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        return "Local"
+    return ""
+
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
     kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,
+    local_mnemonic_suffix = _local_mnemonic_suffix,
 )

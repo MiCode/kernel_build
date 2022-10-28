@@ -686,3 +686,54 @@ function build_gki_artifacts() {
     exit 1
   fi
 }
+
+function sort_config() {
+  # Normal sort won't work because all the "# CONFIG_.. is not set" would come
+  # before all the "CONFIG_..=m". Use sed to extract the CONFIG_ option and prefix
+  # the line in front of the line to create a key (e.g. CONFIG_.. # CONFIG_.. is not set),
+  # sort, then remove the key
+  sed -E -e 's/.*(CONFIG_[^ =]+).*/\1 \0/' $1 | sort -k1 | cut -F2-
+}
+
+function menuconfig() {
+  set +x
+  local orig_config=$(mktemp)
+  local new_config="${OUT_DIR}/.config"
+  local changed_config=$(mktemp)
+  local new_fragment=$(mktemp)
+
+  trap "rm -f ${orig_config} ${changed_config} ${new_fragment}" EXIT
+
+  if [ -n "${FRAGMENT_CONFIG}" ]; then
+    if [[ -f "${ROOT_DIR}/${FRAGMENT_CONFIG}" ]]; then
+      FRAGMENT_CONFIG="${ROOT_DIR}/${FRAGMENT_CONFIG}"
+    elif [[ "${FRAGMENT_CONFIG}" != /* ]]; then
+      echo "FRAGMENT_CONFIG must be an absolute path or relative to ${ROOT_DIR}: ${FRAGMENT_CONFIG}"
+      exit 1
+    elif [[ ! -f "${FRAGMENT_CONFIG}" ]]; then
+      echo "Failed to find FRAGMENT_CONFIG: ${FRAGMENT_CONFIG}"
+      exit 1
+    fi
+  fi
+
+  cp ${OUT_DIR}/.config ${orig_config}
+  (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
+
+  if [ -z "${FRAGMENT_CONFIG}" ]; then
+    (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
+    [ "$ARCH" = "x86_64" -o "$ARCH" = "i386" ] && local ARCH=x86
+    echo "Updating ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
+    mv ${OUT_DIR}/defconfig ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+    return
+  fi
+
+  ${KERNEL_DIR}/scripts/diffconfig -m ${orig_config} ${new_config} > ${changed_config}
+  KCONFIG_CONFIG=${new_fragment} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m ${FRAGMENT_CONFIG} ${changed_config}
+  sort_config ${new_fragment} > ${FRAGMENT_CONFIG}
+  set +x
+
+
+  echo
+  echo "Updated ${FRAGMENT_CONFIG}"
+  echo
+}

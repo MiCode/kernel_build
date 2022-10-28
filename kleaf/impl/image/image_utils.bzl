@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Common utilities for working with kernel images.
+"""
 
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load(
@@ -35,14 +38,17 @@ def _build_modules_image_impl_common(
     """Command implementation for building images that directly contain modules.
 
     Args:
-        ctx: ctx
-        what: what is being built, for logging
+        ctx: ctx.
+        what: what is being built, for logging.
         outputs: list of `ctx.actions.declare_file`
-        build_command: the command to build `outputs` and `implicit_outputs`
-        modules_staging_dir: a staging directory for module installation
-        implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not returned in
-          `DefaultInfo`)
-        restore_modules_install: If `True`, restore `ctx.attr.kernel_modules_install`. Default is `True`.
+        build_command: the command to build `outputs` and `implicit_outputs`.
+        modules_staging_dir: a staging directory for module installation.
+        restore_modules_install: If `True`, restore `ctx.attr.kernel_modules_install`.
+         Default is `True`.
+        implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not
+         returned in `DefaultInfo`).
+        additional_inputs: Additional files to be included.
+        mnemonic: string to reference the build operation.
     """
 
     if restore_modules_install == None:
@@ -57,15 +63,14 @@ def _build_modules_image_impl_common(
         what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build),
     )
 
+    modules_install_staging_dws = None
     if restore_modules_install:
         modules_install_staging_dws = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws
 
     inputs = []
     if additional_inputs != None:
         inputs += additional_inputs
-    inputs += [
-        system_map,
-    ]
+    inputs.append(system_map)
     if restore_modules_install:
         inputs += dws.files(modules_install_staging_dws)
     inputs += ctx.files.deps
@@ -163,7 +168,45 @@ def _build_modules_image_attrs_common(additional = None):
         ret.update(additional)
     return ret
 
+def _ramdisk_options(ramdisk_compression, ramdisk_compression_args):
+    """Options for how to treat ramdisk images.
+
+    Args:
+        ramdisk_compression: If provided it specfies the format used for any ramdisks generated.
+         If not provided a fallback value from build.config is used.
+         Possible values are `lz4`, `gzip`, None.
+        ramdisk_compression_args: Command line arguments passed to lz4 command
+         to control compression level (defaults to `-12 --favor-decSpeed`).
+         For iterative kernel development where faster compression is more
+         desirable than a high compression ratio, it can be useful to control
+         the compression ratio.
+    """
+
+    # Initially fallback to values from build.config.* files.
+    _ramdisk_compress = "${RAMDISK_COMPRESS}"
+    _ramdisk_decompress = "${RAMDISK_DECOMPRESS}"
+    _ramdisk_ext = "lz4"
+
+    if ramdisk_compression == "lz4":
+        _ramdisk_compress = "lz4 -c -l "
+        if ramdisk_compression_args:
+            _ramdisk_compress += ramdisk_compression_args
+        else:
+            _ramdisk_compress += "-12 --favor-decSpeed"
+        _ramdisk_decompress = "lz4 -c -d -l"
+    if ramdisk_compression == "gzip":
+        _ramdisk_compress = "gzip -c -f"
+        _ramdisk_decompress = "gzip -c -d"
+        _ramdisk_ext = "gz"
+
+    return struct(
+        ramdisk_compress = _ramdisk_compress,
+        ramdisk_decompress = _ramdisk_decompress,
+        ramdisk_ext = _ramdisk_ext,
+    )
+
 image_utils = struct(
     build_modules_image_impl_common = _build_modules_image_impl_common,
     build_modules_image_attrs_common = _build_modules_image_attrs_common,
+    ramdisk_options = _ramdisk_options,
 )

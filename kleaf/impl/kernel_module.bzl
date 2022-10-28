@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
@@ -23,6 +24,7 @@ load(
 load(
     ":common_providers.bzl",
     "KernelBuildExtModuleInfo",
+    "KernelCmdsInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
     "KernelUnstrippedModulesInfo",
@@ -30,6 +32,7 @@ load(
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_headers_depset")
 load(":debug.bzl", "debug")
+load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
 
 _sibling_names = [
@@ -43,7 +46,6 @@ def kernel_module(
         outs = None,
         srcs = None,
         deps = None,
-        kernel_module_deps = None,
         **kwargs):
     """Generates a rule that builds an external kernel module.
 
@@ -83,7 +85,6 @@ def kernel_module(
           Before building this target, `Modules.symvers` from the targets in
           `deps` are restored, so this target can be built against
           them.
-        kernel_module_deps: **Deprecated**. Same as `deps`.
         outs: The expected output files. If unspecified or value is `None`, it
           is `["{name}.ko"]` by default.
 
@@ -140,14 +141,11 @@ def kernel_module(
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
-    # TODO(b/245348323): Stop supporting kernel_module_deps after all mainline
-    #   users cleans up.
-    if kernel_module_deps:
-        print("\nWARNING: //{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
+    if kwargs.get("kernel_module_deps"):
+        fail("//{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
             native.package_name(),
             name,
         ))
-        deps = (deps or []) + kernel_module_deps
 
     kwargs.update(
         # This should be the exact list of arguments of kernel_module.
@@ -273,7 +271,9 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
-    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_srcs]
+    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts]
+    if not ctx.attr.internal_exclude_kernel_build_module_srcs:
+        transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs]
 
     # Add targets with DdkHeadersInfo in deps
     for hdr in hdr_deps:
@@ -360,6 +360,10 @@ def _kernel_module_impl(ctx):
             modules_staging_dir = modules_staging_dws.directory.path,
         )
 
+    grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
+    inputs += grab_cmd_step.inputs
+    command_outputs += grab_cmd_step.outputs
+
     scmversion_ret = stamp.get_ext_mod_scmversion(ctx)
     inputs += scmversion_ret.deps
     command += scmversion_ret.cmd
@@ -410,6 +414,8 @@ def _kernel_module_impl(ctx):
 
              # Grab unstripped modules
                {grab_unstripped_cmd}
+             # Grab *.cmd
+               {grab_cmd_cmd}
              # Move Module.symvers
                mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
 
@@ -427,6 +433,7 @@ def _kernel_module_impl(ctx):
         grab_unstripped_cmd = grab_unstripped_cmd,
         check_no_remaining = check_no_remaining.path,
         drop_modules_order_cmd = drop_modules_order_cmd,
+        grab_cmd_cmd = grab_cmd_step.cmd,
     )
 
     command += dws.record(modules_staging_dws)
@@ -518,7 +525,7 @@ def _kernel_module_impl(ctx):
             files = ctx.outputs.outs,
         ),
         KernelUnstrippedModulesInfo(
-            directory = unstripped_dir,
+            directories = depset([unstripped_dir], order = "postorder"),
         ),
         ModuleSymversInfo(
             # path/to/package/target_name/Module.symvers -> path/to/package/Module.symvers;
@@ -528,6 +535,7 @@ def _kernel_module_impl(ctx):
             restore_path = paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name),
         ),
         ddk_headers_common_impl(ctx.label, ctx.attr.internal_hdrs, ctx.attr.internal_includes),
+        KernelCmdsInfo(directories = depset([grab_cmd_step.cmd_dir])),
     ]
 
 _kernel_module = rule(
@@ -549,6 +557,7 @@ _kernel_module = rule(
         ),
         "internal_module_symvers_name": attr.string(default = "Module.symvers"),
         "internal_drop_modules_order": attr.bool(),
+        "internal_exclude_kernel_build_module_srcs": attr.bool(),
         "internal_hdrs": attr.label_list(allow_files = [".h"]),
         "internal_includes": attr.string_list(doc = "exported include directories"),
         "kernel_build": attr.label(
@@ -570,6 +579,7 @@ _kernel_module = rule(
             default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
         ),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
+        "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )

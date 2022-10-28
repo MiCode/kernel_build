@@ -30,6 +30,9 @@ def ddk_module(
         deps = None,
         hdrs = None,
         includes = None,
+        out = None,
+        local_defines = None,
+        copts = None,
         **kwargs):
     """
     Defines a DDK (Driver Development Kit) module.
@@ -78,8 +81,103 @@ def ddk_module(
     ddk_module(name = "module_B", deps = ["module_A", "module_A_hdrs"], ...)
     ```
 
+    **Ordering of `includes`**
+
+    **The best practice is to not have conflicting header names and search paths.**
+    But if you do, see below for ordering of include directories to be
+    searched for header files.
+
+    A [`ddk_module`](#ddk_module) is compiled with the following order of include directories
+    (`-I` options):
+
+    1. `LINUXINCLUDE` (See `common/Makefile`)
+    2. All `deps`, in the specified order (recursively apply #3 ~ #4 on each target)
+    3. All `hdrs`, in the specified order (recursively apply #3 ~ #4 on each target)
+    4. All `includes` of this target, in the specified order
+
+    In other words, except that `LINUXINCLUDE` always has the highest priority,
+    this uses the "postorder" of [depset](https://bazel.build/rules/lib/depset).
+
+    "In the specified order" means that order matters within these lists.
+    To prevent buildifier from sorting these lists, use the `# do not sort` magic line.
+
+    To export a target `:x` in `hdrs` before other targets in `deps`
+    (that is, if you need #3 before #2), specify `:x` in the `deps`
+    list in the position you want. See example below.
+
+    To export an include directory in `includes` that needs to be included
+    before other targets in `hdrs` or `deps` (that is, if you need #4 before #3
+    or #2), specify the include directory in a separate `ddk_headers` target,
+    then specify this `ddk_headers` target in `hdrs` and/or `deps` based on
+    your needs.
+
+    For example:
+
+    ```
+    ddk_headers(name = "dep_a", includes = ["dep_a"])
+    ddk_headers(name = "dep_b", includes = ["dep_b"])
+    ddk_headers(name = "dep_c", includes = ["dep_c"], hdrs = ["dep_a"])
+    ddk_headers(name = "hdrs_a", includes = ["hdrs_a"])
+    ddk_headers(name = "hdrs_b", includes = ["hdrs_b"])
+    ddk_headers(name = "x", includes = ["x"])
+
+    ddk_module(
+        name = "module",
+        deps = [":dep_b", ":x", ":dep_c"],
+        hdrs = [":hdrs_a", ":x", ":hdrs_b"],
+        includes = ["self_1", "self_2"],
+    )
+    ```
+
+    Then `":module"` is compiled with these flags, in this order:
+
+    ```
+    # 1.
+    $(LINUXINCLUDE)
+
+    # 2. deps, recursively
+    -Idep_b
+    -Ix
+    -Idep_a   # :dep_c depends on :dep_a, so include dep_a/ first
+    -Idep_c
+
+    # 3. hdrs
+    -Ihdrs_a
+    # x is already included, skip
+    -Ihdrs_b
+
+    # 4. includes
+    -Iself_1
+    -Iself_2
+    ```
+
+    A dependent module automatically gets #3 and #4, in this order. For example:
+
+    ```
+    ddk_module(
+        name = "child",
+        deps = [":module"],
+        # ...
+    )
+    ```
+
+    Then `":child"` is compiled with these flags, in this order:
+
+    ```
+    # 1.
+    $(LINUXINCLUDE)
+
+    # 2. deps, recursively
+    -Ihdrs_a
+    -Ix
+    -Ihdrs_b
+    -Iself_1
+    -Iself_2
+    ```
+
     Args:
-        name: Name of target. This should be name of the output `.ko` file without the suffix.
+        name: Name of target. This should usually be name of the output `.ko` file without the
+          suffix.
         srcs: sources and local headers.
         deps: A list of dependent targets. Each of them must be one of the following:
 
@@ -89,12 +187,111 @@ def ddk_module(
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         kernel_build: [`kernel_build`](#kernel_build)
+        out: The output module file. By default, this is `"{name}.ko"`.
+        local_defines: List of defines to add to the compile line.
+
+          **Order matters**. To prevent buildifier from sorting the list, use the
+          `# do not sort` magic line.
+
+          Each string is prepended with `-D` and added to the compile command
+          line for this target, but not to its dependents.
+
+          Unlike
+          [`cc_library.local_defines`](https://bazel.build/reference/be/c-cpp#cc_library.local_defines),
+          this is not subject to
+          ["Make" variable substitution](https://bazel.build/reference/be/make-variables) or
+          [`$(location)` substitution](https://bazel.build/reference/be/make-variables#predefined_label_variables).
+
+          Each string is treated as a single Bourne shell token. Unlike
+          [`cc_library.local_defines`](https://bazel.build/reference/be/c-cpp#cc_library.local_defines),
+          this is not subject to
+          [Bourne shell tokenization](https://bazel.build/reference/be/common-definitions#sh-tokenization).
+          The behavior is similar to `cc_library` with the `no_copts_tokenization`
+          [feature](https://bazel.build/reference/be/functions#package.features).
+          For details about `no_copts_tokenization`, see
+          [`cc_library.copts`](https://bazel.build/reference/be/c-cpp#cc_library.copts).
+
+        copts: Add these options to the compilation command.
+
+          **Order matters**. To prevent buildifier from sorting the list, use the
+          `# do not sort` magic line.
+
+          Subject to
+          [`$(location)` substitution](https://bazel.build/reference/be/make-variables#predefined_label_variables).
+
+          The flags take effect only for compiling this target, not its
+          dependencies, so be careful about header files included elsewhere.
+
+          All host paths should be provided via
+          [`$(location)` substitution](https://bazel.build/reference/be/make-variables#predefined_label_variables).
+          See "Implementation detail" section below.
+
+          Each `$(location)` expression should occupy its own token. For example:
+
+          ```
+          # Good
+          copts = ["-include", "$(location //other:header.h)"]
+
+          # BAD -- DON'T DO THIS!
+          copts = ["-include $(location //other:header.h)"]
+
+          # BAD -- DON'T DO THIS!
+          copts = ["-include=$(location //other:header.h)"]
+          ```
+
+          Unlike
+          [`cc_library.local_defines`](https://bazel.build/reference/be/c-cpp#cc_library.local_defines),
+          this is not subject to
+          ["Make" variable substitution](https://bazel.build/reference/be/make-variables).
+
+          Each string is treated as a single Bourne shell token. Unlike
+          [`cc_library.copts`](https://bazel.build/reference/be/c-cpp#cc_library.copts)
+          this is not subject to
+          [Bourne shell tokenization](https://bazel.build/reference/be/common-definitions#sh-tokenization).
+          The behavior is similar to `cc_library` with the `no_copts_tokenization`
+          [feature](https://bazel.build/reference/be/functions#package.features).
+          For details about `no_copts_tokenization`, see
+          [`cc_library.copts`](https://bazel.build/reference/be/c-cpp#cc_library.copts).
+
+          Because each string is treated as a single Bourne shell token, if
+          a plural `$(locations)` expression expands to multiple paths, they
+          are treated as a single Bourne shell token, which is likely an
+          undesirable behavior. To avoid surprising behaviors, use singular
+          `$(location)` expressions to ensure that the label only expands to one
+          path. For differences between the `$(locations)` and `$(location)`, see
+          [`$(location)` substitution](https://bazel.build/reference/be/make-variables#predefined_label_variables).
+
+          **Implementation detail**: Unlike usual `$(location)` expansion,
+          `$(location)` in `copts` is expanded to a path relative to the current
+          package before sending to the compiler.
+
+          For example:
+
+          ```
+          # package: //package
+          ddk_module(
+            name = "my_module",
+            copts = ["-include", "$(location //other:header.h)"],
+            srcs = ["//other:header.h", "my_module.c"],
+          )
+          ```
+          Then the generated Makefile contains:
+
+          ```
+          ccflags-y += -include ../other/header.h
+          ```
+
+          The behavior is such because the generated `Makefile` is located in
+          `package/Makefile`, and `make` is executed under `package/`. In order
+          to find `other/header.h`, its path relative to `package/` is given.
+
         kwargs: Additional attributes to the internal rule.
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
-    out = "{}.ko".format(name)
+    if out == None:
+        out = "{}.ko".format(name)
 
     kernel_module(
         name = name,
@@ -105,6 +302,7 @@ def ddk_module(
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
         internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
         internal_drop_modules_order = True,
+        internal_exclude_kernel_build_module_srcs = True,
         internal_hdrs = hdrs,
         internal_includes = includes,
         **kwargs
@@ -120,5 +318,7 @@ def ddk_module(
         module_includes = includes,
         module_out = out,
         module_deps = deps,
+        module_local_defines = local_defines,
+        module_copts = copts,
         **private_kwargs
     )

@@ -14,6 +14,14 @@
 
 # Providers that are provided by multiple rules in different extensions.
 
+KernelCmdsInfo = provider(
+    doc = """Provides a directory of `.cmd` files.""",
+    fields = {
+        "directories": """A [depset](https://bazel.build/extending/depsets) of directories
+                          containing the `.cmd` files""",
+    },
+)
+
 KernelEnvInfo = provider(
     doc = """Describe a generic environment setup with some dependencies and a setup script.
 
@@ -52,7 +60,8 @@ KernelBuildExtModuleInfo = provider(
     fields = {
         "modules_staging_archive": "Archive containing staging kernel modules. " +
                                    "Does not contain the lib/modules/* suffix.",
-        "module_srcs": "A [depset](https://bazel.build/extending/depsets) containing sources for this kernel_build for building external modules",
+        "module_hdrs": "A [depset](https://bazel.build/extending/depsets) containing headers for this `kernel_build` for building external modules",
+        "module_scripts": "A [depset](https://bazel.build/extending/depsets) containing scripts for this `kernel_build` for building external modules",
         "modules_prepare_setup": "A command that is equivalent to running `make modules_prepare`. Requires env setup.",
         "modules_prepare_deps": "A list of deps to run `modules_prepare_cmd`.",
         "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
@@ -78,6 +87,7 @@ KernelBuildAbiInfo = provider(
         "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](#kernel_build).",
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
+        "modules_staging_archive": "Archive containing staging kernel modules. ",
     },
 )
 
@@ -102,9 +112,12 @@ files required to build `KBUILD_MIXED_TREE` for the device kernel.""",
 KernelUnstrippedModulesInfo = provider(
     doc = "A provider that provides unstripped modules",
     fields = {
-        "base_kernel": "the `base_kernel` target, if exists",
-        "directory": """A [`File`](https://bazel.build/rules/lib/File) that
-points to a directory containing unstripped modules.
+        "directories": """A [depset](https://bazel.build/extending/depsets) of
+[`File`](https://bazel.build/rules/lib/File)s, where
+each item points to a directory containing unstripped modules.
+
+Order matters; earlier elements in the traverse order has higher priority. Hence,
+this depset must have `order` argument specified.
 
 For [`kernel_build()`](#kernel_build), this is a directory containing unstripped in-tree modules.
 - This is `None` if and only if `collect_unstripped_modules = False`

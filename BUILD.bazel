@@ -12,16 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package(default_visibility = ["//visibility:public"])
-
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
+
+package(default_visibility = ["//visibility:public"])
 
 hermetic_tools(
     name = "hermetic-tools",
     srcs = glob(
-        ["build-tools/path/**"],
+        [
+            "build-tools/path/**",
+        ],
         allow_empty = False,
-    ),
+    ) + [
+        "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(CLANG_VERSION),
+    ],
     host_tools = [
         "bash",
         "install",

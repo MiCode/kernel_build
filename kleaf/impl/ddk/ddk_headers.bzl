@@ -50,6 +50,7 @@ def get_include_depset(label, deps, includes):
     return depset(
         [paths.normalize(paths.join(label.package, d)) for d in includes],
         transitive = transitive_includes,
+        order = "postorder",
     )
 
 def get_headers_depset(deps):

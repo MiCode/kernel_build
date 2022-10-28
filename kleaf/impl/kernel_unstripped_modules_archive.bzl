@@ -20,23 +20,12 @@ load(
 load(":debug.bzl", "debug")
 
 def _kernel_unstripped_modules_archive_impl(ctx):
-    kernel_build = ctx.attr.kernel_build
-    base_kernel = kernel_build[KernelUnstrippedModulesInfo].base_kernel if kernel_build else None
-
     # Early elements = higher priority. In-tree modules from base_kernel has highest priority,
     # then in-tree modules of the device kernel_build, then external modules (in an undetermined
     # order).
-    # TODO(b/228557644): kernel module names should not collide. Detect collsions.
-    srcs = []
-    for kernel_build_object in (base_kernel, kernel_build):
-        if not kernel_build_object:
-            continue
-        directory = kernel_build_object[KernelUnstrippedModulesInfo].directory
-        if not directory:
-            fail("{} does not have collect_unstripped_modules = True.".format(kernel_build_object.label))
-        srcs.append(directory)
-    for kernel_module in ctx.attr.kernel_modules:
-        srcs.append(kernel_module[KernelUnstrippedModulesInfo].directory)
+    directories_depsets = [ctx.attr.kernel_build[KernelUnstrippedModulesInfo].directories]
+    directories_depsets += [kernel_module[KernelUnstrippedModulesInfo].directories for kernel_module in ctx.attr.kernel_modules]
+    srcs = depset(transitive = directories_depsets, order = "postorder").to_list()
 
     inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + srcs
 
@@ -53,7 +42,7 @@ def _kernel_unstripped_modules_archive_impl(ctx):
     for src in reversed(srcs):
         # src could be empty, so use find + cp
         command += """
-            find {src} -name '*.ko' -exec cp -l -t {unstripped_dir} {{}} +
+            find {src} -name '*.ko' -exec cp -f -l -t {unstripped_dir} {{}} +
         """.format(
             src = src.path,
             unstripped_dir = unstripped_dir,

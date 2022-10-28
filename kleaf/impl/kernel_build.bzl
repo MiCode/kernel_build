@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Defines a kernel build target.
+"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
@@ -30,6 +33,7 @@ load(
     "KernelBuildInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
+    "KernelCmdsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelImagesInfo",
@@ -74,6 +78,7 @@ def kernel_build(
         deps = None,
         base_kernel = None,
         base_kernel_for_module_outs = None,
+        internal_additional_make_goals = None,
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
@@ -141,6 +146,10 @@ def kernel_build(
 
           If set, this is used instead of `base_kernel` to determine the list
           of GKI modules.
+
+        internal_additional_make_goals: **INTERNAL ONLY; DO NOT SET!**
+
+          List of items added to `MAKE_GOALS`.
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
           symbols, but contains type and symbol information within a .BTF section.
           This is suitable for ABI analysis through BTF.
@@ -258,10 +267,10 @@ def kernel_build(
 
           Labels are created for each item in `module_implicit_outs` as in `outs`.
 
-        kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_list`.
+        kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_lists`.
 
           This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
-        additional_kmi_symbol_list: A list of labels referring to additional KMI symbol list files.
+        additional_kmi_symbol_lists: A list of labels referring to additional KMI symbol list files.
 
           This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
 
@@ -328,7 +337,8 @@ def kernel_build(
           If set to `True`, debug information for distributed modules is stripped.
 
           This corresponds to negated value of `DO_NOT_STRIP_MODULES` in `build.config`.
-        kwargs: Additional attributes to the internal rule, e.g.
+        dtstree: Device tree support.
+        **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
@@ -370,6 +380,7 @@ def kernel_build(
         srcs = srcs,
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
+        internal_additional_make_goals = internal_additional_make_goals,
         **internal_kwargs
     )
 
@@ -544,7 +555,6 @@ def _create_kbuild_mixed_tree(ctx):
     kbuild_mixed_tree = None
     cmd = ""
     arg = ""
-    env_info_setup = ""
     if ctx.attr.base_kernel:
         # Create a directory for KBUILD_MIXED_TREE. Flatten the directory structure of the files
         # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
@@ -807,6 +817,41 @@ def _get_grab_symtypes_step(ctx):
         outputs = outputs,
     )
 
+def get_grab_cmd_step(ctx, src_dir):
+    """Returns a step for grabbing the `*.cmd` from `src_dir`.
+
+    Args:
+        ctx: Context from the rule.
+        src_dir: Source directory.
+
+    Returns:
+        A struct with these fields:
+        * inputs
+        * tools
+        * outputs
+        * cmd
+        * cmd_dir
+    """
+    cmd = ""
+    cmd_dir = None
+    outputs = []
+    if ctx.attr._preserve_cmd[BuildSettingInfo].value:
+        cmd_dir = ctx.actions.declare_directory("{name}/cmds".format(name = ctx.label.name))
+        outputs.append(cmd_dir)
+        cmd = """
+            rsync -a --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+        """.format(
+            src_dir = src_dir,
+            cmd_dir = cmd_dir.path,
+        )
+    return struct(
+        inputs = [],
+        tools = [],
+        cmd = cmd,
+        outputs = outputs,
+        cmd_dir = cmd_dir,
+    )
+
 def _build_main_action(
         ctx,
         kbuild_mixed_tree_ret,
@@ -857,12 +902,14 @@ def _build_main_action(
         all_module_basenames_file = all_module_basenames_file,
     )
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
+    grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
     steps = (
         interceptor_step,
         cache_dir_step,
         grab_intree_modules_step,
         grab_unstripped_modules_step,
         grab_symtypes_step,
+        grab_cmd_step,
     )
 
     module_strip_flag = "INSTALL_MOD_STRIP="
@@ -894,6 +941,8 @@ def _build_main_action(
            tar czf {modules_staging_archive_self} -C {modules_staging_dir} .
          # Grab *.symtypes
            {grab_symtypes_cmd}
+         # Grab *.cmd
+           {grab_cmd_cmd}
          # Grab in-tree modules
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
@@ -926,6 +975,7 @@ def _build_main_action(
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_modules_step.cmd,
         grab_symtypes_cmd = grab_symtypes_step.cmd,
+        grab_cmd_cmd = grab_cmd_step.cmd,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
@@ -971,7 +1021,7 @@ def _build_main_action(
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelBuild",
+        mnemonic = "KernelBuild" + kernel_utils.local_mnemonic_suffix(ctx),
         inputs = depset(_uniq(inputs), transitive = transitive_inputs),
         outputs = command_outputs,
         tools = _uniq(tools),
@@ -986,6 +1036,7 @@ def _build_main_action(
         modules_staging_archive_self = modules_staging_archive_self,
         unstripped_dir = grab_unstripped_modules_step.unstripped_dir,
         ruledir = ruledir,
+        cmd_dir = grab_cmd_step.cmd_dir,
     )
 
 def _create_infos(
@@ -1035,9 +1086,12 @@ def _create_infos(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
+    module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
+
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
-        module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs),
+        module_hdrs = module_srcs.module_hdrs,
+        module_scripts = module_srcs.module_scripts,
         modules_prepare_setup = ctx.attr.modules_prepare[KernelEnvInfo].setup,
         modules_prepare_deps = ctx.attr.modules_prepare[KernelEnvInfo].dependencies,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
@@ -1056,11 +1110,17 @@ def _create_infos(
         trim_nonlisted_kmi = ctx.attr.trim_nonlisted_kmi,
         combined_abi_symbollist = ctx.file.combined_abi_symbollist,
         module_outs_file = all_module_names_file,
+        modules_staging_archive = modules_staging_archive,
     )
 
+    # Device modules takes precedence over base_kernel (GKI) modules.
+    unstripped_modules_depsets = []
+    if main_action_ret.unstripped_dir:
+        unstripped_modules_depsets.append(depset([main_action_ret.unstripped_dir]))
+    if ctx.attr.base_kernel:
+        unstripped_modules_depsets.append(ctx.attr.base_kernel[KernelUnstrippedModulesInfo].directories)
     kernel_unstripped_modules_info = KernelUnstrippedModulesInfo(
-        base_kernel = ctx.attr.base_kernel,
-        directory = main_action_ret.unstripped_dir,
+        directories = depset(transitive = unstripped_modules_depsets, order = "postorder"),
     )
 
     in_tree_modules_info = KernelBuildInTreeModulesInfo(
@@ -1082,6 +1142,8 @@ def _create_infos(
         files = depset(kbuild_mixed_tree_files),
     )
 
+    cmds_info = KernelCmdsInfo(directories = depset([main_action_ret.cmd_dir]))
+
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
@@ -1093,6 +1155,7 @@ def _create_infos(
     )
 
     return [
+        cmds_info,
         env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
@@ -1209,6 +1272,8 @@ _kernel_build = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
+        "_use_kmi_symbol_list_strict_mode": attr.label(default = "//build/kernel/kleaf:kmi_symbol_list_strict_mode"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
@@ -1239,6 +1304,7 @@ def _kernel_build_check_toolchain(ctx):
     base_toolchain_file = utils.getoptattr(base_kernel[KernelToolchainInfo], "toolchain_version_file")
 
     if base_toolchain == None and base_toolchain_file == None:
+        # buildifier: disable=print
         print(("\nWARNING: {this_label}: No check is performed between the toolchain " +
                "version of the base build ({base_kernel}) and the toolchain version of " +
                "{this_name} ({this_toolchain}), because the toolchain version of {base_kernel} " +
@@ -1319,6 +1385,14 @@ def _kernel_build_dump_toolchain_version(ctx):
 def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     """Run for `KMI_SYMBOL_LIST_STRICT_MODE`.
     """
+    if not ctx.attr._use_kmi_symbol_list_strict_mode[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --nokmi_symbol_list_strict_mode is set!".format(
+            this_label = ctx.label,
+        ))
+        return None
+
     if not ctx.attr.kmi_symbol_list_strict_mode:
         return None
     if not ctx.file.raw_kmi_symbol_list:
@@ -1371,6 +1445,7 @@ def _repack_modules_staging_archive(
         ctx: ctx
         modules_staging_archive_self: The `modules_staging_archive` from `make`
             in `_build_main_action`.
+        all_module_basenames_file: Complete list of base names.
     """
     if not ctx.attr.base_kernel:
         # No need to repack.
