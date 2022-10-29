@@ -87,7 +87,25 @@ class BazelWrapper(object):
         self.command_args, self.dash_dash, self.target_patterns = _partition(remaining_args,
                                                                              dash_dash_idx)
 
+        self._parse_startup_options()
         self._parse_command_args()
+
+    def _parse_startup_options(self):
+        """Parses the given list of startup_options.
+
+        After calling this function, the following attributes are set:
+        - absolute_user_root: A path holding bazel build output location
+        - transformed_startup_options: The transformed list of startup_options to replace
+          existing startup_options to be fed to the Bazel binary
+        """
+
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--output_user_root",
+                            type=_require_absolute_path,
+                            default=_require_absolute_path(f"{self.absolute_out_dir}/bazel/output_user_root"))
+        known_startup_options, self.transformed_startup_options = parser.parse_known_args(self.startup_options)
+        self.absolute_user_root = known_startup_options.output_user_root
+        self.transformed_startup_options.append(f"--output_user_root={self.absolute_user_root}")
 
     def _parse_command_args(self):
         """Parses the given list of command_args.
@@ -135,9 +153,8 @@ class BazelWrapper(object):
         # bazel [startup_options] [additional_startup_options] command [transformed_command_args] -- [target_patterns]
 
         bazel_jdk_path = f"{self.root_dir}/{_BAZEL_JDK_REL_PATH}"
-        final_args = [self.bazel_path] + self.startup_options + [
+        final_args = [self.bazel_path] + self.transformed_startup_options + [
             f"--server_javabase={bazel_jdk_path}",
-            f"--output_user_root={self.absolute_out_dir}/bazel/output_user_root",
             f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
             f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
         ]
@@ -162,7 +179,10 @@ class BazelWrapper(object):
         if self.known_args.experimental_strip_sandbox_path:
             import asyncio
             import re
-            filter_regex = re.compile(self.absolute_out_dir + r"/\S+?/sandbox/.*?/__main__/")
+            if self.absolute_user_root.is_relative_to(self.absolute_out_dir):
+                filter_regex = re.compile(self.absolute_out_dir + r"/\S+?/sandbox/.*?/__main__/")
+            else:
+                filter_regex = re.compile(f"{self.absolute_user_root}" + r"/\S+?/sandbox/.*?/__main__/")
             asyncio.run(run(final_args, self.env, filter_regex))
         else:
             os.execve(path=self.bazel_path, argv=final_args, env=self.env)
