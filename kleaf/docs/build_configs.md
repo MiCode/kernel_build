@@ -769,7 +769,7 @@ See [documentation for all rules].
 
 See [documentation for ABI monitoring].
 
-[documentation for all rules]: https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html
+[documentation for all rules]: api_reference.md
 
 [documentation for `genrule`]: https://bazel.build/reference/be/general#genrule
 

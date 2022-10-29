@@ -33,9 +33,7 @@ You may optionally define the following:
 - `kmi_enforced`
 
 See documentation for explanation of the `kernel_build_abi` rule and its
-attributes:
-
-[https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
+attributes: [API Reference and Documentation for all rules](api_reference.md).
 
 See [Change 2022075](https://r.android.com/2022075) for an example on Pixel 2021.
 
@@ -48,8 +46,7 @@ Its definition should be similar to the `kernel_modules_install` target.
 
 See documentation for explanation of the `kernel_unstripped_modules_archive`
 rule and its attributes:
-
-[https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
+[API Reference and Documentation for all rules](api_reference.md).
 
 See [Change 2087286](https://r.android.com/2087286) for an example on Pixel 2021.
 
