@@ -50,7 +50,9 @@ def get_include_depset(label, deps, includes):
     return depset(
         [paths.normalize(paths.join(label.package, d)) for d in includes],
         transitive = transitive_includes,
-        order = "postorder",
+        # At this time of writing (2022-11-01), this is what cc_library does;
+        # includes of this target, then includes of deps
+        order = "preorder",
     )
 
 def get_headers_depset(deps):

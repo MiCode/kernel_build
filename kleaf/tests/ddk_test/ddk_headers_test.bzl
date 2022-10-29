@@ -177,8 +177,11 @@ def ddk_headers_test_suite(name):
         includes = ["include/transitive"],
         hdrs = [name + "_base_headers", "include/transitive/transitive.h"],
         expected_includes = [
-            "{}/include/base".format(native.package_name()),
+            # do not sort
+            # First, includes
             "{}/include/transitive".format(native.package_name()),
+            # Then, hdrs
+            "{}/include/base".format(native.package_name()),
         ],
         expected_hdrs = ["include/base/base.h", "include/transitive/transitive.h"],
     )
@@ -199,13 +202,13 @@ def ddk_headers_test_suite(name):
         ],
         expected_includes = [
             # do not sort
-            # First, hdrs
-            "{}/include/foo".format(native.package_name()),
-            "{}/include/base".format(native.package_name()),
-            # Then, includes
+            # First, includes
             "{}/b".format(native.package_name()),
             "{}/a".format(native.package_name()),
             "{}/c".format(native.package_name()),
+            # Then, hdrs
+            "{}/include/foo".format(native.package_name()),
+            "{}/include/base".format(native.package_name()),
         ],
         expected_hdrs = [
             "include/base/base.h",
