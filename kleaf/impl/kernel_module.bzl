@@ -522,7 +522,7 @@ def _kernel_module_impl(ctx):
             kernel_build = ctx.attr.kernel_build,
             modules_staging_dws_depset = depset([modules_staging_dws]),
             kernel_uapi_headers_dws_depset = depset([kernel_uapi_headers_dws]),
-            files = ctx.outputs.outs,
+            files = depset(ctx.outputs.outs),
         ),
         KernelUnstrippedModulesInfo(
             directories = depset([unstripped_dir], order = "postorder"),

@@ -142,7 +142,7 @@ KernelModuleInfo = provider(
             Contains the lib/modules/* suffix.""",
         "kernel_uapi_headers_dws_depset": """A [depset](https://bazel.build/extending/depsets) of
             `directory_with_structure` containing UAPI headers to use the module.""",
-        "files": "The list of output `*.ko` files.",
+        "files": "A [depset](https://bazel.build/extending/depsets) of output `*.ko` files.",
     },
 )
 
