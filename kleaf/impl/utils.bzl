@@ -200,6 +200,10 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """
 
     for kernel_module in kernel_modules:
+        if kernel_build == None:
+            kernel_build = kernel_module[KernelModuleInfo].kernel_build
+            continue
+
         if kernel_module[KernelModuleInfo].kernel_build.label != \
            kernel_build.label:
             fail((
