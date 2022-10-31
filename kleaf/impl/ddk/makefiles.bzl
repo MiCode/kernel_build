@@ -59,8 +59,19 @@ def _handle_copt(ctx):
     )
     return out
 
+def _check_no_ddk_headers_in_srcs(ctx, module_label):
+    for target in ctx.attr.module_srcs:
+        if DdkHeadersInfo in target:
+            fail(("{}: {} is a ddk_headers or ddk_module but specified in srcs. " +
+                  "Specify it in deps instead.").format(
+                module_label,
+                target.label,
+            ))
+
 def _makefiles_impl(ctx):
     module_label = Label(str(ctx.label).removesuffix("_makefiles"))
+
+    _check_no_ddk_headers_in_srcs(ctx, module_label)
 
     output_makefiles = ctx.actions.declare_directory("{}/makefiles".format(ctx.attr.name))
 

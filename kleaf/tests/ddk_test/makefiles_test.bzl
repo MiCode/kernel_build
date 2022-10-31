@@ -518,6 +518,14 @@ def makefiles_test_suite(name):
     )
     tests.append(name + "_child_include_hdrs_before_deps")
 
+    _bad_test_make(
+        name = name + "_ddk_headers_in_srcs",
+        error_message = "is a ddk_headers or ddk_module but specified in srcs. Specify it in deps instead.",
+        module_srcs = [name + "_self_headers"],
+        module_out = "dep.ko",
+    )
+    tests.append(name + "_ddk_headers_in_srcs")
+
     native.test_suite(
         name = name,
         tests = tests,
