@@ -29,6 +29,7 @@ load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtst
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", _kernel_filegroup = "kernel_filegroup")
 load("//build/kernel/kleaf/impl:kernel_kythe.bzl", _kernel_kythe = "kernel_kythe")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", _kernel_module_macro = "kernel_module")
+load("//build/kernel/kleaf/impl:kernel_module_group.bzl", _kernel_module_group = "kernel_module_group")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", _kernel_modules_install = "kernel_modules_install")
 load("//build/kernel/kleaf/impl:kernel_unstripped_modules_archive.bzl", _kernel_unstripped_modules_archive = "kernel_unstripped_modules_archive")
 load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_uapi_headers = "merged_kernel_uapi_headers")
@@ -46,6 +47,7 @@ kernel_filegroup = _kernel_filegroup
 kernel_images = _kernel_images
 kernel_kythe = _kernel_kythe
 kernel_module = _kernel_module_macro
+kernel_module_group = _kernel_module_group
 kernel_modules_install = _kernel_modules_install
 kernel_unstripped_modules_archive = _kernel_unstripped_modules_archive
 merged_kernel_uapi_headers = _merged_kernel_uapi_headers

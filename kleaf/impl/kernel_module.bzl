@@ -509,6 +509,7 @@ def _kernel_module_impl(ctx):
     # outs is empty, the KernelModule action is still executed, and so
     # is check_declared_output_list.
     return [
+        # Sync list of infos with kernel_module_group.
         DefaultInfo(
             files = depset(ctx.outputs.outs + [check_no_remaining]),
             # For kernel_module_test
