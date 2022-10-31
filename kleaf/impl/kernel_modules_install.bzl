@@ -32,6 +32,13 @@ def _kernel_modules_install_impl(ctx):
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
 
+    # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
+    modules_staging_dws_depset = depset(transitive = [
+        kernel_module[KernelModuleInfo].modules_staging_dws_depset
+        for kernel_module in ctx.attr.kernel_modules
+    ])
+    modules_staging_dws_list = modules_staging_dws_depset.to_list()
+
     inputs = []
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_prepare_deps
@@ -40,9 +47,11 @@ def _kernel_modules_install_impl(ctx):
         ctx.file._check_duplicated_files_in_archives,
         ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_staging_archive,
     ]
-    for kernel_module in ctx.attr.kernel_modules:
-        inputs += dws.files(kernel_module[KernelModuleInfo].modules_staging_dws)
 
+    for input_modules_staging_dws in modules_staging_dws_list:
+        inputs += dws.files(input_modules_staging_dws)
+
+    for kernel_module in ctx.attr.kernel_modules:
         for module_file in kernel_module[KernelModuleInfo].files:
             declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
             external_modules.append(declared_file)
@@ -64,12 +73,12 @@ def _kernel_modules_install_impl(ctx):
         kernel_build_modules_staging_archive =
             ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_staging_archive.path,
     )
-    for kernel_module in ctx.attr.kernel_modules:
+    for input_modules_staging_dws in modules_staging_dws_list:
         # Allow directories to be written because we are merging multiple directories into one.
         # However, don't allow files to be written because we don't expect modules to produce
         # conflicting files. check_duplicated_files_in_archives further enforces this.
         command += dws.restore(
-            kernel_module[KernelModuleInfo].modules_staging_dws,
+            input_modules_staging_dws,
             dst = modules_staging_dws.directory.path,
             options = "-aL --chmod=D+w",
         )
@@ -105,7 +114,7 @@ def _kernel_modules_install_impl(ctx):
     """.format(
         modules_staging_archives = " ".join(
             [ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_staging_archive.path] +
-            [kernel_module[KernelModuleInfo].modules_staging_dws.directory.path for kernel_module in ctx.attr.kernel_modules],
+            [input_modules_staging_dws.directory.path for input_modules_staging_dws in modules_staging_dws_list],
         ),
         modules_staging_dir = modules_staging_dws.directory.path,
         check_duplicated_files_in_archives = ctx.file._check_duplicated_files_in_archives.path,
@@ -144,7 +153,7 @@ def _kernel_modules_install_impl(ctx):
         DefaultInfo(files = depset(external_modules)),
         KernelModuleInfo(
             kernel_build = ctx.attr.kernel_build,
-            modules_staging_dws = modules_staging_dws,
+            modules_staging_dws_depset = depset([modules_staging_dws]),
         ),
         cmds_info,
     ]

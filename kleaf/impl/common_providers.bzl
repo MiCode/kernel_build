@@ -135,9 +135,13 @@ KernelModuleInfo = provider(
     doc = "A provider that provides installed external modules.",
     fields = {
         "kernel_build": "kernel_build attribute of this module",
-        "modules_staging_dws": "`directory_with_structure` containing staging kernel modules. " +
-                               "Contains the lib/modules/* suffix.",
-        "kernel_uapi_headers_dws": "`directory_with_structure` containing UAPI headers to use the module.",
+
+        # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
+        "modules_staging_dws_depset": """A [depset](https://bazel.build/extending/depsets) of
+            `directory_with_structure` containing staging kernel modules.
+            Contains the lib/modules/* suffix.""",
+        "kernel_uapi_headers_dws_depset": """A [depset](https://bazel.build/extending/depsets) of
+            `directory_with_structure` containing UAPI headers to use the module.""",
         "files": "The list of output `*.ko` files.",
     },
 )

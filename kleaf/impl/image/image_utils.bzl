@@ -65,7 +65,13 @@ def _build_modules_image_impl_common(
 
     modules_install_staging_dws = None
     if restore_modules_install:
-        modules_install_staging_dws = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws
+        modules_install_staging_dws_list = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws_depset.to_list()
+        if len(modules_install_staging_dws_list) != 1:
+            fail("{}: {} is not a `kernel_modules_install`.".format(
+                ctx.label,
+                ctx.attr.kernel_modules_install.label,
+            ))
+        modules_install_staging_dws = modules_install_staging_dws_list[0]
 
     inputs = []
     if additional_inputs != None:
