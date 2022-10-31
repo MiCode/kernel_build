@@ -83,7 +83,7 @@ def _makefiles_test_impl(ctx):
     expected_module_symvers = []
     for dep in ctx.attr.expected_deps:
         if ModuleSymversInfo in dep:
-            expected_module_symvers.append(dep[ModuleSymversInfo].restore_path)
+            expected_module_symvers += dep[ModuleSymversInfo].restore_paths.to_list()
     asserts.set_equals(
         env,
         sets.make(argv_dict.get("--module-symvers-list", [])),

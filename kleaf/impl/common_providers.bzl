@@ -145,8 +145,10 @@ KernelModuleInfo = provider(
 ModuleSymversInfo = provider(
     doc = "A provider that provides `Module.symvers` for `modpost`.",
     fields = {
-        "restore_path": """The path relative to <the root of the output directory> (e.g. `<sandbox_root>/out/<branch>`)
-                           where the file will be restored to by `KernelEnvInfo`.""",
+        "restore_paths": """A [depset](https://bazel.build/extending/depsets) of
+            paths relative to <the root of the output directory> (e.g.
+            `<sandbox_root>/out/<branch>`) where the `Module.symvers` files will be
+            restored to by `KernelEnvInfo`.""",
     },
 )
 

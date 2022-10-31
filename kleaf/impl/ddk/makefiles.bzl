@@ -115,7 +115,10 @@ def _makefiles_impl(ctx):
 
     args.add_all(
         "--module-symvers-list",
-        [kernel_module[ModuleSymversInfo].restore_path for kernel_module in kernel_module_deps],
+        depset(transitive = [
+            kernel_module[ModuleSymversInfo].restore_paths
+            for kernel_module in kernel_module_deps
+        ]),
     )
 
     args.add_all("--local-defines", ctx.attr.module_local_defines)
