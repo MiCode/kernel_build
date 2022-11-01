@@ -91,23 +91,23 @@ def ddk_module(
     (`-I` options):
 
     1. `LINUXINCLUDE` (See `common/Makefile`)
-    2. All `deps`, in the specified order (recursively apply #3 ~ #4 on each target)
-    3. All `hdrs`, in the specified order (recursively apply #3 ~ #4 on each target)
-    4. All `includes` of this target, in the specified order
+    2. All `includes` of this target, in the specified order
+    3. All `deps`, in the specified order (recursively apply #2 and #4 on each target)
+    4. All `hdrs`, in the specified order (recursively apply #2 and #4 on each target)
 
     In other words, except that `LINUXINCLUDE` always has the highest priority,
-    this uses the "postorder" of [depset](https://bazel.build/rules/lib/depset).
+    this uses the `preorder` of [depset](https://bazel.build/rules/lib/depset).
 
     "In the specified order" means that order matters within these lists.
     To prevent buildifier from sorting these lists, use the `# do not sort` magic line.
 
     To export a target `:x` in `hdrs` before other targets in `deps`
-    (that is, if you need #3 before #2), specify `:x` in the `deps`
+    (that is, if you need #4 before #3), specify `:x` in the `deps`
     list in the position you want. See example below.
 
     To export an include directory in `includes` that needs to be included
-    before other targets in `hdrs` or `deps` (that is, if you need #4 before #3
-    or #2), specify the include directory in a separate `ddk_headers` target,
+    after other targets in `hdrs` or `deps` (that is, if you need #2 after #3
+    or #4), specify the include directory in a separate `ddk_headers` target,
     then specify this `ddk_headers` target in `hdrs` and/or `deps` based on
     your needs.
 
@@ -135,20 +135,20 @@ def ddk_module(
     # 1.
     $(LINUXINCLUDE)
 
-    # 2. deps, recursively
+    # 2. includes
+    -Iself_1
+    -Iself_2
+
+    # 3. deps, recursively
     -Idep_b
     -Ix
     -Idep_a   # :dep_c depends on :dep_a, so include dep_a/ first
     -Idep_c
 
-    # 3. hdrs
+    # 4. hdrs
     -Ihdrs_a
     # x is already included, skip
     -Ihdrs_b
-
-    # 4. includes
-    -Iself_1
-    -Iself_2
     ```
 
     A dependent module automatically gets #3 and #4, in this order. For example:

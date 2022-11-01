@@ -444,15 +444,15 @@ def makefiles_test_suite(name):
         ],
         expected_includes = [
             # do not sort
-            # First, deps
+            # First, includes
+            "{}/include/transitive".format(native.package_name()),
+            "{}/subdir".format(native.package_name()),
+            # Then, deps
             native.package_name(),
             "{}/include".format(native.package_name()),
             # Then, hdrs
             "{}/include/foo".format(native.package_name()),
             "{}/include/base".format(native.package_name()),
-            # Then, includes
-            "{}/include/transitive".format(native.package_name()),
-            "{}/subdir".format(native.package_name()),
         ],
     )
     tests.append(name + "_include_ordering")
