@@ -294,6 +294,7 @@ def ddk_module(
         deps = deps,
         outs = [out],
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
+        # This is used in build_cleaner.
         internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
         internal_drop_modules_order = True,
         internal_exclude_kernel_build_module_srcs = True,
