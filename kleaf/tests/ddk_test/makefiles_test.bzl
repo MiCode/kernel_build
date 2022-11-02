@@ -24,6 +24,7 @@ load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "ModuleSymversInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
+load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_test")
 
 def _argv_to_dict(argv):
@@ -60,16 +61,7 @@ def _argv_to_dict(argv):
 
 def _makefiles_test_impl(ctx):
     env = analysistest.begin(ctx)
-
-    target_under_test = analysistest.target_under_test(env)
-    actions = analysistest.target_actions(env)
-
-    action = None
-    for item in actions:
-        if item.mnemonic == "DdkMakefiles":
-            action = item
-
-    asserts.true(env, action)
+    action = test_utils.find_action(env, "DdkMakefiles")
 
     argv_dict = _argv_to_dict(action.argv[1:])
 

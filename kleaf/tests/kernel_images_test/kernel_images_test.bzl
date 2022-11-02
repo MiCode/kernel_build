@@ -19,21 +19,19 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:image/kernel_images.bzl", "kernel_images")
 load("//build/kernel/kleaf:kernel.bzl", "kernel_build", "kernel_modules_install")
+load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 # Check effect of ramdisk_options -- compress format and arguments.
 def _initramfs_test_impl(ctx):
     env = analysistest.begin(ctx)
-    found_action = False
-    for action in analysistest.target_actions(env):
-        if action.mnemonic == "Initramfs":
-            for arg in action.argv:
-                if ctx.attr.expected_compress_args in arg:
-                    found_action = True
-                    break
+
+    action = test_utils.find_action(env, "Initramfs")
+    script = test_utils.get_shell_script(env, action)
+    found_compress_args = ctx.attr.expected_compress_args in script
 
     asserts.equals(
         env,
-        actual = found_action,
+        actual = found_compress_args,
         expected = True,
         msg = "expected_compress_args = {} not found.".format(
             ctx.attr.expected_compress_args,
@@ -52,13 +50,10 @@ _initramfs_test = analysistest.make(
 def _boot_image_test_impl(ctx):
     env = analysistest.begin(ctx)
     file_expected = "ramdisk.{}".format(ctx.attr.expected_compress_ext)
-    found_file = False
-    for action in analysistest.target_actions(env):
-        if action.mnemonic == "BootImages":
-            for arg in action.argv:
-                if file_expected in arg:
-                    found_file = True
-                    break
+
+    action = test_utils.find_action(env, "BootImages")
+    script = test_utils.get_shell_script(env, action)
+    found_file = file_expected in script
 
     asserts.equals(
         env,

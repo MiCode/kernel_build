@@ -21,6 +21,7 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", "merged_kernel_uapi_headers")
+load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 def _find_extract_command(env, target, commands):
     if KernelBuildUapiInfo in target:
@@ -56,18 +57,15 @@ def _assert_acending(env, lst, commands_text):
 def _extract_order_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    target_under_test = analysistest.target_under_test(env)
-    actions = analysistest.target_actions(env)
-    asserts.equals(env, 1, len(actions))
-    argv = actions[0].argv
-    asserts.equals(env, 3, len(argv), "run_shell action should contain 3 args")
-    commands = argv[2].split("\n")
+    action = test_utils.find_action(env, "MergedKernelUapiHeaders")
+    script = test_utils.get_shell_script(env, action)
+    commands = script.split("\n")
 
     command_indices = [
         struct(target = target, index = _find_extract_command(env, target, commands))
         for target in ctx.attr.expect_extract_order
     ]
-    _assert_acending(env, command_indices, argv[2])
+    _assert_acending(env, command_indices, script)
 
     return analysistest.end(env)
 
