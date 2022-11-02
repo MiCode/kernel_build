@@ -83,7 +83,7 @@ def _makefiles_test_impl(ctx):
     expected_module_symvers = []
     for dep in ctx.attr.expected_deps:
         if ModuleSymversInfo in dep:
-            expected_module_symvers.append(dep[ModuleSymversInfo].restore_path)
+            expected_module_symvers += dep[ModuleSymversInfo].restore_paths.to_list()
     asserts.set_equals(
         env,
         sets.make(argv_dict.get("--module-symvers-list", [])),
@@ -517,6 +517,14 @@ def makefiles_test_suite(name):
         ],
     )
     tests.append(name + "_child_include_hdrs_before_deps")
+
+    _bad_test_make(
+        name = name + "_ddk_headers_in_srcs",
+        error_message = "is a ddk_headers or ddk_module but specified in srcs. Specify it in deps instead.",
+        module_srcs = [name + "_self_headers"],
+        module_out = "dep.ko",
+    )
+    tests.append(name + "_ddk_headers_in_srcs")
 
     native.test_suite(
         name = name,

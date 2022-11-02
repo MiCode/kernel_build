@@ -220,10 +220,10 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
 def _check_module_symvers_restore_path(kernel_modules, this_label):
     all_restore_paths = dict()
     for kernel_module in kernel_modules:
-        restore_path = kernel_module[ModuleSymversInfo].restore_path
-        if restore_path not in all_restore_paths:
-            all_restore_paths[restore_path] = []
-        all_restore_paths[restore_path].append(str(kernel_module.label))
+        for restore_path in kernel_module[ModuleSymversInfo].restore_paths.to_list():
+            if restore_path not in all_restore_paths:
+                all_restore_paths[restore_path] = []
+            all_restore_paths[restore_path].append(str(kernel_module.label))
 
     dups = dict()
     for key, values in all_restore_paths.items():
@@ -532,7 +532,7 @@ def _kernel_module_impl(ctx):
             # path/to/package/target_name/target_name_Module.symvers -> path/to/package/target_name_Module.symvers;
             # This is similar to ${{OUT_DIR}}/${{ext_mod_rel}}
             # It is needed to remove the `target_name` because we declare_file({name}/{internal_module_symvers_name}) above.
-            restore_path = paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name),
+            restore_paths = depset([paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name)]),
         ),
         ddk_headers_common_impl(ctx.label, ctx.attr.internal_hdrs, ctx.attr.internal_includes),
         KernelCmdsInfo(directories = depset([grab_cmd_step.cmd_dir])),
