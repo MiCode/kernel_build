@@ -40,8 +40,12 @@ def _extracted_symbols_impl(ctx):
         vmlinux,
     ]
     srcs += in_tree_modules
-    for kernel_module in ctx.attr.kernel_modules:  # external modules
-        srcs += kernel_module[KernelModuleInfo].files
+
+    # external modules
+    srcs += depset(transitive = [
+        kernel_module[KernelModuleInfo].files
+        for kernel_module in ctx.attr.kernel_modules
+    ]).to_list()
 
     inputs = [ctx.file._extract_symbols]
     inputs += srcs

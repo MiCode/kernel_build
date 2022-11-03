@@ -381,12 +381,16 @@ def _kernel_module_impl(ctx):
     if ctx.attr.kernel_build[KernelBuildExtModuleInfo].strip_modules:
         module_strip_flag += "1"
 
+    modpost_warn = debug.modpost_warn(ctx)
+    command += modpost_warn.cmd
+    command_outputs += modpost_warn.outputs
+
     command += """
              # Set variables
                ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
 
              # Actual kernel module build
-               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}
+               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {make_redirect}
              # Install into staging directory
                make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} \
                    O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}     \
@@ -423,6 +427,7 @@ def _kernel_module_impl(ctx):
                """.format(
         label = ctx.label,
         ext_mod = ctx.label.package,
+        make_redirect = modpost_warn.make_redirect,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dws.directory.path,
         outdir = outdir,
@@ -509,6 +514,7 @@ def _kernel_module_impl(ctx):
     # outs is empty, the KernelModule action is still executed, and so
     # is check_declared_output_list.
     return [
+        # Sync list of infos with kernel_module_group.
         DefaultInfo(
             files = depset(ctx.outputs.outs + [check_no_remaining]),
             # For kernel_module_test
@@ -520,9 +526,9 @@ def _kernel_module_impl(ctx):
         ),
         KernelModuleInfo(
             kernel_build = ctx.attr.kernel_build,
-            modules_staging_dws = modules_staging_dws,
-            kernel_uapi_headers_dws = kernel_uapi_headers_dws,
-            files = ctx.outputs.outs,
+            modules_staging_dws_depset = depset([modules_staging_dws]),
+            kernel_uapi_headers_dws_depset = depset([kernel_uapi_headers_dws]),
+            files = depset(ctx.outputs.outs),
         ),
         KernelUnstrippedModulesInfo(
             directories = depset([unstripped_dir], order = "postorder"),
@@ -581,6 +587,7 @@ _kernel_module = rule(
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_debug_modpost_warn": attr.label(default = "//build/kernel/kleaf:debug_modpost_warn"),
     },
 )
 

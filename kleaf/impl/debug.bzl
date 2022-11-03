@@ -36,7 +36,32 @@ def _trap():
     return """set -x
               trap '>&2 /bin/date' DEBUG"""
 
+def _modpost_warn(ctx):
+    """Returns useful script snippets and files for --debug_modpost_warn."""
+
+    if not ctx.attr._debug_modpost_warn[BuildSettingInfo].value:
+        return struct(
+            cmd = "",
+            outputs = [],
+            make_redirect = "",
+        )
+
+    cmd = """
+          export KBUILD_MODPOST_WARN=1
+          """
+
+    # This file is used in build_cleaner.
+    make_stderr = ctx.actions.declare_file("{}/make_stderr.txt".format(ctx.attr.name))
+    make_redirect = " 2> >(tee {} >&2)".format(make_stderr.path)
+
+    return struct(
+        cmd = cmd,
+        outputs = [make_stderr],
+        make_redirect = make_redirect,
+    )
+
 debug = struct(
     print_scripts = _print_scripts,
     trap = _trap,
+    modpost_warn = _modpost_warn,
 )
