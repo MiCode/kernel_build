@@ -144,23 +144,7 @@ See instructions to build your own kernels and drivers with Bazel in
 
 ### Documentation
 
-You may view the documentation for the aforementioned Bazel rules and macros on
-Android Continuous Integration:
-
-[https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
-
-The link redirects to the latest documentation in the mainline branch.
-
-Alternatively, you may refer to the documentation in the source code of the
-Bazel rules in `build/kernel/kleaf/*.bzl`.
-
-Alternatively, you may build the documentation and view it locally:
-
-```shell
-$ bazel run //build/kernel/kleaf:docs_server
-```
-
-Then visit `http://0.0.0.0:8080/` in your browser.
+See [API Reference and Documentation for all rules](api_reference.md)
 
 ## Availability
 
