@@ -87,6 +87,14 @@ def _makefiles_impl(ctx):
         module_label,
         ctx.attr.module_deps + ctx.attr.module_hdrs,
         ctx.attr.module_includes,
+        "includes",
+    )
+
+    linux_include_dirs = get_include_depset(
+        module_label,
+        ctx.attr.module_deps + ctx.attr.module_hdrs,
+        ctx.attr.module_linux_includes,
+        "linux_includes",
     )
 
     args = ctx.actions.args()
@@ -108,6 +116,7 @@ def _makefiles_impl(ctx):
     args.add("--output-makefiles", output_makefiles.path)
     args.add("--package", ctx.label.package)
 
+    args.add_all("--linux-include-dirs", linux_include_dirs, uniquify = True)
     args.add_all("--include-dirs", include_dirs, uniquify = True)
 
     args.add_all(
@@ -143,6 +152,7 @@ makefiles = rule(
         "module_srcs": attr.label_list(allow_files = [".c", ".h", ".s", ".rs"]),
         "module_hdrs": attr.label_list(allow_files = [".h"]),
         "module_includes": attr.string_list(),
+        "module_linux_includes": attr.string_list(),
         "module_deps": attr.label_list(),
         "module_out": attr.string(),
         "module_local_defines": attr.string_list(),

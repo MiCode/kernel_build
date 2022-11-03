@@ -21,10 +21,11 @@ DdkHeadersInfo = provider(
     fields = {
         "files": "A [depset](https://bazel.build/rules/lib/depset) including all header files",
         "includes": "A [depset](https://bazel.build/rules/lib/depset) containing the `includes` attribute of the rule",
+        "linux_includes": "Like `includes` but added to `LINUXINCLUDE`.",
     },
 )
 
-def get_include_depset(label, deps, includes):
+def get_include_depset(label, deps, includes, info_attr_name):
     """Returns a depset containing include directories from the list of dependencies and direct includes.
 
     Args:
@@ -32,6 +33,7 @@ def get_include_depset(label, deps, includes):
         deps: A list of depended targets. If [`DdkHeadersInfo`](#DdkHeadersInfo) is in the target,
           their `includes` are included in the returned depset.
         includes: A list of local include directories included in the returned depset.
+        info_attr_name: corresponding field name in `DdkHeadersInfo`.
     Returns:
         A depset containing include directories from the list of dependencies and direct includes.
     """
@@ -52,7 +54,7 @@ def get_include_depset(label, deps, includes):
     transitive_includes = []
     for dep in deps:
         if DdkHeadersInfo in dep:
-            transitive_includes.append(dep[DdkHeadersInfo].includes)
+            transitive_includes.append(getattr(dep[DdkHeadersInfo], info_attr_name))
 
     return depset(
         [paths.normalize(paths.join(label.package, d)) for d in includes],
@@ -82,22 +84,29 @@ def get_headers_depset(deps):
 
     return depset(transitive = transitive_deps)
 
-def ddk_headers_common_impl(label, hdrs, includes):
+def ddk_headers_common_impl(label, hdrs, includes, linux_includes):
     """Common implementation for rules that returns `DdkHeadersInfo`.
 
     Args:
         label: Label of this target.
         hdrs: The list of exported headers, e.g. [`ddk_headers.hdrs`](#ddk_headers-hdrs)
         includes: The list of exported include directories, e.g. [`ddk_headers.includes`](#ddk_headers-includes)
+        linux_includes: Like `includes` but added to `LINUXINCLUDE`.
     """
 
     return DdkHeadersInfo(
         files = get_headers_depset(hdrs),
-        includes = get_include_depset(label, hdrs, includes),
+        includes = get_include_depset(label, hdrs, includes, "includes"),
+        linux_includes = get_include_depset(label, hdrs, linux_includes, "linux_includes"),
     )
 
 def _ddk_headers_impl(ctx):
-    ddk_headers_info = ddk_headers_common_impl(ctx.label, ctx.attr.hdrs, ctx.attr.includes)
+    ddk_headers_info = ddk_headers_common_impl(
+        ctx.label,
+        ctx.attr.hdrs,
+        ctx.attr.includes,
+        ctx.attr.linux_includes,
+    )
     return [
         DefaultInfo(files = ddk_headers_info.files),
         ddk_headers_info,
@@ -146,6 +155,13 @@ ddk_headers(
 adds the given include directory in the generated `Kbuild` files.
 
 You still need to add the actual header files to `hdrs`.
+""",
+        ),
+        "linux_includes": attr.string_list(
+            doc = """Like `includes` but specified in `LINUXINCLUDES` instead.
+
+Setting this attribute allows you to override headers from `${KERNEL_DIR}`. See "Order of includes"
+in [`ddk_module`](#ddk_module) for details.
 """,
         ),
     },

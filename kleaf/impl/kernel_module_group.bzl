@@ -73,7 +73,7 @@ def _kernel_module_group_impl(ctx):
         ]),
     )
 
-    ddk_headers_info = ddk_headers_common_impl(ctx.label, targets, [])
+    ddk_headers_info = ddk_headers_common_impl(ctx.label, targets, [], [])
 
     cmds_info = KernelCmdsInfo(
         directories = depset(transitive = [
