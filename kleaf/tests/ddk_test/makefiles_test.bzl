@@ -264,6 +264,15 @@ def _makefiles_local_defines_test(name):
     )
     tests.append(name + "_multiple")
 
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
+def _makefiles_copts_test(name):
+    """Defines all tests on `makefiles.copts`."""
+    tests = []
+
     _create_makefiles_artifact_test(
         name = name + "_simple_copt",
         expected_lines = ["ccflags-y += -Wno-foo"],
@@ -397,6 +406,9 @@ def makefiles_test_suite(name):
 
     _makefiles_local_defines_test(name = name + "_local_defines_test")
     tests.append(name + "_local_defines_test")
+
+    _makefiles_copts_test(name = name + "_copts_test")
+    tests.append(name + "_copts_test")
 
     _bad_test_make(
         name = name + "_bad_copt_location_not_one_token",
