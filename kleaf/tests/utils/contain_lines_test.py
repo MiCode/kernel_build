@@ -16,8 +16,11 @@
 Compare pairs of files. The files specified in --actual must
 contain all lines from the corresponding file specified in --expected.
 
-Order of lines does not matter. For example, if actual contains lines
-["foo", "bar", "baz"] and expected contains ["bar", "foo"], test passes.
+If --order is set, order of lines matters.
+
+If --order is not set, order of lines does not matter. For example, if actual
+contains lines ["foo", "bar", "baz"] and expected contains ["bar", "foo"], test
+passes.
 
 Duplicated lines are counted. For example, if actual contains lines
 ["foo"] and expected contains ["foo", "foo"], test fails because two "foo"s
@@ -51,20 +54,20 @@ import sys
 import pathlib
 
 from absl.testing import absltest
-from typing import List
 
 
 def load_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--actual", nargs="+", type=pathlib.Path, help="actual files")
     parser.add_argument("--expected", nargs="+", type=pathlib.Path, help="expected files")
+    parser.add_argument("--order", action="store_true")
     return parser.parse_known_args()
 
 
 arguments = None
 
 
-def _read_non_empty_lines(path: pathlib.Path) -> List[str]:
+def _read_non_empty_lines(path: pathlib.Path) -> list[str]:
     with path.open() as f:
         return [line.strip() for line in f.readlines() if line.strip()]
 
@@ -92,16 +95,33 @@ class CompareTest(unittest.TestCase):
             for actual_file in actual_with_basename:
                 for expected_file in expected_with_basename:
                     with self.subTest(actual=actual_file, expected=expected_file):
-                        self._expect_contain_lines(actual=actual_file, expected=expected_file)
+                        self._assert_contain_lines(actual=actual_file, expected=expected_file)
 
-    def _expect_contain_lines(self, actual: pathlib.Path, expected: pathlib.Path):
-        actual_lines = collections.Counter(_read_non_empty_lines(actual))
-        expected_lines = collections.Counter(_read_non_empty_lines(expected))
-        diff = expected_lines - actual_lines
-        self.assertFalse(diff,
-                         f"{actual} does not contain all lines from {expected}, missing\n" +
-                         ("\n".join(diff.elements())))
+    def _assert_contain_lines(self, actual: pathlib.Path, expected: pathlib.Path):
+        actual_lines = _read_non_empty_lines(actual)
+        expected_lines = _read_non_empty_lines(expected)
 
+        if not arguments.order:
+            diff = collections.Counter(expected_lines) - collections.Counter(actual_lines)
+            self.assertFalse(diff,
+                             f"{actual} does not contain all lines from {expected}, missing\n" +
+                             ("\n".join(diff.elements())))
+        else:
+            expected_index = self._check_sublist_with_order(actual_lines, expected_lines)
+            self.assertGreaterEqual(expected_index, len(expected_lines),
+                                    f"{actual} does not contain all lines from {expected} in " +
+                                    f"the given order. Mismatch starting at line " +
+                                    f"{expected_index} of {expected}.")
+
+    def _check_sublist_with_order(self, actual_lines: list[str], expected_lines: list[str]) -> int:
+        expected_index = 0
+        for actual_line in actual_lines:
+            if expected_index >= len(expected_lines):
+                break
+            if expected_lines[expected_index] == actual_line:
+                expected_index += 1
+
+        return expected_index
 
 if __name__ == '__main__':
     arguments, unknown = load_arguments()
