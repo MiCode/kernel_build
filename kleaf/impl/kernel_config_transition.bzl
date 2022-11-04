@@ -12,21 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Incoming edge transition for `kernel_config`.
-# If --kasan and --lto=default, --lto becomes none.
-# See https://bazel.build/rules/config#incoming-edge-transitions
+"""Incoming edge transition for `kernel_config`.
+If --kasan and --lto=default, --lto becomes none.
+See https://bazel.build/rules/config#incoming-edge-transitions
+"""
+
+load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 
 _LTO_FLAG = "//build/kernel/kleaf:lto"
 _KASAN_FLAG = "//build/kernel/kleaf:kasan"
 
-def _impl(settings, attr):
+def _lto(settings, _attr):
     if settings[_KASAN_FLAG] and settings[_LTO_FLAG] == "default":
         return {_LTO_FLAG: "none"}
 
-    return None  # keep values
+    return {_LTO_FLAG: settings[_LTO_FLAG]}
+
+def _impl(settings, attr):
+    ret = _lto(settings, attr)
+    ret |= trim_nonlisted_kmi_utils.transition_impl(settings, attr)
+    return ret
 
 kernel_config_transition = transition(
     implementation = _impl,
-    inputs = [_KASAN_FLAG, _LTO_FLAG],
-    outputs = [_LTO_FLAG],
+    inputs = [_KASAN_FLAG, _LTO_FLAG] + trim_nonlisted_kmi_utils.transition_inputs(),
+    outputs = [_LTO_FLAG] + trim_nonlisted_kmi_utils.transition_outputs(),
 )
