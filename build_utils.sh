@@ -163,6 +163,10 @@ function create_modules_staging() {
     # Exclamation point makes interpreter ignore the exit code under set -e
     ! grep -v "^\#" ${modules_list_file} > ${modules_list_filter}
 
+    # Append a new line at the end of file
+    # If file doesn't end in newline the last module is skipped from filter
+    echo >> ${modules_list_filter}
+
     # grep the modules.order for any KOs in the modules list
     cp ${dest_dir}/modules.order ${old_modules_list}
     ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
