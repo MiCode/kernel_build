@@ -134,21 +134,10 @@ def gen_ddk_makefile(
         rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
         rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
 
-        for include_dir in include_dirs:
-            out_file.write(textwrap.dedent(f"""\
-                # Include {include_dir}
-                """))
-            _write_ccflag(out_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
-
-        if local_defines:
-            out_file.write("\n")
-            out_file.write(textwrap.dedent("""\
-                # local defines
-                """))
-
-        for local_define in local_defines:
-            _write_ccflag(out_file, f"-D{local_define}")
-
+        # At this time of writing (2022-11-01), this is the order how cc_library
+        # constructs arguments to the compiler.
+        _handle_defines(out_file, local_defines)
+        _handle_includes(out_file, include_dirs, rel_root)
         _handle_copt_file(out_file, copt_file, rel_root)
 
     top_kbuild = output_makefiles / "Kbuild"
@@ -159,6 +148,27 @@ def gen_ddk_makefile(
                 # Build {package / kernel_module_out}
                 obj-y += {kernel_module_out.parent}/
                 """))
+
+
+def _handle_defines(out_file: TextIO, local_defines: list[str]):
+    if not local_defines:
+        return
+    out_file.write("\n")
+    out_file.write(textwrap.dedent("""\
+        # local defines
+        """))
+    for local_define in local_defines:
+        _write_ccflag(out_file, f"-D{local_define}")
+
+
+def _handle_includes(out_file: TextIO, include_dirs: list[pathlib.Path],
+                     rel_root: pathlib.Path):
+    for include_dir in include_dirs:
+        out_file.write(textwrap.dedent(f"""\
+            # Include {include_dir}
+            """))
+        _write_ccflag(out_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
+
 
 def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: pathlib.Path):
     if not copt_file:
@@ -177,6 +187,7 @@ def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: p
             expanded = str(rel_root / expanded)
 
         _write_ccflag(out_file, expanded)
+
 
 if __name__ == "__main__":
     # argparse_flags.ArgumentParser only accepts --flagfile if there
