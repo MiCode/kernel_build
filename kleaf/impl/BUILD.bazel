@@ -24,6 +24,7 @@ bzl_library(
         "abi/abi_dump.bzl",
         "abi/abi_prop.bzl",
         "abi/extracted_symbols.bzl",
+        "abi/force_add_vmlinux_utils.bzl",
         "abi/kernel_build_abi.bzl",
         "abi/kernel_build_abi_dist.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
@@ -102,6 +103,14 @@ bool_setting(
 # Helper setting to forcefully disable trimming.
 bool_setting(
     name = "force_disable_trim",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Forcefully add vmlinux to outs (implicitly) and to MAKE_GOALS.
+bool_setting(
+    name = "force_add_vmlinux",
     build_setting_default = False,
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],

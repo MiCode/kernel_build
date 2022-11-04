@@ -20,6 +20,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
@@ -132,13 +133,17 @@ def _kernel_env_impl(ctx):
 
     command += stamp.set_localversion_cmd(ctx)
 
+    # TODO(b/237706175): drop internal_additional_make_goals
+    additional_make_goals = [] + ctx.attr.internal_additional_make_goals
+    additional_make_goals += force_add_vmlinux_utils.additional_make_goals(ctx)
+
     command += """
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
           source {setup_env}
         # Add to MAKE_GOALS if necessary
-          export MAKE_GOALS="${{MAKE_GOALS}} {internal_additional_make_goals}"
+          export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
         # Add a comment with config_tags for debugging
           echo {config_tags} > {out}
         # capture it as a file to be sourced in downstream rules
@@ -147,7 +152,7 @@ def _kernel_env_impl(ctx):
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
         setup_env = setup_env.path,
-        internal_additional_make_goals = " ".join(ctx.attr.internal_additional_make_goals),
+        additional_make_goals = " ".join(additional_make_goals),
         preserve_env = preserve_env.path,
         out = out_file.path,
         config_tags = shell.quote("# " + config_tags),

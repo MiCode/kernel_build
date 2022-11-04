@@ -30,11 +30,13 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 
 def _kernel_build_config_settings_raw():
     return dicts.add(
         trim_nonlisted_kmi_utils.config_settings_raw(),
+        force_add_vmlinux_utils.config_settings_raw(),
         {
             "_preserve_cmd": "//build/kernel/kleaf/impl:preserve_cmd",
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
@@ -66,6 +68,7 @@ def _kernel_env_config_settings_raw():
     return dicts.add(
         _kernel_build_config_settings_raw(),
         _kernel_config_config_settings_raw(),
+        force_add_vmlinux_utils.config_settings_raw(),
         {
             "_kbuild_symtypes_flag": "//build/kernel/kleaf:kbuild_symtypes",
         },

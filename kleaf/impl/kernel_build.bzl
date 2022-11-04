@@ -25,6 +25,7 @@ load(
     "kernel_build_test",
     "kernel_module_test",
 )
+load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(":btf.bzl", "btf")
 load(
@@ -620,27 +621,46 @@ def _get_base_kernel_all_module_names_file(ctx):
         return base_kernel_all_module_names_file
     return None
 
+def _get_out_attr_vals(ctx):
+    """Common implementation for getting all ctx.attr.*out.
+
+    This function should be used instead of actually inspecting ctx.attr.*out, because
+    this function also handles cases with additional outputs added by config settings.
+    """
+    attr_vals = {attr: getattr(ctx.attr, attr) for attr in _KERNEL_BUILD_OUT_ATTRS}
+
+    # The list is immutable, so use x = x + ... to make a copy
+    attr_vals["outs"] = attr_vals["outs"] + force_add_vmlinux_utils.additional_outs(ctx)
+
+    return attr_vals
+
 def _declare_all_output_files(ctx):
     """Declares output files based on `ctx.attr.*outs`."""
+    attr_vals = _get_out_attr_vals(ctx)
 
     # kernel_build(name="kernel", outs=["out"])
     # => _kernel_build(name="kernel", outs=["kernel/out"], internal_outs=["kernel/Module.symvers", ...])
     # => all_output_names = ["foo", "Module.symvers", ...]
     #    all_output_files = {"out": {"foo": File(...)}, "internal_outs": {"Module.symvers": File(...)}, ...}
     all_output_files = {}
-    for attr in _KERNEL_BUILD_OUT_ATTRS:
-        all_output_files[attr] = {name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name)) for name in getattr(ctx.attr, attr)}
+    for attr, val in attr_vals.items():
+        all_output_files[attr] = {
+            name: ctx.actions.declare_file("{}/{}".format(ctx.label.name, name))
+            for name in val
+        }
+
     return all_output_files
 
 def _split_out_attrs(ctx):
     """Partitions items in *outs into two lists: non-modules and modules."""
     non_modules = []
     modules = []
-    for attr in _KERNEL_BUILD_OUT_ATTRS:
+    attr_vals = _get_out_attr_vals(ctx)
+    for attr, val in attr_vals.items():
         if attr in _KERNEL_BUILD_MODULE_OUT_ATTRS:
-            modules += getattr(ctx.attr, attr)
+            modules += val
         else:
-            non_modules += getattr(ctx.attr, attr)
+            non_modules += val
     return struct(
         non_modules = non_modules,
         modules = modules,
