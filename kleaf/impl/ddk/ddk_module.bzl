@@ -12,15 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load(
-    ":common_providers.bzl",
-    "KernelBuildExtModuleInfo",
-    "KernelEnvInfo",
-    "KernelModuleInfo",
-)
+"""Rules for defining a DDK (Driver Development Kit) module."""
+
 load(":kernel_module.bzl", "kernel_module")
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers")
 load(":ddk/makefiles.bzl", "makefiles")
 
 def ddk_module(
@@ -285,7 +279,7 @@ def ddk_module(
           `package/Makefile`, and `make` is executed under `package/`. In order
           to find `other/header.h`, its path relative to `package/` is given.
 
-        kwargs: Additional attributes to the internal rule.
+        **kwargs: Additional attributes to the internal rule.
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
