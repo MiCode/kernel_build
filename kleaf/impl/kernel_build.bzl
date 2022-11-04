@@ -25,6 +25,7 @@ load(
     "kernel_build_test",
     "kernel_module_test",
 )
+load(":abi/base_kernel_utils.bzl", "base_kernel_utils")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(":btf.bzl", "btf")
@@ -567,13 +568,13 @@ def _create_kbuild_mixed_tree(ctx):
     kbuild_mixed_tree = None
     cmd = ""
     arg = ""
-    if ctx.attr.base_kernel:
+    if base_kernel_utils.get_base_kernel(ctx):
         # Create a directory for KBUILD_MIXED_TREE. Flatten the directory structure of the files
-        # that ctx.attr.base_kernel provides. declare_directory is sufficient because the directory should
-        # only change when the dependent ctx.attr.base_kernel changes.
+        # that base_kernel_utils.get_base_kernel(ctx) provides. declare_directory is sufficient because the directory should
+        # only change when the dependent base_kernel_utils.get_base_kernel(ctx) changes.
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
         outputs = [kbuild_mixed_tree]
-        base_kernel_files = ctx.attr.base_kernel[KernelBuildMixedTreeInfo].files
+        base_kernel_files = base_kernel_utils.get_base_kernel(ctx)[KernelBuildMixedTreeInfo].files
         kbuild_mixed_tree_command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
@@ -611,13 +612,11 @@ def _create_kbuild_mixed_tree(ctx):
 
 def _get_base_kernel_all_module_names_file(ctx):
     """Returns the file containing all module names from the base kernel or None if there's no base_kernel."""
-    base_kernel_for_module_outs = ctx.attr.base_kernel_for_module_outs
-    if base_kernel_for_module_outs == None:
-        base_kernel_for_module_outs = ctx.attr.base_kernel
+    base_kernel_for_module_outs = base_kernel_utils.get_base_kernel_for_module_outs(ctx)
     if base_kernel_for_module_outs:
         base_kernel_all_module_names_file = base_kernel_for_module_outs[KernelBuildInTreeModulesInfo].module_outs_file
         if not base_kernel_all_module_names_file:
-            fail("{}: base_kernel {} does not provide module_outs_file.".format(ctx.label, ctx.attr.base_kernel.label))
+            fail("{}: base_kernel {} does not provide module_outs_file.".format(ctx.label, base_kernel_utils.get_base_kernel(ctx).label))
         return base_kernel_all_module_names_file
     return None
 
@@ -899,7 +898,7 @@ def _build_main_action(
     ## Declare implicit outputs of the command
     ruledir = ctx.actions.declare_directory(ctx.label.name)
 
-    if ctx.attr.base_kernel:
+    if base_kernel_utils.get_base_kernel(ctx):
         # We will re-package MODULES_STAGING_ARCHIVE in _repack_module_staging_archive,
         # so use a different name.
         modules_staging_archive_self = ctx.actions.declare_file(
@@ -1129,8 +1128,8 @@ def _create_infos(
     )
 
     kernel_uapi_depsets = []
-    if ctx.attr.base_kernel:
-        kernel_uapi_depsets.append(ctx.attr.base_kernel[KernelBuildUapiInfo].kernel_uapi_headers)
+    if base_kernel_utils.get_base_kernel(ctx):
+        kernel_uapi_depsets.append(base_kernel_utils.get_base_kernel(ctx)[KernelBuildUapiInfo].kernel_uapi_headers)
     kernel_uapi_depsets.append(ctx.attr.kernel_uapi_headers.files)
     kernel_build_uapi_info = KernelBuildUapiInfo(
         kernel_uapi_headers = depset(transitive = kernel_uapi_depsets, order = "postorder"),
@@ -1147,8 +1146,8 @@ def _create_infos(
     unstripped_modules_depsets = []
     if main_action_ret.unstripped_dir:
         unstripped_modules_depsets.append(depset([main_action_ret.unstripped_dir]))
-    if ctx.attr.base_kernel:
-        unstripped_modules_depsets.append(ctx.attr.base_kernel[KernelUnstrippedModulesInfo].directories)
+    if base_kernel_utils.get_base_kernel(ctx):
+        unstripped_modules_depsets.append(base_kernel_utils.get_base_kernel(ctx)[KernelUnstrippedModulesInfo].directories)
     kernel_unstripped_modules_info = KernelUnstrippedModulesInfo(
         directories = depset(transitive = unstripped_modules_depsets, order = "postorder"),
     )
@@ -1157,7 +1156,7 @@ def _create_infos(
         module_outs_file = all_module_names_file,
     )
 
-    images_info = KernelImagesInfo(base_kernel = ctx.attr.base_kernel)
+    images_info = KernelImagesInfo(base_kernel = base_kernel_utils.get_base_kernel(ctx))
 
     output_group_kwargs = {}
     for d in all_output_files.values():
@@ -1258,6 +1257,7 @@ def _kernel_build_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_build(),
         trim_nonlisted_kmi_utils.non_config_attrs(),
+        base_kernel_utils.non_config_attrs(),
     )
 
 _kernel_build = rule(
@@ -1287,14 +1287,6 @@ _kernel_build = rule(
         ),
         "deps": attr.label_list(
             allow_files = True,
-        ),
-        "base_kernel": attr.label(
-            aspects = [kernel_toolchain_aspect],
-            providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo],
-        ),
-        "base_kernel_for_module_outs": attr.label(
-            providers = [KernelBuildInTreeModulesInfo],
-            doc = "If set, use the `module_outs` and `module_implicit_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
         ),
         "kmi_symbol_list_strict_mode": attr.bool(),
         "raw_kmi_symbol_list": attr.label(
@@ -1332,7 +1324,7 @@ def _kernel_build_check_toolchain(ctx):
         no checks need to be performed at execution phase.
     """
 
-    base_kernel = ctx.attr.base_kernel
+    base_kernel = base_kernel_utils.get_base_kernel(ctx)
     if not base_kernel:
         return []
 
@@ -1484,7 +1476,7 @@ def _repack_modules_staging_archive(
             in `_build_main_action`.
         all_module_basenames_file: Complete list of base names.
     """
-    if not ctx.attr.base_kernel:
+    if not base_kernel_utils.get_base_kernel(ctx):
         # No need to repack.
         if not modules_staging_archive_self.basename == MODULES_STAGING_ARCHIVE:
             fail("\nFATAL: {}: modules_staging_archive_self.basename == {}, but not {}".format(
@@ -1519,7 +1511,7 @@ def _repack_modules_staging_archive(
     """.format(
         modules_staging_dir = modules_staging_dir,
         self_archive = modules_staging_archive_self.path,
-        base_archive = ctx.attr.base_kernel[KernelBuildExtModuleInfo].modules_staging_archive.path,
+        base_archive = base_kernel_utils.get_base_kernel(ctx)[KernelBuildExtModuleInfo].modules_staging_archive.path,
         out_archive = modules_staging_archive.path,
         all_module_basenames_file = all_module_basenames_file.path,
     )
@@ -1528,7 +1520,7 @@ def _repack_modules_staging_archive(
         mnemonic = "KernelBuildModuleStagingArchive",
         inputs = [
             modules_staging_archive_self,
-            ctx.attr.base_kernel[KernelBuildExtModuleInfo].modules_staging_archive,
+            base_kernel_utils.get_base_kernel(ctx)[KernelBuildExtModuleInfo].modules_staging_archive,
             all_module_basenames_file,
         ],
         outputs = [modules_staging_archive],

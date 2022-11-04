@@ -1,0 +1,66 @@
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Utilities for determining the value of base_kernel."""
+
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(
+    ":common_providers.bzl",
+    "KernelBuildInTreeModulesInfo",
+    "KernelBuildMixedTreeInfo",
+)
+load(":kernel_toolchain_aspect.bzl", "kernel_toolchain_aspect")
+
+_FORCE_IGNORE_BASE_KERNEL_SETTING = "//build/kernel/kleaf/impl:force_ignore_base_kernel"
+
+def _base_kernel_config_settings_raw():
+    return {
+        "_force_ignore_base_kernel": _FORCE_IGNORE_BASE_KERNEL_SETTING,
+    }
+
+def _base_kernel_non_config_attrs():
+    """Attributes of rules that supports adding vmlinux via outgoing-edge transitions."""
+    return {
+        "base_kernel": attr.label(
+            aspects = [kernel_toolchain_aspect],
+            providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo],
+        ),
+        # TODO(b/237706175): delete once fully using transitions
+        "base_kernel_for_module_outs": attr.label(
+            providers = [KernelBuildInTreeModulesInfo],
+            doc = "If set, use the `module_outs` and `module_implicit_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
+        ),
+    }
+
+def _get_base_kernel(ctx):
+    """Returns base_kernel."""
+    if ctx.attr._force_ignore_base_kernel[BuildSettingInfo].value:
+        return None
+    return ctx.attr.base_kernel
+
+def _get_base_kernel_for_module_outs(ctx):
+    """Returns base_kernel for getting the list of module_outs in the base kernel (GKI modules)."""
+
+    # base_kernel_for_module_outs ignores _force_ignore_base_kernel
+    base_kernel_for_module_outs = ctx.attr.base_kernel_for_module_outs
+    if base_kernel_for_module_outs == None:
+        base_kernel_for_module_outs = ctx.attr.base_kernel
+    return base_kernel_for_module_outs
+
+base_kernel_utils = struct(
+    config_settings_raw = _base_kernel_config_settings_raw,
+    non_config_attrs = _base_kernel_non_config_attrs,
+    get_base_kernel = _get_base_kernel,
+    get_base_kernel_for_module_outs = _get_base_kernel_for_module_outs,
+)

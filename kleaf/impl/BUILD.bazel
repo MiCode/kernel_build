@@ -23,6 +23,7 @@ bzl_library(
         "abi/abi_diff.bzl",
         "abi/abi_dump.bzl",
         "abi/abi_prop.bzl",
+        "abi/base_kernel_utils.bzl",
         "abi/extracted_symbols.bzl",
         "abi/force_add_vmlinux_utils.bzl",
         "abi/kernel_build_abi.bzl",
@@ -111,6 +112,14 @@ bool_setting(
 # Forcefully add vmlinux to outs (implicitly) and to MAKE_GOALS.
 bool_setting(
     name = "force_add_vmlinux",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Forcefully ignore base_kernel.
+bool_setting(
+    name = "force_ignore_base_kernel",
     build_setting_default = False,
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
