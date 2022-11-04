@@ -18,6 +18,7 @@ load(":abi/abi_diff.bzl", "abi_diff")
 load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
+load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":kernel_build.bzl", "kernel_build")
 load(":utils.bzl", "kernel_utils")
 
@@ -130,6 +131,7 @@ def kernel_build_abi(
 
     _define_other_targets(
         name = name,
+        kernel_build = name,
         define_abi_targets = define_abi_targets,
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
@@ -144,6 +146,7 @@ def kernel_build_abi(
 
 def _define_other_targets(
         name,
+        kernel_build,
         define_abi_targets,
         kernel_modules,
         module_grouping,
@@ -157,34 +160,15 @@ def _define_other_targets(
     Defines targets other than the main `kernel_build()`.
 
     Defines:
-    * `{name}_with_vmlinux`
-    * `{name}_notrim` (if `define_abi_targets`)
     * `{name}_abi_diff_executable`
     * `{name}_abi`
     """
-    new_outs, outs_changed = kernel_utils.kernel_build_outs_add_vmlinux(name, kernel_build_kwargs.get("outs"))
-
-    # with_vmlinux: outs += [vmlinux]; base_kernel = None; kbuild_symtypes = True
-    # Technically we may skip creating the _with_vmlinux target when
-    # kbuild_symtypes = "auto" and --kbuild_symtypes, but there's no easy way
-    # to determine flag values at loading phase.
-    need_separate_with_vmlinux_target = outs_changed or kernel_build_kwargs.get("base_kernel") or kernel_build_kwargs.get("kbuild_symtypes") != "true"
-
-    if need_separate_with_vmlinux_target:
-        with_vmlinux_kwargs = dict(kernel_build_kwargs)
-        with_vmlinux_kwargs["outs"] = kernel_utils.transform_kernel_build_outs(name + "_with_vmlinux", "outs", new_outs)
-        with_vmlinux_kwargs["base_kernel_for_module_outs"] = with_vmlinux_kwargs.pop("base_kernel", default = None)
-        with_vmlinux_kwargs["internal_additional_make_goals"] = ["vmlinux"]
-        kernel_build(name = name + "_with_vmlinux", **with_vmlinux_kwargs)
-    else:
-        native.alias(name = name + "_with_vmlinux", actual = name)
-
     tags = kernel_build_kwargs.get("tags")
 
     abi_dump(
         name = name + "_abi_dump",
-        kernel_build = name + "_with_vmlinux",
-        kernel_modules = [module + "_with_vmlinux" for module in kernel_modules] if kernel_modules else kernel_modules,
+        kernel_build = kernel_build,
+        kernel_modules = kernel_modules,
         tags = tags,
     )
 
@@ -197,17 +181,14 @@ def _define_other_targets(
     else:
         _define_abi_targets(
             name = name,
+            kernel_build = kernel_build,
             kernel_modules = kernel_modules,
             module_grouping = module_grouping,
             kmi_symbol_list_add_only = kmi_symbol_list_add_only,
             abi_definition = abi_definition,
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
-            outs_changed = outs_changed,
-            new_outs = new_outs,
             abi_dump_target = name + "_abi_dump",
-            kernel_build_with_vmlinux_target = name + "_with_vmlinux",
-            need_separate_with_vmlinux_target = need_separate_with_vmlinux_target,
             kernel_build_kwargs = kernel_build_kwargs,
         )
 
@@ -239,59 +220,47 @@ def _not_define_abi_targets(
 
 def _define_abi_targets(
         name,
+        kernel_build,
         kernel_modules,
         module_grouping,
         kmi_symbol_list_add_only,
         abi_definition,
         kmi_enforced,
         unstripped_modules_archive,
-        outs_changed,
-        new_outs,
         abi_dump_target,
-        kernel_build_with_vmlinux_target,
-        need_separate_with_vmlinux_target,
         kernel_build_kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = True.`
 
     Define targets to extract symbol list, extract ABI, update them, etc.
 
     Defines:
-    * `{name}_notrim`
     * `{name}_abi_diff_executable`
     * `{name}_abi`
     """
 
     default_outputs = [abi_dump_target]
 
-    # notrim: like _with_vmlinux, but trim_nonlisted_kmi = False
-    if need_separate_with_vmlinux_target or kernel_build_kwargs.get("trim_nonlisted_kmi"):
-        notrim_kwargs = dict(kernel_build_kwargs)
-        notrim_kwargs["outs"] = kernel_utils.transform_kernel_build_outs(name + "_notrim", "outs", new_outs)
-        notrim_kwargs["trim_nonlisted_kmi"] = False
-        notrim_kwargs["kmi_symbol_list_strict_mode"] = False
-        notrim_kwargs["base_kernel_for_module_outs"] = notrim_kwargs.pop("base_kernel", default = None)
-        notrim_kwargs["internal_additional_make_goals"] = ["vmlinux"]
-        kernel_build(name = name + "_notrim", **notrim_kwargs)
-    else:
-        native.alias(name = name + "_notrim", actual = name)
-
     tags = kernel_build_kwargs.get("tags")
+
+    get_src_kmi_symbol_list(
+        name = name + "_abi_src_kmi_symbol_list",
+        kernel_build = kernel_build,
+    )
 
     # extract_symbols ...
     extracted_symbols(
         name = name + "_abi_extracted_symbols",
-        kernel_build_notrim = name + "_notrim",
-        kernel_modules = [module + "_notrim" for module in kernel_modules] if kernel_modules else kernel_modules,
+        kernel_build_notrim = kernel_build,
+        kernel_modules = kernel_modules,
         module_grouping = module_grouping,
-        src = kernel_build_kwargs.get("kmi_symbol_list"),
+        src = name + "_abi_src_kmi_symbol_list",
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
         tags = tags,
-        kernel_build_for_base_modules = kernel_build_kwargs.get("base_kernel", name),
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",
         src = name + "_abi_extracted_symbols",
-        dst = kernel_build_kwargs.get("kmi_symbol_list"),
+        dst = name + "_abi_src_kmi_symbol_list",
         tags = tags,
     )
 
@@ -299,14 +268,14 @@ def _define_abi_targets(
         name = name,
         abi_definition = abi_definition,
         kmi_enforced = kmi_enforced,
-        kmi_symbol_list = kernel_build_kwargs.get("kmi_symbol_list"),
+        kmi_symbol_list = name + "_abi_src_kmi_symbol_list",
     )
 
     abi_prop(
         name = name + "_abi_prop",
         kmi_definition = name + "_abi_out_file" if abi_definition else None,
         kmi_enforced = kmi_enforced,
-        kernel_build = kernel_build_with_vmlinux_target,
+        kernel_build = name,
         modules_archive = unstripped_modules_archive,
     )
     default_outputs.append(name + "_abi_prop")

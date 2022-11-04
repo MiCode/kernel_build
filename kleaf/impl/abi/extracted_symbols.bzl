@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Extracts symbols from kernel binaries."""
+
+load(":abi/abi_transitions.bzl", "notrim_transition")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
@@ -67,7 +70,9 @@ def _extracted_symbols_impl(ctx):
         )
 
     # Get the signed and stripped module archive for the GKI modules
-    base_modules_archive = ctx.attr.kernel_build_for_base_modules[KernelBuildAbiInfo].modules_staging_archive
+    base_modules_archive = ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].base_modules_staging_archive
+    if not base_modules_archive:
+        base_modules_archive = ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].modules_staging_archive
     inputs.append(base_modules_archive)
 
     command = ctx.attr.kernel_build_notrim[KernelEnvInfo].setup
@@ -116,8 +121,11 @@ extracted_symbols = rule(
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
-        "kernel_build_for_base_modules": attr.label(doc = "The `kernel_build` which `modules_staging_archive` is treated as GKI modules.", providers = [KernelBuildAbiInfo]),
         "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
+    cfg = notrim_transition,
 )

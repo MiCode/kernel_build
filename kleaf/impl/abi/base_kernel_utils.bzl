@@ -17,6 +17,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
+    "KernelBuildAbiInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
 )
@@ -34,7 +35,7 @@ def _base_kernel_non_config_attrs():
     return {
         "base_kernel": attr.label(
             aspects = [kernel_toolchain_aspect],
-            providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo],
+            providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo, KernelBuildAbiInfo],
         ),
         # TODO(b/237706175): delete once fully using transitions
         "base_kernel_for_module_outs": attr.label(
@@ -58,9 +59,16 @@ def _get_base_kernel_for_module_outs(ctx):
         base_kernel_for_module_outs = ctx.attr.base_kernel
     return base_kernel_for_module_outs
 
+def _get_base_modules_staging_archive(ctx):
+    # ignores _force_ignore_base_kernel, because this is for ABI purposes.
+    if not ctx.attr.base_kernel:
+        return None
+    return ctx.attr.base_kernel[KernelBuildAbiInfo].modules_staging_archive
+
 base_kernel_utils = struct(
     config_settings_raw = _base_kernel_config_settings_raw,
     non_config_attrs = _base_kernel_non_config_attrs,
     get_base_kernel = _get_base_kernel,
     get_base_kernel_for_module_outs = _get_base_kernel_for_module_outs,
+    get_base_modules_staging_archive = _get_base_modules_staging_archive,
 )

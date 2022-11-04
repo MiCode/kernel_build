@@ -455,6 +455,7 @@ def kernel_build(
         combined_abi_symbollist = abi_symbollist_target_name if all_kmi_symbol_lists else None,
         enable_interceptor = enable_interceptor,
         strip_modules = strip_modules,
+        src_kmi_symbol_list = kmi_symbol_list,
         **kwargs
     )
 
@@ -1140,6 +1141,8 @@ def _create_infos(
         combined_abi_symbollist = ctx.file.combined_abi_symbollist,
         module_outs_file = all_module_names_file,
         modules_staging_archive = modules_staging_archive,
+        base_modules_staging_archive = base_kernel_utils.get_base_modules_staging_archive(ctx),
+        src_kmi_symbol_list = ctx.file.src_kmi_symbol_list,
     )
 
     # Device modules takes precedence over base_kernel (GKI) modules.
@@ -1308,6 +1311,7 @@ _kernel_build = rule(
         "kernel_uapi_headers": attr.label(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
+        "src_kmi_symbol_list": attr.label(allow_single_file = True),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
