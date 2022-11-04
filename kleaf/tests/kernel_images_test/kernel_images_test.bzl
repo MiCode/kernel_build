@@ -70,6 +70,32 @@ _boot_image_test = analysistest.make(
     },
 )
 
+# Check effect of avb_sign_boot_img and avb_boot_*.
+def _avb_sign_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    action = test_utils.find_action(env, "BootImages")
+    script = test_utils.get_shell_script(env, action)
+    found_all = all([env_val in script for env_val in ctx.attr.expected_env_values])
+    found_all = True
+    for env_val in ctx.attr.expected_env_values:
+        found_all = found_all and env_val in script
+    asserts.equals(
+        env,
+        actual = found_all,
+        expected = True,
+        msg = "expected_env_values = {} not found.".format(
+            ctx.attr.expected_env_values,
+        ),
+    )
+    return analysistest.end(env)
+
+_avb_sign_test = analysistest.make(
+    impl = _avb_sign_test_impl,
+    attrs = {
+        "expected_env_values": attr.string_list(),
+    },
+)
+
 def initramfs_test(name):
     """Define tests for `ramdisk_options`.
 
@@ -180,6 +206,32 @@ def initramfs_test(name):
         expected_compress_args = "-foo --bar",
     )
     tests.append(name + "lz4_custom_test")
+
+    # Sign boot image using AVB.
+    kernel_images(
+        name = name + "sign_avb_image",
+        kernel_modules_install = name + "modules_install",
+        build_initramfs = True,
+        kernel_build = name + "build",
+        avb_sign_boot_img = True,
+        avb_boot_partition_size = 512,
+        avb_boot_key = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem",
+        avb_boot_algorithm = "SHA256_RSA4096",
+        avb_boot_partition_name = "boot",
+        tags = ["manual"],
+    )
+    _avb_sign_test(
+        name = name + "sign_avb_image_test",
+        target_under_test = name + "sign_avb_image_boot_images",
+        expected_env_values = [
+            "AVB_SIGN_BOOT_IMG=1",
+            "AVB_BOOT_PARTITION_SIZE=512",
+            "AVB_BOOT_KEY=",
+            "AVB_BOOT_ALGORITHM=SHA256_RSA4096",
+            "AVB_BOOT_PARTITION_NAME=boot",
+        ],
+    )
+    tests.append(name + "sign_avb_image_test")
 
     native.test_suite(
         name = name,

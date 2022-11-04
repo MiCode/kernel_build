@@ -50,6 +50,11 @@ def kernel_images(
         vendor_dlkm_props = None,
         ramdisk_compression = None,
         ramdisk_compression_args = None,
+        avb_sign_boot_img = None,
+        avb_boot_partition_size = None,
+        avb_boot_key = None,
+        avb_boot_algorithm = None,
+        avb_boot_partition_name = None,
         **kwargs):
     """Build multiple kernel images.
 
@@ -239,6 +244,16 @@ def kernel_images(
         ramdisk_compression_args: Command line arguments passed only to lz4 command
           to control compression level. It only has effect when used with
           `ramdisk_compression` equal to "lz4".
+        avb_sign_boot_img: If set to `True` signs the boot image using the avb_boot_key.
+          The kernel prebuilt tool `avbtool` is used for signing.
+        avb_boot_partition_size: Size of the boot partition in bytes.
+          Used when `avb_sign_boot_img` is True.
+        avb_boot_key: Path to the key used for signing.
+          Used when `avb_sign_boot_img` is True.
+        avb_boot_algorithm: `avb_boot_key` algorithm used e.g. SHA256_RSA2048.
+          Used when `avb_sign_boot_img` is True.
+        avb_boot_partition_name: = Name of the boot partition.
+          Used when `avb_sign_boot_img` is True.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -246,7 +261,8 @@ def kernel_images(
     """
     all_rules = []
 
-    build_any_boot_image = build_boot or build_vendor_boot or build_vendor_kernel_boot
+    build_any_boot_image = build_boot or build_vendor_boot or build_vendor_kernel_boot or \
+                           avb_sign_boot_img
     if build_any_boot_image:
         if kernel_build == None:
             fail("{}: Must set kernel_build if any of these are true: build_boot={}, build_vendor_boot={}, build_vendor_kernel_boot={}".format(
@@ -357,6 +373,11 @@ def kernel_images(
             vendor_ramdisk_binaries = vendor_ramdisk_binaries,
             build_boot = build_boot,
             vendor_boot_name = vendor_boot_name,
+            avb_sign_boot_img = avb_sign_boot_img,
+            avb_boot_partition_size = avb_boot_partition_size,
+            avb_boot_key = avb_boot_key,
+            avb_boot_algorithm = avb_boot_algorithm,
+            avb_boot_partition_name = avb_boot_partition_name,
             **kwargs
         )
         all_rules.append(":{}_boot_images".format(name))
