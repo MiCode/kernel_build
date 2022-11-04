@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Headers target for DDK."""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-DdkHeadersInfo = provider(fields = {
-    "files": "A [depset](https://bazel.build/rules/lib/depset) including all header files",
-    "includes": "A [depset](https://bazel.build/rules/lib/depset) containing the `includes` attribute of the rule",
-})
+DdkHeadersInfo = provider(
+    "Information for a target that provides DDK headers to a dependent target.",
+    fields = {
+        "files": "A [depset](https://bazel.build/rules/lib/depset) including all header files",
+        "includes": "A [depset](https://bazel.build/rules/lib/depset) containing the `includes` attribute of the rule",
+    },
+)
 
 def get_include_depset(label, deps, includes):
     """Returns a depset containing include directories from the list of dependencies and direct includes.
@@ -27,6 +32,8 @@ def get_include_depset(label, deps, includes):
         deps: A list of depended targets. If [`DdkHeadersInfo`](#DdkHeadersInfo) is in the target,
           their `includes` are included in the returned depset.
         includes: A list of local include directories included in the returned depset.
+    Returns:
+        A depset containing include directories from the list of dependencies and direct includes.
     """
     for include_dir in includes:
         if paths.normalize(include_dir) != include_dir:
@@ -62,6 +69,8 @@ def get_headers_depset(deps):
         deps: A list of depended targets. If [`DdkHeadersInfo`](#DdkHeadersInfo) is in the target,
           `target[DdkHeadersInfo].files` are included in the returned depset. Otherwise
           the default output files are included in the returned depset.
+    Returns:
+        A depset containing headers from the list of dependencies.
     """
     transitive_deps = []
 

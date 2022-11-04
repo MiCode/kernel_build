@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""An external kernel module.
+
+Makefile and Kbuild files are required.
+"""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_skylib//lib:sets.bzl", "sets")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
@@ -135,7 +138,7 @@ def kernel_module(
             `nfc/nfc.ko` is the label to the file.
 
             See `search_and_cp_output.py` for details.
-        kwargs: Additional attributes to the internal rule, e.g.
+        **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
@@ -271,9 +274,9 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
-    transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts]
+    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
     if not ctx.attr.internal_exclude_kernel_build_module_srcs:
-        transitive_inputs += [ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs]
+        transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
 
     # Add targets with DdkHeadersInfo in deps
     for hdr in hdr_deps:
@@ -592,10 +595,7 @@ _kernel_module = rule(
 )
 
 def _kernel_module_set_defaults(kwargs):
-    """
-    Set default values for `_kernel_module` that can't be specified in
-    `attr.*(default=...)` in rule().
-    """
+    """Set default values for `_kernel_module` that can't be specified in `attr.*(default=...)` in rule()."""
     if kwargs.get("makefile") == None and kwargs.get("internal_ddk_makefiles_dir") == None:
         kwargs["makefile"] = native.glob(["Makefile"])
 

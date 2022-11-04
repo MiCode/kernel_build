@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:sets.bzl", "sets")
-load("@bazel_skylib//lib:shell.bzl", "shell")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
-load(":common_providers.bzl", "KernelEnvInfo", "ModuleSymversInfo")
-load(":debug.bzl", "debug")
+"""Generates Makefile and Kbuild files for a DDK module."""
+
+load(":common_providers.bzl", "ModuleSymversInfo")
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "get_include_depset")
-load(":utils.bzl", "utils")
 
 def _handle_copt(ctx):
     # copt values contains prefixing "-", so we must use --copt=-x --copt=-y to avoid confusion.
