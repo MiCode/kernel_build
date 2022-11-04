@@ -177,36 +177,6 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
-def _kernel_build_outs_add_vmlinux(name, outs):
-    """Add vmlinux etc. to the outs attribute of a `kernel_build`.
-
-    The logic should be in par with `_transform_kernel_build_outs`.
-    """
-    files_to_add = ("vmlinux", "System.map")
-    outs_changed = False
-    if outs == None:
-        outs = ["vmlinux"]
-        outs_changed = True
-    if type(outs) == type([]):
-        for file in files_to_add:
-            if file not in outs:
-                # don't use append to avoid changing outs
-                outs = outs + [file]
-                outs_changed = True
-    elif type(outs) == type({}):
-        outs_new = {}
-        for k, v in outs.items():
-            for file in files_to_add:
-                if file not in v:
-                    # don't use append to avoid changing outs
-                    v = v + [file]
-                    outs_changed = True
-            outs_new[k] = v
-        outs = outs_new
-    else:
-        fail("{}: Invalid type for outs: {}".format(name, type(outs)))
-    return outs, outs_changed
-
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """Check that kernel_modules have the same kernel_build as the given one.
 
@@ -249,6 +219,5 @@ kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
-    kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,
     local_mnemonic_suffix = _local_mnemonic_suffix,
 )
