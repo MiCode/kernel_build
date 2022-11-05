@@ -83,7 +83,6 @@ def kernel_build(
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
-        base_kernel_for_module_outs = None,
         internal_additional_make_goals = None,
         kconfig_ext = None,
         dtstree = None,
@@ -148,11 +147,6 @@ def kernel_build(
               srcs = aarch64_outs,
             )
             ```
-        base_kernel_for_module_outs: **INTERNAL ONLY; DO NOT SET!**
-
-          If set, this is used instead of `base_kernel` to determine the list
-          of GKI modules.
-
         internal_additional_make_goals: **INTERNAL ONLY; DO NOT SET!**
 
           List of items added to `MAKE_GOALS`.
@@ -446,7 +440,6 @@ def kernel_build(
         internal_outs = kernel_utils.transform_kernel_build_outs(name, "internal_outs", _kernel_build_internal_outs),
         deps = deps,
         base_kernel = base_kernel,
-        base_kernel_for_module_outs = base_kernel_for_module_outs,
         modules_prepare = modules_prepare_target_name,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,

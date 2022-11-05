@@ -98,8 +98,7 @@ KernelBuildAbiInfo = provider(
 
 KernelBuildInTreeModulesInfo = provider(
     doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
-[`base_kernel`](#kernel_build-base_kernel) or [`base_kernel_for_module_outs`](#kernel_build-base_kernel_for_module_outs)
-for the list of in-tree modules in the `base_kernel`.""",
+[`base_kernel`](#kernel_build-base_kernel) for the list of in-tree modules in the `base_kernel`.""",
     fields = {
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
     },
