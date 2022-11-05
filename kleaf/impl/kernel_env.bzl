@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Source-able build environment for kernel build."""
+
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -21,6 +24,7 @@ load(
     "KernelEnvInfo",
 )
 load(":debug.bzl", "debug")
+load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
@@ -244,6 +248,11 @@ def _get_tools(toolchain_version):
         )
     ]
 
+def _kernel_env_additional_attrs():
+    return dicts.add(
+        kernel_config_settings.of_kernel_env(),
+    )
+
 kernel_env = rule(
     implementation = _kernel_env_impl,
     doc = """Generates a rule that generates a source-able build environment.
@@ -311,8 +320,7 @@ kernel_env = rule(
         ),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
-        "_kbuild_symtypes_flag": attr.label(default = "//build/kernel/kleaf:kbuild_symtypes"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
-    },
+    } | _kernel_env_additional_attrs(),
 )

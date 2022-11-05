@@ -15,6 +15,7 @@
 Defines a kernel build target.
 """
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -48,6 +49,7 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":kernel_config.bzl", "kernel_config")
+load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
 load(":kernel_headers.bzl", "kernel_headers")
 load(":kernel_toolchain_aspect.bzl", "KernelToolchainInfo", "kernel_toolchain_aspect")
@@ -1224,6 +1226,11 @@ def _kernel_build_impl(ctx):
 
     return infos
 
+def _kernel_build_additional_attrs():
+    return dicts.add(
+        kernel_config_settings.of_kernel_build(),
+    )
+
 _kernel_build = rule(
     implementation = _kernel_build_impl,
     doc = "Defines a kernel build target.",
@@ -1272,8 +1279,6 @@ _kernel_build = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
-        "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
-        "_use_kmi_symbol_list_strict_mode": attr.label(default = "//build/kernel/kleaf:kmi_symbol_list_strict_mode"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
@@ -1283,7 +1288,7 @@ _kernel_build = rule(
         "trim_nonlisted_kmi": attr.bool(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
-    },
+    } | _kernel_build_additional_attrs(),
 )
 
 def _kernel_build_check_toolchain(ctx):
