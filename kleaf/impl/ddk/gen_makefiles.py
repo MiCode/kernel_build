@@ -77,6 +77,7 @@ def gen_ddk_makefile(
         kernel_module_out: pathlib.Path,
         kernel_module_srcs: list[pathlib.Path],
         include_dirs: list[pathlib.Path],
+        linux_include_dirs: list[pathlib.Path],
         module_symvers_list: list[pathlib.Path],
         package: pathlib.Path,
         local_defines: list[str],
@@ -134,6 +135,8 @@ def gen_ddk_makefile(
         rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
         rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
 
+        _handle_linux_includes(out_file, linux_include_dirs, rel_root)
+
         # At this time of writing (2022-11-01), this is the order how cc_library
         # constructs arguments to the compiler.
         _handle_defines(out_file, local_defines)
@@ -148,6 +151,21 @@ def gen_ddk_makefile(
                 # Build {package / kernel_module_out}
                 obj-y += {kernel_module_out.parent}/
                 """))
+
+
+def _handle_linux_includes(out_file: TextIO, linux_include_dirs: list[pathlib.Path],
+                           rel_root: pathlib.Path):
+    if not linux_include_dirs:
+        return
+    out_file.write("\n")
+    out_file.write(textwrap.dedent("""\
+        LINUXINCLUDE := \\
+    """))
+    for linux_include_dir in linux_include_dirs:
+        out_file.write(f"  -I$(srctree)/$(src)/{rel_root}/{linux_include_dir} \\")
+        out_file.write("\n")
+    out_file.write("  $(LINUXINCLUDE)")
+    out_file.write("\n\n")
 
 
 def _handle_defines(out_file: TextIO, local_defines: list[str]):
@@ -202,6 +220,7 @@ if __name__ == "__main__":
     parser.add_argument("--kernel-module-out", type=pathlib.Path)
     parser.add_argument("--kernel-module-srcs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--output-makefiles", type=pathlib.Path)
+    parser.add_argument("--linux-include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])

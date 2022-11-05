@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""A group of external kernel modules."""
+
 load(
     ":common_providers.bzl",
     "KernelCmdsInfo",
@@ -20,7 +22,7 @@ load(
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_headers_depset")
+load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl")
 load(":utils.bzl", "kernel_utils")
 
 def _kernel_module_group_impl(ctx):
@@ -71,7 +73,7 @@ def _kernel_module_group_impl(ctx):
         ]),
     )
 
-    ddk_headers_info = ddk_headers_common_impl(ctx.label, targets, [])
+    ddk_headers_info = ddk_headers_common_impl(ctx.label, targets, [], [])
 
     cmds_info = KernelCmdsInfo(
         directories = depset(transitive = [

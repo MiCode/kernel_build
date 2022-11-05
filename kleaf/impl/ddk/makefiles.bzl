@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:sets.bzl", "sets")
-load("@bazel_skylib//lib:shell.bzl", "shell")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
-load(":common_providers.bzl", "KernelEnvInfo", "ModuleSymversInfo")
-load(":debug.bzl", "debug")
+"""Generates Makefile and Kbuild files for a DDK module."""
+
+load(":common_providers.bzl", "ModuleSymversInfo")
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "get_include_depset")
-load(":utils.bzl", "utils")
 
 def _handle_copt(ctx):
     # copt values contains prefixing "-", so we must use --copt=-x --copt=-y to avoid confusion.
@@ -90,6 +87,14 @@ def _makefiles_impl(ctx):
         module_label,
         ctx.attr.module_deps + ctx.attr.module_hdrs,
         ctx.attr.module_includes,
+        "includes",
+    )
+
+    linux_include_dirs = get_include_depset(
+        module_label,
+        ctx.attr.module_deps + ctx.attr.module_hdrs,
+        ctx.attr.module_linux_includes,
+        "linux_includes",
     )
 
     args = ctx.actions.args()
@@ -111,6 +116,7 @@ def _makefiles_impl(ctx):
     args.add("--output-makefiles", output_makefiles.path)
     args.add("--package", ctx.label.package)
 
+    args.add_all("--linux-include-dirs", linux_include_dirs, uniquify = True)
     args.add_all("--include-dirs", include_dirs, uniquify = True)
 
     args.add_all(
@@ -146,6 +152,7 @@ makefiles = rule(
         "module_srcs": attr.label_list(allow_files = [".c", ".h", ".s", ".rs"]),
         "module_hdrs": attr.label_list(allow_files = [".h"]),
         "module_includes": attr.string_list(),
+        "module_linux_includes": attr.string_list(),
         "module_deps": attr.label_list(),
         "module_out": attr.string(),
         "module_local_defines": attr.string_list(),
