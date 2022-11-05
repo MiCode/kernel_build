@@ -550,6 +550,13 @@ def _path_or_empty(file):
         return ""
     return file.path
 
+def _progress_message_suffix(ctx):
+    """Returns suffix for all progress messages for kernel_build."""
+    return "{}{}".format(
+        ctx.attr.config[KernelEnvAttrInfo].progress_message_note,
+        ctx.label,
+    )
+
 def _create_kbuild_mixed_tree(ctx):
     """Adds actions that creates the `KBUILD_MIXED_TREE`."""
     base_kernel_files = depset()
@@ -581,7 +588,7 @@ def _create_kbuild_mixed_tree(ctx):
             mnemonic = "KernelBuildKbuildMixedTree",
             inputs = depset(ctx.attr._hermetic_tools[HermeticToolsInfo].deps, transitive = [base_kernel_files]),
             outputs = [kbuild_mixed_tree],
-            progress_message = "Creating KBUILD_MIXED_TREE",
+            progress_message = "Creating KBUILD_MIXED_TREE {}".format(_progress_message_suffix(ctx)),
             command = kbuild_mixed_tree_command,
         )
 
@@ -1026,7 +1033,7 @@ def _build_main_action(
         inputs = depset(_uniq(inputs), transitive = transitive_inputs),
         outputs = command_outputs,
         tools = _uniq(tools),
-        progress_message = "Building kernel %s" % ctx.attr.name,
+        progress_message = "Building kernel {}".format(_progress_message_suffix(ctx)),
         command = command,
     )
 
@@ -1372,7 +1379,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             inputs = [base_toolchain_file] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
             outputs = [out],
             command = command,
-            progress_message = "Checking toolchain version against base kernel {}".format(ctx.label),
+            progress_message = "Checking toolchain version against base kernel {}".format(_progress_message_suffix(ctx)),
         )
         return [out]
     return []
@@ -1435,7 +1442,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         inputs = inputs,
         outputs = [out],
         command = command,
-        progress_message = "Checking for kmi_symbol_list_strict_mode {}".format(ctx.label),
+        progress_message = "Checking for kmi_symbol_list_strict_mode {}".format(_progress_message_suffix(ctx)),
     )
     return out
 
@@ -1500,7 +1507,7 @@ def _repack_modules_staging_archive(
         ],
         outputs = [modules_staging_archive],
         tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
-        progress_message = "Repackaging module_staging_archive {}".format(ctx.label),
+        progress_message = "Repackaging module_staging_archive {}".format(_progress_message_suffix(ctx)),
         command = cmd,
     )
     return modules_staging_archive

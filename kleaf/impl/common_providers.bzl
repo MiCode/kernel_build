@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Providers that are provided by multiple rules in different extensions.
+"""Providers that are provided by multiple rules in different extensions."""
 
 KernelCmdsInfo = provider(
     doc = """Provides a directory of `.cmd` files.""",
@@ -39,6 +39,8 @@ KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
+        "progress_message_note": """A note in the progress message that differentiates multiple
+            instances of the same action due to different configs.""",
     },
 )
 

@@ -153,12 +153,14 @@ def _kernel_env_impl(ctx):
         config_tags = shell.quote("# " + config_tags),
     )
 
+    progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
+
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelEnv",
         inputs = inputs,
         outputs = [out_file],
-        progress_message = "Creating build environment for %s" % ctx.attr.name,
+        progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),
         command = command,
     )
 
@@ -239,6 +241,7 @@ def _kernel_env_impl(ctx):
         ),
         KernelEnvAttrInfo(
             kbuild_symtypes = kbuild_symtypes,
+            progress_message_note = progress_message_note,
         ),
         DefaultInfo(files = depset([out_file])),
     ]

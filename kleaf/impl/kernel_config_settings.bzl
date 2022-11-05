@@ -84,9 +84,57 @@ def _kernel_env_get_out_dir_suffix(ctx):
     ret = sorted(sets.to_list(sets.make(ret)))
     return paths.join(*ret)
 
+# Map of config settings to shortened names
+_PROGRESS_MESSAGE_SETTINGS_MAP = {
+    "force_add_vmlinux": "with_vmlinux",
+    "force_ignore_base_kernel": "",  # already covered by with_vmlinux
+    "trim_nonlisted_kmi_setting": "trim",
+    "kmi_symbol_list_strict_mode": "",  # Hide because not interesting
+}
+
+# List of settings that are always included in progress message
+_PROGRESS_MESSAGE_INTERESTING_SETTINGS = [
+    "trim_nonlisted_kmi_setting",
+]
+
+def _get_progress_message_note(ctx):
+    """Returns a description text for progress message.
+
+    This is a shortened and human-readable version of `kernel_env_get_out_dir_suffix`.
+    """
+    attr_to_label = _kernel_env_config_settings_raw()
+
+    ret = []
+    for attr_name in attr_to_label:
+        attr_target = getattr(ctx.attr, attr_name)
+        attr_label_name = attr_target.label.name
+        print_attr_label_name = _PROGRESS_MESSAGE_SETTINGS_MAP.get(attr_label_name, attr_label_name)
+
+        # In _SETTINGS_MAP but value is set to empty to ignore it
+        if not print_attr_label_name:
+            continue
+
+        attr_val = attr_target[BuildSettingInfo].value
+
+        # Empty values that are not interesting enough are dropped
+        if not attr_val and attr_label_name not in _PROGRESS_MESSAGE_INTERESTING_SETTINGS:
+            continue
+        if attr_val == True:
+            ret.append(print_attr_label_name)
+        elif attr_val == False:
+            ret.append("no{}".format(print_attr_label_name))
+        else:
+            ret.append("{}={}".format(print_attr_label_name, attr_val))
+    ret = sorted(sets.to_list(sets.make(ret)))
+    ret = ";".join(ret)
+    if ret:
+        ret = "({}) ".format(ret)
+    return ret
+
 kernel_config_settings = struct(
     of_kernel_build = _kernel_build_config_settings,
     of_kernel_config = _kernel_config_config_settings,
     of_kernel_env = _kernel_env_config_settings,
     kernel_env_get_out_dir_suffix = _kernel_env_get_out_dir_suffix,
+    get_progress_message_note = _get_progress_message_note,
 )

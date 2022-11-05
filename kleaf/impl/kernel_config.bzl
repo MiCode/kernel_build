@@ -241,7 +241,10 @@ def _kernel_config_impl(ctx):
         inputs = inputs,
         outputs = [config, include_dir],
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
-        progress_message = "Creating kernel config %s" % ctx.attr.name,
+        progress_message = "Creating kernel config {}{}".format(
+            ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
         command = command,
     )
 
