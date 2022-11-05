@@ -83,7 +83,6 @@ def kernel_build(
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
-        internal_additional_make_goals = None,
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
@@ -147,9 +146,6 @@ def kernel_build(
               srcs = aarch64_outs,
             )
             ```
-        internal_additional_make_goals: **INTERNAL ONLY; DO NOT SET!**
-
-          List of items added to `MAKE_GOALS`.
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
           symbols, but contains type and symbol information within a .BTF section.
           This is suitable for ABI analysis through BTF.
@@ -380,7 +376,6 @@ def kernel_build(
         srcs = srcs,
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
-        internal_additional_make_goals = internal_additional_make_goals,
         **internal_kwargs
     )
 

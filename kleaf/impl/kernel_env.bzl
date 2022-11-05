@@ -133,9 +133,7 @@ def _kernel_env_impl(ctx):
 
     command += stamp.set_localversion_cmd(ctx)
 
-    # TODO(b/237706175): drop internal_additional_make_goals
-    additional_make_goals = [] + ctx.attr.internal_additional_make_goals
-    additional_make_goals += force_add_vmlinux_utils.additional_make_goals(ctx)
+    additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
 
     command += """
         # create a build environment
@@ -326,7 +324,6 @@ kernel_env = rule(
             default = "auto",
             values = ["true", "false", "auto"],
         ),
-        "internal_additional_make_goals": attr.string_list(),
         "_tools": attr.label_list(default = _get_tools),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
