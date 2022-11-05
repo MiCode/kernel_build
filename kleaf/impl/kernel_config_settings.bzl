@@ -26,6 +26,11 @@ In particular:
 - --config=stamp is not in these lists because it is mutually exclusive with --config=local.
 """
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
 def _kernel_build_config_settings_raw():
     return {
         "_preserve_cmd": "//build/kernel/kleaf/impl:preserve_cmd",
@@ -51,9 +56,13 @@ def _kernel_config_config_settings():
     }
 
 def _kernel_env_config_settings_raw():
-    return {
-        "_kbuild_symtypes_flag": "//build/kernel/kleaf:kbuild_symtypes",
-    }
+    return dicts.add(
+        _kernel_build_config_settings_raw(),
+        _kernel_config_config_settings_raw(),
+        {
+            "_kbuild_symtypes_flag": "//build/kernel/kleaf:kbuild_symtypes",
+        },
+    )
 
 def _kernel_env_config_settings():
     return {
@@ -61,8 +70,23 @@ def _kernel_env_config_settings():
         for attr_name, label in _kernel_env_config_settings_raw().items()
     }
 
+def _kernel_env_get_out_dir_suffix(ctx):
+    """Returns `OUT_DIR_SUFFIX` for `kernel_env`."""
+    attr_to_label = _kernel_env_config_settings_raw()
+
+    ret = []
+    for attr_name in attr_to_label:
+        attr_target = getattr(ctx.attr, attr_name)
+        attr_label_name = attr_target.label.name
+        attr_val = attr_target[BuildSettingInfo].value
+        item = "{}_{}".format(attr_label_name, attr_val)
+        ret.append(item)
+    ret = sorted(sets.to_list(sets.make(ret)))
+    return paths.join(*ret)
+
 kernel_config_settings = struct(
     of_kernel_build = _kernel_build_config_settings,
     of_kernel_config = _kernel_config_config_settings,
     of_kernel_env = _kernel_env_config_settings,
+    kernel_env_get_out_dir_suffix = _kernel_env_get_out_dir_suffix,
 )

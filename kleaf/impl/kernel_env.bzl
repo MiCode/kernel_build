@@ -15,6 +15,7 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -115,9 +116,14 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
+    config_tags = kernel_config_settings.kernel_env_get_out_dir_suffix(ctx)
+    out_dir_suffix = paths.join(
+        utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"),
+        config_tags,
+    )
     command += """
-          export OUT_DIR_SUFFIX={name}
-    """.format(name = utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"))
+          export OUT_DIR_SUFFIX={}
+    """.format(out_dir_suffix)
 
     set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
     command += set_source_date_epoch_ret.cmd

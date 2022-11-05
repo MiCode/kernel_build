@@ -707,14 +707,13 @@ def _get_cache_dir_step(ctx):
         if not ctx.attr._cache_dir[BuildSettingInfo].value:
             fail("--config=local requires --cache_dir.")
         cache_dir_cmd = """
-              KLEAF_CACHED_OUT_DIR={cache_dir}/{name}
+              KLEAF_CACHED_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
               mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
               rsync -aL "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
               export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
               unset KLEAF_CACHED_OUT_DIR
         """.format(
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
-            name = utils.sanitize_label_as_filename(ctx.label),
         )
     return struct(inputs = [], tools = [], cmd = cache_dir_cmd, outputs = [])
 
