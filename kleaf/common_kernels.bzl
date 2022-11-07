@@ -958,7 +958,6 @@ def define_db845c(
             # Mixed build: Additional GKI artifacts.
             ":kernel_aarch64",
             ":kernel_aarch64_additional_artifacts",
-            ":kernel_aarch64_modules",
             name + "_merged_kernel_uapi_headers",
         ],
         dist_dir = dist_dir,
