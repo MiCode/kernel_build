@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Utilities for kleaf.
+"""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -37,7 +41,17 @@ def _getoptattr(thing, attr, default_value = None):
     return default_value
 
 def find_file(name, files, what, required = False):
-    """Find a file named |name| in the list of |files|. Expect zero or one match."""
+    """Find a file named |name| in the list of |files|. Expect zero or one match.
+
+    Args:
+        name: Name of the file to be searched.
+        files: List of files.
+        what: Target.
+        required: whether to fail if a non exact result is produced.
+
+    Returns:
+        A match when found or `None`.
+    """
     result = []
     for file in files:
         if file.basename == name:
@@ -52,10 +66,15 @@ def find_file(name, files, what, required = False):
         ))
     return result[0] if result else None
 
-def find_files(files, what, suffix = None):
-    """Find files with given condition. The following conditions are accepted:
+def find_files(files, suffix = None):
+    """Find files which names end with a given |suffix|.
 
-    - Looking for files ending with a given suffix.
+    Args:
+        files: list of files to inspect.
+        suffix: Looking for files ending with this given suffix.
+
+    Returns:
+        A list of files.
     """
     result = []
     for file in files:
