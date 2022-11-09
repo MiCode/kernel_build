@@ -891,6 +891,7 @@ def define_db845c(
         build_config = None,
         module_outs = None,
         kmi_symbol_list = None,
+        gki_modules_list = None,
         dist_dir = None):
     """Define target for db845c.
 
@@ -906,11 +907,16 @@ def define_db845c(
         module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
           in-tree kernel modules.
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
+        gki_modules_list: List of gki modules to be copied to the dist directory.
+          If `None`, all gki kernel modules will be copied.
         dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{BRANCH}/dist"`.
     """
 
     if build_config == None:
         build_config = "build.config.db845c"
+
+    if gki_modules_list == None:
+        gki_modules_list = [":kernel_aarch64_modules"]
 
     if dist_dir == None:
         dist_dir = "out/{branch}/dist".format(branch = BRANCH)
@@ -949,17 +955,19 @@ def define_db845c(
         kernel_modules_install = name + "_modules_install",
     )
 
+    dist_targets = [
+        name,
+        name + "_images",
+        name + "_modules_install",
+        # Mixed build: Additional GKI artifacts.
+        ":kernel_aarch64",
+        ":kernel_aarch64_additional_artifacts",
+        name + "_merged_kernel_uapi_headers",
+    ]
+
     copy_to_dist_dir(
         name = name + "_dist",
-        data = [
-            name,
-            name + "_images",
-            name + "_modules_install",
-            # Mixed build: Additional GKI artifacts.
-            ":kernel_aarch64",
-            ":kernel_aarch64_additional_artifacts",
-            name + "_merged_kernel_uapi_headers",
-        ],
+        data = dist_targets + gki_modules_list,
         dist_dir = dist_dir,
         flat = True,
         log = "info",
