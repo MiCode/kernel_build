@@ -112,18 +112,19 @@ def _scmversion_config_cmd(ctx):
         make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} olddefconfig
     """
 
-def _get_ext_mod_scmversion(ctx):
+def _get_ext_mod_scmversion(ctx, ext_mod):
     """Return command and inputs to get the SCM version for an external module.
 
     Args:
         ctx: [ctx](https://bazel.build/rules/lib/ctx)
+        ext_mod: Defines the directory of the external module
     """
     if not ctx.attr._config_is_stamp[BuildSettingInfo].value:
         return struct(deps = [], cmd = "")
 
     # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
     scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
-    scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ctx.label.package)
+    scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ext_mod)
 
     # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
     # should not run on KERNEL_DIR. However, for STABLE_SCMVERSION_EXT_MOD,
@@ -132,7 +133,7 @@ def _get_ext_mod_scmversion(ctx):
     scmversion_cmd += " || true"
 
     return struct(deps = [ctx.info_file], cmd = _get_scmversion_cmd(
-        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ctx.label.package),
+        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ext_mod),
         scmversion = "$({})".format(scmversion_cmd),
     ))
 
