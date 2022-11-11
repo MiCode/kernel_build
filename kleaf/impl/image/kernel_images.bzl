@@ -64,8 +64,8 @@ def kernel_images(
 
           The main kernel build is inferred from the `kernel_build` attribute of the
           specified `kernel_modules_install` rule. The main kernel build must contain
-          `System.map` in `outs` (which is included if you use `aarch64_outs` or
-          `x86_64_outs` from `common_kernels.bzl`).
+          `System.map` in `outs` (which is included if you use `DEFAULT_GKI_OUTS` or
+          `X86_64_OUTS` from `common_kernels.bzl`).
         kernel_build: A `kernel_build` rule. Must specify if `build_boot`.
         mkbootimg: Path to the mkbootimg.py script which builds boot.img.
           Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot`. If `None`,

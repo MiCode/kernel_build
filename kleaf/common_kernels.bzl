@@ -43,9 +43,9 @@ load(
 load(
     ":constants.bzl",
     "CI_TARGET_MAPPING",
+    "DEFAULT_GKI_OUTS",
     "GKI_DOWNLOAD_CONFIGS",
-    "aarch64_outs",
-    "x86_64_outs",
+    "X86_64_OUTS",
 )
 load(":print_debug.bzl", "print_debug")
 load("@kernel_toolchain_info//:dict.bzl", "BRANCH", "common_kernel_package")
@@ -54,33 +54,38 @@ _ARCH_CONFIGS = {
     "kernel_aarch64": {
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64",
-        "outs": aarch64_outs,
+        "outs": DEFAULT_GKI_OUTS,
     },
     "kernel_aarch64_16k": {
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64.16k",
-        "outs": aarch64_outs,
+        "outs": DEFAULT_GKI_OUTS,
     },
     "kernel_aarch64_interceptor": {
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64",
-        "outs": aarch64_outs,
+        "outs": DEFAULT_GKI_OUTS,
         "enable_interceptor": True,
     },
     "kernel_aarch64_debug": {
         "arch": "arm64",
         "build_config": "build.config.gki-debug.aarch64",
-        "outs": aarch64_outs,
+        "outs": DEFAULT_GKI_OUTS,
+    },
+    "kernel_riscv64": {
+        "arch": "riscv64",
+        "build_config": "build.config.gki.riscv64",
+        "outs": DEFAULT_GKI_OUTS,
     },
     "kernel_x86_64": {
         "arch": "x86_64",
         "build_config": "build.config.gki.x86_64",
-        "outs": x86_64_outs,
+        "outs": X86_64_OUTS,
     },
     "kernel_x86_64_debug": {
         "arch": "x86_64",
         "build_config": "build.config.gki-debug.x86_64",
-        "outs": x86_64_outs,
+        "outs": X86_64_OUTS,
     },
 }
 
@@ -140,6 +145,20 @@ def _default_target_configs():
         },
     }
 
+    # Common configs for riscv64
+    riscv64_common = {
+        # Assume BUILD_GKI_ARTIFACTS=1
+        "build_gki_artifacts": True,
+        "gki_boot_img_sizes": {
+            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
+            "": "67108864",
+            # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
+            "lz4": "53477376",
+            # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
+            "gz": "47185920",
+        },
+    }
+
     # Common configs for x86_64 and x86_64_debug
     x86_64_common = {
         # Assume BUILD_GKI_ARTIFACTS=1
@@ -164,6 +183,10 @@ def _default_target_configs():
         },
         "kernel_aarch64_debug": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
+            "trim_nonlisted_kmi": False,
+        }),
+        "kernel_riscv64": dicts.add(riscv64_common, {
+            # Assume TRIM_NONLISTED_KMI="" in build.config.gki.riscv64
             "trim_nonlisted_kmi": False,
         }),
         "kernel_x86_64": x86_64_common,
@@ -210,6 +233,8 @@ def define_common_kernels(
       - `kernel_aarch64_modules`
     - `kernel_aarch64_debug_dist`
       - `kernel_aarch64_debug`
+    - `kernel_riscv64_dist`
+      - `kernel_riscv64`
     - `kernel_x86_64_sources`
     - `kernel_x86_64_dist`
       - `kernel_x86_64`
@@ -218,7 +243,7 @@ def define_common_kernels(
     - `kernel_x86_64_debug_dist`
       - `kernel_x86_64_debug`
 
-    `<name>` (aka `kernel_{aarch64,x86}{_16k,_debug}`) targets build the
+    `<name>` (aka `kernel_{aarch64,riscv64,x86_64}{_16k,_debug}`) targets build the
     main kernel build artifacts, e.g. `vmlinux`, etc.
 
     `<name>_sources` are convenience filegroups that refers to all sources required to
@@ -244,6 +269,8 @@ def define_common_kernels(
     Targets declared for Bazel rules analysis for debugging purposes:
     - `kernel_aarch64_print_configs`
     - `kernel_aarch64_debug_print_configs`
+    - `kernel_riscv64_print_configs`
+    - `kernel_riscv64_debug_print_configs`
     - `kernel_x86_64_print_configs`
     - `kernel_x86_64_debug_print_configs`
 
@@ -304,7 +331,7 @@ def define_common_kernels(
         configuration for this target.
 
         The content of `target_configs` should match the following variables in
-        `build.config.gki{,-debug}.{aarch64,x86_64}`:
+        `build.config.gki{,-debug}.{aarch64,riscv64,x86_64}`:
         - `KMI_SYMBOL_LIST`
         - `ADDITIONAL_KMI_SYMBOL_LISTS`
         - `TRIM_NONLISTED_KMI`
@@ -317,6 +344,7 @@ def define_common_kernels(
         - `kernel_aarch64`
         - `kernel_aarch64_16k`
         - `kernel_aarch64_debug`
+        - `kernel_riscv64`
         - `kernel_x86_64`
         - `kernel_x86_64_debug`
 
@@ -374,6 +402,10 @@ def define_common_kernels(
           - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
           - `TRIM_NONLISTED_KMI=""` in `build.config`
           - `KMI_SYMBOL_LIST_STRICT_MODE=""` in `build.config`
+        - `kernel_riscv64`:
+          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
+          - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
         - `kernel_x86_64`:
           - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
           - `TRIM_NONLISTED_KMI` is not specified in `build.config`
@@ -406,6 +438,8 @@ def define_common_kernels(
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
                 "trim_nonlisted_kmi": False,
             },
+            "kernel_riscv64": {
+            },
             "kernel_x86_64": {
             },
             "kernel_x86_64_debug": {
@@ -431,6 +465,9 @@ def define_common_kernels(
         |-----------------------------------|--------------|
         |`kernel_aarch64_debug`             |NO TRIM       |
         |(`trim_nonlisted_kmi=False`)       |              |
+        |-----------------------------------|--------------|
+        |`kernel_riscv64`                   |NO TRIM       |
+        |(`trim_nonlisted_kmi=None`)        |              |
         |-----------------------------------|--------------|
         |`kernel_x86_64`                    |NO TRIM       |
         |(`trim_nonlisted_kmi=None`)        |              |

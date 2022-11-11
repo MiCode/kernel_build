@@ -140,10 +140,10 @@ def kernel_build(
           - `//common:kernel_{arch}`
           - A `kernel_filegroup` rule, e.g.
             ```
-            load("//build/kernel/kleaf:constants.bzl, "aarch64_outs")
+            load("//build/kernel/kleaf:constants.bzl, "DEFAULT_GKI_OUTS")
             kernel_filegroup(
               name = "my_kernel_filegroup",
-              srcs = aarch64_outs,
+              srcs = DEFAULT_GKI_OUTS,
             )
             ```
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
