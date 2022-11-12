@@ -32,10 +32,16 @@ _common_outs = [
 ]
 
 # Common output files for aarch64 kernel builds.
-aarch64_outs = _common_outs + AARCH64_IMAGES
+AARCH64_OUTS = _common_outs + AARCH64_IMAGES
 
 # Common output files for x86_64 kernel builds.
-x86_64_outs = _common_outs + ["bzImage"]
+X86_64_OUTS = _common_outs + ["bzImage"]
+
+# Deprecated; use AARCH64_OUTS
+aarch64_outs = AARCH64_OUTS
+
+# Deprecated; use X86_64_OUTS
+x86_64_outs = X86_64_OUTS
 
 # See common_kernels.bzl and download_repo.bzl.
 # - mandatory: If False, download errors are ignored. Default is True; see workspace.bzl
