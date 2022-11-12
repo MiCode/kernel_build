@@ -38,11 +38,6 @@ load(":debug.bzl", "debug")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
 
-_sibling_names = [
-    "notrim",
-    "with_vmlinux",
-]
-
 def kernel_module(
         name,
         kernel_build,
@@ -176,29 +171,6 @@ def kernel_module(
         modules = [name],
         tags = kwargs.get("tags"),
     )
-
-    # Define external module for sibling kernel_build's.
-    # It may be possible to optimize this to alias some of them with the same
-    # kernel_build, but we don't have a way to get this information in
-    # the load phase right now.
-    for sibling_name in _sibling_names:
-        sibling_kwargs = dict(kwargs)
-        sibling_target_name = name + "_" + sibling_name
-        sibling_kwargs["name"] = sibling_target_name
-        sibling_kwargs["outs"] = ["{sibling_target_name}/{out}".format(sibling_target_name = sibling_target_name, out = out) for out in sibling_kwargs["outs"]]
-
-        # This assumes the target is a kernel_build_abi with define_abi_targets
-        # etc., which may not be the case. See below for adding "manual" tag.
-        # TODO(b/231647455): clean up dependencies on implementation details.
-        sibling_kwargs["kernel_build"] = sibling_kwargs["kernel_build"] + "_" + sibling_name
-        if sibling_kwargs.get("deps") != None:
-            sibling_kwargs["deps"] = [dep + "_" + sibling_name for dep in sibling_kwargs["deps"]]
-
-        # We don't know if {kernel_build}_{sibling_name} exists or not, so
-        # add "manual" tag to prevent it from being built by default.
-        sibling_kwargs["tags"] = sibling_kwargs.get("tags", []) + ["manual"]
-
-        _kernel_module(**sibling_kwargs)
 
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """Check that kernel_modules have the same kernel_build as the given one.

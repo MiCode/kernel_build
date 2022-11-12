@@ -20,9 +20,12 @@ load(
     "KernelUnstrippedModulesInfo",
 )
 load(":debug.bzl", "debug")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
+load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 
 def _abi_dump_impl(ctx):
+    kernel_utils.check_kernel_build(ctx.attr.kernel_modules, ctx.attr.kernel_build, ctx.label)
+
     full_abi_out_file = _abi_dump_full(ctx)
     abi_out_file = _abi_dump_filtered(ctx, full_abi_out_file)
     return [
@@ -140,5 +143,9 @@ abi_dump = rule(
         "_filter_abi": attr.label(default = "//build/kernel:abi/filter_abi", allow_single_file = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
+    cfg = with_vmlinux_transition,
 )

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Providers that are provided by multiple rules in different extensions.
+"""Providers that are provided by multiple rules in different extensions."""
 
 KernelCmdsInfo = provider(
     doc = """Provides a directory of `.cmd` files.""",
@@ -39,6 +39,8 @@ KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
+        "progress_message_note": """A note in the progress message that differentiates multiple
+            instances of the same action due to different configs.""",
     },
 )
 
@@ -88,6 +90,9 @@ KernelBuildAbiInfo = provider(
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
         "modules_staging_archive": "Archive containing staging kernel modules. ",
+        "base_modules_staging_archive": "Archive containing staging kernel modules of the base kernel",
+        "src_kmi_symbol_list": """Source file for `kmi_symbol_list` that points to the symbol list
+                                  to be updated by `--update_symbol_list`""",
     },
 )
 

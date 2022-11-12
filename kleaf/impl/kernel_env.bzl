@@ -12,15 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Source-able build environment for kernel build."""
+
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
 load(":debug.bzl", "debug")
+load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
@@ -111,9 +118,14 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
+    config_tags = kernel_config_settings.kernel_env_get_out_dir_suffix(ctx)
+    out_dir_suffix = paths.join(
+        utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"),
+        config_tags,
+    )
     command += """
-          export OUT_DIR_SUFFIX={name}
-    """.format(name = utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"))
+          export OUT_DIR_SUFFIX={}
+    """.format(out_dir_suffix)
 
     set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
     command += set_source_date_epoch_ret.cmd
@@ -121,30 +133,39 @@ def _kernel_env_impl(ctx):
 
     command += stamp.set_localversion_cmd(ctx)
 
+    # TODO(b/237706175): drop internal_additional_make_goals
+    additional_make_goals = [] + ctx.attr.internal_additional_make_goals
+    additional_make_goals += force_add_vmlinux_utils.additional_make_goals(ctx)
+
     command += """
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
           source {setup_env}
         # Add to MAKE_GOALS if necessary
-          export MAKE_GOALS="${{MAKE_GOALS}} {internal_additional_make_goals}"
+          export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
+        # Add a comment with config_tags for debugging
+          echo {config_tags} > {out}
         # capture it as a file to be sourced in downstream rules
-          {preserve_env} > {out}
+          {preserve_env} >> {out}
         """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
         setup_env = setup_env.path,
-        internal_additional_make_goals = " ".join(ctx.attr.internal_additional_make_goals),
+        additional_make_goals = " ".join(additional_make_goals),
         preserve_env = preserve_env.path,
         out = out_file.path,
+        config_tags = shell.quote("# " + config_tags),
     )
+
+    progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelEnv",
         inputs = inputs,
         outputs = [out_file],
-        progress_message = "Creating build environment for %s" % ctx.attr.name,
+        progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),
         command = command,
     )
 
@@ -225,6 +246,7 @@ def _kernel_env_impl(ctx):
         ),
         KernelEnvAttrInfo(
             kbuild_symtypes = kbuild_symtypes,
+            progress_message_note = progress_message_note,
         ),
         DefaultInfo(files = depset([out_file])),
     ]
@@ -243,6 +265,11 @@ def _get_tools(toolchain_version):
             clang_binaries,
         )
     ]
+
+def _kernel_env_additional_attrs():
+    return dicts.add(
+        kernel_config_settings.of_kernel_env(),
+    )
 
 kernel_env = rule(
     implementation = _kernel_env_impl,
@@ -311,8 +338,7 @@ kernel_env = rule(
         ),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
-        "_kbuild_symtypes_flag": attr.label(default = "//build/kernel/kleaf:kbuild_symtypes"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
-    },
+    } | _kernel_env_additional_attrs(),
 )
