@@ -33,6 +33,7 @@ build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
 build --flag_alias=kasan=//build/kernel/kleaf:kasan
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers
 build --flag_alias=nokmi_symbol_list_strict_mode=no//build/kernel/kleaf:kmi_symbol_list_strict_mode
+build --flag_alias=gcov=//build/kernel/kleaf:gcov
 
 # add a flag alias to allow passing --debug_* flags
 build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts

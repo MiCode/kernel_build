@@ -42,6 +42,7 @@ def _kernel_build_config_settings_raw():
         {
             "_preserve_cmd": "//build/kernel/kleaf/impl:preserve_cmd",
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
+            "_gcov": "//build/kernel/kleaf:gcov",
         },
     )
 
@@ -57,6 +58,7 @@ def _kernel_config_config_settings_raw():
         {
             "kasan": "//build/kernel/kleaf:kasan",
             "lto": "//build/kernel/kleaf:lto",
+            "gcov": "//build/kernel/kleaf:gcov",
         },
     )
 

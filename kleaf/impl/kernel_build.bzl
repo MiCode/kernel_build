@@ -835,6 +835,29 @@ def _get_grab_symtypes_step(ctx):
         outputs = outputs,
     )
 
+def _get_grab_gcno_step(ctx):
+    """Returns a step for grabbing the `*.gcno`files from `OUT_DIR`.
+
+    Returns:
+      A struct with fields (inputs, tools, outputs, cmd)
+    """
+    grab_gcno_cmd = ""
+    outputs = []
+    if ctx.attr._gcov[BuildSettingInfo].value:
+        gcno_dir = ctx.actions.declare_directory("{name}/gcno".format(name = ctx.label.name))
+        outputs.append(gcno_dir)
+        grab_gcno_cmd = """
+            rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
+        """.format(
+            gcno_dir = gcno_dir.path,
+        )
+    return struct(
+        inputs = [],
+        tools = [],
+        cmd = grab_gcno_cmd,
+        outputs = outputs,
+    )
+
 def get_grab_cmd_step(ctx, src_dir):
     """Returns a step for grabbing the `*.cmd` from `src_dir`.
 
@@ -920,6 +943,7 @@ def _build_main_action(
         all_module_basenames_file = all_module_basenames_file,
     )
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
+    grab_gcno_step = _get_grab_gcno_step(ctx)
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
     steps = (
         interceptor_step,
@@ -927,6 +951,7 @@ def _build_main_action(
         grab_intree_modules_step,
         grab_unstripped_modules_step,
         grab_symtypes_step,
+        grab_gcno_step,
         grab_cmd_step,
     )
 
@@ -964,6 +989,8 @@ def _build_main_action(
            tar czf {modules_staging_archive_self} -C {modules_staging_dir} .
          # Grab *.symtypes
            {grab_symtypes_cmd}
+         # Grab *.gcno files
+           {grab_gcno_step_cmd}
          # Grab *.cmd
            {grab_cmd_cmd}
          # Grab in-tree modules
@@ -998,6 +1025,7 @@ def _build_main_action(
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_modules_step.cmd,
         grab_symtypes_cmd = grab_symtypes_step.cmd,
+        grab_gcno_step_cmd = grab_gcno_step.cmd,
         grab_cmd_cmd = grab_cmd_step.cmd,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
