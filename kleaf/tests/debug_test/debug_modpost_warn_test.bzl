@@ -18,13 +18,12 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
-load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 def _modpost_warn_module_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    action = test_utils.find_action(env, "KernelModule" + kernel_utils.local_mnemonic_suffix(ctx))
+    action = test_utils.find_action(env, "KernelModule")
     script = test_utils.get_shell_script(env, action)
 
     asserts.true(
