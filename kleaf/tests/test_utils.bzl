@@ -34,6 +34,23 @@ def _find_action(env, mnemonic, actions = None):
     asserts.true(env, False, "No matching action with mnemonic {} found".format(mnemonic))
     return None
 
+def _find_output(action, basename):
+    """Finds the output with the given basename from the given action.
+
+    Args:
+        env: env
+        action: The action that expects to produce the output
+        basename: The expected basename of the output
+
+    Returns:
+        The output file, or None if not found.
+    """
+    for output in action.outputs.to_list():
+        if output.basename == basename:
+            return output
+
+    return None
+
 def _get_shell_script(env, action):
     """Assuming the action is a `run_shell`, returns the script.
 
@@ -47,5 +64,6 @@ def _get_shell_script(env, action):
 
 test_utils = struct(
     find_action = _find_action,
+    find_output = _find_output,
     get_shell_script = _get_shell_script,
 )

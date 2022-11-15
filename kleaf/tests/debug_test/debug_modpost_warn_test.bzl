@@ -32,12 +32,9 @@ def _modpost_warn_module_test_impl(ctx):
         "Can't find KBUILD_MODPOST_WARN=1 in script",
     )
 
-    found_log = False
-    for output in action.outputs.to_list():
-        if not output.is_directory and output.basename == "make_stderr.txt":
-            found_log = True
-            break
-    asserts.true(env, found_log, "Can't find make_stderr.txt in outputs")
+    log_file = test_utils.find_output(action, "make_stderr.txt")
+    asserts.true(env, log_file, "Cannot find make_stderr.txt from output")
+    asserts.true(env, not log_file.is_directory)
 
     return analysistest.end(env)
 
