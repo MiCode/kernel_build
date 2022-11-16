@@ -312,6 +312,8 @@ def ddk_module(
         name = name,
         kernel_build = kernel_build,
         srcs = [],
+        # Set it to empty list, not None, so kernel_module() doesn't fallback to {name}.ko.
+        # _kernel_module_impl infers the list of outs from internal_ddk_makefiles_dir.
         outs = [],
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
         # This is used in build_cleaner.

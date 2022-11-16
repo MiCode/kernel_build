@@ -85,6 +85,7 @@ def _makefiles_impl(ctx):
 
     split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.module_deps, module_label)
     kernel_module_deps = split_deps.kernel_modules
+    submodule_deps = split_deps.submodules
 
     include_dirs = get_include_depset(
         module_label,
@@ -138,9 +139,12 @@ def _makefiles_impl(ctx):
     copt_file = _handle_copt(ctx)
     args.add("--copt-file", copt_file)
 
+    submodule_makefiles = depset(transitive = [dep.files for dep in submodule_deps])
+    args.add_all("--submodule-makefiles", submodule_makefiles, expand_directories = False)
+
     ctx.actions.run(
         mnemonic = "DdkMakefiles",
-        inputs = [copt_file],
+        inputs = depset([copt_file], transitive = [submodule_makefiles]),
         outputs = [output_makefiles],
         executable = ctx.executable._gen_makefile,
         arguments = [args],
@@ -150,15 +154,20 @@ def _makefiles_impl(ctx):
     outs_depset_direct = []
     if ctx.attr.module_out:
         outs_depset_direct.append(struct(out = ctx.attr.module_out, src = ctx.label))
+    outs_depset_transitive = [dep[DdkSubmoduleInfo].outs for dep in submodule_deps]
 
     srcs_depset_transitive = [target.files for target in ctx.attr.module_srcs]
+    srcs_depset_transitive += [dep[DdkSubmoduleInfo].srcs for dep in submodule_deps]
 
     # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
     srcs_depset_transitive += [get_headers_depset(ctx.attr.module_hdrs)]
 
     ddk_headers_info = ddk_headers_common_impl(
         ctx.label,
-        ctx.attr.module_hdrs,
+        # hdrs of the ddk_module + hdrs of submodules
+        ctx.attr.module_hdrs + submodule_deps,
+        # includes of the ddk_module. The includes of submodules are handled by adding
+        # them to hdrs.
         ctx.attr.module_includes,
         # linux_includes are not exported to targets depended on this module.
         [],
@@ -167,9 +176,9 @@ def _makefiles_impl(ctx):
     return [
         DefaultInfo(files = depset([output_makefiles])),
         DdkSubmoduleInfo(
-            outs = depset(outs_depset_direct),
+            outs = depset(outs_depset_direct, transitive = outs_depset_transitive),
             srcs = depset(transitive = srcs_depset_transitive),
-            deps = depset(ctx.attr.module_deps),
+            deps = depset(ctx.attr.module_deps, transitive = [dep[DdkSubmoduleInfo].deps for dep in submodule_deps]),
         ),
         ddk_headers_info,
     ]
