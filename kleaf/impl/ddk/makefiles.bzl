@@ -14,7 +14,11 @@
 
 """Generates Makefile and Kbuild files for a DDK module."""
 
-load(":common_providers.bzl", "ModuleSymversInfo")
+load(
+    ":common_providers.bzl",
+    "DdkSubmoduleInfo",
+    "ModuleSymversInfo",
+)
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "get_include_depset")
 load(":utils.bzl", "kernel_utils")
 
@@ -137,7 +141,16 @@ def _makefiles_impl(ctx):
         progress_message = "Generating Makefile {}".format(ctx.label),
     )
 
-    return DefaultInfo(files = depset([output_makefiles]))
+    outs_depset_direct = []
+    if ctx.attr.module_out:
+        outs_depset_direct.append(struct(out = ctx.attr.module_out, src = ctx.label))
+
+    return [
+        DefaultInfo(files = depset([output_makefiles])),
+        DdkSubmoduleInfo(
+            outs = depset(outs_depset_direct),
+        ),
+    ]
 
 makefiles = rule(
     implementation = _makefiles_impl,
