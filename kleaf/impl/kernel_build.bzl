@@ -944,7 +944,12 @@ def _build_main_action(
          # Set variables and create dirs for modules
            mkdir -p {modules_staging_dir}
          # Install modules
-           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
+           if grep -q "CONFIG_MODULES=y" ${{OUT_DIR}}/.config ; then
+               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
+           else
+               # Workaround as this file is required, hence just produce a placeholder.
+               touch ${{OUT_DIR}}/Module.symvers
+           fi
          # Archive headers in OUT_DIR
            find ${{OUT_DIR}} -name *.h -print0                          \
                | tar czf {out_dir_kernel_headers_tar}                   \

@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Utility public constants.
+"""
+
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
     "AARCH64_IMAGES",
     "GKI_ARTIFACTS_AARCH64_OUTS",
     "MODULES_STAGING_ARCHIVE",
-    "MODULE_OUTS_FILE_OUTPUT_GROUP",
     "MODULE_OUTS_FILE_SUFFIX",
     "SYSTEM_DLKM_OUTS",
     "TOOLCHAIN_VERSION_FILENAME",
@@ -32,13 +35,14 @@ _common_outs = [
 ]
 
 # Common output files for aarch64 kernel builds.
-AARCH64_OUTS = _common_outs + AARCH64_IMAGES
+# Sync with build.config.gki.aarch64
+AARCH64_GKI_OUTS = _common_outs + AARCH64_IMAGES
 
 # Common output files for x86_64 kernel builds.
 X86_64_OUTS = _common_outs + ["bzImage"]
 
-# Deprecated; use AARCH64_OUTS
-aarch64_outs = AARCH64_OUTS
+# Deprecated; use AARCH64_GKI_OUTS
+aarch64_outs = AARCH64_GKI_OUTS
 
 # Deprecated; use X86_64_OUTS
 x86_64_outs = X86_64_OUTS
