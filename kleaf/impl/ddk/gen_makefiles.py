@@ -82,12 +82,14 @@ def gen_ddk_makefile(
         package: pathlib.Path,
         local_defines: list[str],
         copt_file: Optional[TextIO],
+        produce_top_level_makefile: Optional[bool],
 ):
-    _gen_makefile(
-        package=package,
-        module_symvers_list=module_symvers_list,
-        output_makefile=output_makefiles / "Makefile",
-    )
+    if produce_top_level_makefile:
+        _gen_makefile(
+            package=package,
+            module_symvers_list=module_symvers_list,
+            output_makefile=output_makefiles / "Makefile",
+        )
 
     rel_srcs = []
     for src in kernel_module_srcs:
@@ -236,7 +238,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
-
     parser.add_argument("--copt-file", type=argparse.FileType("r"))
+    parser.add_argument("--produce-top-level-makefile", action="store_true")
 
     gen_ddk_makefile(**vars(parser.parse_args()))

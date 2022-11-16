@@ -116,6 +116,9 @@ def _makefiles_impl(ctx):
     args.add("--output-makefiles", output_makefiles.path)
     args.add("--package", ctx.label.package)
 
+    if ctx.attr.top_level_makefile:
+        args.add("--produce-top-level-makefile")
+
     args.add_all("--linux-include-dirs", linux_include_dirs, uniquify = True)
     args.add_all("--include-dirs", include_dirs, uniquify = True)
 
@@ -157,6 +160,7 @@ makefiles = rule(
         "module_out": attr.string(),
         "module_local_defines": attr.string_list(),
         "module_copts": attr.string_list(),
+        "top_level_makefile": attr.bool(),
         "_gen_makefile": attr.label(
             default = "//build/kernel/kleaf/impl:ddk/gen_makefiles",
             executable = True,
