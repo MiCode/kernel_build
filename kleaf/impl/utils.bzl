@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Utilities for kleaf.
+"""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -37,7 +41,17 @@ def _getoptattr(thing, attr, default_value = None):
     return default_value
 
 def find_file(name, files, what, required = False):
-    """Find a file named |name| in the list of |files|. Expect zero or one match."""
+    """Find a file named |name| in the list of |files|. Expect zero or one match.
+
+    Args:
+        name: Name of the file to be searched.
+        files: List of files.
+        what: Target.
+        required: whether to fail if a non exact result is produced.
+
+    Returns:
+        A match when found or `None`.
+    """
     result = []
     for file in files:
         if file.basename == name:
@@ -52,10 +66,15 @@ def find_file(name, files, what, required = False):
         ))
     return result[0] if result else None
 
-def find_files(files, what, suffix = None):
-    """Find files with given condition. The following conditions are accepted:
+def find_files(files, suffix = None):
+    """Find files which names end with a given |suffix|.
 
-    - Looking for files ending with a given suffix.
+    Args:
+        files: list of files to inspect.
+        suffix: Looking for files ending with this given suffix.
+
+    Returns:
+        A list of files.
     """
     result = []
     for file in files:
@@ -158,36 +177,6 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
-def _kernel_build_outs_add_vmlinux(name, outs):
-    """Add vmlinux etc. to the outs attribute of a `kernel_build`.
-
-    The logic should be in par with `_transform_kernel_build_outs`.
-    """
-    files_to_add = ("vmlinux", "System.map")
-    outs_changed = False
-    if outs == None:
-        outs = ["vmlinux"]
-        outs_changed = True
-    if type(outs) == type([]):
-        for file in files_to_add:
-            if file not in outs:
-                # don't use append to avoid changing outs
-                outs = outs + [file]
-                outs_changed = True
-    elif type(outs) == type({}):
-        outs_new = {}
-        for k, v in outs.items():
-            for file in files_to_add:
-                if file not in v:
-                    # don't use append to avoid changing outs
-                    v = v + [file]
-                    outs_changed = True
-            outs_new[k] = v
-        outs = outs_new
-    else:
-        fail("{}: Invalid type for outs: {}".format(name, type(outs)))
-    return outs, outs_changed
-
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """Check that kernel_modules have the same kernel_build as the given one.
 
@@ -230,6 +219,5 @@ kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
-    kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,
     local_mnemonic_suffix = _local_mnemonic_suffix,
 )

@@ -37,11 +37,6 @@ def _base_kernel_non_config_attrs():
             aspects = [kernel_toolchain_aspect],
             providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo, KernelBuildAbiInfo],
         ),
-        # TODO(b/237706175): delete once fully using transitions
-        "base_kernel_for_module_outs": attr.label(
-            providers = [KernelBuildInTreeModulesInfo],
-            doc = "If set, use the `module_outs` and `module_implicit_outs` of this label as an allowlist for modules in the staging directory. Otherwise use `base_kernel`.",
-        ),
     }
 
 def _get_base_kernel(ctx):
@@ -54,10 +49,7 @@ def _get_base_kernel_for_module_outs(ctx):
     """Returns base_kernel for getting the list of module_outs in the base kernel (GKI modules)."""
 
     # base_kernel_for_module_outs ignores _force_ignore_base_kernel
-    base_kernel_for_module_outs = ctx.attr.base_kernel_for_module_outs
-    if base_kernel_for_module_outs == None:
-        base_kernel_for_module_outs = ctx.attr.base_kernel
-    return base_kernel_for_module_outs
+    return ctx.attr.base_kernel
 
 def _get_base_modules_staging_archive(ctx):
     # ignores _force_ignore_base_kernel, because this is for ABI purposes.

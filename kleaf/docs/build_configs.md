@@ -454,23 +454,51 @@ Specify in the build config.
 
 ## AVB\_SIGN\_BOOT\_IMG
 
-Specify in the build config.
+```python
+kernel_images(avb_sign_boot_img=...)
+```
+
+See [documentation for all rules].
 
 ## AVB\_BOOT\_PARTITION\_SIZE
 
-Specify in the build config.
+```python
+kernel_images(avb_boot_partition_size=...)
+```
+
+Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
+
+See [documentation for all rules].
 
 ## AVB\_BOOT\_KEY
 
-Specify in the build config.
+```python
+kernel_images(avb_boot_key=...)
+```
+
+Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
+
+See [documentation for all rules].
 
 ## AVB\_BOOT\_ALGORITHM
 
-Specify in the build config.
+```python
+kernel_images(avb_boot_algorithm=...)
+```
+
+Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
+
+See [documentation for all rules].
 
 ## AVB\_BOOT\_PARTITION\_NAME
 
-Specify in the build config.
+```python
+kernel_images(avb_boot_partition_name=...)
+```
+
+Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
+
+See [documentation for all rules].
 
 ## BUILD\_INITRAMFS
 

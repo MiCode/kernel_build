@@ -125,6 +125,25 @@ def _boot_images_impl(ctx):
                BUILD_INITRAMFS=
                INITRAMFS_STAGING_DIR=
         """
+    if ctx.attr.avb_sign_boot_img:
+        if not ctx.attr.avb_boot_partition_size or \
+           not ctx.attr.avb_boot_key or not ctx.attr.avb_boot_algorithm or \
+           not ctx.attr.avb_boot_partition_name:
+            fail("avb_sign_boot_img is true, but one of [avb_boot_partition_size, avb_boot_key," +
+                 " avb_boot_algorithm, avb_boot_partition_name] is not specified.")
+
+        boot_flag_cmd += """
+            AVB_SIGN_BOOT_IMG=1
+            AVB_BOOT_PARTITION_SIZE={avb_boot_partition_size}
+            AVB_BOOT_KEY={avb_boot_key}
+            AVB_BOOT_ALGORITHM={avb_boot_algorithm}
+            AVB_BOOT_PARTITION_NAME={avb_boot_partition_name}
+        """.format(
+            avb_boot_partition_size = ctx.attr.avb_boot_partition_size,
+            avb_boot_key = ctx.file.avb_boot_key.path,
+            avb_boot_algorithm = ctx.attr.avb_boot_algorithm,
+            avb_boot_partition_name = ctx.attr.avb_boot_partition_name,
+        )
 
     command += """
              # Build boot images
@@ -186,6 +205,34 @@ Execute `build_boot_images` in `build_utils.sh`.""",
 * If `None`, skip `vendor_boot`.
 """, values = ["vendor_boot", "vendor_kernel_boot"]),
         "vendor_ramdisk_binaries": attr.label_list(allow_files = True),
+        "avb_sign_boot_img": attr.bool(
+            doc = """ If set to `True` signs the boot image using the avb_boot_key.
+            The kernel prebuilt tool `avbtool` is used for signing.""",
+        ),
+        "avb_boot_partition_size": attr.int(doc = """Size of the boot partition
+            in bytes. Used when `avb_sign_boot_img` is True."""),
+        "avb_boot_key": attr.label(
+            doc = """ Key used for signing.
+            Used when `avb_sign_boot_img` is True.""",
+            allow_single_file = True,
+        ),
+        # Note: The actual values comes from:
+        # https://cs.android.com/android/platform/superproject/+/master:external/avb/avbtool.py
+        "avb_boot_algorithm": attr.string(
+            doc = """ `avb_boot_key` algorithm
+            used e.g. SHA256_RSA2048. Used when `avb_sign_boot_img` is True.""",
+            values = [
+                "NONE",
+                "SHA256_RSA2048",
+                "SHA256_RSA4096",
+                "SHA256_RSA8192",
+                "SHA512_RSA2048",
+                "SHA512_RSA4096",
+                "SHA512_RSA8192",
+            ],
+        ),
+        "avb_boot_partition_name": attr.string(doc = """Name of the boot partition.
+            Used when `avb_sign_boot_img` is True."""),
         "_debug_print_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_print_scripts",
         ),

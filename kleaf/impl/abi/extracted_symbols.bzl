@@ -38,7 +38,7 @@ def _extracted_symbols_impl(ctx):
     intermediates_dir = utils.intermediates_dir(ctx)
 
     vmlinux = utils.find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
-    in_tree_modules = utils.find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name))
+    in_tree_modules = utils.find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim)
     srcs = [
         vmlinux,
     ]
