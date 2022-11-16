@@ -38,6 +38,7 @@ def ddk_module(
     ddk_module(
         name = "my_module",
         srcs = ["my_module.c", "private_header.h"],
+        out = "my_module.ko",
         # Exported headers
         hdrs = ["include/my_module_exported.h"],
         includes = ["include"],
@@ -202,7 +203,7 @@ def ddk_module(
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         linux_includes: See [`ddk_headers.linux_includes`](#ddk_headers-linux_includes)
         kernel_build: [`kernel_build`](#kernel_build)
-        out: The output module file. By default, this is `"{name}.ko"`.
+        out: The output module file. This should usually be `"{name}.ko"`.
         local_defines: List of defines to add to the compile line.
 
           **Order matters**. To prevent buildifier from sorting the list, use the
@@ -304,9 +305,6 @@ def ddk_module(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-
-    if out == None:
-        out = "{}.ko".format(name)
 
     kernel_module(
         name = name,

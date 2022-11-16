@@ -147,6 +147,7 @@ def kernel_module_group_test(name):
 
     ddk_module(
         name = name + "_ddk_a1",
+        out = name + "_ddk_a1.ko",
         kernel_build = name + "_build_a",
         srcs = [],
         tags = ["manual"],
@@ -154,6 +155,7 @@ def kernel_module_group_test(name):
 
     ddk_module(
         name = name + "_ddk_a2",
+        out = name + "_ddk_a2.ko",
         kernel_build = name + "_build_a",
         srcs = [],
         tags = ["manual"],
@@ -161,6 +163,7 @@ def kernel_module_group_test(name):
 
     ddk_module(
         name = name + "_ddk_b",
+        out = name + "_ddk_b.ko",
         kernel_build = name + "_build_b",
         srcs = [],
         tags = ["manual"],
