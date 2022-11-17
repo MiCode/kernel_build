@@ -16,6 +16,7 @@
 
 load(":common_providers.bzl", "ModuleSymversInfo")
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "get_include_depset")
+load(":utils.bzl", "kernel_utils")
 
 def _handle_copt(ctx):
     # copt values contains prefixing "-", so we must use --copt=-x --copt=-y to avoid confusion.
@@ -72,16 +73,8 @@ def _makefiles_impl(ctx):
 
     output_makefiles = ctx.actions.declare_directory("{}/makefiles".format(ctx.attr.name))
 
-    kernel_module_deps = []
-    for dep in ctx.attr.module_deps:
-        if ModuleSymversInfo in dep:
-            kernel_module_deps.append(dep)
-            continue
-        if DdkHeadersInfo not in dep:
-            fail("{}: {} is not a valid item in deps. It does not provide ModuleSymversInfo or DdkHeadersInfo".format(
-                module_label,
-                dep.label,
-            ))
+    split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.module_deps, module_label)
+    kernel_module_deps = split_deps.kernel_modules
 
     include_dirs = get_include_depset(
         module_label,

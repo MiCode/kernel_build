@@ -37,6 +37,7 @@ load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_h
 load(":debug.bzl", "debug")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
+load(":utils.bzl", "kernel_utils")
 
 def kernel_module(
         name,
@@ -226,18 +227,9 @@ def _check_module_symvers_restore_path(kernel_modules, this_label):
         ))
 
 def _kernel_module_impl(ctx):
-    kernel_module_deps = []
-    hdr_deps = []
-    for dep in ctx.attr.deps:
-        is_valid_dep = False
-        if DdkHeadersInfo in dep:
-            hdr_deps.append(dep)
-            is_valid_dep = True
-        if KernelEnvInfo in dep and KernelModuleInfo in dep:
-            kernel_module_deps.append(dep)
-            is_valid_dep = True
-        if not is_valid_dep:
-            fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers are accepted.".format(ctx.label, dep.label))
+    split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.deps, ctx.label)
+    kernel_module_deps = split_deps.kernel_modules
+    hdr_deps = split_deps.hdrs
 
     _check_kernel_build(kernel_module_deps, ctx.attr.kernel_build, ctx.label)
     _check_module_symvers_restore_path(kernel_module_deps, ctx.label)

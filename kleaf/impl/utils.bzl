@@ -19,7 +19,13 @@ Utilities for kleaf.
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load(":common_providers.bzl", "KernelModuleInfo")
+load(
+    ":common_providers.bzl",
+    "KernelEnvInfo",
+    "KernelModuleInfo",
+    "ModuleSymversInfo",
+)
+load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 
 def _reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
@@ -215,9 +221,35 @@ def _local_mnemonic_suffix(ctx):
         return "Local"
     return ""
 
+def _split_kernel_module_deps(deps, this_label):
+    """Splits `deps` for a `kernel_module` or `ddk_module`.
+
+    Args:
+        deps: The list of deps
+        this_label: label of the module being checked.
+    """
+
+    kernel_module_deps = []
+    hdr_deps = []
+    for dep in deps:
+        is_valid_dep = False
+        if DdkHeadersInfo in dep:
+            hdr_deps.append(dep)
+            is_valid_dep = True
+        if all([info in dep for info in [KernelEnvInfo, KernelModuleInfo, ModuleSymversInfo]]):
+            kernel_module_deps.append(dep)
+            is_valid_dep = True
+        if not is_valid_dep:
+            fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers are accepted.".format(this_label, dep.label))
+    return struct(
+        kernel_modules = kernel_module_deps,
+        hdrs = hdr_deps,
+    )
+
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
     local_mnemonic_suffix = _local_mnemonic_suffix,
+    split_kernel_module_deps = _split_kernel_module_deps,
 )
