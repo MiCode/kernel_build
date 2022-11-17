@@ -82,11 +82,14 @@ def kernel_module(
           ])
           ```
         kernel_build: Label referring to the kernel_build module.
-        deps: A list of other `kernel_module` dependencies.
+        deps: A list of other `kernel_module` or `ddk_module` dependencies.
 
           Before building this target, `Modules.symvers` from the targets in
           `deps` are restored, so this target can be built against
           them.
+
+          It is an undefined behavior to put targets of other types to this list
+          (e.g. `ddk_headers`).
         kernel_module_deps: **Deprecated**. Same as `deps`.
         outs: The expected output files. If unspecified or value is `None`, it
           is `["{name}.ko"]` by default.
@@ -257,7 +260,6 @@ def _kernel_module_impl(ctx):
 
     split_deps = kernel_utils.split_kernel_module_deps(all_deps, ctx.label)
     kernel_module_deps = split_deps.kernel_modules
-    hdr_deps = split_deps.hdrs
 
     _check_kernel_build(kernel_module_deps, ctx.attr.kernel_build, ctx.label)
     _check_module_symvers_restore_path(kernel_module_deps, ctx.label)
@@ -287,10 +289,6 @@ def _kernel_module_impl(ctx):
 
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
-
-    # Add targets with DdkHeadersInfo in deps
-    for hdr in hdr_deps:
-        transitive_inputs.append(hdr[DdkHeadersInfo].files)
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))

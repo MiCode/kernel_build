@@ -155,6 +155,7 @@ def _makefiles_impl(ctx):
     split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.module_deps, module_label)
     kernel_module_deps = split_deps.kernel_modules
     submodule_deps = split_deps.submodules
+    hdr_deps = split_deps.hdrs
 
     if submodule_deps:
         _check_empty_with_submodules(ctx, module_label, kernel_module_deps)
@@ -235,6 +236,9 @@ def _makefiles_impl(ctx):
 
     srcs_depset_transitive = [target.files for target in ctx.attr.module_srcs]
     srcs_depset_transitive += [dep[DdkSubmoduleInfo].srcs for dep in submodule_deps]
+
+    # Add targets with DdkHeadersInfo in deps
+    srcs_depset_transitive += [hdr[DdkHeadersInfo].files for hdr in hdr_deps]
 
     # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
     srcs_depset_transitive += [get_headers_depset(ctx.attr.module_hdrs)]
