@@ -254,12 +254,10 @@ def _get_implicit_outs(ctx):
     return list(implicit_outs_to_srcs.keys())
 
 def _kernel_module_impl(ctx):
-    all_deps = [] + ctx.attr.deps
-    if ctx.attr.internal_ddk_makefiles_dir:
-        all_deps += ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].deps.to_list()
-
-    split_deps = kernel_utils.split_kernel_module_deps(all_deps, ctx.label)
+    split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.deps, ctx.label)
     kernel_module_deps = split_deps.kernel_modules
+    if ctx.attr.internal_ddk_makefiles_dir:
+        kernel_module_deps += ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].kernel_module_deps.to_list()
 
     _check_kernel_build(kernel_module_deps, ctx.attr.kernel_build, ctx.label)
     _check_module_symvers_restore_path(kernel_module_deps, ctx.label)

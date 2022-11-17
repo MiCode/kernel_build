@@ -259,7 +259,10 @@ def _makefiles_impl(ctx):
         DdkSubmoduleInfo(
             outs = depset(outs_depset_direct, transitive = outs_depset_transitive),
             srcs = depset(transitive = srcs_depset_transitive),
-            deps = depset(ctx.attr.module_deps, transitive = [dep[DdkSubmoduleInfo].deps for dep in submodule_deps]),
+            kernel_module_deps = depset(
+                kernel_module_deps,
+                transitive = [dep[DdkSubmoduleInfo].kernel_module_deps for dep in submodule_deps],
+            ),
         ),
         ddk_headers_info,
     ]
