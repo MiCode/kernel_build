@@ -232,28 +232,28 @@ def _makefiles_local_defines_test(name):
 
     _create_makefiles_artifact_test(
         name = name + "_number",
-        expected_lines = ["ccflags-y += -DNUMBER=123"],
+        expected_lines = ["CFLAGS_base.o += -DNUMBER=123"],
         local_defines = ["NUMBER=123"],
     )
     tests.append(name + "_number")
 
     _create_makefiles_artifact_test(
         name = name + "_bool",
-        expected_lines = ["ccflags-y += -DBOOL"],
+        expected_lines = ["CFLAGS_base.o += -DBOOL"],
         local_defines = ["BOOL"],
     )
     tests.append(name + "_bool")
 
     _create_makefiles_artifact_test(
         name = name + "_str",
-        expected_lines = ["ccflags-y += -DSTR=string"],
+        expected_lines = ["CFLAGS_base.o += -DSTR=string"],
         local_defines = ["STR=string"],
     )
     tests.append(name + "_str")
 
     _create_makefiles_artifact_test(
         name = name + "_spaces",
-        expected_lines = ["ccflags-y += '-DSTR=this is quoted'"],
+        expected_lines = ["CFLAGS_base.o += '-DSTR=this is quoted'"],
         local_defines = ["STR=this is quoted"],
     )
     tests.append(name + "_spaces")
@@ -262,8 +262,8 @@ def _makefiles_local_defines_test(name):
         name = name + "_multiple",
         expected_lines = [
             # do not sort
-            "ccflags-y += -DFOO",
-            "ccflags-y += -DBAR",
+            "CFLAGS_base.o += -DFOO",
+            "CFLAGS_base.o += -DBAR",
         ],
         local_defines = [
             "FOO",
@@ -283,7 +283,7 @@ def _makefiles_copts_test(name):
 
     _create_makefiles_artifact_test(
         name = name + "_simple_copt",
-        expected_lines = ["ccflags-y += -Wno-foo"],
+        expected_lines = ["CFLAGS_base.o += -Wno-foo"],
         copts = ["-Wno-foo"],
     )
     tests.append(name + "_simple_copt")
@@ -292,8 +292,8 @@ def _makefiles_copts_test(name):
         name = name + "_multiple_copt",
         expected_lines = [
             # do not sort
-            "ccflags-y += -Wno-foo",
-            "ccflags-y += -Wno-bar",
+            "CFLAGS_base.o += -Wno-foo",
+            "CFLAGS_base.o += -Wno-bar",
         ],
         copts = [
             "-Wno-foo",
@@ -306,8 +306,8 @@ def _makefiles_copts_test(name):
         name = name + "_include_location",
         expected_lines = [
             # do not sort
-            "ccflags-y += -include",
-            "ccflags-y += {}/{}/self.h".format(
+            "CFLAGS_base.o += -include",
+            "CFLAGS_base.o += {}/{}/self.h".format(
                 paths.join(*([".."] * len(native.package_name().split("/")))),
                 native.package_name(),
             ),
@@ -425,18 +425,18 @@ def _makefiles_include_ordering_artifacts_test(name):
             # linux_include/hdrs_a is already specified, so dropping
             "$(LINUXINCLUDE)",
             # local "includes"
-            "ccflags-y += '-I{}/local_include/B'".format(prefix),
-            "ccflags-y += '-I{}/local_include/A'".format(prefix),
-            "ccflags-y += '-I{}/local_include/C'".format(prefix),
+            "CFLAGS_base.o += '-I{}/local_include/B'".format(prefix),
+            "CFLAGS_base.o += '-I{}/local_include/A'".format(prefix),
+            "CFLAGS_base.o += '-I{}/local_include/C'".format(prefix),
             # deps, recursively
-            "ccflags-y += '-I{}/include/dep_c'".format(prefix),
-            "ccflags-y += '-I{}/include/dep_a'".format(prefix),  # c includes a
-            "ccflags-y += '-I{}/include/dep_b'".format(prefix),
+            "CFLAGS_base.o += '-I{}/include/dep_c'".format(prefix),
+            "CFLAGS_base.o += '-I{}/include/dep_a'".format(prefix),  # c includes a
+            "CFLAGS_base.o += '-I{}/include/dep_b'".format(prefix),
             # dep_a is already specified, so dropping
             # hdrs, recursively
-            "ccflags-y += '-I{}/include/hdrs_c'".format(prefix),
-            "ccflags-y += '-I{}/include/hdrs_a'".format(prefix),  # c includes a
-            "ccflags-y += '-I{}/include/hdrs_b'".format(prefix),
+            "CFLAGS_base.o += '-I{}/include/hdrs_c'".format(prefix),
+            "CFLAGS_base.o += '-I{}/include/hdrs_a'".format(prefix),  # c includes a
+            "CFLAGS_base.o += '-I{}/include/hdrs_b'".format(prefix),
             # hdrs_a is already specified, so dropping
         ],
     )
