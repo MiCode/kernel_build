@@ -38,19 +38,17 @@ def _kbuild_symtypes_test_output(ctx, env):
     kernel_build = analysistest.target_under_test(env)
 
     action = test_utils.find_action(env, "KernelBuild")
-
-    found_symtypes = False
-    for output in action.outputs.to_list():
-        if output.is_directory and output.basename == "symtypes":
-            found_symtypes = True
-            break
+    symtypes_dir = test_utils.find_output(action, "symtypes")
 
     asserts.equals(
         env,
-        actual = found_symtypes,
+        actual = bool(symtypes_dir),
         expected = ctx.attr.expect_kbuild_symtypes,
-        msg = "expect_kbuild_symtypes = {}, but {} symtypes/ directory".format(ctx.attr.expect_kbuild_symtypes, "found" if found_symtypes else "not found"),
+        msg = "expect_kbuild_symtypes = {}, but {} symtypes/ directory".format(ctx.attr.expect_kbuild_symtypes, "found" if symtypes_dir else "not found"),
     )
+
+    if symtypes_dir:
+        asserts.true(env, symtypes_dir.is_directory)
 
 # Check effect of kbuild_symtypes
 def _kbuild_symtypes_test_impl(ctx):

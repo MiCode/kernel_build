@@ -18,13 +18,12 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
-load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 def _modpost_warn_module_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    action = test_utils.find_action(env, "KernelModule" + kernel_utils.local_mnemonic_suffix(ctx))
+    action = test_utils.find_action(env, "KernelModule")
     script = test_utils.get_shell_script(env, action)
 
     asserts.true(
@@ -33,12 +32,9 @@ def _modpost_warn_module_test_impl(ctx):
         "Can't find KBUILD_MODPOST_WARN=1 in script",
     )
 
-    found_log = False
-    for output in action.outputs.to_list():
-        if not output.is_directory and output.basename == "make_stderr.txt":
-            found_log = True
-            break
-    asserts.true(env, found_log, "Can't find make_stderr.txt in outputs")
+    log_file = test_utils.find_output(action, "make_stderr.txt")
+    asserts.true(env, log_file, "Cannot find make_stderr.txt from output")
+    asserts.true(env, not log_file.is_directory)
 
     return analysistest.end(env)
 
