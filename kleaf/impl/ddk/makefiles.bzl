@@ -19,7 +19,13 @@ load(
     "DdkSubmoduleInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "get_include_depset")
+load(
+    ":ddk/ddk_headers.bzl",
+    "DdkHeadersInfo",
+    "ddk_headers_common_impl",
+    "get_headers_depset",
+    "get_include_depset",
+)
 load(":utils.bzl", "kernel_utils")
 
 def _handle_copt(ctx):
@@ -145,11 +151,27 @@ def _makefiles_impl(ctx):
     if ctx.attr.module_out:
         outs_depset_direct.append(struct(out = ctx.attr.module_out, src = ctx.label))
 
+    srcs_depset_transitive = [target.files for target in ctx.attr.module_srcs]
+
+    # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
+    srcs_depset_transitive += [get_headers_depset(ctx.attr.module_hdrs)]
+
+    ddk_headers_info = ddk_headers_common_impl(
+        ctx.label,
+        ctx.attr.module_hdrs,
+        ctx.attr.module_includes,
+        # linux_includes are not exported to targets depended on this module.
+        [],
+    )
+
     return [
         DefaultInfo(files = depset([output_makefiles])),
         DdkSubmoduleInfo(
             outs = depset(outs_depset_direct),
+            srcs = depset(transitive = srcs_depset_transitive),
+            deps = depset(ctx.attr.module_deps),
         ),
+        ddk_headers_info,
     ]
 
 makefiles = rule(

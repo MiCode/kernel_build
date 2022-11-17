@@ -251,7 +251,11 @@ def _get_implicit_outs(ctx):
     return list(implicit_outs_to_srcs.keys())
 
 def _kernel_module_impl(ctx):
-    split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.deps, ctx.label)
+    all_deps = [] + ctx.attr.deps
+    if ctx.attr.internal_ddk_makefiles_dir:
+        all_deps += ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].deps.to_list()
+
+    split_deps = kernel_utils.split_kernel_module_deps(all_deps, ctx.label)
     kernel_module_deps = split_deps.kernel_modules
     hdr_deps = split_deps.hdrs
 
@@ -281,12 +285,12 @@ def _kernel_module_impl(ctx):
     if not ctx.attr.internal_exclude_kernel_build_module_srcs:
         transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
 
+    if ctx.attr.internal_ddk_makefiles_dir:
+        transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
+
     # Add targets with DdkHeadersInfo in deps
     for hdr in hdr_deps:
         transitive_inputs.append(hdr[DdkHeadersInfo].files)
-
-    # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
-    transitive_inputs.append(get_headers_depset(ctx.attr.internal_hdrs))
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -519,6 +523,15 @@ def _kernel_module_impl(ctx):
         internal_module_symvers_name = ctx.attr.internal_module_symvers_name,
     )
 
+    if ctx.attr.internal_ddk_makefiles_dir:
+        ddk_headers_info = ctx.attr.internal_ddk_makefiles_dir[DdkHeadersInfo]
+    else:
+        ddk_headers_info = DdkHeadersInfo(
+            files = depset(),
+            includes = depset(),
+            linux_includes = depset(),
+        )
+
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
     # Also add check_no_remaining in the list of default outputs so that, when
@@ -551,7 +564,7 @@ def _kernel_module_impl(ctx):
             # It is needed to remove the `target_name` because we declare_file({name}/{internal_module_symvers_name}) above.
             restore_paths = depset([paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name)]),
         ),
-        ddk_headers_common_impl(ctx.label, ctx.attr.internal_hdrs, ctx.attr.internal_includes, []),
+        ddk_headers_info,
         KernelCmdsInfo(directories = depset([grab_cmd_step.cmd_dir])),
     ]
 
@@ -575,8 +588,6 @@ _kernel_module = rule(
         "internal_module_symvers_name": attr.string(default = "Module.symvers"),
         "internal_drop_modules_order": attr.bool(),
         "internal_exclude_kernel_build_module_srcs": attr.bool(),
-        "internal_hdrs": attr.label_list(allow_files = [".h"]),
-        "internal_includes": attr.string_list(doc = "exported include directories"),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [KernelEnvInfo, KernelBuildExtModuleInfo],
