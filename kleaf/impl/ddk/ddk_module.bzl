@@ -20,7 +20,7 @@ load(":ddk/makefiles.bzl", "makefiles")
 def ddk_module(
         name,
         kernel_build,
-        srcs,
+        srcs = None,
         deps = None,
         hdrs = None,
         includes = None,

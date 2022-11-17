@@ -81,7 +81,7 @@ def _makefiles_test_impl(ctx):
 
     asserts.equals(
         env,
-        ctx.attr.expected_module_out,
+        ctx.attr.expected_module_out or None,
         actual_module_out,
         "--kernel-module-out mismatch",
     )

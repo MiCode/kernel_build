@@ -99,6 +99,7 @@ def gen_ddk_makefile(
         package: pathlib.Path,
         produce_top_level_makefile: Optional[bool],
         submodule_makefiles: list[pathlib.Path],
+        kernel_module_out: Optional[pathlib.Path],
         **kwargs
 ):
     if produce_top_level_makefile:
@@ -108,11 +109,13 @@ def gen_ddk_makefile(
             output_makefile=output_makefiles / "Makefile",
         )
 
-    _gen_ddk_makefile_for_module(
-        output_makefiles=output_makefiles,
-        package = package,
-        **kwargs
-    )
+    if kernel_module_out:
+        _gen_ddk_makefile_for_module(
+            output_makefiles=output_makefiles,
+            package = package,
+            kernel_module_out = kernel_module_out,
+            **kwargs
+        )
 
     for submodule_makefile_dir in submodule_makefiles:
         _merge_directories(output_makefiles, submodule_makefile_dir)

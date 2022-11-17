@@ -116,7 +116,8 @@ def _makefiles_impl(ctx):
     args.use_param_file("--flagfile=%s")
 
     args.add_all("--kernel-module-srcs", ctx.files.module_srcs)
-    args.add("--kernel-module-out", ctx.attr.module_out)
+    if ctx.attr.module_out:
+        args.add("--kernel-module-out", ctx.attr.module_out)
     args.add("--output-makefiles", output_makefiles.path)
     args.add("--package", ctx.label.package)
 
