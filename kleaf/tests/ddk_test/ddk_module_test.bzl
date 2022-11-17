@@ -65,7 +65,7 @@ def _ddk_module_test_impl(ctx):
 
     return analysistest.end(env)
 
-_ddk_module_test = analysistest.make(
+ddk_module_test = analysistest.make(
     impl = _ddk_module_test_impl,
     attrs = {
         "expected_inputs": attr.label_list(allow_files = True),
@@ -87,7 +87,7 @@ def _ddk_module_test_make(
         **kwargs
     )
 
-    _ddk_module_test(
+    ddk_module_test(
         name = name,
         target_under_test = name + "_module",
         expected_inputs = expected_inputs,
