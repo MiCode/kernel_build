@@ -21,9 +21,10 @@ affects the following:
 This is important for non-sandboxed actions because they may cause clashing in the out/cache
 directory.
 
-Only *_flag / *_settings that affects the behavior in --config=local should be mentioned here.
+Only *_flag / *_settings that affects the content of the cached $OUT_DIR should be mentioned here.
 In particular:
 - --config=stamp is not in these lists because it is mutually exclusive with --config=local.
+- --allow_undeclared_modules is not listed because it only affects artifact collection.
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")

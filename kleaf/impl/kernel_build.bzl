@@ -823,26 +823,34 @@ def _get_check_remaining_modules_step(
       * outputs
     """
 
+    message_type = "ERROR"
+    epilog = "exit 1"
+    if ctx.attr._allow_undeclared_modules[BuildSettingInfo].value:
+        message_type = "WARNING"
+        epilog = ""
+
     cmd = """
            remaining_ko_files=$({check_declared_output_list} \\
                 --declared $(cat {all_module_names_file} {base_kernel_all_module_names_file_path}) \\
                 --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^[.]/::'))
            if [[ ${{remaining_ko_files}} ]]; then
-             echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
+             echo "{message_type}: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
              for ko in ${{remaining_ko_files}}; do
                echo '    "'"${{ko}}"'",' >&2
              done
              echo "Alternatively, install buildozer and execute:" >&2
              echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}" >&2
              echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference" >&2
-             exit 1
+             {epilog}
            fi
     """.format(
+        message_type = message_type,
         check_declared_output_list = ctx.file._check_declared_output_list.path,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
         label = ctx.label,
+        epilog = epilog,
     )
     inputs = [all_module_names_file]
     if base_kernel_all_module_names_file:
@@ -1360,6 +1368,7 @@ _kernel_build = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_allow_undeclared_modules": attr.label(default = "//build/kernel/kleaf:allow_undeclared_modules"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the

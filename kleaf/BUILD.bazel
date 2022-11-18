@@ -60,6 +60,12 @@ bool_flag(
     build_setting_default = False,
 )
 
+# If true, allow modules to be undeclared in kernel_build and kernel_module.
+bool_flag(
+    name = "allow_undeclared_modules",
+    build_setting_default = False,
+)
+
 config_setting(
     name = "allow_ddk_unsafe_headers_set",
     flag_values = {
