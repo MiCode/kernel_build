@@ -807,6 +807,55 @@ def _get_grab_unstripped_modules_step(ctx, has_any_modules, all_module_basenames
         unstripped_dir = unstripped_dir,
     )
 
+def _get_check_remaining_modules_step(
+        ctx,
+        all_module_names_file,
+        base_kernel_all_module_names_file,
+        modules_staging_dir):
+    """Returns a step for checking remaining '*.ko' files in `OUT_DIR`.
+
+    Returns:
+      A struct with these fields:
+
+      * cmd
+      * inputs
+      * tools
+      * outputs
+    """
+
+    cmd = """
+           remaining_ko_files=$({check_declared_output_list} \\
+                --declared $(cat {all_module_names_file} {base_kernel_all_module_names_file_path}) \\
+                --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^[.]/::'))
+           if [[ ${{remaining_ko_files}} ]]; then
+             echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
+             for ko in ${{remaining_ko_files}}; do
+               echo '    "'"${{ko}}"'",' >&2
+             done
+             echo "Alternatively, install buildozer and execute:" >&2
+             echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}" >&2
+             echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference" >&2
+             exit 1
+           fi
+    """.format(
+        check_declared_output_list = ctx.file._check_declared_output_list.path,
+        all_module_names_file = all_module_names_file.path,
+        base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
+        modules_staging_dir = modules_staging_dir,
+        label = ctx.label,
+    )
+    inputs = [all_module_names_file]
+    if base_kernel_all_module_names_file:
+        inputs.append(base_kernel_all_module_names_file)
+    tools = [ctx.file._check_declared_output_list]
+
+    return struct(
+        cmd = cmd,
+        inputs = inputs,
+        tools = tools,
+        outputs = [],
+    )
+
 def _get_grab_symtypes_step(ctx):
     """Returns a step for grabbing the `*.symtypes` from `OUT_DIR`.
 
@@ -945,6 +994,12 @@ def _build_main_action(
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
     grab_gcno_step = _get_grab_gcno_step(ctx)
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
+    check_remaining_modules_step = _get_check_remaining_modules_step(
+        ctx = ctx,
+        all_module_names_file = all_module_names_file,
+        base_kernel_all_module_names_file = base_kernel_all_module_names_file,
+        modules_staging_dir = modules_staging_dir,
+    )
     steps = (
         interceptor_step,
         cache_dir_step,
@@ -953,6 +1008,7 @@ def _build_main_action(
         grab_symtypes_step,
         grab_gcno_step,
         grab_cmd_step,
+        check_remaining_modules_step,
     )
 
     module_strip_flag = "INSTALL_MOD_STRIP="
@@ -998,25 +1054,12 @@ def _build_main_action(
          # Grab unstripped in-tree modules
            {grab_unstripped_intree_modules_cmd}
          # Check if there are remaining *.ko files
-           remaining_ko_files=$({check_declared_output_list} \\
-                --declared $(cat {all_module_names_file} {base_kernel_all_module_names_file_path}) \\
-                --actual $(cd {modules_staging_dir}/lib/modules/*/kernel && find . -type f -name '*.ko' | sed 's:^[.]/::'))
-           if [[ ${{remaining_ko_files}} ]]; then
-             echo "ERROR: The following kernel modules are built but not copied. Add these lines to the module_outs attribute of {label}:" >&2
-             for ko in ${{remaining_ko_files}}; do
-               echo '    "'"${{ko}}"'",' >&2
-             done
-             echo "Alternatively, install buildozer and execute:" >&2
-             echo "  $ buildozer 'add module_outs ${{remaining_ko_files}}' {label}" >&2
-             echo "See https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md for reference" >&2
-             exit 1
-           fi
+           {check_remaining_modules_cmd}
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          """.format(
         cache_dir_cmd = cache_dir_step.cmd,
         kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
-        check_declared_output_list = ctx.file._check_declared_output_list.path,
         search_and_cp_output = ctx.file._search_and_cp_output.path,
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
@@ -1027,8 +1070,7 @@ def _build_main_action(
         grab_symtypes_cmd = grab_symtypes_step.cmd,
         grab_gcno_step_cmd = grab_gcno_step.cmd,
         grab_cmd_cmd = grab_cmd_step.cmd,
-        all_module_names_file = all_module_names_file.path,
-        base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
+        check_remaining_modules_cmd = check_remaining_modules_step.cmd,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
         module_strip_flag = module_strip_flag,
@@ -1040,12 +1082,7 @@ def _build_main_action(
     # all inputs that |command| needs
     transitive_inputs = [target.files for target in ctx.attr.srcs]
     transitive_inputs += [target.files for target in ctx.attr.deps]
-    inputs = [
-        all_module_names_file,
-    ]
-    if base_kernel_all_module_names_file:
-        inputs.append(base_kernel_all_module_names_file)
-    inputs += check_toolchain_outs
+    inputs = [] + check_toolchain_outs
     inputs += kbuild_mixed_tree_ret.outputs
     for step in steps:
         inputs += step.inputs
@@ -1053,7 +1090,6 @@ def _build_main_action(
     # All tools that |command| needs
     tools = [
         ctx.file._search_and_cp_output,
-        ctx.file._check_declared_output_list,
     ]
     tools += ctx.attr.config[KernelEnvInfo].dependencies
     for step in steps:
