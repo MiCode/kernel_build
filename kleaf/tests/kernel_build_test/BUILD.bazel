@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:unittest.bzl", "unittest")
 load(":kernel_build_strip_modules_test.bzl", "kernel_build_strip_modules_test")
 load(":kernel_build_symtypes_test.bzl", "kernel_build_symtypes_test")
 load(":kernel_toolchain_aspect_test.bzl", "kernel_toolchain_aspect_test")
 
-unittest.suite(
-    "kernel_build_test",
-    kernel_build_strip_modules_test,
-    kernel_build_symtypes_test,
-    kernel_toolchain_aspect_test,
+kernel_build_strip_modules_test(name = "kernel_build_strip_modules_test")
+
+kernel_build_symtypes_test(name = "kernel_build_symtypes_test")
+
+kernel_toolchain_aspect_test(name = "kernel_toolchain_aspect_test")
+
+test_suite(
+    name = "kernel_build_test",
+    tests = None,  # All tests in this package
 )

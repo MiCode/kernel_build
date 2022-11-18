@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:unittest.bzl", "unittest")
 load(":order_test.bzl", "order_test")
 
-unittest.suite(
-    "merged_kernel_uapi_headers_test",
-    order_test,
+order_test(name = "order_test")
+
+test_suite(
+    name = "merged_kernel_uapi_headers_test",
+    tests = None,  # All tests in this package
 )

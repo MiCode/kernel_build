@@ -18,7 +18,5 @@ debug_modpost_warn_test(name = "debug_modpost_warn_test")
 
 test_suite(
     name = "debug_test",
-    tests = [
-        ":debug_modpost_warn_test",
-    ],
+    tests = None,  # All tests in this package
 )
