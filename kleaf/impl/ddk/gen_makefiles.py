@@ -66,9 +66,9 @@ def _gen_makefile(
         out_file.write(content)
 
 
-def _write_ccflag(out_file, ccflag):
+def _write_ccflag(out_file, object_file, ccflag):
     out_file.write(textwrap.dedent(f"""\
-        ccflags-y += {shlex.quote(ccflag)}
+        CFLAGS_{object_file} += {shlex.quote(ccflag)}
         """))
 
 
@@ -82,12 +82,14 @@ def gen_ddk_makefile(
         package: pathlib.Path,
         local_defines: list[str],
         copt_file: Optional[TextIO],
+        produce_top_level_makefile: Optional[bool],
 ):
-    _gen_makefile(
-        package=package,
-        module_symvers_list=module_symvers_list,
-        output_makefile=output_makefiles / "Makefile",
-    )
+    if produce_top_level_makefile:
+        _gen_makefile(
+            package=package,
+            module_symvers_list=module_symvers_list,
+            output_makefile=output_makefiles / "Makefile",
+        )
 
     rel_srcs = []
     for src in kernel_module_srcs:
@@ -100,12 +102,21 @@ def gen_ddk_makefile(
     kbuild = output_makefiles / kernel_module_out.parent / "Kbuild"
     os.makedirs(kbuild.parent, exist_ok=True)
 
+    copts = json.load(copt_file) if copt_file else None
+
     with open(kbuild, "w") as out_file:
         out_file.write(textwrap.dedent(f"""\
             # Build {package / kernel_module_out}
             obj-m += {kernel_module_out.with_suffix('.o').name}
             """))
         out_file.write("\n")
+
+        #    //path/to/package:target/name/foo.ko
+        # =>   path/to/package/target/name
+        rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
+        rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
+
+        _handle_linux_includes(out_file, linux_include_dirs, rel_root)
 
         for src in rel_srcs:
             # Ignore non-exported headers specified in srcs
@@ -128,20 +139,15 @@ def gen_ddk_makefile(
                 {kernel_module_out.with_suffix('').name}-y += {out}
             """))
 
-        out_file.write("\n")
+            out_file.write("\n")
 
-        #    //path/to/package:target/name/foo.ko
-        # =>   path/to/package/target/name
-        rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
-        rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
+            # At this time of writing (2022-11-01), this is the order how cc_library
+            # constructs arguments to the compiler.
+            _handle_defines(out_file, out, local_defines)
+            _handle_includes(out_file, out, include_dirs, rel_root)
+            _handle_copts(out_file, out, copts, rel_root)
 
-        _handle_linux_includes(out_file, linux_include_dirs, rel_root)
-
-        # At this time of writing (2022-11-01), this is the order how cc_library
-        # constructs arguments to the compiler.
-        _handle_defines(out_file, local_defines)
-        _handle_includes(out_file, include_dirs, rel_root)
-        _handle_copt_file(out_file, copt_file, rel_root)
+            out_file.write("\n")
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -153,7 +159,8 @@ def gen_ddk_makefile(
                 """))
 
 
-def _handle_linux_includes(out_file: TextIO, linux_include_dirs: list[pathlib.Path],
+def _handle_linux_includes(out_file: TextIO,
+                           linux_include_dirs: list[pathlib.Path],
                            rel_root: pathlib.Path):
     if not linux_include_dirs:
         return
@@ -168,7 +175,9 @@ def _handle_linux_includes(out_file: TextIO, linux_include_dirs: list[pathlib.Pa
     out_file.write("\n\n")
 
 
-def _handle_defines(out_file: TextIO, local_defines: list[str]):
+def _handle_defines(out_file: TextIO,
+                    object_file: pathlib.Path,
+                    local_defines: list[str]):
     if not local_defines:
         return
     out_file.write("\n")
@@ -176,20 +185,25 @@ def _handle_defines(out_file: TextIO, local_defines: list[str]):
         # local defines
         """))
     for local_define in local_defines:
-        _write_ccflag(out_file, f"-D{local_define}")
+        _write_ccflag(out_file, object_file, f"-D{local_define}")
 
 
-def _handle_includes(out_file: TextIO, include_dirs: list[pathlib.Path],
+def _handle_includes(out_file: TextIO,
+                     object_file: pathlib.Path,
+                     include_dirs: list[pathlib.Path],
                      rel_root: pathlib.Path):
     for include_dir in include_dirs:
         out_file.write(textwrap.dedent(f"""\
             # Include {include_dir}
             """))
-        _write_ccflag(out_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
+        _write_ccflag(out_file, object_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
 
 
-def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: pathlib.Path):
-    if not copt_file:
+def _handle_copts(out_file: TextIO,
+                  object_file: pathlib.Path,
+                  copts: Optional[list[dict[str, str | bool]]],
+                  rel_root: pathlib.Path):
+    if not copts:
         return
 
     out_file.write("\n")
@@ -197,14 +211,14 @@ def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: p
         # copts
         """))
 
-    for d in json.load(copt_file):
+    for d in copts:
         expanded: str = d["expanded"]
         is_path: bool = d["is_path"]
 
         if is_path:
             expanded = str(rel_root / expanded)
 
-        _write_ccflag(out_file, expanded)
+        _write_ccflag(out_file, object_file, expanded)
 
 
 if __name__ == "__main__":
@@ -224,7 +238,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
-
     parser.add_argument("--copt-file", type=argparse.FileType("r"))
+    parser.add_argument("--produce-top-level-makefile", action="store_true")
 
     gen_ddk_makefile(**vars(parser.parse_args()))

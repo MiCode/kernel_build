@@ -54,6 +54,12 @@ bool_flag(
     build_setting_default = False,
 )
 
+# If true, *.gcno files are collected.
+bool_flag(
+    name = "gcov",
+    build_setting_default = False,
+)
+
 config_setting(
     name = "allow_ddk_unsafe_headers_set",
     flag_values = {

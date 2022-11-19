@@ -45,3 +45,5 @@
 `--kbuild_symtypes`: [KBUILD\_SYMTYPES](docs/symtypes.md)
 
 `--kasan`: [kasan](docs/kasan.md)
+
+`--gcov`: [Keep GCOV files](docs/gcov.md)
