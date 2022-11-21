@@ -69,10 +69,22 @@ def _makefiles_test_impl(ctx):
 
     asserts.set_equals(
         env,
-        sets.make(argv_dict.get("--kernel-module-srcs", [])),
         sets.make([e.path for e in ctx.files.expected_module_srcs]),
+        sets.make(argv_dict.get("--kernel-module-srcs", [])),
+        "--kernel-module-srcs mismatch",
     )
-    asserts.equals(env, argv_dict.get("--kernel-module-out"), [ctx.attr.expected_module_out])
+
+    actual_module_out = argv_dict.get("--kernel-module-out")
+    if actual_module_out:
+        asserts.equals(env, 1, len(actual_module_out), "more than 1 --kernel-module-out")
+        actual_module_out = actual_module_out[0]
+
+    asserts.equals(
+        env,
+        ctx.attr.expected_module_out,
+        actual_module_out,
+        "--kernel-module-out mismatch",
+    )
 
     expected_module_symvers = []
     for dep in ctx.attr.expected_deps:
@@ -80,15 +92,17 @@ def _makefiles_test_impl(ctx):
             expected_module_symvers += dep[ModuleSymversInfo].restore_paths.to_list()
     asserts.set_equals(
         env,
-        sets.make(argv_dict.get("--module-symvers-list", [])),
         sets.make(expected_module_symvers),
+        sets.make(argv_dict.get("--module-symvers-list", [])),
+        "--module-symvers-list mismatch",
     )
 
     # Check content + ordering of include dirs, so do list comparison.
     asserts.equals(
         env,
-        argv_dict.get("--include-dirs", []),
         ctx.attr.expected_includes,
+        argv_dict.get("--include-dirs", []),
+        "--include-dirs mismatch",
     )
 
     return analysistest.end(env)
