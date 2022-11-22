@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:unittest.bzl", "unittest")
 load(":kernel_images_test.bzl", "initramfs_test")
 
-unittest.suite(
-    "kernel_images_test",
-    initramfs_test,
+initramfs_test(name = "initramfs_test")
+
+test_suite(
+    name = "kernel_images_test",
+    tests = None,  # All tests in this package
 )

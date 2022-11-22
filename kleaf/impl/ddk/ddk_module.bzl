@@ -311,16 +311,15 @@ def ddk_module(
     kernel_module(
         name = name,
         kernel_build = kernel_build,
-        srcs = srcs,
-        deps = deps,
-        outs = [out],
+        srcs = [],
+        # Set it to empty list, not None, so kernel_module() doesn't fallback to {name}.ko.
+        # _kernel_module_impl infers the list of outs from internal_ddk_makefiles_dir.
+        outs = [],
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
         # This is used in build_cleaner.
         internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
         internal_drop_modules_order = True,
         internal_exclude_kernel_build_module_srcs = True,
-        internal_hdrs = hdrs,
-        internal_includes = includes,
         **kwargs
     )
 

@@ -324,10 +324,33 @@ def kernel_config_option_test_suite(name):
 
     trim_kernels = {True: name + "_kernel_trim", False: name + "_kernel_notrim"}
 
-    unittest.suite(
-        name,
-        partial.make(_lto_test, kernel_build = name + "_kernel"),
-        partial.make(_kasan_test, kernel_build = name + "_kernel"),
-        partial.make(_trim_test, kernels = trim_kernels),
-        partial.make(_combined_option_test, kernels = trim_kernels),
+    tests = []
+
+    _lto_test(
+        name = name + "_lto_test",
+        kernel_build = name + "_kernel",
+    )
+    tests.append(name + "_lto_test")
+
+    _kasan_test(
+        name = name + "_kasan_test",
+        kernel_build = name + "_kernel",
+    )
+    tests.append(name + "_kasan_test")
+
+    _trim_test(
+        name = name + "_trim_test",
+        kernels = trim_kernels,
+    )
+    tests.append(name + "_trim_test")
+
+    _combined_option_test(
+        name = name + "_combined_option_test",
+        kernels = trim_kernels,
+    )
+    tests.append(name + "_combined_option_test")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
     )

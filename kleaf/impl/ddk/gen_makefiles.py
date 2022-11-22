@@ -72,17 +72,34 @@ def _write_ccflag(out_file, object_file, ccflag):
         """))
 
 
+def _merge_directories(output_makefiles: pathlib.Path, submodule_makefile_dir: pathlib.Path):
+    """Merges the content of submodule_makefile_dir into output_makefiles.
+
+    File of the same relative path are concatenated.
+    """
+
+    if not submodule_makefile_dir.is_dir():
+        die("Can't find directory %s", submodule_makefile_dir)
+
+    for root, dirs, files in os.walk(submodule_makefile_dir):
+        for file in files:
+            submodule_file = pathlib.Path(root) / file
+            file_rel = submodule_file.relative_to(submodule_makefile_dir)
+            dst_path = output_makefiles / file_rel
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(dst_path, "a") as dst, \
+                 open(submodule_file, "r") as src:
+                dst.write(f"# {submodule_file}\n")
+                dst.write(src.read())
+                dst.write("\n")
+
 def gen_ddk_makefile(
         output_makefiles: pathlib.Path,
-        kernel_module_out: pathlib.Path,
-        kernel_module_srcs: list[pathlib.Path],
-        include_dirs: list[pathlib.Path],
-        linux_include_dirs: list[pathlib.Path],
         module_symvers_list: list[pathlib.Path],
         package: pathlib.Path,
-        local_defines: list[str],
-        copt_file: Optional[TextIO],
         produce_top_level_makefile: Optional[bool],
+        submodule_makefiles: list[pathlib.Path],
+        **kwargs
 ):
     if produce_top_level_makefile:
         _gen_makefile(
@@ -91,6 +108,25 @@ def gen_ddk_makefile(
             output_makefile=output_makefiles / "Makefile",
         )
 
+    _gen_ddk_makefile_for_module(
+        output_makefiles=output_makefiles,
+        package = package,
+        **kwargs
+    )
+
+    for submodule_makefile_dir in submodule_makefiles:
+        _merge_directories(output_makefiles, submodule_makefile_dir)
+
+def _gen_ddk_makefile_for_module(
+        output_makefiles: pathlib.Path,
+        package: pathlib.Path,
+        kernel_module_out: pathlib.Path,
+        kernel_module_srcs: list[pathlib.Path],
+        include_dirs: list[pathlib.Path],
+        linux_include_dirs: list[pathlib.Path],
+        local_defines: list[str],
+        copt_file: Optional[TextIO],
+):
     rel_srcs = []
     for src in kernel_module_srcs:
         if src.is_relative_to(package):
@@ -240,5 +276,6 @@ if __name__ == "__main__":
     parser.add_argument("--local-defines", nargs="*", default=[])
     parser.add_argument("--copt-file", type=argparse.FileType("r"))
     parser.add_argument("--produce-top-level-makefile", action="store_true")
+    parser.add_argument("--submodule-makefiles", type=pathlib.Path, nargs="*", default=[])
 
     gen_ddk_makefile(**vars(parser.parse_args()))

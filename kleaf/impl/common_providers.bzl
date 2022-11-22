@@ -166,3 +166,20 @@ KernelImagesInfo = provider(
         "base_kernel": "the `base_kernel` target, if exists",
     },
 )
+
+DdkSubmoduleInfo = provider(
+    doc = "A provider that describes information about a DDK submodule or module.",
+    fields = {
+        "outs": """A [depset](https://bazel.build/extending/depsets) containing a struct with
+            these keys:
+
+            - `out` is the name of an output file
+            - `src` is a label containing the label of the target declaring the output
+             file.""",
+        "srcs": """A [depset](https://bazel.build/extending/depsets) of source files to build the
+            submodule.""",
+        # TODO(b/247622808): Clean up Target in providers
+        "deps": """A [depset](https://bazel.build/extending/depsets) of dependent
+            [Target](https://bazel.build/rules/lib/Target)s of this submodule.""",
+    },
+)
