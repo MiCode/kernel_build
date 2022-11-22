@@ -294,6 +294,27 @@ to prevent this in the future. See [sandbox.md](sandbox.md).
 See
 [CL:2082199](https://android-review.googlesource.com/2082199) for an example.
 
+## `signing_key.pem` not found
+
+If you see an error like the following:
+
+```text
+At main.c:172:
+- SSL error:02000002:system library:OPENSSL_internal:No such file or directory: external/boringssl/src/crypto/bio/file.c:98
+- SSL error:1100006e:BIO routines:OPENSSL_internal:NO_SUCH_FILE: external/boringssl/src/crypto/bio/file.c:102
+sign-file: <execroot>/common/certs/signing_key.pem
+```
+
+Add the following line to defconfig, or config fragment:
+
+```text
+# CONFIG_MODULE_SIG_ALL is not set
+```
+
+See the following change for an example:
+
+[ANDROID: kleaf: convert fips140 to kleaf](https://android-review.googlesource.com/c/kernel/common/+/2212995)
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.
