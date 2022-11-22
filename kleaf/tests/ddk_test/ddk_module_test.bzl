@@ -82,6 +82,7 @@ def _ddk_module_test_make(
         **kwargs):
     ddk_module(
         name = name + "_module",
+        out = name + ".ko",
         tags = ["manual"],
         **kwargs
     )
@@ -116,6 +117,7 @@ def ddk_module_test_suite(name):
 
     ddk_module(
         name = name + "_self",
+        out = name + "_self.ko",
         srcs = ["self.c"],
         kernel_build = name + "_kernel_build",
         tags = ["manual"],
@@ -123,6 +125,7 @@ def ddk_module_test_suite(name):
 
     ddk_module(
         name = name + "_base",
+        out = name + "_base.ko",
         srcs = ["base.c"],
         kernel_build = name + "_kernel_build",
         tags = ["manual"],
@@ -187,6 +190,7 @@ def ddk_module_test_suite(name):
 
     ddk_module(
         name = name + "_depend_on_legacy_modules_in_the_same_package_module",
+        out = name + "_depend_on_legacy_modules_in_the_same_package_module.ko",
         srcs = ["dep.c"],
         kernel_build = name + "_kernel_build",
         deps = [name + "_legacy_module_a", name + "_legacy_module_b"],
@@ -214,6 +218,18 @@ def ddk_module_test_suite(name):
         expected_includes = [native.package_name() + "/include"],
     )
     tests.append(name + "_exported_headers")
+
+    ddk_module(
+        name = name + "_no_out_module",
+        tags = ["manual"],
+        kernel_build = name + "_kernel_build",
+    )
+    failure_test(
+        name = name + "_no_out",
+        target_under_test = name + "_no_out_module",
+        error_message_substrs = ["out is not specified."],
+    )
+    tests.append(name + "_no_out")
 
     native.test_suite(
         name = name,

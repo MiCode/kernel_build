@@ -76,6 +76,75 @@ def _check_no_ddk_headers_in_srcs(ctx, module_label):
                 target.label,
             ))
 
+def _check_empty_with_submodules(ctx, module_label, kernel_module_deps):
+    """Checks that, if the outer target contains submodules, it should be empty.
+
+    That is, the top level `ddk_module` should not declare any
+
+    - inputs (including srcs and hdrs),
+    - outputs (including out, hdrs, includes), or
+    - copts (including includes and local_defines).
+
+    They should all be declared in individual `ddk_submodule`'s.
+    """
+
+    if kernel_module_deps:
+        fail("{}: with submodules, deps on other kernel modules should be specified in individual ddk_submodule: {}".format(
+            module_label,
+            [dep.label for dep in kernel_module_deps],
+        ))
+
+    if not ctx.attr.top_level_makefile:
+        fail("{}: with submodules, top_level_makefile must be set. " +
+             "(Did you specify another ddk_submodule in the deps?)")
+
+    for attr_name in (
+        "srcs",
+        "out",
+        "hdrs",
+        "includes",
+        "local_defines",
+        "copts",
+    ):
+        attr_val = getattr(ctx.attr, "module_" + attr_name)
+        if attr_val:
+            fail("{}: with submodules, {} should be specified in individual ddk_submodule: {}".format(
+                module_label,
+                attr_name,
+                attr_val,
+            ))
+
+def _check_non_empty_without_submodules(ctx, module_label):
+    """Checks that, if the outer target does not contain submodules, it should not be empty.
+
+    That is, a `ddk_module` without submodules, or a `ddk_submodule`, should declare outputs.
+    """
+
+    if not ctx.attr.module_out:
+        fail(("{}: out is not specified. Perhaps add\n" +
+              "    out = \"{}.ko\"").format(
+            module_label,
+            module_label.name,
+        ))
+
+def _check_submodule_same_package(module_label, submodule_deps):
+    """Checks that submodules are in the same package.
+
+    `gen_makefiles.py` assumes that `$(srctree)/$(src)` is the same for both submodules
+    and modules, then merge them. Until we resolve the paths properly so
+    `$(srctree)/$(src)` is no longer dependent on (b/251526635),
+    this assumption needs to be in place.
+    """
+
+    # TODO(b/251526635): Remove this assumption.
+    bad = []
+    for submodule in submodule_deps:
+        if submodule.label.package != module_label.package:
+            bad.append(submodule.label)
+
+    if bad:
+        fail("{}: submodules must be in the same package: {}".format(module_label, bad))
+
 def _makefiles_impl(ctx):
     module_label = Label(str(ctx.label).removesuffix("_makefiles"))
 
@@ -86,6 +155,14 @@ def _makefiles_impl(ctx):
     split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.module_deps, module_label)
     kernel_module_deps = split_deps.kernel_modules
     submodule_deps = split_deps.submodules
+    hdr_deps = split_deps.hdrs
+
+    if submodule_deps:
+        _check_empty_with_submodules(ctx, module_label, kernel_module_deps)
+    else:
+        _check_non_empty_without_submodules(ctx, module_label)
+
+    _check_submodule_same_package(module_label, submodule_deps)
 
     include_dirs = get_include_depset(
         module_label,
@@ -116,7 +193,8 @@ def _makefiles_impl(ctx):
     args.use_param_file("--flagfile=%s")
 
     args.add_all("--kernel-module-srcs", ctx.files.module_srcs)
-    args.add("--kernel-module-out", ctx.attr.module_out)
+    if ctx.attr.module_out:
+        args.add("--kernel-module-out", ctx.attr.module_out)
     args.add("--output-makefiles", output_makefiles.path)
     args.add("--package", ctx.label.package)
 
@@ -159,6 +237,9 @@ def _makefiles_impl(ctx):
     srcs_depset_transitive = [target.files for target in ctx.attr.module_srcs]
     srcs_depset_transitive += [dep[DdkSubmoduleInfo].srcs for dep in submodule_deps]
 
+    # Add targets with DdkHeadersInfo in deps
+    srcs_depset_transitive += [hdr[DdkHeadersInfo].files for hdr in hdr_deps]
+
     # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
     srcs_depset_transitive += [get_headers_depset(ctx.attr.module_hdrs)]
 
@@ -178,7 +259,10 @@ def _makefiles_impl(ctx):
         DdkSubmoduleInfo(
             outs = depset(outs_depset_direct, transitive = outs_depset_transitive),
             srcs = depset(transitive = srcs_depset_transitive),
-            deps = depset(ctx.attr.module_deps, transitive = [dep[DdkSubmoduleInfo].deps for dep in submodule_deps]),
+            kernel_module_deps = depset(
+                kernel_module_deps,
+                transitive = [dep[DdkSubmoduleInfo].kernel_module_deps for dep in submodule_deps],
+            ),
         ),
         ddk_headers_info,
     ]

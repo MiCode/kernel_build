@@ -74,6 +74,7 @@ def debug_modpost_warn_test(name):
 
     ddk_module(
         name = name + "_ddk_module",
+        out = name + "_ddk_module.ko",
         kernel_build = name + "_kernel",
         srcs = ["foo.c"],
         tags = ["manual"],
