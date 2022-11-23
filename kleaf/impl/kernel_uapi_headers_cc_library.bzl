@@ -55,8 +55,7 @@ _kernel_unarchived_uapi_headers = rule(
 )
 
 def kernel_uapi_headers_cc_library(name, kernel_build):
-    """
-    Defines a native cc_library based on a kernel's UAPI headers.
+    """Defines a native cc_library based on a kernel's UAPI headers.
 
     Example:
 
