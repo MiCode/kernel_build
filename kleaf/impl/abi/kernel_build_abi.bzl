@@ -140,7 +140,7 @@ def kernel_build_abi(
         kwargs["collect_unstripped_modules"] = True
 
     _define_other_targets(
-        name = name,
+        name = name + "_abi",
         kernel_build = name,
         define_abi_targets = define_abi_targets,
         kernel_modules = kernel_modules,
@@ -182,8 +182,8 @@ def _define_other_targets(
     Defines targets other than the main `kernel_build()`.
 
     Defines:
-    * `{name}_abi_diff_executable`
-    * `{name}_abi`
+    * `{name}_diff_executable`
+    * `{name}`
     """
 
     private_kwargs = kwargs | {
@@ -191,7 +191,7 @@ def _define_other_targets(
     }
 
     abi_dump(
-        name = name + "_abi_dump",
+        name = name + "_dump",
         kernel_build = kernel_build,
         kernel_modules = kernel_modules,
         **private_kwargs
@@ -200,7 +200,7 @@ def _define_other_targets(
     if not define_abi_targets:
         _not_define_abi_targets(
             name = name,
-            abi_dump_target = name + "_abi_dump",
+            abi_dump_target = name + "_dump",
             **kwargs
         )
     else:
@@ -213,7 +213,7 @@ def _define_other_targets(
             abi_definition = abi_definition,
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
-            abi_dump_target = name + "_abi_dump",
+            abi_dump_target = name + "_dump",
             **kwargs
         )
 
@@ -223,12 +223,12 @@ def _not_define_abi_targets(
         **kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = False.`
 
-    Defines `{name}_abi` filegroup that only contains the ABI dump, provided
+    Defines `{name}` filegroup that only contains the ABI dump, provided
     in `abi_dump_target`.
 
     Defines:
-    * `{name}_abi_diff_executable`
-    * `{name}_abi`
+    * `{name}_diff_executable`
+    * `{name}`
     """
 
     private_kwargs = kwargs | {
@@ -236,14 +236,14 @@ def _not_define_abi_targets(
     }
 
     native.filegroup(
-        name = name + "_abi",
+        name = name,
         srcs = [abi_dump_target],
         **kwargs
     )
 
     # For kernel_build_abi_dist to use when define_abi_targets is not set.
     exec(
-        name = name + "_abi_diff_executable",
+        name = name + "_diff_executable",
         script = "",
         **private_kwargs
     )
@@ -264,8 +264,8 @@ def _define_abi_targets(
     Define targets to extract symbol list, extract ABI, update them, etc.
 
     Defines:
-    * `{name}_abi_diff_executable`
-    * `{name}_abi`
+    * `{name}_diff_executable`
+    * `{name}`
     """
 
     private_kwargs = kwargs | {
@@ -275,25 +275,25 @@ def _define_abi_targets(
     default_outputs = [abi_dump_target]
 
     get_src_kmi_symbol_list(
-        name = name + "_abi_src_kmi_symbol_list",
+        name = name + "_src_kmi_symbol_list",
         kernel_build = kernel_build,
         **private_kwargs
     )
 
     # extract_symbols ...
     extracted_symbols(
-        name = name + "_abi_extracted_symbols",
+        name = name + "_extracted_symbols",
         kernel_build_notrim = kernel_build,
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
-        src = name + "_abi_src_kmi_symbol_list",
+        src = name + "_src_kmi_symbol_list",
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
         **private_kwargs
     )
     update_source_file(
-        name = name + "_abi_update_symbol_list",
-        src = name + "_abi_extracted_symbols",
-        dst = name + "_abi_src_kmi_symbol_list",
+        name = name + "_update_symbol_list",
+        src = name + "_extracted_symbols",
+        dst = name + "_src_kmi_symbol_list",
         **private_kwargs
     )
 
@@ -301,22 +301,22 @@ def _define_abi_targets(
         name = name,
         abi_definition = abi_definition,
         kmi_enforced = kmi_enforced,
-        kmi_symbol_list = name + "_abi_src_kmi_symbol_list",
+        kmi_symbol_list = name + "_src_kmi_symbol_list",
         **private_kwargs
     )
 
     abi_prop(
-        name = name + "_abi_prop",
-        kmi_definition = name + "_abi_out_file" if abi_definition else None,
+        name = name + "_prop",
+        kmi_definition = name + "_out_file" if abi_definition else None,
         kmi_enforced = kmi_enforced,
         kernel_build = kernel_build,
         modules_archive = unstripped_modules_archive,
         **private_kwargs
     )
-    default_outputs.append(name + "_abi_prop")
+    default_outputs.append(name + "_prop")
 
     native.filegroup(
-        name = name + "_abi",
+        name = name,
         srcs = default_outputs,
         **kwargs
     )
@@ -331,12 +331,12 @@ def _define_abi_definition_targets(
 
     Defines targets to extract ABI, update ABI, compare ABI, etc. etc.
 
-    Defines `{name}_abi_diff_executable`.
+    Defines `{name}_diff_executable`.
     """
     if not abi_definition:
         # For kernel_build_abi_dist to use when abi_definition is empty.
         exec(
-            name = name + "_abi_diff_executable",
+            name = name + "_diff_executable",
             script = "",
             **kwargs
         )
@@ -345,50 +345,50 @@ def _define_abi_definition_targets(
     default_outputs = []
 
     native.filegroup(
-        name = name + "_abi_out_file",
-        srcs = [name + "_abi_dump"],
+        name = name + "_out_file",
+        srcs = [name + "_dump"],
         output_group = "abi_out_file",
         **kwargs
     )
 
     abi_diff(
-        name = name + "_abi_diff",
+        name = name + "_diff",
         baseline = abi_definition,
-        new = name + "_abi_out_file",
+        new = name + "_out_file",
         kmi_enforced = kmi_enforced,
         **kwargs
     )
-    default_outputs.append(name + "_abi_diff")
+    default_outputs.append(name + "_diff")
 
-    # The default outputs of _abi_diff does not contain the executable,
+    # The default outputs of _diff does not contain the executable,
     # but the reports. Use this filegroup to select the executable
-    # so rootpath in _abi_update works.
+    # so rootpath in _update works.
     native.filegroup(
-        name = name + "_abi_diff_executable",
-        srcs = [name + "_abi_diff"],
+        name = name + "_diff_executable",
+        srcs = [name + "_diff"],
         output_group = "executable",
         **kwargs
     )
 
     native.filegroup(
-        name = name + "_abi_diff_git_message",
-        srcs = [name + "_abi_diff"],
+        name = name + "_diff_git_message",
+        srcs = [name + "_diff"],
         output_group = "git_message",
         **kwargs
     )
 
     update_source_file(
-        name = name + "_abi_update_definition",
-        src = name + "_abi_out_file",
+        name = name + "_update_definition",
+        src = name + "_out_file",
         dst = abi_definition,
         **kwargs
     )
 
     exec(
-        name = name + "_abi_nodiff_update",
+        name = name + "_nodiff_update",
         data = [
-            name + "_abi_extracted_symbols",
-            name + "_abi_update_definition",
+            name + "_extracted_symbols",
+            name + "_update_definition",
             kmi_symbol_list,
         ],
         script = """
@@ -400,22 +400,22 @@ def _define_abi_definition_targets(
               # Update abi_definition
                 $(rootpath {update_definition})
             """.format(
-            src_symbol_list = name + "_abi_extracted_symbols",
+            src_symbol_list = name + "_extracted_symbols",
             dst_symbol_list = kmi_symbol_list,
             package = native.package_name(),
-            update_symbol_list_label = name + "_abi_update_symbol_list",
-            update_definition = name + "_abi_update_definition",
+            update_symbol_list_label = name + "_update_symbol_list",
+            update_definition = name + "_update_definition",
         ),
         **kwargs
     )
 
     exec(
-        name = name + "_abi_update",
+        name = name + "_update",
         data = [
             abi_definition,
-            name + "_abi_diff_git_message",
-            name + "_abi_diff_executable",
-            name + "_abi_nodiff_update",
+            name + "_diff_git_message",
+            name + "_diff_executable",
+            name + "_nodiff_update",
         ],
         script = """
               # Update abi_definition
@@ -439,10 +439,10 @@ def _define_abi_definition_targets(
                 fi
                 exit $rc
             """.format(
-            diff = name + "_abi_diff_executable",
-            nodiff_update = name + "_abi_nodiff_update",
+            diff = name + "_diff_executable",
+            nodiff_update = name + "_nodiff_update",
             abi_definition = abi_definition,
-            git_message = name + "_abi_diff_git_message",
+            git_message = name + "_diff_git_message",
         ),
         **kwargs
     )
