@@ -890,7 +890,11 @@ def define_db845c(
         outs,
         build_config = None,
         module_outs = None,
+        define_abi_targets = None,
         kmi_symbol_list = None,
+        kmi_symbol_list_add_only = None,
+        module_grouping = None,
+        unstripped_modules_archive = None,
         gki_modules_list = None,
         dist_dir = None):
     """Define target for db845c.
@@ -906,7 +910,11 @@ def define_db845c(
         outs: See [kernel_build.outs](#kernel_build-outs).
         module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
           in-tree kernel modules.
+        define_abi_targets: See [kernel_build_abi.define_abi_targets](#kernel_build_abi-define_abi_targets).
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
+        kmi_symbol_list_add_only: See [kernel_build_abi.kmi_symbol_list_add_only](#kernel_build_abi-kmi_symbol_list_add_only).
+        module_grouping: See [kernel_build_abi.module_grouping](#kernel_build_abi-module_grouping).
+        unstripped_modules_archive: See [kernel_build_abi.unstripped_modules_archive](#kernel_build_abi-unstripped_modules_archive).
         gki_modules_list: List of gki modules to be copied to the dist directory.
           If `None`, all gki kernel modules will be copied.
         dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{BRANCH}/dist"`.
@@ -915,25 +923,42 @@ def define_db845c(
     if build_config == None:
         build_config = "build.config.db845c"
 
+    if kmi_symbol_list == None:
+        kmi_symbol_list = "//common:android/abi_gki_aarch64_db845c" if define_abi_targets else None
+
+    if kmi_symbol_list_add_only == None:
+        kmi_symbol_list_add_only = True if define_abi_targets else None
+
     if gki_modules_list == None:
         gki_modules_list = [":kernel_aarch64_modules"]
 
     if dist_dir == None:
         dist_dir = "out/{branch}/dist".format(branch = BRANCH)
 
-    kernel_build(
+    # Also refer to the list of ext modules for ABI monitoring targets
+    _kernel_modules = []
+
+    kernel_build_abi(
         name = name,
         outs = outs,
         srcs = [":common_kernel_sources"],
         # List of in-tree kernel modules.
         module_outs = module_outs,
         build_config = build_config,
-        kmi_symbol_list = kmi_symbol_list,
         # Enable mixed build.
         base_kernel = ":kernel_aarch64",
-    )
 
-    _kernel_modules = []
+        # enable ABI Monitoring
+        # based on the instructions here:
+        # https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/docs/abi_device.md
+        # https://android-review.googlesource.com/c/kernel/build/+/2308912
+        define_abi_targets = define_abi_targets,
+        kernel_modules = _kernel_modules,
+        kmi_symbol_list = kmi_symbol_list,
+        kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+        module_grouping = module_grouping,
+        unstripped_modules_archive = unstripped_modules_archive,
+    )
 
     kernel_modules_install(
         name = name + "_modules_install",
@@ -967,6 +992,15 @@ def define_db845c(
 
     copy_to_dist_dir(
         name = name + "_dist",
+        data = dist_targets + gki_modules_list,
+        dist_dir = dist_dir,
+        flat = True,
+        log = "info",
+    )
+
+    kernel_build_abi_dist(
+        name = name + "_abi_dist",
+        kernel_build_abi = ":db845c",
         data = dist_targets + gki_modules_list,
         dist_dir = dist_dir,
         flat = True,
