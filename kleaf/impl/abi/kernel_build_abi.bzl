@@ -20,7 +20,7 @@ load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":kernel_build.bzl", "kernel_build")
-load(":utils.bzl", "kernel_utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 # TODO(b/242072873): Delete once all use cases migrate to kernel_abi.
 def kernel_build_abi(
@@ -90,6 +90,45 @@ def kernel_build_abi(
     kwargs = dict(kwargs)
     if kwargs.get("collect_unstripped_modules") == None:
         kwargs["collect_unstripped_modules"] = True
+
+    # buildifier: disable=print
+    print("""
+WARNING: kernel_build_abi is deprecated. Split into kernel_build and kernel_abi.
+
+You may try copy-pasting the following definition to BUILD.bazel
+(note: this is not necessarily accurate and likely unformatted):
+
+kernel_build(
+    {kwargs},
+)
+
+kernel_abi(
+    {abi_kwargs},
+)
+""".format(
+        kwargs = utils.kwargs_to_def(
+            name = name,
+            tags = tags,
+            visibility = visibility,
+            features = features,
+            testonly = testonly,
+            **kwargs
+        ),
+        abi_kwargs = utils.kwargs_to_def(
+            name = name + "_abi",
+            define_abi_targets = define_abi_targets,
+            kernel_modules = kernel_modules,
+            module_grouping = module_grouping,
+            abi_definition = abi_definition,
+            kmi_enforced = kmi_enforced,
+            unstripped_modules_archive = unstripped_modules_archive,
+            kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+            tags = tags,
+            visibility = visibility,
+            features = features,
+            testonly = testonly,
+        ),
+    ))
 
     kernel_abi(
         name = name + "_abi",

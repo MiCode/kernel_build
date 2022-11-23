@@ -14,6 +14,7 @@
 
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
+load(":utils.bzl", "utils")
 
 def kernel_build_abi_dist(
         name,
@@ -33,6 +34,24 @@ def kernel_build_abi_dist(
     Deprecated:
       Use [`kernel_abi_dist`](#kernel_abi_dist) instead.
     """
+
+    # buildifier: disable=print
+    print("""
+WARNING: kernel_build_abi_dist is deprecated. Use kernel_abi_dist instead.
+
+You may try copy-pasting the following definition to BUILD.bazel
+(note: this is not necessarily accurate and likely unformatted):
+
+kernel_abi_dist(
+    {kwargs}
+)
+""".format(
+        kwargs = utils.kwargs_to_def(
+            name = name,
+            kernel_abi = kernel_build_abi + "_abi",
+            **kwargs
+        ),
+    ))
 
     kernel_abi_dist(
         name = name,
