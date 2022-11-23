@@ -309,7 +309,7 @@ def _define_abi_targets(
         name = name + "_abi_prop",
         kmi_definition = name + "_abi_out_file" if abi_definition else None,
         kmi_enforced = kmi_enforced,
-        kernel_build = name,
+        kernel_build = kernel_build,
         modules_archive = unstripped_modules_archive,
         **private_kwargs
     )
