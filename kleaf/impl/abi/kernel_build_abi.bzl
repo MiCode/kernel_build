@@ -186,11 +186,15 @@ def _define_other_targets(
     * `{name}_abi`
     """
 
+    private_kwargs = kwargs | {
+        "visibility": ["//visibility:private"],
+    }
+
     abi_dump(
         name = name + "_abi_dump",
         kernel_build = kernel_build,
         kernel_modules = kernel_modules,
-        **kwargs
+        **private_kwargs
     )
 
     if not define_abi_targets:
@@ -226,6 +230,11 @@ def _not_define_abi_targets(
     * `{name}_abi_diff_executable`
     * `{name}_abi`
     """
+
+    private_kwargs = kwargs | {
+        "visibility": ["//visibility:private"],
+    }
+
     native.filegroup(
         name = name + "_abi",
         srcs = [abi_dump_target],
@@ -236,7 +245,7 @@ def _not_define_abi_targets(
     exec(
         name = name + "_abi_diff_executable",
         script = "",
-        **kwargs
+        **private_kwargs
     )
 
 def _define_abi_targets(
@@ -259,12 +268,16 @@ def _define_abi_targets(
     * `{name}_abi`
     """
 
+    private_kwargs = kwargs | {
+        "visibility": ["//visibility:private"],
+    }
+
     default_outputs = [abi_dump_target]
 
     get_src_kmi_symbol_list(
         name = name + "_abi_src_kmi_symbol_list",
         kernel_build = kernel_build,
-        **kwargs
+        **private_kwargs
     )
 
     # extract_symbols ...
@@ -275,13 +288,13 @@ def _define_abi_targets(
         module_grouping = module_grouping,
         src = name + "_abi_src_kmi_symbol_list",
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        **kwargs
+        **private_kwargs
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",
         src = name + "_abi_extracted_symbols",
         dst = name + "_abi_src_kmi_symbol_list",
-        **kwargs
+        **private_kwargs
     )
 
     default_outputs += _define_abi_definition_targets(
@@ -289,7 +302,7 @@ def _define_abi_targets(
         abi_definition = abi_definition,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_abi_src_kmi_symbol_list",
-        **kwargs
+        **private_kwargs
     )
 
     abi_prop(
@@ -298,7 +311,7 @@ def _define_abi_targets(
         kmi_enforced = kmi_enforced,
         kernel_build = name,
         modules_archive = unstripped_modules_archive,
-        **kwargs
+        **private_kwargs
     )
     default_outputs.append(name + "_abi_prop")
 
