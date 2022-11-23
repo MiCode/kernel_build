@@ -32,6 +32,12 @@ def kernel_build_abi(
         kmi_enforced = None,
         unstripped_modules_archive = None,
         kmi_symbol_list_add_only = None,
+        # A subset of common attributes accepted by kernel_build_abi.
+        # https://bazel.build/reference/be/common-definitions#common-attributes
+        tags = None,
+        features = None,
+        testonly = None,
+        visibility = None,
         # for kernel_build
         **kwargs):
     """Declare multiple targets to support ABI monitoring.
@@ -119,7 +125,11 @@ def kernel_build_abi(
         property is intended to prevent unintentional shrinkage of a stable ABI.
 
         This should be set to `True` if `KMI_SYMBOL_LIST_ADD_ONLY=1`.
-      kwargs: See [`kernel_build.kwargs`](#kernel_build-kwargs)
+      tags: [tags](https://bazel.build/reference/be/common-definitions#common.tags)
+      visibility: [visibility](https://bazel.build/reference/be/common-definitions#common.visibility)
+      features: [features](https://bazel.build/reference/be/common-definitions#common.features)
+      testonly: [testonly](https://bazel.build/reference/be/common-definitions#common.testonly)
+      kwargs: Passed directly to [`kernel_build`](#kernel_build).
     """
 
     if define_abi_targets == None:
@@ -139,10 +149,22 @@ def kernel_build_abi(
         abi_definition = abi_definition,
         kmi_enforced = kmi_enforced,
         unstripped_modules_archive = unstripped_modules_archive,
-        kernel_build_kwargs = kwargs,
+        # common attributes
+        tags = tags,
+        visibility = visibility,
+        features = features,
+        testonly = testonly,
     )
 
-    kernel_build(name = name, **kwargs)
+    kernel_build(
+        name = name,
+        # common attributes
+        tags = tags,
+        visibility = visibility,
+        features = features,
+        testonly = testonly,
+        **kwargs
+    )
 
 def _define_other_targets(
         name,
@@ -154,7 +176,7 @@ def _define_other_targets(
         abi_definition,
         kmi_enforced,
         unstripped_modules_archive,
-        kernel_build_kwargs):
+        **kwargs):
     """Helper to `kernel_build_abi`.
 
     Defines targets other than the main `kernel_build()`.
@@ -163,20 +185,19 @@ def _define_other_targets(
     * `{name}_abi_diff_executable`
     * `{name}_abi`
     """
-    tags = kernel_build_kwargs.get("tags")
 
     abi_dump(
         name = name + "_abi_dump",
         kernel_build = kernel_build,
         kernel_modules = kernel_modules,
-        tags = tags,
+        **kwargs
     )
 
     if not define_abi_targets:
         _not_define_abi_targets(
             name = name,
             abi_dump_target = name + "_abi_dump",
-            tags = tags,
+            **kwargs
         )
     else:
         _define_abi_targets(
@@ -189,13 +210,13 @@ def _define_other_targets(
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
             abi_dump_target = name + "_abi_dump",
-            kernel_build_kwargs = kernel_build_kwargs,
+            **kwargs
         )
 
 def _not_define_abi_targets(
         name,
         abi_dump_target,
-        tags):
+        **kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = False.`
 
     Defines `{name}_abi` filegroup that only contains the ABI dump, provided
@@ -208,14 +229,14 @@ def _not_define_abi_targets(
     native.filegroup(
         name = name + "_abi",
         srcs = [abi_dump_target],
-        tags = tags,
+        **kwargs
     )
 
     # For kernel_build_abi_dist to use when define_abi_targets is not set.
     exec(
         name = name + "_abi_diff_executable",
         script = "",
-        tags = tags,
+        **kwargs
     )
 
 def _define_abi_targets(
@@ -228,7 +249,7 @@ def _define_abi_targets(
         kmi_enforced,
         unstripped_modules_archive,
         abi_dump_target,
-        kernel_build_kwargs):
+        **kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = True.`
 
     Define targets to extract symbol list, extract ABI, update them, etc.
@@ -240,11 +261,10 @@ def _define_abi_targets(
 
     default_outputs = [abi_dump_target]
 
-    tags = kernel_build_kwargs.get("tags")
-
     get_src_kmi_symbol_list(
         name = name + "_abi_src_kmi_symbol_list",
         kernel_build = kernel_build,
+        **kwargs
     )
 
     # extract_symbols ...
@@ -255,13 +275,13 @@ def _define_abi_targets(
         module_grouping = module_grouping,
         src = name + "_abi_src_kmi_symbol_list",
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        tags = tags,
+        **kwargs
     )
     update_source_file(
         name = name + "_abi_update_symbol_list",
         src = name + "_abi_extracted_symbols",
         dst = name + "_abi_src_kmi_symbol_list",
-        tags = tags,
+        **kwargs
     )
 
     default_outputs += _define_abi_definition_targets(
@@ -269,6 +289,7 @@ def _define_abi_targets(
         abi_definition = abi_definition,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_abi_src_kmi_symbol_list",
+        **kwargs
     )
 
     abi_prop(
@@ -277,20 +298,22 @@ def _define_abi_targets(
         kmi_enforced = kmi_enforced,
         kernel_build = name,
         modules_archive = unstripped_modules_archive,
+        **kwargs
     )
     default_outputs.append(name + "_abi_prop")
 
     native.filegroup(
         name = name + "_abi",
         srcs = default_outputs,
-        tags = tags,
+        **kwargs
     )
 
 def _define_abi_definition_targets(
         name,
         abi_definition,
         kmi_enforced,
-        kmi_symbol_list):
+        kmi_symbol_list,
+        **kwargs):
     """Helper to `_define_abi_targets`.
 
     Defines targets to extract ABI, update ABI, compare ABI, etc. etc.
@@ -302,6 +325,7 @@ def _define_abi_definition_targets(
         exec(
             name = name + "_abi_diff_executable",
             script = "",
+            **kwargs
         )
         return []
 
@@ -311,6 +335,7 @@ def _define_abi_definition_targets(
         name = name + "_abi_out_file",
         srcs = [name + "_abi_dump"],
         output_group = "abi_out_file",
+        **kwargs
     )
 
     abi_diff(
@@ -318,6 +343,7 @@ def _define_abi_definition_targets(
         baseline = abi_definition,
         new = name + "_abi_out_file",
         kmi_enforced = kmi_enforced,
+        **kwargs
     )
     default_outputs.append(name + "_abi_diff")
 
@@ -328,18 +354,21 @@ def _define_abi_definition_targets(
         name = name + "_abi_diff_executable",
         srcs = [name + "_abi_diff"],
         output_group = "executable",
+        **kwargs
     )
 
     native.filegroup(
         name = name + "_abi_diff_git_message",
         srcs = [name + "_abi_diff"],
         output_group = "git_message",
+        **kwargs
     )
 
     update_source_file(
         name = name + "_abi_update_definition",
         src = name + "_abi_out_file",
         dst = abi_definition,
+        **kwargs
     )
 
     exec(
@@ -364,6 +393,7 @@ def _define_abi_definition_targets(
             update_symbol_list_label = name + "_abi_update_symbol_list",
             update_definition = name + "_abi_update_definition",
         ),
+        **kwargs
     )
 
     exec(
@@ -401,6 +431,7 @@ def _define_abi_definition_targets(
             abi_definition = abi_definition,
             git_message = name + "_abi_diff_git_message",
         ),
+        **kwargs
     )
 
     return default_outputs
