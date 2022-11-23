@@ -947,11 +947,11 @@ def define_db845c(
         outs: See [kernel_build.outs](#kernel_build-outs).
         module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
           in-tree kernel modules.
-        define_abi_targets: See [kernel_build_abi.define_abi_targets](#kernel_build_abi-define_abi_targets).
+        define_abi_targets: See [kernel_abi.define_abi_targets](#kernel_abi-define_abi_targets).
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
-        kmi_symbol_list_add_only: See [kernel_build_abi.kmi_symbol_list_add_only](#kernel_build_abi-kmi_symbol_list_add_only).
-        module_grouping: See [kernel_build_abi.module_grouping](#kernel_build_abi-module_grouping).
-        unstripped_modules_archive: See [kernel_build_abi.unstripped_modules_archive](#kernel_build_abi-unstripped_modules_archive).
+        kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](#kernel_abi-kmi_symbol_list_add_only).
+        module_grouping: See [kernel_abi.module_grouping](#kernel_abi-module_grouping).
+        unstripped_modules_archive: See [kernel_abi.unstripped_modules_archive](#kernel_abi-unstripped_modules_archive).
         gki_modules_list: List of gki modules to be copied to the dist directory.
           If `None`, all gki kernel modules will be copied.
         dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{BRANCH}/dist"`.

@@ -189,8 +189,8 @@ merged_kernel_uapi_headers(
             doc = """See [`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules).
 
 Unlike `kernel_build`, this has default value `True` because
-[`kernel_build_abi`](#kernel_build_abi) sets
-[`define_abi_targets`](#kernel_build_abi-define_abi_targets) to `True` by
+[`kernel_abi`](#kernel_abi) sets
+[`define_abi_targets`](#kernel_abi-define_abi_targets) to `True` by
 default, which in turn sets `collect_unstripped_modules` to `True` by default.
 """,
         ),
