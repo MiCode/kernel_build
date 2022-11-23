@@ -17,9 +17,9 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(
     ":kernel.bzl",
+    "kernel_abi",
+    "kernel_abi_dist",
     "kernel_build",
-    "kernel_build_abi",
-    "kernel_build_abi_dist",
     "kernel_compile_commands",
     "kernel_filegroup",
     "kernel_images",
@@ -89,20 +89,24 @@ _ARCH_CONFIGS = {
     },
 }
 
-# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_build_abi.
-_KERNEL_BUILD_ABI_VALID_KEYS = [
+# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_build.
+_KERNEL_BUILD_VALID_KEYS = [
     "kmi_symbol_list",
     "additional_kmi_symbol_lists",
     "trim_nonlisted_kmi",
     "kmi_symbol_list_strict_mode",
+    "module_implicit_outs",
+]
+
+# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
+_KERNEL_ABI_VALID_KEYS = [
     "abi_definition",
     "kmi_enforced",
-    "module_implicit_outs",
 ]
 
 # Valid configs of the value of the target_config argument in
 # `define_common_kernels`
-_TARGET_CONFIG_VALID_KEYS = _KERNEL_BUILD_ABI_VALID_KEYS + [
+_TARGET_CONFIG_VALID_KEYS = _KERNEL_BUILD_VALID_KEYS + _KERNEL_ABI_VALID_KEYS + [
     "build_gki_artifacts",
     "gki_boot_img_sizes",
 ]
@@ -280,7 +284,7 @@ def define_common_kernels(
 
     - `kernel_aarch64_abi`
 
-    See [`kernel_build_abi()`](#kernel_build_abi) for details.
+    See [`kernel_abi()`](#kernel_abi) for details.
 
     **Prebuilts**
 
@@ -554,13 +558,13 @@ def define_common_kernels(
             tags = ["manual"],
         )
 
-        kernel_build_abi_kwargs = _filter_keys(
+        kernel_build_kwargs = _filter_keys(
             target_config,
-            valid_keys = _KERNEL_BUILD_ABI_VALID_KEYS,
+            valid_keys = _KERNEL_BUILD_VALID_KEYS,
             allow_unknown_keys = True,
         )
 
-        kernel_build_abi(
+        kernel_build(
             name = name,
             srcs = [name + "_sources"],
             outs = arch_config["outs"],
@@ -575,12 +579,25 @@ def define_common_kernels(
             build_config = arch_config["build_config"],
             enable_interceptor = arch_config.get("enable_interceptor"),
             visibility = visibility,
+            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+            toolchain_version = toolchain_version,
+            **kernel_build_kwargs
+        )
+
+        kernel_abi_kwargs = _filter_keys(
+            target_config,
+            valid_keys = _KERNEL_ABI_VALID_KEYS,
+            allow_unknown_keys = True,
+        )
+
+        kernel_abi(
+            name = name + "_abi",
+            kernel_build = name,
+            visibility = visibility,
             define_abi_targets = bool(target_config.get("kmi_symbol_list")),
             # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
             module_grouping = None,
-            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
-            toolchain_version = toolchain_version,
-            **kernel_build_abi_kwargs
+            **kernel_abi_kwargs
         )
 
         if arch_config.get("enable_interceptor"):
@@ -650,7 +667,7 @@ def define_common_kernels(
             name = name + "_modules",
             srcs = [
                 "{}/{}".format(name, module)
-                for module in (kernel_build_abi_kwargs["module_implicit_outs"] or [])
+                for module in (target_config["module_implicit_outs"] or [])
             ],
         )
 
@@ -705,9 +722,9 @@ def define_common_kernels(
             log = "info",
         )
 
-        kernel_build_abi_dist(
+        kernel_abi_dist(
             name = name + "_abi_dist",
-            kernel_build_abi = name,
+            kernel_abi = name + "_abi",
             data = dist_targets,
             flat = True,
             dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
@@ -975,7 +992,7 @@ def define_db845c(
     # Also refer to the list of ext modules for ABI monitoring targets
     _kernel_modules = []
 
-    kernel_build_abi(
+    kernel_build(
         name = name,
         outs = outs,
         srcs = [":common_kernel_sources"],
@@ -984,14 +1001,19 @@ def define_db845c(
         build_config = build_config,
         # Enable mixed build.
         base_kernel = ":kernel_aarch64",
+        kmi_symbol_list = kmi_symbol_list,
+        collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+    )
 
-        # enable ABI Monitoring
-        # based on the instructions here:
-        # https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/docs/abi_device.md
-        # https://android-review.googlesource.com/c/kernel/build/+/2308912
+    # enable ABI Monitoring
+    # based on the instructions here:
+    # https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/docs/abi_device.md
+    # https://android-review.googlesource.com/c/kernel/build/+/2308912
+    kernel_abi(
+        name = name + "_abi",
+        kernel_build = name,
         define_abi_targets = define_abi_targets,
         kernel_modules = _kernel_modules,
-        kmi_symbol_list = kmi_symbol_list,
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
         module_grouping = module_grouping,
         unstripped_modules_archive = unstripped_modules_archive,
@@ -1035,9 +1057,9 @@ def define_db845c(
         log = "info",
     )
 
-    kernel_build_abi_dist(
+    kernel_abi_dist(
         name = name + "_abi_dist",
-        kernel_build_abi = ":db845c",
+        kernel_abi = name + "_abi",
         data = dist_targets + gki_modules_list,
         dist_dir = dist_dir,
         flat = True,
