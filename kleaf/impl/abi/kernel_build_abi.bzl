@@ -22,6 +22,7 @@ load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":kernel_build.bzl", "kernel_build")
 load(":utils.bzl", "kernel_utils")
 
+# TODO(b/242072873): Delete once all use cases migrate to kernel_abi.
 def kernel_build_abi(
         name,
         define_abi_targets = None,
@@ -40,6 +41,94 @@ def kernel_build_abi(
         visibility = None,
         # for kernel_build
         **kwargs):
+    """**Deprecated**. Use [`kernel_build`](#kernel_build) (with `collect_unstripped_modules = True`) and [`kernel_abi`](#kernel_abi) directly.
+
+    Declare multiple targets to support ABI monitoring.
+
+    This macro is meant to be used in place of the [`kernel_build`](#kernel_build)
+    marco. All arguments in `kwargs` are passed to `kernel_build` directly.
+
+    For example, you may have the following declaration. (For actual definition
+    of `kernel_aarch64`, see
+    [`define_common_kernels()`](#define_common_kernels).
+
+    ```
+    kernel_build_abi(name = "kernel_aarch64", ...)
+    ```
+
+    The `kernel_build_abi` invocation is equivalent to the following:
+
+    ```
+    kernel_build(
+        name = "kernel_aarch64",
+        collect_unstripped_modules = True,
+        ...
+    )
+    kernel_abi(name = "kernel_aarch64_abi", ...)
+    ```
+
+    Args:
+      name: Name of the main `kernel_build`.
+      define_abi_targets: See [`kernel_abi.define_abi_targets`](#kernel_abi-define_abi_targets)
+      kernel_modules: See [`kernel_abi.kernel_modules`](#kernel_abi-kernel_modules)
+      module_grouping: See [`kernel_abi.module_grouping`](#kernel_abi-module_grouping)
+      abi_definition: See [`kernel_abi.abi_definition`](#kernel_abi-abi_definition)
+      kmi_enforced: See [`kernel_abi.kmi_enforced`](#kernel_abi-kmi_enforced)
+      unstripped_modules_archive: See [`kernel_abi.unstripped_modules_archive`](#kernel_abi-unstripped_modules_archive)
+      kmi_symbol_list_add_only: See [`kernel_abi.kmi_symbol_list_add_only`](#kernel_abi-kmi_symbol_list_add_only)
+      tags: [tags](https://bazel.build/reference/be/common-definitions#common.tags)
+      visibility: [visibility](https://bazel.build/reference/be/common-definitions#common.visibility)
+      features: [features](https://bazel.build/reference/be/common-definitions#common.features)
+      testonly: [testonly](https://bazel.build/reference/be/common-definitions#common.testonly)
+      **kwargs: Passed directly to [`kernel_build`](#kernel_build).
+
+    Deprecated:
+      Use [`kernel_build`](#kernel_build) (with `collect_unstripped_modules = True`) and
+      [`kernel_abi`](#kernel_abi) directly.
+    """
+
+    kwargs = dict(kwargs)
+    if kwargs.get("collect_unstripped_modules") == None:
+        kwargs["collect_unstripped_modules"] = True
+
+    kernel_abi(
+        name = name + "_abi",
+        kernel_build = name,
+        define_abi_targets = define_abi_targets,
+        kernel_modules = kernel_modules,
+        module_grouping = module_grouping,
+        kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+        abi_definition = abi_definition,
+        kmi_enforced = kmi_enforced,
+        unstripped_modules_archive = unstripped_modules_archive,
+        # common attributes
+        tags = tags,
+        visibility = visibility,
+        features = features,
+        testonly = testonly,
+    )
+
+    kernel_build(
+        name = name,
+        # common attributes
+        tags = tags,
+        visibility = visibility,
+        features = features,
+        testonly = testonly,
+        **kwargs
+    )
+
+def kernel_abi(
+        name,
+        kernel_build,
+        define_abi_targets = None,
+        kernel_modules = None,
+        module_grouping = None,
+        abi_definition = None,
+        kmi_enforced = None,
+        unstripped_modules_archive = None,
+        kmi_symbol_list_add_only = None,
+        **kwargs):
     """Declare multiple targets to support ABI monitoring.
 
     This macro is meant to be used in place of the [`kernel_build`](#kernel_build)
@@ -50,29 +139,25 @@ def kernel_build_abi(
     [`define_common_kernels()`](#define_common_kernels).
 
     ```
-    kernel_build_abi(name = "kernel_aarch64", **kwargs)
+    kernel_build(name = "kernel_aarch64", ...)
+    kernel_abi(
+        name = "kernel_aarch64_abi",
+        kernel_build = ":kernel_aarch64",
+        ...
+    )
     _dist_targets = ["kernel_aarch64", ...]
     copy_to_dist_dir(name = "kernel_aarch64_dist", data = _dist_targets)
-    kernel_build_abi_dist(
+    kernel_abi_dist(
         name = "kernel_aarch64_abi_dist",
-        kernel_build_abi = "kernel_aarch64",
+        kernel_abi = "kernel_aarch64_abi",
         data = _dist_targets,
     )
     ```
 
-    The `kernel_build_abi` invocation is equivalent to the following:
-
-    ```
-    kernel_build(name = "kernel_aarch64", **kwargs)
-    # if define_abi_targets, also define some other targets
-    ```
-
-    See [`kernel_build`](#kernel_build) for the targets defined.
-
-    In addition, the following targets are defined:
+    The `kernel_abi` invocation above defines the following targets:
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
-      - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
+      - Include this target in a [`kernel_abi_dist`](#kernel_abi_dist)
         target to copy ABI dump to `--dist-dir`.
     - `kernel_aarch64_abi`
       - A filegroup that contains `kernel_aarch64_abi_dump`. It also contains other targets
@@ -85,15 +170,16 @@ def kernel_build_abi(
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
       - Building this target extracts the ABI.
-      - Include this target in a [`kernel_build_abi_dist`](#kernel_build_abi_dist)
+      - Include this target in a [`kernel_abi_dist`](#kernel_abi_dist)
         target to copy ABI dump to `--dist-dir`.
 
     See build/kernel/kleaf/abi.md for a conversion chart from `build_abi.sh`
     commands to Bazel commands.
 
     Args:
-      name: Name of the main `kernel_build`.
-      define_abi_targets: Whether the `<name>_abi` target contains other
+      name: Name of this target.
+      kernel_build: The [`kernel_build`](#kernel_build).
+      define_abi_targets: Whether the target contains other
         files to support ABI monitoring. If `None`, defaults to `True`.
 
         If `False`, this macro is equivalent to just calling
@@ -125,62 +211,10 @@ def kernel_build_abi(
         property is intended to prevent unintentional shrinkage of a stable ABI.
 
         This should be set to `True` if `KMI_SYMBOL_LIST_ADD_ONLY=1`.
-      tags: [tags](https://bazel.build/reference/be/common-definitions#common.tags)
-      visibility: [visibility](https://bazel.build/reference/be/common-definitions#common.visibility)
-      features: [features](https://bazel.build/reference/be/common-definitions#common.features)
-      testonly: [testonly](https://bazel.build/reference/be/common-definitions#common.testonly)
-      kwargs: Passed directly to [`kernel_build`](#kernel_build).
-    """
-
-    kwargs = dict(kwargs)
-    if kwargs.get("collect_unstripped_modules") == None:
-        kwargs["collect_unstripped_modules"] = True
-
-    _define_other_targets(
-        name = name + "_abi",
-        kernel_build = name,
-        define_abi_targets = define_abi_targets,
-        kernel_modules = kernel_modules,
-        module_grouping = module_grouping,
-        kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        abi_definition = abi_definition,
-        kmi_enforced = kmi_enforced,
-        unstripped_modules_archive = unstripped_modules_archive,
-        # common attributes
-        tags = tags,
-        visibility = visibility,
-        features = features,
-        testonly = testonly,
-    )
-
-    kernel_build(
-        name = name,
-        # common attributes
-        tags = tags,
-        visibility = visibility,
-        features = features,
-        testonly = testonly,
-        **kwargs
-    )
-
-def _define_other_targets(
-        name,
-        kernel_build,
-        define_abi_targets,
-        kernel_modules,
-        module_grouping,
-        kmi_symbol_list_add_only,
-        abi_definition,
-        kmi_enforced,
-        unstripped_modules_archive,
-        **kwargs):
-    """Helper to `kernel_build_abi`.
-
-    Defines targets other than the main `kernel_build()`.
-
-    Defines:
-    * `{name}_diff_executable`
-    * `{name}`
+      **kwargs: Additional attributes to the internal rule, e.g.
+        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+        See complete list
+        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
     if define_abi_targets == None:
@@ -241,7 +275,7 @@ def _not_define_abi_targets(
         **kwargs
     )
 
-    # For kernel_build_abi_dist to use when define_abi_targets is not set.
+    # For kernel_abi_dist to use when define_abi_targets is not set.
     exec(
         name = name + "_diff_executable",
         script = "",
@@ -334,7 +368,7 @@ def _define_abi_definition_targets(
     Defines `{name}_diff_executable`.
     """
     if not abi_definition:
-        # For kernel_build_abi_dist to use when abi_definition is empty.
+        # For kernel_abi_dist to use when abi_definition is empty.
         exec(
             name = name + "_diff_executable",
             script = "",
