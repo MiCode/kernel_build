@@ -132,9 +132,6 @@ def kernel_build_abi(
       kwargs: Passed directly to [`kernel_build`](#kernel_build).
     """
 
-    if define_abi_targets == None:
-        define_abi_targets = True
-
     kwargs = dict(kwargs)
     if kwargs.get("collect_unstripped_modules") == None:
         kwargs["collect_unstripped_modules"] = True
@@ -185,6 +182,9 @@ def _define_other_targets(
     * `{name}_diff_executable`
     * `{name}`
     """
+
+    if define_abi_targets == None:
+        define_abi_targets = True
 
     private_kwargs = kwargs | {
         "visibility": ["//visibility:private"],
