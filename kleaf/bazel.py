@@ -87,7 +87,25 @@ class BazelWrapper(object):
         self.command_args, self.dash_dash, self.target_patterns = _partition(remaining_args,
                                                                              dash_dash_idx)
 
+        self._parse_startup_options()
         self._parse_command_args()
+
+    def _parse_startup_options(self):
+        """Parses the given list of startup_options.
+
+        After calling this function, the following attributes are set:
+        - absolute_user_root: A path holding bazel build output location
+        - transformed_startup_options: The transformed list of startup_options to replace
+          existing startup_options to be fed to the Bazel binary
+        """
+
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--output_user_root",
+                            type=_require_absolute_path,
+                            default=_require_absolute_path(f"{self.absolute_out_dir}/bazel/output_user_root"))
+        known_startup_options, self.transformed_startup_options = parser.parse_known_args(self.startup_options)
+        self.absolute_user_root = known_startup_options.output_user_root
+        self.transformed_startup_options.append(f"--output_user_root={self.absolute_user_root}")
 
     def _parse_command_args(self):
         """Parses the given list of command_args.
@@ -106,6 +124,7 @@ class BazelWrapper(object):
         parser.add_argument("--use_prebuilt_gki")
         parser.add_argument("--experimental_strip_sandbox_path",
                             action='store_true')
+        parser.add_argument("--strip_execroot", action='store_true')
         parser.add_argument("--make_jobs", type=int, default=None)
         parser.add_argument("--cache_dir",
                             type=_require_absolute_path,
@@ -116,6 +135,21 @@ class BazelWrapper(object):
         # remaining_command_args: the rest of the arguments
         # Skip startup options (before command) and target_patterns (after --)
         self.known_args, self.transformed_command_args = parser.parse_known_args(self.command_args)
+
+        if self.known_args.experimental_strip_sandbox_path:
+            sys.stderr.write(
+                "WARNING: --experimental_strip_sandbox_path is deprecated; use "
+                "--strip_execroot.\n"
+            )
+            self.known_args.strip_execroot = True
+
+        if self.known_args.strip_execroot:
+            # Force enable color now that we are piping the stderr / stdout.
+            # Caveat: This prints ANSI color codes to a redirected stream if
+            # the other one is a terminal and --strip_execroot is set. Bazel
+            # can't forcifully enable color in only one stream.
+            if sys.stdout.isatty() or sys.stderr.isatty():
+                self.transformed_command_args.append("--color=yes")
 
         if self.known_args.use_prebuilt_gki:
             self.transformed_command_args.append("--//common:use_prebuilt_gki")
@@ -135,9 +169,8 @@ class BazelWrapper(object):
         # bazel [startup_options] [additional_startup_options] command [transformed_command_args] -- [target_patterns]
 
         bazel_jdk_path = f"{self.root_dir}/{_BAZEL_JDK_REL_PATH}"
-        final_args = [self.bazel_path] + self.startup_options + [
+        final_args = [self.bazel_path] + self.transformed_startup_options + [
             f"--server_javabase={bazel_jdk_path}",
-            f"--output_user_root={self.absolute_out_dir}/bazel/output_user_root",
             f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
             f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
         ]
@@ -159,10 +192,13 @@ class BazelWrapper(object):
 
     def run(self):
         final_args = self._build_final_args()
-        if self.known_args.experimental_strip_sandbox_path:
+        if self.known_args.strip_execroot:
             import asyncio
             import re
-            filter_regex = re.compile(self.absolute_out_dir + r"/\S+?/sandbox/.*?/__main__/")
+            if self.absolute_user_root.is_relative_to(self.absolute_out_dir):
+                filter_regex = re.compile(self.absolute_out_dir + r"/\S+?/execroot/__main__/")
+            else:
+                filter_regex = re.compile(f"{self.absolute_user_root}" + r"/\S+?/execroot/__main__/")
             asyncio.run(run(final_args, self.env, filter_regex))
         else:
             os.execve(path=self.bazel_path, argv=final_args, env=self.env)

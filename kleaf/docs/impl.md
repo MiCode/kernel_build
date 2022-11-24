@@ -2,9 +2,8 @@
 
 **Note**:
 You may view the documentation for the following Bazel rules and macros on
-Android Continuous Integration:
-
-[https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
+Android Continuous Integration. See
+[API Reference and Documentation for all rules](api_reference.md).
 
 ## Manifest changes
 
@@ -312,10 +311,8 @@ here: https://docs.bazel.build/versions/main/configurable-attributes.html
 
 In general, inputs to a target are configurable, while declared outputs are not.
 One exception is that the `kernel_build` rule provides limited support
-of `select()` in `outs` and `module_outs` attributes. See documentations
-of `kernel_build` for details.
-
-[https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
+of `select()` in `outs` and `module_outs` attributes. See
+[documentations](api_reference.md) of `kernel_build` for details.
 
 ### `bazelrc` files
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Providers that are provided by multiple rules in different extensions.
+"""Providers that are provided by multiple rules in different extensions."""
 
 KernelCmdsInfo = provider(
     doc = """Provides a directory of `.cmd` files.""",
@@ -39,6 +39,8 @@ KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
+        "progress_message_note": """A note in the progress message that differentiates multiple
+            instances of the same action due to different configs.""",
     },
 )
 
@@ -88,13 +90,15 @@ KernelBuildAbiInfo = provider(
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
         "modules_staging_archive": "Archive containing staging kernel modules. ",
+        "base_modules_staging_archive": "Archive containing staging kernel modules of the base kernel",
+        "src_kmi_symbol_list": """Source file for `kmi_symbol_list` that points to the symbol list
+                                  to be updated by `--update_symbol_list`""",
     },
 )
 
 KernelBuildInTreeModulesInfo = provider(
     doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
-[`base_kernel`](#kernel_build-base_kernel) or [`base_kernel_for_module_outs`](#kernel_build-base_kernel_for_module_outs)
-for the list of in-tree modules in the `base_kernel`.""",
+[`base_kernel`](#kernel_build-base_kernel) for the list of in-tree modules in the `base_kernel`.""",
     fields = {
         "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
     },
@@ -135,18 +139,24 @@ KernelModuleInfo = provider(
     doc = "A provider that provides installed external modules.",
     fields = {
         "kernel_build": "kernel_build attribute of this module",
-        "modules_staging_dws": "`directory_with_structure` containing staging kernel modules. " +
-                               "Contains the lib/modules/* suffix.",
-        "kernel_uapi_headers_dws": "`directory_with_structure` containing UAPI headers to use the module.",
-        "files": "The list of output `*.ko` files.",
+
+        # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
+        "modules_staging_dws_depset": """A [depset](https://bazel.build/extending/depsets) of
+            `directory_with_structure` containing staging kernel modules.
+            Contains the lib/modules/* suffix.""",
+        "kernel_uapi_headers_dws_depset": """A [depset](https://bazel.build/extending/depsets) of
+            `directory_with_structure` containing UAPI headers to use the module.""",
+        "files": "A [depset](https://bazel.build/extending/depsets) of output `*.ko` files.",
     },
 )
 
 ModuleSymversInfo = provider(
     doc = "A provider that provides `Module.symvers` for `modpost`.",
     fields = {
-        "restore_path": """The path relative to <the root of the output directory> (e.g. `<sandbox_root>/out/<branch>`)
-                           where the file will be restored to by `KernelEnvInfo`.""",
+        "restore_paths": """A [depset](https://bazel.build/extending/depsets) of
+            paths relative to <the root of the output directory> (e.g.
+            `<sandbox_root>/out/<branch>`) where the `Module.symvers` files will be
+            restored to by `KernelEnvInfo`.""",
     },
 )
 
@@ -154,5 +164,23 @@ KernelImagesInfo = provider(
     doc = "A provider that represents the expectation of [`kernel_images`](#kernel_images) to [`kernel_build`](#kernel_build)",
     fields = {
         "base_kernel": "the `base_kernel` target, if exists",
+    },
+)
+
+DdkSubmoduleInfo = provider(
+    doc = "A provider that describes information about a DDK submodule or module.",
+    fields = {
+        "outs": """A [depset](https://bazel.build/extending/depsets) containing a struct with
+            these keys:
+
+            - `out` is the name of an output file
+            - `src` is a label containing the label of the target declaring the output
+             file.""",
+        "srcs": """A [depset](https://bazel.build/extending/depsets) of source files to build the
+            submodule.""",
+        # TODO(b/247622808): Clean up Target in providers
+        "kernel_module_deps": """A [depset](https://bazel.build/extending/depsets) of dependent
+            [Target](https://bazel.build/rules/lib/Target)s of this submodules that are
+            kernel_module's.""",
     },
 )

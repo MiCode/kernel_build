@@ -21,27 +21,27 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", "kernel_build_abi")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
+load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 # Check effect of strip_modules
 def _strip_modules_test_impl(ctx):
     env = analysistest.begin(ctx)
-    found_action = False
-    for action in analysistest.target_actions(env):
-        mnemonic = ctx.attr.action_mnemonic
-        if mnemonic == "KernelBuild":
-            mnemonic += kernel_utils.local_mnemonic_suffix(ctx)
-        if mnemonic == action.mnemonic:
-            for arg in action.argv:
-                if "INSTALL_MOD_STRIP=1" in arg:
-                    found_action = True
-                    break
+
+    expected_mnemonic = ctx.attr.action_mnemonic
+    if expected_mnemonic == "KernelBuild":
+        expected_mnemonic += kernel_utils.local_mnemonic_suffix(ctx)
+
+    action = test_utils.find_action(env, expected_mnemonic)
+    script = test_utils.get_shell_script(env, action)
+    found_strip_modules = "INSTALL_MOD_STRIP=1" in script
+
     asserts.equals(
         env,
-        actual = found_action,
+        actual = found_strip_modules,
         expected = ctx.attr.expect_strip_modules,
         msg = "expect_strip_modules = {}, but INSTALL_MOD_STRIP=1 {}".format(
             ctx.attr.expect_strip_modules,
-            "found" if found_action else "not found",
+            "found" if found_strip_modules else "not found",
         ),
     )
     return analysistest.end(env)

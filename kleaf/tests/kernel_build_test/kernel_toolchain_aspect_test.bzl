@@ -21,23 +21,14 @@ load(
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
-
-def _find_check_action(actions):
-    for action in actions:
-        if action.mnemonic == "KernelBuildCheckToolchain":
-            return action
-    return None
+load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 def _kernel_toolchain_pass_analysis_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     if ctx.files.toolchain_version_file:
-        actions = analysistest.target_actions(env)
-        check_action = _find_check_action(actions)
-        if check_action == None:
-            asserts.fail(env, "Can't find KernelBuildCheckToolchain")
-        else:
-            asserts.true(env, ctx.files.toolchain_version_file[0] in check_action.inputs.to_list())
+        check_action = test_utils.find_action(env, "KernelBuildCheckToolchain")
+        asserts.true(env, ctx.files.toolchain_version_file[0] in check_action.inputs.to_list())
 
     return analysistest.end(env)
 

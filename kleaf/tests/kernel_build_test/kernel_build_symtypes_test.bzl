@@ -16,25 +16,16 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
+load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 load(":kernel_env_aspect.bzl", "KernelEnvAspectInfo", "kernel_env_aspect")
 
 def _kbuild_symtypes_test_make_vars(ctx, env):
     kernel_build = analysistest.target_under_test(env)
     kernel_env = kernel_build[KernelEnvAspectInfo].kernel_env
-    found_action = False
-    found_command = False
-    for action in kernel_env.actions:
-        if action.mnemonic == "KernelEnv":
-            found_action = True
-            for arg in action.argv:
-                if "KBUILD_SYMTYPES=1" in arg:
-                    found_command = True
 
-    asserts.true(
-        env,
-        found_action,
-        msg = "Unable to find `KernelEnv` action in `kernel_env` target {}".format(kernel_env.label),
-    )
+    action = test_utils.find_action(env, "KernelEnv", kernel_env.actions)
+    script = test_utils.get_shell_script(env, action)
+    found_command = "KBUILD_SYMTYPES=1" in script
 
     asserts.equals(
         env,
@@ -46,19 +37,18 @@ def _kbuild_symtypes_test_make_vars(ctx, env):
 def _kbuild_symtypes_test_output(ctx, env):
     kernel_build = analysistest.target_under_test(env)
 
-    found_action = False
-    for action in analysistest.target_actions(env):
-        if action.mnemonic == "KernelBuild":
-            for output in action.outputs.to_list():
-                if output.is_directory and output.basename == "symtypes":
-                    found_action = True
+    action = test_utils.find_action(env, "KernelBuild")
+    symtypes_dir = test_utils.find_output(action, "symtypes")
 
     asserts.equals(
         env,
-        actual = found_action,
+        actual = bool(symtypes_dir),
         expected = ctx.attr.expect_kbuild_symtypes,
-        msg = "expect_kbuild_symtypes = {}, but {} symtypes/ directory".format(ctx.attr.expect_kbuild_symtypes, "found" if found_action else "not found"),
+        msg = "expect_kbuild_symtypes = {}, but {} symtypes/ directory".format(ctx.attr.expect_kbuild_symtypes, "found" if symtypes_dir else "not found"),
     )
+
+    if symtypes_dir:
+        asserts.true(env, symtypes_dir.is_directory)
 
 # Check effect of kbuild_symtypes
 def _kbuild_symtypes_test_impl(ctx):

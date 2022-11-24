@@ -28,9 +28,12 @@ def _merged_kernel_uapi_headers_impl(ctx):
     # srcs and dws_srcs are the list of sources to merge.
     # Early elements = higher priority. srcs has higher priority than dws_srcs.
     srcs = kernel_build[KernelBuildUapiInfo].kernel_uapi_headers.to_list()
-    dws_srcs = [kernel_module[KernelModuleInfo].kernel_uapi_headers_dws for kernel_module in ctx.attr.kernel_modules]
+
+    # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
+    dws_srcs = depset(transitive = [kernel_module[KernelModuleInfo].kernel_uapi_headers_dws_depset for kernel_module in ctx.attr.kernel_modules]).to_list()
 
     inputs = srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+
     for dws_src in dws_srcs:
         inputs += dws.files(dws_src)
 

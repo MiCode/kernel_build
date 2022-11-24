@@ -18,6 +18,7 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
+load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 
 def _abi_prop_impl(ctx):
     content = []
@@ -55,5 +56,9 @@ abi_prop = rule(
         "modules_archive": attr.label(allow_single_file = True),
         "kmi_definition": attr.label(allow_single_file = True),
         "kmi_enforced": attr.bool(),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
+    cfg = with_vmlinux_transition,
 )

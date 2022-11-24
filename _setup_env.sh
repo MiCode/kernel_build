@@ -34,6 +34,7 @@ function append_cmd() {
     eval "$1=\"\$2\""
   fi
 }
+export -f append_cmd
 
 export KERNEL_DIR
 # for case that KERNEL_DIR is not specified in environment

@@ -23,9 +23,14 @@ bzl_library(
         "abi/abi_diff.bzl",
         "abi/abi_dump.bzl",
         "abi/abi_prop.bzl",
+        "abi/abi_transitions.bzl",
+        "abi/base_kernel_utils.bzl",
         "abi/extracted_symbols.bzl",
+        "abi/force_add_vmlinux_utils.bzl",
+        "abi/get_src_kmi_symbol_list.bzl",
         "abi/kernel_build_abi.bzl",
         "abi/kernel_build_abi_dist.bzl",
+        "abi/trim_nonlisted_kmi_utils.bzl",
         "btf.bzl",
         "common_providers.bzl",
         "constants.bzl",
@@ -43,8 +48,10 @@ bzl_library(
         "image/vendor_dlkm_image.bzl",
         "kernel_build.bzl",
         "kernel_build_config.bzl",
+        "kernel_build_transition.bzl",
         "kernel_compile_commands.bzl",
         "kernel_config.bzl",
+        "kernel_config_settings.bzl",
         "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
@@ -52,9 +59,11 @@ bzl_library(
         "kernel_headers.bzl",
         "kernel_kythe.bzl",
         "kernel_module.bzl",
+        "kernel_module_group.bzl",
         "kernel_modules_install.bzl",
         "kernel_toolchain_aspect.bzl",
         "kernel_uapi_headers.bzl",
+        "kernel_uapi_headers_cc_library.bzl",
         "kernel_unstripped_modules_archive.bzl",
         "kmi_symbol_list.bzl",
         "merged_kernel_uapi_headers.bzl",
@@ -82,6 +91,38 @@ bzl_library(
 # If true, also pack .cmd files as output.
 bool_setting(
     name = "preserve_cmd",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Whether trimming is actually enabled.
+bool_setting(
+    name = "trim_nonlisted_kmi_setting",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Helper setting to forcefully disable trimming.
+bool_setting(
+    name = "force_disable_trim",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Forcefully add vmlinux to outs (implicitly) and to MAKE_GOALS.
+bool_setting(
+    name = "force_add_vmlinux",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Forcefully ignore base_kernel.
+bool_setting(
+    name = "force_ignore_base_kernel",
     build_setting_default = False,
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],

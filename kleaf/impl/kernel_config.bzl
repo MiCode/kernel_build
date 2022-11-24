@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Creates proper .config and others for kernel_build."""
+
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
 load(":debug.bzl", "debug")
+load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
@@ -43,7 +47,7 @@ def _determine_raw_symbollist_path(ctx):
     """A local action that stores the path to `abi_symbollist.raw` to a file object."""
 
     # Use a local action so we get an absolute path in the execroot that
-    # does not tear down as sandbxes. Then write the absolute path into the
+    # does not tear down as sandboxes. Then write the absolute path into the
     # abi_symbollist.raw.abspath.
     #
     # In practice, the absolute path looks something like:
@@ -80,6 +84,22 @@ def _determine_raw_symbollist_path(ctx):
         },
     )
     return abspath
+
+def _config_gcov(ctx):
+    """Return configs for GCOV.
+
+    Keys are configs names. Values are from `_config`, which is a format string that
+    can produce an option to `scripts/config`.
+    """
+    gcov = ctx.attr.gcov[BuildSettingInfo].value
+
+    if not gcov:
+        return struct(configs = {}, deps = [])
+    configs = dicts.add(
+        GCOV_KERNEL = _config.enable,
+        GCOV_PROFILE_ALL = _config.enable,
+    )
+    return struct(configs = configs, deps = [])
 
 def _config_lto(ctx):
     """Return configs for LTO.
@@ -124,10 +144,10 @@ def _config_trim(ctx):
     Keys are configs names. Values are from `_config`, which is a format string that
     can produce an option to `scripts/config`.
     """
-    if ctx.attr.trim_nonlisted_kmi and not ctx.file.raw_kmi_symbol_list:
+    if trim_nonlisted_kmi_utils.get_value(ctx) and not ctx.file.raw_kmi_symbol_list:
         fail("{}: trim_nonlisted_kmi is set but raw_kmi_symbol_list is empty.".format(ctx.label))
 
-    if not ctx.attr.trim_nonlisted_kmi:
+    if not trim_nonlisted_kmi_utils.get_value(ctx):
         return struct(configs = {}, deps = [])
 
     raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
@@ -174,6 +194,7 @@ def _reconfig(ctx):
         _config_lto,
         _config_trim,
         _config_kasan,
+        _config_gcov,
     ):
         pair = fn(ctx)
         configs.update(pair.configs)
@@ -238,7 +259,10 @@ def _kernel_config_impl(ctx):
         inputs = inputs,
         outputs = [config, include_dir],
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
-        progress_message = "Creating kernel config %s" % ctx.attr.name,
+        progress_message = "Creating kernel config {}{}".format(
+            ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
         command = command,
     )
 
@@ -252,7 +276,7 @@ def _kernel_config_impl(ctx):
            find ${{OUT_DIR}}/include -type d -exec chmod +w {{}} \\;
     """.format(config = config.path, include_dir = include_dir.path)
 
-    if ctx.attr.trim_nonlisted_kmi:
+    if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
@@ -319,6 +343,12 @@ def _get_config_script(ctx):
         runfiles = runfiles,
     )
 
+def _kernel_config_additional_attrs():
+    return dicts.add(
+        kernel_config_settings.of_kernel_config(),
+        trim_nonlisted_kmi_utils.non_config_attrs(),
+    )
+
 kernel_config = rule(
     implementation = _kernel_config_impl,
     doc = """Defines a kernel config target.
@@ -335,9 +365,6 @@ kernel_config = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "config": attr.output(mandatory = True, doc = "the .config file"),
-        "kasan": attr.label(default = "//build/kernel/kleaf:kasan"),
-        "lto": attr.label(default = "//build/kernel/kleaf:lto"),
-        "trim_nonlisted_kmi": attr.bool(doc = "If true, modify the config to trim non-listed symbols."),
         "raw_kmi_symbol_list": attr.label(
             doc = "Label to abi_symbollist.raw.",
             allow_single_file = True,
@@ -350,6 +377,6 @@ kernel_config = rule(
             # Allow everything because kernel_config is indirectly called in device packages.
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
-    },
+    } | _kernel_config_additional_attrs(),
     executable = True,
 )

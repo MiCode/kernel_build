@@ -19,7 +19,13 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
 
 def _get_module_staging_dir_impl(ctx):
-    directory = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws.directory
+    modules_staging_dws_list = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws_depset.to_list()
+    if len(modules_staging_dws_list) != 1:
+        fail("{}: {} is not a `kernel_modules_install`.".format(
+            ctx.label,
+            ctx.attr.kernel_modules_install.label,
+        ))
+    directory = modules_staging_dws_list[0].directory
     runfiles = ctx.runfiles(files = [directory])
     return DefaultInfo(files = depset([directory]), runfiles = runfiles)
 

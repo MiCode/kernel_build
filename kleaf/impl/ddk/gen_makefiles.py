@@ -66,28 +66,70 @@ def _gen_makefile(
         out_file.write(content)
 
 
-def _write_ccflag(out_file, ccflag):
+def _write_ccflag(out_file, object_file, ccflag):
     out_file.write(textwrap.dedent(f"""\
-        ccflags-y += {shlex.quote(ccflag)}
+        CFLAGS_{object_file} += {shlex.quote(ccflag)}
         """))
 
 
+def _merge_directories(output_makefiles: pathlib.Path, submodule_makefile_dir: pathlib.Path):
+    """Merges the content of submodule_makefile_dir into output_makefiles.
+
+    File of the same relative path are concatenated.
+    """
+
+    if not submodule_makefile_dir.is_dir():
+        die("Can't find directory %s", submodule_makefile_dir)
+
+    for root, dirs, files in os.walk(submodule_makefile_dir):
+        for file in files:
+            submodule_file = pathlib.Path(root) / file
+            file_rel = submodule_file.relative_to(submodule_makefile_dir)
+            dst_path = output_makefiles / file_rel
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(dst_path, "a") as dst, \
+                 open(submodule_file, "r") as src:
+                dst.write(f"# {submodule_file}\n")
+                dst.write(src.read())
+                dst.write("\n")
+
 def gen_ddk_makefile(
         output_makefiles: pathlib.Path,
+        module_symvers_list: list[pathlib.Path],
+        package: pathlib.Path,
+        produce_top_level_makefile: Optional[bool],
+        submodule_makefiles: list[pathlib.Path],
+        kernel_module_out: Optional[pathlib.Path],
+        **kwargs
+):
+    if produce_top_level_makefile:
+        _gen_makefile(
+            package=package,
+            module_symvers_list=module_symvers_list,
+            output_makefile=output_makefiles / "Makefile",
+        )
+
+    if kernel_module_out:
+        _gen_ddk_makefile_for_module(
+            output_makefiles=output_makefiles,
+            package = package,
+            kernel_module_out = kernel_module_out,
+            **kwargs
+        )
+
+    for submodule_makefile_dir in submodule_makefiles:
+        _merge_directories(output_makefiles, submodule_makefile_dir)
+
+def _gen_ddk_makefile_for_module(
+        output_makefiles: pathlib.Path,
+        package: pathlib.Path,
         kernel_module_out: pathlib.Path,
         kernel_module_srcs: list[pathlib.Path],
         include_dirs: list[pathlib.Path],
-        module_symvers_list: list[pathlib.Path],
-        package: pathlib.Path,
+        linux_include_dirs: list[pathlib.Path],
         local_defines: list[str],
         copt_file: Optional[TextIO],
 ):
-    _gen_makefile(
-        package=package,
-        module_symvers_list=module_symvers_list,
-        output_makefile=output_makefiles / "Makefile",
-    )
-
     rel_srcs = []
     for src in kernel_module_srcs:
         if src.is_relative_to(package):
@@ -99,12 +141,21 @@ def gen_ddk_makefile(
     kbuild = output_makefiles / kernel_module_out.parent / "Kbuild"
     os.makedirs(kbuild.parent, exist_ok=True)
 
+    copts = json.load(copt_file) if copt_file else None
+
     with open(kbuild, "w") as out_file:
         out_file.write(textwrap.dedent(f"""\
             # Build {package / kernel_module_out}
             obj-m += {kernel_module_out.with_suffix('.o').name}
             """))
         out_file.write("\n")
+
+        #    //path/to/package:target/name/foo.ko
+        # =>   path/to/package/target/name
+        rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
+        rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
+
+        _handle_linux_includes(out_file, linux_include_dirs, rel_root)
 
         for src in rel_srcs:
             # Ignore non-exported headers specified in srcs
@@ -127,29 +178,15 @@ def gen_ddk_makefile(
                 {kernel_module_out.with_suffix('').name}-y += {out}
             """))
 
-        out_file.write("\n")
-
-        #    //path/to/package:target/name/foo.ko
-        # =>   path/to/package/target/name
-        rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
-        rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
-
-        for include_dir in include_dirs:
-            out_file.write(textwrap.dedent(f"""\
-                # Include {include_dir}
-                """))
-            _write_ccflag(out_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
-
-        if local_defines:
             out_file.write("\n")
-            out_file.write(textwrap.dedent("""\
-                # local defines
-                """))
 
-        for local_define in local_defines:
-            _write_ccflag(out_file, f"-D{local_define}")
+            # At this time of writing (2022-11-01), this is the order how cc_library
+            # constructs arguments to the compiler.
+            _handle_defines(out_file, out, local_defines)
+            _handle_includes(out_file, out, include_dirs, rel_root)
+            _handle_copts(out_file, out, copts, rel_root)
 
-        _handle_copt_file(out_file, copt_file, rel_root)
+            out_file.write("\n")
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -160,8 +197,52 @@ def gen_ddk_makefile(
                 obj-y += {kernel_module_out.parent}/
                 """))
 
-def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: pathlib.Path):
-    if not copt_file:
+
+def _handle_linux_includes(out_file: TextIO,
+                           linux_include_dirs: list[pathlib.Path],
+                           rel_root: pathlib.Path):
+    if not linux_include_dirs:
+        return
+    out_file.write("\n")
+    out_file.write(textwrap.dedent("""\
+        LINUXINCLUDE := \\
+    """))
+    for linux_include_dir in linux_include_dirs:
+        out_file.write(f"  -I$(srctree)/$(src)/{rel_root}/{linux_include_dir} \\")
+        out_file.write("\n")
+    out_file.write("  $(LINUXINCLUDE)")
+    out_file.write("\n\n")
+
+
+def _handle_defines(out_file: TextIO,
+                    object_file: pathlib.Path,
+                    local_defines: list[str]):
+    if not local_defines:
+        return
+    out_file.write("\n")
+    out_file.write(textwrap.dedent("""\
+        # local defines
+        """))
+    for local_define in local_defines:
+        _write_ccflag(out_file, object_file, f"-D{local_define}")
+
+
+def _handle_includes(out_file: TextIO,
+                     object_file: pathlib.Path,
+                     include_dirs: list[pathlib.Path],
+                     rel_root: pathlib.Path):
+    for include_dir in include_dirs:
+        out_file.write(textwrap.dedent(f"""\
+            # Include {include_dir}
+            """))
+        _write_ccflag(out_file, object_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
+
+
+def _handle_copts(out_file: TextIO,
+                  object_file: pathlib.Path,
+                  copts: Optional[list[dict[str, str | bool]]],
+                  rel_root: pathlib.Path):
+    if not copts:
         return
 
     out_file.write("\n")
@@ -169,14 +250,15 @@ def _handle_copt_file(out_file: TextIO, copt_file: Optional[TextIO], rel_root: p
         # copts
         """))
 
-    for d in json.load(copt_file):
+    for d in copts:
         expanded: str = d["expanded"]
         is_path: bool = d["is_path"]
 
         if is_path:
             expanded = str(rel_root / expanded)
 
-        _write_ccflag(out_file, expanded)
+        _write_ccflag(out_file, object_file, expanded)
+
 
 if __name__ == "__main__":
     # argparse_flags.ArgumentParser only accepts --flagfile if there
@@ -191,10 +273,12 @@ if __name__ == "__main__":
     parser.add_argument("--kernel-module-out", type=pathlib.Path)
     parser.add_argument("--kernel-module-srcs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--output-makefiles", type=pathlib.Path)
+    parser.add_argument("--linux-include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
-
     parser.add_argument("--copt-file", type=argparse.FileType("r"))
+    parser.add_argument("--produce-top-level-makefile", action="store_true")
+    parser.add_argument("--submodule-makefiles", type=pathlib.Path, nargs="*", default=[])
 
     gen_ddk_makefile(**vars(parser.parse_args()))

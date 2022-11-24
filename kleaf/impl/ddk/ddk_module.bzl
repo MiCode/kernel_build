@@ -12,24 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load(
-    ":common_providers.bzl",
-    "KernelBuildExtModuleInfo",
-    "KernelEnvInfo",
-    "KernelModuleInfo",
-)
+"""Rules for defining a DDK (Driver Development Kit) module."""
+
 load(":kernel_module.bzl", "kernel_module")
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers")
 load(":ddk/makefiles.bzl", "makefiles")
 
 def ddk_module(
         name,
         kernel_build,
-        srcs,
+        srcs = None,
         deps = None,
         hdrs = None,
         includes = None,
+        linux_includes = None,
         out = None,
         local_defines = None,
         copts = None,
@@ -43,6 +38,7 @@ def ddk_module(
     ddk_module(
         name = "my_module",
         srcs = ["my_module.c", "private_header.h"],
+        out = "my_module.ko",
         # Exported headers
         hdrs = ["include/my_module_exported.h"],
         includes = ["include"],
@@ -90,34 +86,39 @@ def ddk_module(
     A [`ddk_module`](#ddk_module) is compiled with the following order of include directories
     (`-I` options):
 
-    1. `LINUXINCLUDE` (See `common/Makefile`)
-    2. All `deps`, in the specified order (recursively apply #3 ~ #4 on each target)
-    3. All `hdrs`, in the specified order (recursively apply #3 ~ #4 on each target)
-    4. All `includes` of this target, in the specified order
+    1. Traverse depedencies for `linux_includes`:
+      1. All `linux_includes` of this target, in the specified order
+      2. All `linux_includes` of `deps`, in the specified order (recursively apply #1.3 on each target)
+      3. All `linux_includes` of `hdrs`, in the specified order (recursively apply #1.3 on each target)
+    2. `LINUXINCLUDE` (See `${KERNEL_DIR}/Makefile`)
+    3. Traverse depedencies for `includes`:
+      1. All `includes` of this target, in the specified order
+      2. All `includes` of `deps`, in the specified order (recursively apply #3.1 and #3.3 on each target)
+      3. All `includes` of `hdrs`, in the specified order (recursively apply #3.1 and #3.3 on each target)
 
-    In other words, except that `LINUXINCLUDE` always has the highest priority,
-    this uses the "postorder" of [depset](https://bazel.build/rules/lib/depset).
+    In other words, #1 and #3 uses the `preorder` of
+    [depset](https://bazel.build/rules/lib/depset).
 
     "In the specified order" means that order matters within these lists.
     To prevent buildifier from sorting these lists, use the `# do not sort` magic line.
 
     To export a target `:x` in `hdrs` before other targets in `deps`
-    (that is, if you need #3 before #2), specify `:x` in the `deps`
-    list in the position you want. See example below.
+    (that is, if you need #3.3 before #3.2, or #1.2 before #1.1),
+    specify `:x` in the `deps` list in the position you want. See example below.
 
     To export an include directory in `includes` that needs to be included
-    before other targets in `hdrs` or `deps` (that is, if you need #4 before #3
-    or #2), specify the include directory in a separate `ddk_headers` target,
+    after other targets in `hdrs` or `deps` (that is, if you need #3.1 after #3.2
+    or #3.3), specify the include directory in a separate `ddk_headers` target,
     then specify this `ddk_headers` target in `hdrs` and/or `deps` based on
     your needs.
 
     For example:
 
     ```
-    ddk_headers(name = "dep_a", includes = ["dep_a"])
+    ddk_headers(name = "dep_a", includes = ["dep_a"], linux_includes = ["uapi/dep_a"])
     ddk_headers(name = "dep_b", includes = ["dep_b"])
     ddk_headers(name = "dep_c", includes = ["dep_c"], hdrs = ["dep_a"])
-    ddk_headers(name = "hdrs_a", includes = ["hdrs_a"])
+    ddk_headers(name = "hdrs_a", includes = ["hdrs_a"], linux_includes = ["uapi/hdrs_a"])
     ddk_headers(name = "hdrs_b", includes = ["hdrs_b"])
     ddk_headers(name = "x", includes = ["x"])
 
@@ -125,6 +126,7 @@ def ddk_module(
         name = "module",
         deps = [":dep_b", ":x", ":dep_c"],
         hdrs = [":hdrs_a", ":x", ":hdrs_b"],
+        linux_includes = ["uapi/module"],
         includes = ["self_1", "self_2"],
     )
     ```
@@ -132,26 +134,35 @@ def ddk_module(
     Then `":module"` is compiled with these flags, in this order:
 
     ```
-    # 1.
+    # 1.1 linux_includes
+    -Iuapi/module
+
+    # 1.2 deps, linux_includes, recursively
+    -Iuapi/dep_a
+
+    # 1.3 hdrs, linux_includes, recursively
+    -Iuapi/hdrs_a
+
+    # 2.
     $(LINUXINCLUDE)
 
-    # 2. deps, recursively
+    # 3.1 includes
+    -Iself_1
+    -Iself_2
+
+    # 3.2. deps, recursively
     -Idep_b
     -Ix
     -Idep_a   # :dep_c depends on :dep_a, so include dep_a/ first
     -Idep_c
 
-    # 3. hdrs
+    # 3.3. hdrs, recursively
     -Ihdrs_a
     # x is already included, skip
     -Ihdrs_b
-
-    # 4. includes
-    -Iself_1
-    -Iself_2
     ```
 
-    A dependent module automatically gets #3 and #4, in this order. For example:
+    A dependent module automatically gets #1.1, #1.3, #3.1, #3.3, in this order. For example:
 
     ```
     ddk_module(
@@ -164,15 +175,19 @@ def ddk_module(
     Then `":child"` is compiled with these flags, in this order:
 
     ```
-    # 1.
+    # 1.2. linux_includes of deps, recursively
+    -Iuapi/module
+    -Iuapi/hdrs_a
+
+    # 2.
     $(LINUXINCLUDE)
 
-    # 2. deps, recursively
+    # 3.2. includes of deps, recursively
+    -Iself_1
+    -Iself_2
     -Ihdrs_a
     -Ix
     -Ihdrs_b
-    -Iself_1
-    -Iself_2
     ```
 
     Args:
@@ -186,8 +201,9 @@ def ddk_module(
             - [`ddk_headers`](#ddk_headers).
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
+        linux_includes: See [`ddk_headers.linux_includes`](#ddk_headers-linux_includes)
         kernel_build: [`kernel_build`](#kernel_build)
-        out: The output module file. By default, this is `"{name}.ko"`.
+        out: The output module file. This should usually be `"{name}.ko"`.
         local_defines: List of defines to add to the compile line.
 
           **Order matters**. To prevent buildifier from sorting the list, use the
@@ -285,26 +301,23 @@ def ddk_module(
           `package/Makefile`, and `make` is executed under `package/`. In order
           to find `other/header.h`, its path relative to `package/` is given.
 
-        kwargs: Additional attributes to the internal rule.
+        **kwargs: Additional attributes to the internal rule.
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
-    if out == None:
-        out = "{}.ko".format(name)
-
     kernel_module(
         name = name,
         kernel_build = kernel_build,
-        srcs = srcs,
-        deps = deps,
-        outs = [out],
+        srcs = [],
+        # Set it to empty list, not None, so kernel_module() doesn't fallback to {name}.ko.
+        # _kernel_module_impl infers the list of outs from internal_ddk_makefiles_dir.
+        outs = [],
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
+        # This is used in build_cleaner.
         internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
         internal_drop_modules_order = True,
         internal_exclude_kernel_build_module_srcs = True,
-        internal_hdrs = hdrs,
-        internal_includes = includes,
         **kwargs
     )
 
@@ -316,9 +329,11 @@ def ddk_module(
         module_srcs = srcs,
         module_hdrs = hdrs,
         module_includes = includes,
+        module_linux_includes = linux_includes,
         module_out = out,
         module_deps = deps,
         module_local_defines = local_defines,
         module_copts = copts,
+        top_level_makefile = True,
         **private_kwargs
     )

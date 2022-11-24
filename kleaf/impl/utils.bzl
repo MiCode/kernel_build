@@ -12,10 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Utilities for kleaf.
+"""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load(":common_providers.bzl", "KernelModuleInfo")
+load(
+    ":common_providers.bzl",
+    "DdkSubmoduleInfo",
+    "KernelEnvInfo",
+    "KernelModuleInfo",
+    "ModuleSymversInfo",
+)
+load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 
 def _reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
@@ -37,7 +48,17 @@ def _getoptattr(thing, attr, default_value = None):
     return default_value
 
 def find_file(name, files, what, required = False):
-    """Find a file named |name| in the list of |files|. Expect zero or one match."""
+    """Find a file named |name| in the list of |files|. Expect zero or one match.
+
+    Args:
+        name: Name of the file to be searched.
+        files: List of files.
+        what: Target.
+        required: whether to fail if a non exact result is produced.
+
+    Returns:
+        A match when found or `None`.
+    """
     result = []
     for file in files:
         if file.basename == name:
@@ -52,10 +73,15 @@ def find_file(name, files, what, required = False):
         ))
     return result[0] if result else None
 
-def find_files(files, what, suffix = None):
-    """Find files with given condition. The following conditions are accepted:
+def find_files(files, suffix = None):
+    """Find files which names end with a given |suffix|.
 
-    - Looking for files ending with a given suffix.
+    Args:
+        files: list of files to inspect.
+        suffix: Looking for files ending with this given suffix.
+
+    Returns:
+        A list of files.
     """
     result = []
     for file in files:
@@ -158,36 +184,6 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
-def _kernel_build_outs_add_vmlinux(name, outs):
-    """Add vmlinux etc. to the outs attribute of a `kernel_build`.
-
-    The logic should be in par with `_transform_kernel_build_outs`.
-    """
-    files_to_add = ("vmlinux", "System.map")
-    outs_changed = False
-    if outs == None:
-        outs = ["vmlinux"]
-        outs_changed = True
-    if type(outs) == type([]):
-        for file in files_to_add:
-            if file not in outs:
-                # don't use append to avoid changing outs
-                outs = outs + [file]
-                outs_changed = True
-    elif type(outs) == type({}):
-        outs_new = {}
-        for k, v in outs.items():
-            for file in files_to_add:
-                if file not in v:
-                    # don't use append to avoid changing outs
-                    v = v + [file]
-                    outs_changed = True
-            outs_new[k] = v
-        outs = outs_new
-    else:
-        fail("{}: Invalid type for outs: {}".format(name, type(outs)))
-    return outs, outs_changed
-
 def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """Check that kernel_modules have the same kernel_build as the given one.
 
@@ -200,6 +196,10 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
     """
 
     for kernel_module in kernel_modules:
+        if kernel_build == None:
+            kernel_build = kernel_module[KernelModuleInfo].kernel_build
+            continue
+
         if kernel_module[KernelModuleInfo].kernel_build.label != \
            kernel_build.label:
             fail((
@@ -222,10 +222,40 @@ def _local_mnemonic_suffix(ctx):
         return "Local"
     return ""
 
+def _split_kernel_module_deps(deps, this_label):
+    """Splits `deps` for a `kernel_module` or `ddk_module`.
+
+    Args:
+        deps: The list of deps
+        this_label: label of the module being checked.
+    """
+
+    kernel_module_deps = []
+    hdr_deps = []
+    submodule_deps = []
+    for dep in deps:
+        is_valid_dep = False
+        if DdkHeadersInfo in dep:
+            hdr_deps.append(dep)
+            is_valid_dep = True
+        if all([info in dep for info in [KernelEnvInfo, KernelModuleInfo, ModuleSymversInfo]]):
+            kernel_module_deps.append(dep)
+            is_valid_dep = True
+        if all([info in dep for info in [DdkHeadersInfo, DdkSubmoduleInfo]]):
+            submodule_deps.append(dep)
+            is_valid_dep = True
+        if not is_valid_dep:
+            fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers, ddk_submodule are accepted.".format(this_label, dep.label))
+    return struct(
+        kernel_modules = kernel_module_deps,
+        hdrs = hdr_deps,
+        submodules = submodule_deps,
+    )
+
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
-    kernel_build_outs_add_vmlinux = _kernel_build_outs_add_vmlinux,
     local_mnemonic_suffix = _local_mnemonic_suffix,
+    split_kernel_module_deps = _split_kernel_module_deps,
 )
