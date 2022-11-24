@@ -46,4 +46,6 @@
 
 `--kbuild_symtypes`: [KBUILD\_SYMTYPES](docs/symtypes.md)
 
+`--kgdb`: [GDB scripts](docs/kgdb.md)
+
 `--lto`: [Configure LTO during development](docs/lto.md)

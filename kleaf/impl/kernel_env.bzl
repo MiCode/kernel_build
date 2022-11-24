@@ -29,6 +29,7 @@ load(
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
+load(":kgdb.bzl", "kgdb")
 load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
 load(":utils.bzl", "utils")
@@ -134,6 +135,7 @@ def _kernel_env_impl(ctx):
     command += stamp.set_localversion_cmd(ctx)
 
     additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
+    additional_make_goals += kgdb.additional_make_goals(ctx)
 
     command += """
         # create a build environment

@@ -98,6 +98,14 @@ bool_flag(
     build_setting_default = False,
 )
 
+# If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
+# If additional hacks are needed, put `select()` on the build_config.
+# See kleaf/docs/kgdb.md for details.
+bool_flag(
+    name = "kgdb",
+    build_setting_default = False,
+)
+
 # The values of --config, as passed by command line and bazelrc files.
 _config_values = (
     "local",
