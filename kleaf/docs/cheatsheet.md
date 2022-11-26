@@ -14,6 +14,12 @@ $ tools/bazel build //common:kernel_aarch64
 $ tools/bazel run //common:kernel_aarch64_dist
 ```
 
+### Keep intermediate build artifacts (for example `*.o` files) in `out/cache/`
+
+```shell
+$ tools/bazel build --config=local //common:kernel_aarch64
+```
+
 ## ABI monitoring
 
 ### Building all artifacts
