@@ -233,6 +233,7 @@ def _split_kernel_module_deps(deps, this_label):
     kernel_module_deps = []
     hdr_deps = []
     submodule_deps = []
+    module_symvers_deps = []
     for dep in deps:
         is_valid_dep = False
         if DdkHeadersInfo in dep:
@@ -244,12 +245,16 @@ def _split_kernel_module_deps(deps, this_label):
         if all([info in dep for info in [DdkHeadersInfo, DdkSubmoduleInfo]]):
             submodule_deps.append(dep)
             is_valid_dep = True
+        if ModuleSymversInfo in dep:
+            module_symvers_deps.append(dep)
+            is_valid_dep = True
         if not is_valid_dep:
             fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers, ddk_submodule are accepted.".format(this_label, dep.label))
     return struct(
         kernel_modules = kernel_module_deps,
         hdrs = hdr_deps,
         submodules = submodule_deps,
+        module_symvers_deps = module_symvers_deps,
     )
 
 kernel_utils = struct(

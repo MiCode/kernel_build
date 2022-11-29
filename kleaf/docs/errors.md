@@ -64,18 +64,21 @@ Example:
 
 This means a kernel module dependency is missing.
 
-Solution: Add the `kernel_module` in `foo` to `kernel_module_deps` of the build
-rule.
+**Solution**:
+
+* Try the Kleaf [`build_cleaner`](build_cleaner.md).
+* If that doesn't work, manually add the `kernel_module` in `foo` to
+  `deps` of the build rule.
 
 Example:
 [Power Reset module depends on BMS](https://android.googlesource.com/kernel/google-modules/power/reset/+/refs/heads/android-gs-raviole-mainline/BUILD.bazel).
 
 ## ERROR: modpost: "foo" [.../mod_using_foo.ko] undefined! {#modpost-symbol-undefined}
 
-Solution:
+**Solution**:
 
-* First, ensure the `Module.symvers` file from the module defining `foo` is present.
-  See [this section](#module-symvers-missing).
+* First, ensure the `Module.symvers` file from the module defining `foo` is
+  present. See [this section](#module-symvers-missing).
 * For `kernel_module`s, set `KBUILD_EXTRA_SYMBOLS` accordingly in `Makefile`. Example:
   [Makefile for Power Reset module](https://android.googlesource.com/kernel/google-modules/power/reset/+/refs/heads/android-gs-raviole-mainline/Makefile)
   . This is unnecessary for `ddk_module` because `Makefile` is generated.
