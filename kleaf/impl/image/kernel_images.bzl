@@ -111,8 +111,8 @@ def kernel_images(
         build_boot: Whether to build boot image. It must be set if either `BUILD_BOOT_IMG`
           or `BUILD_VENDOR_BOOT_IMG` is set.
 
-          This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
-          `build_initramfs` is implicitly true, and `kernel_build` must be set.
+          This depends on `kernel_build`. Hence, if this is set to `True`,
+          `kernel_build` must be set.
 
           If `True`, adds `boot.img` to `boot_image_outs` if not already in the list.
         build_vendor_boot: Whether to build `vendor_boot.img`. It must be set if either
