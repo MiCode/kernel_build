@@ -649,7 +649,7 @@ function build_gki_boot_images() {
 function build_gki_artifacts() {
   check_mkbootimg_path
 
-  if [ "${ARCH}" = "arm64" ]; then
+  if [ "${ARCH}" = "arm64" -o "${ARCH}" = "riscv64" ]; then
     build_gki_boot_images "${DIST_DIR}/Image"
   elif [ "${ARCH}" = "x86_64" ]; then
     build_gki_boot_images "${DIST_DIR}/bzImage"
