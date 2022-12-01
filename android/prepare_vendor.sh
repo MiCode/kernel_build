@@ -194,10 +194,9 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
   echo
   echo "  Recompiling kernel"
 
-  (
-    cd ${ROOT_DIR}
-    SKIP_MRPROPER=1 OUT_DIR=${ANDROID_KP_OUT_DIR} ./build/build.sh
-  )
+  "${ROOT_DIR}/build_with_bazel.py" \
+    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" \
+    --out_dir "${ANDROID_KP_OUT_DIR}"
 
   COPY_NEEDED=1
 fi
@@ -239,10 +238,10 @@ if [ "${RECOMPILE_ABL}" == "1" ]; then
     echo "  Recompiling edk2"
 
     (
-      cd ${ROOT_DIR}
-      ABL_OUT_DIR=${ANDROID_KP_OUT_DIR} \
-      ABL_IMAGE_DIR=${ANDROID_KP_OUT_DIR}/dist \
-      ./build/build_abl.sh ${KERNEL_TARGET}
+      cd "${ROOT_DIR}"
+      ./tools/bazel run \
+        "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
+        -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist"
     )
 
     COPY_ABL_NEEDED=1
