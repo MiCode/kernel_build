@@ -140,6 +140,17 @@ def _sanitize_label_as_filename(label):
     label_text = str(label)
     return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
 
+def _kwargs_to_def(**kwargs):
+    """Turns d into text that can be copied to BUILD files. May be inaccurate."""
+    for key, value in list(kwargs.items()):
+        if value == None:
+            kwargs.pop(key)
+
+    return ",\n    ".join(sorted(["{key} = {value_repr}".format(
+        key = key,
+        value_repr = repr(value),
+    ) for key, value in kwargs.items()]))
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -150,6 +161,7 @@ utils = struct(
     find_files = find_files,
     compare_file_names = _compare_file_names,
     sanitize_label_as_filename = _sanitize_label_as_filename,
+    kwargs_to_def = _kwargs_to_def,
 )
 
 def _filter_module_srcs(files):
