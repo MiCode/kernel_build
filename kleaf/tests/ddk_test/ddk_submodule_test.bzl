@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for `ddk_submodule`."""
+
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_submodule.bzl", "ddk_submodule")
@@ -40,6 +42,10 @@ def _ddk_module_test_make(
     )
 
 def ddk_submodule_test(name):
+    """Tests for `ddk_submodule`.
+
+    Args:
+        name: name of the test suite."""
     kernel_build(
         name = name + "_kernel_build",
         build_config = "build.config.fake",
