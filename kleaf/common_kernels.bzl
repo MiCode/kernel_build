@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Functions that are useful in the common kernel package (usually `//common`)."""
+
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(
     ":kernel.bzl",
@@ -33,7 +34,6 @@ load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_o
 load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
-load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
@@ -214,6 +214,7 @@ def _filter_keys(d, valid_keys, what = "", allow_unknown_keys = False):
         ))
     return ret
 
+# buildifier: disable=unnamed-macro
 def define_common_kernels(
         branch = None,
         target_configs = None,
