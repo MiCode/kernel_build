@@ -733,10 +733,11 @@ def _get_cache_dir_step(ctx):
         inputs.append(config_tags_json_file)
 
         cache_dir_cmd = """
-              KLEAF_CACHED_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
+              KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
+              KLEAF_CACHED_OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
               (
                   mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
-                  KLEAF_CONIFG_TAGS="${{KLEAF_CACHED_OUT_DIR}}/kleaf_config_tags.json"
+                  KLEAF_CONIFG_TAGS="${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
 
                   # {config_tags_json_file} is readonly. If ${{KLEAF_CONIFG_TAGS}} exists,
                   # it should be readonly too.
@@ -760,6 +761,7 @@ def _get_cache_dir_step(ctx):
 
               export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
               unset KLEAF_CACHED_OUT_DIR
+              unset KLEAF_CACHED_COMMON_OUT_DIR
         """.format(
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
             config_tags_json_file = config_tags_json_file.path,
