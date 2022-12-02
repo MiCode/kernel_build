@@ -363,7 +363,7 @@ def kernel_build(
         strip_modules = False
 
     internal_kwargs = dict(kwargs)
-    internal_kwargs.pop("visibility", default = None)
+    internal_kwargs.pop("visibility", None)
 
     kwargs_with_manual = dict(kwargs)
     kwargs_with_manual["tags"] = ["manual"]

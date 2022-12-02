@@ -2,21 +2,24 @@
 
 ## Enable ABI monitoring
 
-Update relevant targets in `BUILD.bazel`.
+ABI monitoring only needs to be configured for core kernel build targets. Mixed
+build configurations (ones that define `base_kernel`) that compile directly
+with the GKI kernel only need to add support for tracking the device symbol
+list. The ABI xml can be updated using the GKI build.
+
+To setup the device symbol list, update the relevant targets in `BUILD.bazel`.
 
 ### Migrate from `kernel_build` to a `kernel_build_abi` target
 
 Migrate the existing `kernel_build` target to a `kernel_build_abi` target by
-changing the type of the macro invocation.
+changing the type of the macro invocation. The `base_kernel` should point to
+a GKI kernel that has ABI monitoring enabled.
 
-Add additional attributes to the target for ABI monitoring. This includes:
+Add additional attributes to the target for KMI symbol list support. This
+includes:
 
-- `abi_definition`: The ABI definition, usually
-  `"//common:android/abi_gki_aarch64.xml"`.
 - `kmi_symbol_list`: The KMI symbol list for the device, e.g.
   `"//common:android/abi_gki_aarch64_pixel"`.
-- `additional_kmi_symbol_lists`: Other KMI symbol lists, usually
-  `["//common:kernel_aarch64_all_kmi_symbol_lists"]`.
 - `kernel_modules`: The list of external modules. This should be consistent with
   the `kernel_modules_install` target.
 - `unstripped_modules_archive`: The `kernel_unstripped_modules_archive` target,
