@@ -726,7 +726,13 @@ def _get_cache_dir_step(ctx):
         cache_dir_cmd = """
               KLEAF_CACHED_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
               mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
-              rsync -aL "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+
+              # source/ and build/ are symlinks to the source tree and $OUT_DIR, respectively,
+              rsync -aL --exclude=source --exclude=build \\
+                  "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+              rsync -al --include=source --include=build --exclude='*' \\
+                  "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+
               export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
               unset KLEAF_CACHED_OUT_DIR
         """.format(
