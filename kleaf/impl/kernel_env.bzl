@@ -15,8 +15,6 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -120,11 +118,15 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
-    config_tags = kernel_config_settings.kernel_env_get_out_dir_suffix(ctx)
-    out_dir_suffix = paths.join(
-        utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"),
-        config_tags,
-    )
+    config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
+    config_tags["_kernel_build"] = str(ctx.label.relative(ctx.label.name.removesuffix("_env")))
+    config_tags_json = json.encode_indent(config_tags, indent = "  ")
+    config_tags_comment_file = ctx.actions.declare_file("{}/config_tags.txt".format(ctx.label.name))
+    config_tags_comment_lines = "\n".join(["# " + line for line in config_tags_json.splitlines()]) + "\n"
+    ctx.actions.write(config_tags_comment_file, config_tags_comment_lines)
+    inputs.append(config_tags_comment_file)
+
+    out_dir_suffix = utils.hash_hex(config_tags_json)
     command += """
           export OUT_DIR_SUFFIX={}
     """.format(out_dir_suffix)
@@ -147,7 +149,8 @@ def _kernel_env_impl(ctx):
         # Add to MAKE_GOALS if necessary
           export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
         # Add a comment with config_tags for debugging
-          echo {config_tags} > {out}
+          cp -p {config_tags_comment_file} {out}
+          chmod +w {out}
         # capture it as a file to be sourced in downstream rules
           {preserve_env} >> {out}
         """.format(
@@ -157,7 +160,7 @@ def _kernel_env_impl(ctx):
         additional_make_goals = " ".join(additional_make_goals),
         preserve_env = preserve_env.path,
         out = out_file.path,
-        config_tags = shell.quote("# " + config_tags),
+        config_tags_comment_file = config_tags_comment_file.path,
     )
 
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
@@ -252,6 +255,7 @@ def _kernel_env_impl(ctx):
             env_info = env_info,
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
+            config_tags = config_tags,
         ),
         DefaultInfo(files = depset([out_file])),
     ]
