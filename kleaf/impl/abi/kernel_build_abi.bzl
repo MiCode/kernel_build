@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Rules to enable ABI monitoring."""
+
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
 load(":abi/abi_diff.bzl", "abi_diff")
@@ -20,7 +22,7 @@ load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":kernel_build.bzl", "kernel_build")
-load(":utils.bzl", "kernel_utils", "utils")
+load(":utils.bzl", "utils")
 
 # TODO(b/242072873): Delete once all use cases migrate to kernel_abi.
 def kernel_build_abi(

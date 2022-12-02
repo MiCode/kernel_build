@@ -77,6 +77,16 @@ def ddk_module(
     ddk_module(name = "module_B", deps = ["module_A", "module_A_hdrs"], ...)
     ```
 
+    **Submodules**
+
+    See [ddk_submodule](#ddk_submodule).
+
+    If `deps` contains a `ddk_submodule` target, the `ddk_module` target must not specify
+    anything except:
+
+    - `kernel_build`
+    - `linux_includes`
+
     **Ordering of `includes`**
 
     **The best practice is to not have conflicting header names and search paths.**
@@ -204,6 +214,8 @@ def ddk_module(
         linux_includes: See [`ddk_headers.linux_includes`](#ddk_headers-linux_includes)
         kernel_build: [`kernel_build`](#kernel_build)
         out: The output module file. This should usually be `"{name}.ko"`.
+
+          This is required if this target does not contain submodules.
         local_defines: List of defines to add to the compile line.
 
           **Order matters**. To prevent buildifier from sorting the list, use the

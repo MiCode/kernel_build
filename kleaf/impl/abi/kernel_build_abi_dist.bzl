@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Dist rules for devices with ABI monitoring enabled."""
+
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load(":utils.bzl", "utils")
@@ -30,6 +32,10 @@ def kernel_build_abi_dist(
       name: name of the dist target
       kernel_build_abi: name of the [`kernel_build_abi`](#kernel_build_abi)
         invocation.
+      **kwargs: Additional attributes to the internal rule, e.g.
+        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+        See complete list
+        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
 
     Deprecated:
       Use [`kernel_abi_dist`](#kernel_abi_dist) instead.
@@ -70,6 +76,10 @@ def kernel_abi_dist(
     Args:
       name: name of the dist target
       kernel_abi: name of the [`kernel_abi`](#kernel_abi) invocation.
+      **kwargs: Additional attributes to the internal rule, e.g.
+        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+        See complete list
+        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
     # TODO(b/231647455): Clean up hard-coded name "_abi_diff_executable".

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for `ddk_module`."""
+
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "ModuleSymversInfo")
@@ -50,7 +52,7 @@ def _ddk_module_test_impl(ctx):
     for a in target_under_test.actions:
         if a.mnemonic == "KernelModule":
             action = a
-    asserts.true(env, a, "Can't find action with mnemonic KernelModule")
+    asserts.true(env, action, "Can't find action with mnemonic KernelModule")
 
     inputs = sets.make(action.inputs.to_list())
     asserts.true(
@@ -65,7 +67,7 @@ def _ddk_module_test_impl(ctx):
 
     return analysistest.end(env)
 
-_ddk_module_test = analysistest.make(
+ddk_module_test = analysistest.make(
     impl = _ddk_module_test_impl,
     attrs = {
         "expected_inputs": attr.label_list(allow_files = True),
@@ -87,7 +89,7 @@ def _ddk_module_test_make(
         **kwargs
     )
 
-    _ddk_module_test(
+    ddk_module_test(
         name = name,
         target_under_test = name + "_module",
         expected_inputs = expected_inputs,
@@ -96,6 +98,10 @@ def _ddk_module_test_make(
     )
 
 def ddk_module_test_suite(name):
+    """Tests for `ddk_module`.
+
+    Args:
+        name: name of the test suite."""
     kernel_build(
         name = name + "_kernel_build",
         build_config = "build.config.fake",
