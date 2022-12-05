@@ -1,0 +1,96 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+_LINUX_X86_64 = [
+    "@platforms//os:linux",
+    "@platforms//cpu:x86_64",
+]
+
+cc_binary(
+    name = "hello_world_linux_x86_64",
+    srcs = ["hello_world.c"],
+    target_compatible_with = _LINUX_X86_64,
+)
+
+cc_library(
+    name = "mylib_linux_x86_64",
+    srcs = [
+        "lib.c",
+        "lib.h",
+    ],
+    target_compatible_with = _LINUX_X86_64,
+)
+
+cc_binary(
+    name = "mybin_full_static_linux_x86_64",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    features = ["full_static_link"],
+    linkstatic = True,
+    target_compatible_with = _LINUX_X86_64,
+    deps = [":mylib_linux_x86_64"],
+)
+
+cc_binary(
+    name = "mybin_static_linux_x86_64",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    linkstatic = True,
+    target_compatible_with = _LINUX_X86_64,
+    deps = [":mylib_linux_x86_64"],
+)
+
+cc_binary(
+    name = "mybin_dynamic_linux_x86_64",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    linkstatic = False,
+    target_compatible_with = _LINUX_X86_64,
+    deps = [":mylib_linux_x86_64"],
+)
+
+cc_binary(
+    name = "openssl_client_linux_x86_64",
+    srcs = [
+        "openssl_client.c",
+    ],
+    target_compatible_with = _LINUX_X86_64,
+    deps = [
+        "//prebuilts/kernel-build-tools:linux_x86_imported_libs",
+    ],
+)
+
+# genrule that applies the `cfg = exec` transition. This ensures that all these
+# tools are built for the execution platform, not the target platform.
+genrule(
+    name = "linux_x86_64_tests_genrule",
+    outs = ["linux_x86_64_tests_genrule.txt"],
+    cmd = """
+        $(location :hello_world_linux_x86_64) > $@
+        $(location :mybin_dynamic_linux_x86_64) >> $@
+        $(location :mybin_full_static_linux_x86_64) >> $@
+        $(location :mybin_static_linux_x86_64) >> $@
+        $(location :openssl_client_linux_x86_64) >> $@
+    """,
+    tools = [
+        ":hello_world_linux_x86_64",
+        ":mybin_dynamic_linux_x86_64",
+        ":mybin_full_static_linux_x86_64",
+        ":mybin_static_linux_x86_64",
+        ":mylib_linux_x86_64",
+        ":openssl_client_linux_x86_64",
+    ],
+)
+
+# Build with --config=hermetic_cc
+build_test(
+    name = "linux_x86_64_tests",
+    targets = [
+        ":linux_x86_64_tests_genrule",
+    ],
+)
