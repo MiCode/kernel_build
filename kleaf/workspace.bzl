@@ -85,6 +85,12 @@ def define_kleaf_workspace(common_kernel_package = None):
         path = "build/kernel/kleaf/impl/fake_local_jdk",
     )
 
+    # Fake rules_cc to avoid fetching it for any py_binary targets.
+    native.local_repository(
+        name = "rules_cc",
+        path = "build/kernel/kleaf/impl/fake_rules_cc",
+    )
+
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
     )
