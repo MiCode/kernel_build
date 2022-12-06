@@ -59,6 +59,10 @@ def _boot_images_impl(ctx):
     command = ""
     command += ctx.attr.kernel_build[KernelEnvInfo].setup
 
+    command += """
+        MKBOOTIMG_PATH={mkbootimg}
+    """.format(mkbootimg = ctx.file.mkbootimg.path)
+
     if ctx.attr.build_boot:
         boot_flag_cmd = "BUILD_BOOT_IMG=1"
     else:

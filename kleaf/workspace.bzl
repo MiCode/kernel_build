@@ -75,7 +75,7 @@ def define_kleaf_workspace(common_kernel_package = None):
         name = "gki_prebuilts",
         files = gki_prebuilts_files,
         optional_files = gki_prebuilts_optional_files,
-        target = "kernel_kleaf",
+        target = "kernel_aarch64",
     )
 
     # Fake local_jdk to avoid fetching rules_java for any exec targets.
