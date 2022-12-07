@@ -342,7 +342,7 @@ def download_kernel_modules(target, output_dir, fetch_initramfs=False):
 
 def clean_download_dir(download_dir):
   subprocess.run(["git", "rm", "-rf", "*"], cwd=download_dir)
-  os.mkdir(download_dir)
+  os.makedirs(download_dir, exist_ok=True)
   subprocess.run(["git", "checkout", "HEAD", "Android.bp"], cwd=download_dir)
   subprocess.run(["git", "checkout", "HEAD", "16k"], cwd=download_dir)
 
