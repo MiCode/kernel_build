@@ -32,18 +32,18 @@
 
 ### Configurations
 
-`--config=release`: [Release builds](docs/release.md)
-
 `--config=fast`: [Make local builds faster](docs/fast.md)
 
 `--config=local`: [Sandboxing](docs/sandbox.md)
 
+`--config=release`: [Release builds](docs/release.md)
+
 `--config=stamp`: [Handling SCM version](docs/scmversion.md)
 
-`--lto`: [Configure LTO during development](docs/lto.md)
-
-`--kbuild_symtypes`: [KBUILD\_SYMTYPES](docs/symtypes.md)
+`--gcov`: [Keep GCOV files](docs/gcov.md)
 
 `--kasan`: [kasan](docs/kasan.md)
 
-`--gcov`: [Keep GCOV files](docs/gcov.md)
+`--kbuild_symtypes`: [KBUILD\_SYMTYPES](docs/symtypes.md)
+
+`--lto`: [Configure LTO during development](docs/lto.md)
