@@ -71,6 +71,7 @@ bzl_library(
         "modules_prepare.bzl",
         "out_headers_allowlist_archive.bzl",
         "raw_kmi_symbol_list.bzl",
+        "scripts_config_arg_builder.bzl",
         "srcs_aspect.bzl",
         "stamp.bzl",
         "status.bzl",
