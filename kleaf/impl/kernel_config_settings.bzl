@@ -25,6 +25,7 @@ Only *_flag / *_settings that affects the content of the cached $OUT_DIR should 
 In particular:
 - --config=stamp is not in these lists because it is mutually exclusive with --config=local.
 - --allow_undeclared_modules is not listed because it only affects artifact collection.
+- --preserve_cmd is not listed because it only affects artifact collection.
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
@@ -43,7 +44,6 @@ def _kernel_build_config_settings_raw():
         base_kernel_utils.config_settings_raw(),
         kgdb.config_settings_raw(),
         {
-            "_preserve_cmd": "//build/kernel/kleaf/impl:preserve_cmd",
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
             "_gcov": "//build/kernel/kleaf:gcov",
         },
