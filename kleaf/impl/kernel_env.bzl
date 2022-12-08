@@ -26,6 +26,7 @@ load(
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
+load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
@@ -136,6 +137,7 @@ def _kernel_env_impl(ctx):
 
     additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
     additional_make_goals += kgdb.additional_make_goals(ctx)
+    additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
 
     command += """
         # create a build environment

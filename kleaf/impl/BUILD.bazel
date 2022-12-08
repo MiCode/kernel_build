@@ -33,6 +33,7 @@ bzl_library(
         "abi/trim_nonlisted_kmi_utils.bzl",
         "btf.bzl",
         "common_providers.bzl",
+        "compile_commands_utils.bzl",
         "constants.bzl",
         "ddk/ddk_headers.bzl",
         "ddk/ddk_module.bzl",
@@ -94,6 +95,15 @@ bzl_library(
 # If true, also pack .cmd files as output.
 bool_setting(
     name = "preserve_cmd",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# If true, also build compile_commands.json and collect necessary files in $OUT_DIR that
+# may be used in compile_commands.json (namely generated source files).
+bool_setting(
+    name = "build_compile_commands",
     build_setting_default = False,
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
