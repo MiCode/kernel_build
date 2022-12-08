@@ -98,6 +98,20 @@ bool_flag(
     build_setting_default = False,
 )
 
+# Debug flag to control make verbosity
+# E (default) = Error
+# I = Info
+# D = Debug
+string_flag(
+    name = "debug_make_verbosity",
+    build_setting_default = "E",
+    values = [
+        "D",
+        "E",
+        "I",
+    ],
+)
+
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
 # If additional hacks are needed, put `select()` on the build_config.
 # See kleaf/docs/kgdb.md for details.

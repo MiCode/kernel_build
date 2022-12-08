@@ -106,10 +106,17 @@ def _kernel_env_impl(ctx):
           export MAKEFLAGS="${MAKEFLAGS} V=1"
         """
     else:
-        command += """
-        # Run Make in silence mode to suppress most of the info output
-          export MAKEFLAGS="${MAKEFLAGS} -s"
-        """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "E":
+            command += """
+            # Run Make in silence mode to suppress most of the info output
+            export MAKEFLAGS="${MAKEFLAGS} -s"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
+            command += """
+            # Similar to similar to --debug_annotate_scripts without additional traps.
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=1"
+            """
 
     kbuild_symtypes = _get_kbuild_symtypes(ctx)
     command += """
@@ -344,6 +351,7 @@ kernel_env = rule(
         "_debug_annotate_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_annotate_scripts",
         ),
+        "_debug_make_verbosity": attr.label(default = "//build/kernel/kleaf:debug_make_verbosity"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
