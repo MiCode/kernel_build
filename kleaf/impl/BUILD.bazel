@@ -149,3 +149,9 @@ py_binary(
         "@io_abseil_py//absl/flags:argparse_flags",
     ],
 )
+
+py_binary(
+    name = "kernel_kythe_reconstruct_out_dir",
+    srcs = ["kernel_kythe_reconstruct_out_dir.py"],
+    visibility = ["//visibility:public"],
+)
