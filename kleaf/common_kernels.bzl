@@ -1057,12 +1057,3 @@ def define_db845c(
         flat = True,
         log = "info",
     )
-
-    kernel_abi_dist(
-        name = name + "_abi_dist",
-        kernel_abi = name + "_abi",
-        data = dist_targets + gki_modules_list,
-        dist_dir = dist_dir,
-        flat = True,
-        log = "info",
-    )
