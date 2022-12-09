@@ -68,6 +68,8 @@ def _initramfs_impl(ctx):
     ).ramdisk_compress
 
     command = """
+             # Use `strip_modules` intead of relying on this.
+               unset DO_NOT_STRIP_MODULES
                mkdir -p {initramfs_staging_dir}
              # Build initramfs
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
