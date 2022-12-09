@@ -1277,6 +1277,7 @@ def _create_infos(
     return [
         cmds_info,
         env_info,
+        ctx.attr.config[KernelEnvAttrInfo],
         kbuild_mixed_tree_info,
         kernel_build_info,
         kernel_build_module_info,

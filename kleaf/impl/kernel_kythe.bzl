@@ -18,7 +18,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 load(
     ":common_providers.bzl",
     "KernelBuildInfo",
-    "KernelEnvInfo",
+    "KernelEnvAttrInfo",
 )
 load(":srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
 load(":utils.bzl", "utils")
@@ -51,8 +51,10 @@ def _kernel_kythe_impl(ctx):
     transitive_inputs = [src.files for src in ctx.attr.kernel_build[SrcsInfo].srcs]
     inputs = [compile_commands_with_vars, compile_commands_out_dir]
 
-    inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
-    command = ctx.attr.kernel_build[KernelEnvInfo].setup
+    # Use KernelEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
+    # kernel_config or kernel_build.
+    inputs += ctx.attr.kernel_build[KernelEnvAttrInfo].env_info.dependencies
+    command = ctx.attr.kernel_build[KernelEnvAttrInfo].env_info.setup
     command += """
              # Copy compile_commands.json to root, resolving $ROOT_DIR to the real value,
              # and $OUT_DIR to $ROOT_DIR/$KERNEL_DIR.
@@ -60,8 +62,6 @@ def _kernel_kythe_impl(ctx):
                     {compile_commands_with_vars} > ${{ROOT_DIR}}/compile_commands.json
 
              # Prepare directories. Copy from compile_commands_out_dir to $OUT_DIR.
-             # We don't care about the OUT_DIR from KernelEnvInfo; let's try deleting existing
-             # files from KernelEnvInfo later.
                mkdir -p {kzip_dir} {extracted_kzip_dir} ${{OUT_DIR}}
                rsync -aL --chmod=D+w --chmod=F+w {compile_commands_out_dir}/ ${{OUT_DIR}}/
 
@@ -113,7 +113,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
-            providers = [KernelEnvInfo, KernelBuildInfo],
+            providers = [KernelEnvAttrInfo, KernelBuildInfo],
             aspects = [srcs_aspect],
         ),
         "corpus": attr.string(

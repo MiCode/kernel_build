@@ -241,12 +241,15 @@ def _kernel_env_impl(ctx):
     if kconfig_ext:
         dependencies.append(kconfig_ext)
     dependencies += dtstree_srcs
+
+    env_info = KernelEnvInfo(
+        dependencies = dependencies,
+        setup = setup,
+    )
     return [
-        KernelEnvInfo(
-            dependencies = dependencies,
-            setup = setup,
-        ),
+        env_info,
         KernelEnvAttrInfo(
+            env_info = env_info,
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
         ),
