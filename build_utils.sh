@@ -224,12 +224,21 @@ function build_system_dlkm() {
   cp ${system_dlkm_root_dir}/modules.load ${DIST_DIR}/system_dlkm.modules.load
   local system_dlkm_props_file
 
+  local system_dlkm_default_fs_type="ext4"
+  if [[ "${SYSTEM_DLKM_FS_TYPE}" != "ext4" && "${SYSTEM_DLKM_FS_TYPE}" != "erofs" ]]; then
+    echo "WARNING: Invalid SYSTEM_DLKM_FS_TYPE = ${SYSTEM_DLKM_FS_TYPE}"
+    SYSTEM_DLKM_FS_TYPE="${system_dlkm_default_fs_type}"
+    echo "INFO: Defaulting SYSTEM_DLKM_FS_TYPE to ${SYSTEM_DLKM_FS_TYPE}"
+  fi
+
   if [ -z "${SYSTEM_DLKM_PROPS}" ]; then
     system_dlkm_props_file="$(mktemp)"
-    echo -e "system_dlkm_fs_type=ext4\n" >> ${system_dlkm_props_file}
+    echo -e "system_dlkm_fs_type=${SYSTEM_DLKM_FS_TYPE}\n" >> ${system_dlkm_props_file}
     echo -e "use_dynamic_partition_size=true\n" >> ${system_dlkm_props_file}
-    echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${system_dlkm_props_file}
-    echo -e "ext4_share_dup_blocks=true\n" >> ${system_dlkm_props_file}
+    if [[ "${SYSTEM_DLKM_FS_TYPE}" == "ext4" ]]; then
+      echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${system_dlkm_props_file}
+      echo -e "ext4_share_dup_blocks=true\n" >> ${system_dlkm_props_file}
+    fi
   else
     system_dlkm_props_file="${SYSTEM_DLKM_PROPS}"
     if [[ -f "${ROOT_DIR}/${system_dlkm_props_file}" ]]; then
@@ -291,12 +300,21 @@ function build_vendor_dlkm() {
   cp ${vendor_dlkm_modules_load} ${DIST_DIR}/vendor_dlkm.modules.load
   local vendor_dlkm_props_file
 
+  local vendor_dlkm_default_fs_type="ext4"
+  if [[ "${VENDOR_DLKM_FS_TYPE}" != "ext4" && "${VENDOR_DLKM_FS_TYPE}" != "erofs" ]]; then
+    echo "WARNING: Invalid VENDOR_DLKM_FS_TYPE = ${VENDOR_DLKM_FS_TYPE}"
+    VENDOR_DLKM_FS_TYPE="${vendor_dlkm_default_fs_type}"
+    echo "INFO: Defaulting VENDOR_DLKM_FS_TYPE to ${VENDOR_DLKM_FS_TYPE}"
+  fi
+
   if [ -z "${VENDOR_DLKM_PROPS}" ]; then
     vendor_dlkm_props_file="$(mktemp)"
-    echo -e "vendor_dlkm_fs_type=ext4\n" >> ${vendor_dlkm_props_file}
+    echo -e "vendor_dlkm_fs_type=${VENDOR_DLKM_FS_TYPE}\n" >> ${vendor_dlkm_props_file}
     echo -e "use_dynamic_partition_size=true\n" >> ${vendor_dlkm_props_file}
-    echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${vendor_dlkm_props_file}
-    echo -e "ext4_share_dup_blocks=true\n" >> ${vendor_dlkm_props_file}
+    if [[ "${VENDOR_DLKM_FS_TYPE}" == "ext4" ]]; then
+      echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${vendor_dlkm_props_file}
+      echo -e "ext4_share_dup_blocks=true\n" >> ${vendor_dlkm_props_file}
+    fi
   else
     vendor_dlkm_props_file="${VENDOR_DLKM_PROPS}"
     if [[ -f "${ROOT_DIR}/${vendor_dlkm_props_file}" ]]; then
