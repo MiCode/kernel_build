@@ -73,9 +73,11 @@ _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 * [`MODULES_OPTIONS`](#modules_options)
 * [`MODULES_ORDER`](#modules_order)
 * [`GKI_MODULES_LIST`](#gki_modules_list)
+* [`VENDOR_DLKM_FS_TYPE`](#vendor_dlkm_fs_type)
 * [`VENDOR_DLKM_MODULES_LIST`](#vendor_dlkm_modules_list)
 * [`VENDOR_DLKM_MODULES_BLOCKLIST`](#vendor_dlkm_modules_blocklist)
 * [`VENDOR_DLKM_PROPS`](#vendor_dlkm_props)
+* [`SYSTEM_DLKM_FS_TYPE`](#system_dlkm_fs_type)
 * [`SYSTEM_DLKM_MODULES_LIST`](#system_dlkm_modules_list)
 * [`SYSTEM_DLKM_MODULES_BLOCKLIST`](#system_dlkm_modules_blocklist)
 * [`SYSTEM_DLKM_PROPS`](#system_dlkm_props)
@@ -535,6 +537,14 @@ Reason: This is set to a fixed value in the `module_implicit_outs` attribute of
 
 See [documentation for all rules].
 
+## VENDOR\_DLKM\_FS\_TYPE
+
+```python
+kernel_images(vendor_dlkm_fs_type=[ext4, erofs])
+```
+
+See [documentation for all rules].
+
 ## VENDOR\_DLKM\_MODULES\_LIST
 
 ```python
@@ -555,6 +565,14 @@ See [documentation for all rules].
 
 ```python
 kernel_images(vendor_dlkm_props=...)
+```
+
+See [documentation for all rules].
+
+## SYSTEM\_DLKM\_FS\_TYPE
+
+```python
+kernel_images(system_dlkm_fs_type=[ext4, erofs])
 ```
 
 See [documentation for all rules].
