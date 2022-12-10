@@ -33,6 +33,7 @@ build --flag_alias=allow_undeclared_modules=//build/kernel/kleaf:allow_undeclare
 build --flag_alias=gcov=//build/kernel/kleaf:gcov
 build --flag_alias=kasan=//build/kernel/kleaf:kasan
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
+build --flag_alias=kgdb=//build/kernel/kleaf:kgdb
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=nokmi_symbol_list_strict_mode=no//build/kernel/kleaf:kmi_symbol_list_strict_mode
 

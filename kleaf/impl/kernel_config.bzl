@@ -26,6 +26,7 @@ load(
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_config_transition.bzl", "kernel_config_transition")
+load(":kgdb.bzl", "kgdb")
 load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
@@ -197,6 +198,7 @@ def _reconfig(ctx):
         _config_trim,
         _config_kasan,
         _config_gcov,
+        kgdb.get_scripts_config_args,
     ):
         pair = fn(ctx)
         configs += pair.configs
