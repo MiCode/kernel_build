@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Build system_dlkm image for GKI modules.
+"""
 
 load("//build/kernel/kleaf/impl:constants.bzl", "SYSTEM_DLKM_OUTS")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
