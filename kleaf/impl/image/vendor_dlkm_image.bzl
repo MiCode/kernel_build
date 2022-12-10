@@ -15,7 +15,6 @@
 Build vendor_dlkm.img for vendor modules.
 """
 
-load(":debug.bzl", "debug")
 load(":image/image_utils.bzl", "image_utils")
 
 def _vendor_dlkm_image_impl(ctx):
