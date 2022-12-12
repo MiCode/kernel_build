@@ -954,6 +954,29 @@ def _get_grab_gcno_step(ctx):
         outputs = outputs,
     )
 
+def _get_grab_kbuild_output_step(ctx):
+    """Returns a step for grabbing the `*`files from `OUT_DIR`.
+
+    Returns:
+      A struct with fields (inputs, tools, outputs, cmd)
+    """
+    grab_kbuild_output_cmd = ""
+    outputs = []
+    if ctx.attr._preserve_kbuild_output[BuildSettingInfo].value:
+        kbuild_output_target = ctx.actions.declare_directory("{name}/kbuild_output".format(name = ctx.label.name))
+        outputs.append(kbuild_output_target)
+        grab_kbuild_output_cmd = """
+            rsync -a --prune-empty-dirs --include '*/' ${{OUT_DIR}}/ {kbuild_output_target}/
+        """.format(
+            kbuild_output_target = kbuild_output_target.path,
+        )
+    return struct(
+        inputs = [],
+        tools = [],
+        cmd = grab_kbuild_output_cmd,
+        outputs = outputs,
+    )
+
 def get_grab_cmd_step(ctx, src_dir):
     """Returns a step for grabbing the `*.cmd` from `src_dir`.
 
@@ -1043,6 +1066,7 @@ def _build_main_action(
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
     compile_commands_step = compile_commands_utils.kernel_build_step(ctx)
     grab_gdb_scripts_step = kgdb.get_grab_gdb_scripts_step(ctx)
+    grab_kbuild_output_step = _get_grab_kbuild_output_step(ctx)
     check_remaining_modules_step = _get_check_remaining_modules_step(
         ctx = ctx,
         all_module_names_file = all_module_names_file,
@@ -1059,6 +1083,7 @@ def _build_main_action(
         grab_cmd_step,
         compile_commands_step,
         grab_gdb_scripts_step,
+        grab_kbuild_output_step,
         check_remaining_modules_step,
     )
 
@@ -1104,6 +1129,8 @@ def _build_main_action(
            {compile_commands_step}
          # Grab GDB scripts
            {grab_gdb_scripts_cmd}
+         # Grab * files
+           {grab_kbuild_output_step_cmd}
          # Grab in-tree modules
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
@@ -1128,6 +1155,7 @@ def _build_main_action(
         grab_cmd_cmd = grab_cmd_step.cmd,
         compile_commands_step = compile_commands_step.cmd,
         grab_gdb_scripts_cmd = grab_gdb_scripts_step.cmd,
+        grab_kbuild_output_step_cmd = grab_kbuild_output_step.cmd,
         check_remaining_modules_cmd = check_remaining_modules_step.cmd,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
