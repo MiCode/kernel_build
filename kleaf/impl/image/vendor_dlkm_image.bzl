@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Build vendor_dlkm.img for vendor modules.
+"""
 
-load(":debug.bzl", "debug")
 load(":image/image_utils.bzl", "image_utils")
 
 def _vendor_dlkm_image_impl(ctx):
@@ -21,6 +23,7 @@ def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_modules_blocklist = ctx.actions.declare_file("{}/vendor_dlkm.modules.blocklist".format(ctx.label.name))
     modules_staging_dir = vendor_dlkm_img.dirname + "/staging"
     vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
+    vendor_dlkm_fs_type = ctx.attr.vendor_dlkm_fs_type
 
     command = ""
     additional_inputs = []
@@ -39,6 +42,7 @@ def _vendor_dlkm_image_impl(ctx):
               mkdir -p {vendor_dlkm_staging_dir}
               (
                 MODULES_STAGING_DIR={modules_staging_dir}
+                VENDOR_DLKM_FS_TYPE={vendor_dlkm_fs_type}
                 VENDOR_DLKM_STAGING_DIR={vendor_dlkm_staging_dir}
                 build_vendor_dlkm
               )
@@ -54,6 +58,7 @@ def _vendor_dlkm_image_impl(ctx):
               rm -rf {vendor_dlkm_staging_dir}
     """.format(
         modules_staging_dir = modules_staging_dir,
+        vendor_dlkm_fs_type = vendor_dlkm_fs_type,
         vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
         vendor_dlkm_img = vendor_dlkm_img.path,
         vendor_dlkm_modules_load = vendor_dlkm_modules_load.path,
@@ -85,6 +90,7 @@ When included in a `copy_to_dist_dir` rule, this rule copies a `vendor_dlkm.img`
 
 Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
         ),
+        "vendor_dlkm_fs_type": attr.string(doc = """vendor_dlkm.img fs type""", values = ["ext4", "erofs"]),
         "vendor_dlkm_modules_list": attr.label(allow_single_file = True),
         "vendor_dlkm_modules_blocklist": attr.label(allow_single_file = True),
         "vendor_dlkm_props": attr.label(allow_single_file = True),

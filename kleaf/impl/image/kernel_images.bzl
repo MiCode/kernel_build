@@ -42,9 +42,11 @@ def kernel_images(
         modules_blocklist = None,
         modules_options = None,
         vendor_ramdisk_binaries = None,
+        system_dlkm_fs_type = None,
         system_dlkm_modules_list = None,
         system_dlkm_modules_blocklist = None,
         system_dlkm_props = None,
+        vendor_dlkm_fs_type = None,
         vendor_dlkm_modules_list = None,
         vendor_dlkm_modules_blocklist = None,
         vendor_dlkm_props = None,
@@ -184,6 +186,7 @@ def kernel_images(
           ```
 
           This corresponds to `MODULES_OPTIONS` in `build.config` for `build.sh`.
+        system_dlkm_fs_type: Supported filesystems for `system_dlkm.img` are `ext4` and `erofs`. Defaults to `ext4` if not specified.
         system_dlkm_modules_list: location of an optional file
           containing the list of kernel modules which shall be copied into a
           system_dlkm partition image.
@@ -205,6 +208,7 @@ def kernel_images(
           which assumes an ext4 filesystem and a dynamic partition.
 
           This corresponds to `SYSTEM_DLKM_PROPS` in `build.config` for `build.sh`.
+        vendor_dlkm_fs_type: Supported filesystems for `vendor_dlkm.img` are `ext4` and `erofs`. Defaults to `ext4` if not specified.
         vendor_dlkm_modules_list: location of an optional file
           containing the list of kernel modules which shall be copied into a
           `vendor_dlkm` partition image. Any modules passed into `MODULES_LIST` which
@@ -328,6 +332,9 @@ def kernel_images(
         all_rules.append(":{}_initramfs".format(name))
 
     if build_system_dlkm:
+        if system_dlkm_fs_type == None:
+            system_dlkm_fs_type = "ext4"
+
         system_dlkm_image(
             name = "{}_system_dlkm_image".format(name),
             # For GKI system_dlkm
@@ -337,6 +344,7 @@ def kernel_images(
             deps = deps,
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
+            system_dlkm_fs_type = system_dlkm_fs_type,
             system_dlkm_modules_list = system_dlkm_modules_list,
             system_dlkm_modules_blocklist = system_dlkm_modules_blocklist,
             system_dlkm_props = system_dlkm_props,
@@ -345,11 +353,15 @@ def kernel_images(
         all_rules.append(":{}_system_dlkm_image".format(name))
 
     if build_vendor_dlkm:
+        if vendor_dlkm_fs_type == None:
+            vendor_dlkm_fs_type = "ext4"
+
         vendor_dlkm_image(
             name = "{}_vendor_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
             vendor_boot_modules_load = vendor_boot_modules_load,
             deps = deps,
+            vendor_dlkm_fs_type = vendor_dlkm_fs_type,
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
             vendor_dlkm_props = vendor_dlkm_props,
