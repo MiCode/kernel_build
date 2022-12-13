@@ -94,3 +94,82 @@ build_test(
         ":linux_x86_64_tests_genrule",
     ],
 )
+
+# Android arm64
+
+cc_binary(
+    name = "hello_world_android",
+    srcs = ["hello_world.c"],
+    target_compatible_with = ["@platforms//os:android"],
+)
+
+cc_library(
+    name = "mylib_android",
+    srcs = [
+        "lib.c",
+        "lib.h",
+    ],
+    target_compatible_with = ["@platforms//os:android"],
+)
+
+cc_binary(
+    name = "mybin_full_static_android",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    features = ["full_static_link"],
+    linkstatic = True,
+    target_compatible_with = ["@platforms//os:android"],
+    deps = [":mylib_android"],
+)
+
+cc_binary(
+    name = "mybin_static_android",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    linkstatic = True,
+    target_compatible_with = ["@platforms//os:android"],
+    deps = [":mylib_android"],
+)
+
+cc_binary(
+    name = "mybin_dynamic_android",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    linkstatic = False,
+    target_compatible_with = ["@platforms//os:android"],
+    deps = [":mylib_android"],
+)
+
+filegroup(
+    name = "android_tests_internal",
+    srcs = [
+        ":hello_world_android",
+        ":mybin_dynamic_android",
+        ":mybin_full_static_android",
+        ":mybin_static_android",
+        ":mylib_android",
+    ],
+)
+
+# Build with one of --config=android_*
+build_test(
+    name = "android_tests",
+    targets = [
+        ":android_tests_internal",
+    ],
+)
+
+# Build with one of --config=android_*
+build_test(
+    name = "cc_testing",
+    targets = [
+        ":linux_x86_64_tests_genrule",
+        ":android_tests_internal",
+    ],
+)
