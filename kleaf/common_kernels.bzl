@@ -762,19 +762,17 @@ def define_common_kernels(
 
     kernel_compile_commands(
         name = "kernel_aarch64_compile_commands",
-        kernel_build = ":kernel_aarch64_interceptor",
+        kernel_build = ":kernel_aarch64",
     )
 
     kernel_kythe(
         name = "kernel_aarch64_kythe",
-        kernel_build = ":kernel_aarch64_interceptor",
-        compile_commands = ":kernel_aarch64_compile_commands",
+        kernel_build = ":kernel_aarch64",
     )
 
     copy_to_dist_dir(
         name = "kernel_aarch64_kythe_dist",
         data = [
-            ":kernel_aarch64_compile_commands",
             ":kernel_aarch64_kythe",
         ],
         flat = True,

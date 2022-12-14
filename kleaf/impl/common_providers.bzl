@@ -38,9 +38,11 @@ is in its own extension instead of `kernel_env.bzl`.
 KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
+        "env_info": "`KernelEnvInfo` of the `kernel_env` target.",
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
         "progress_message_note": """A note in the progress message that differentiates multiple
             instances of the same action due to different configs.""",
+        "config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
     },
 )
 

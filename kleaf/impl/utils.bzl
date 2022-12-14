@@ -151,6 +151,13 @@ def _kwargs_to_def(**kwargs):
         value_repr = repr(value),
     ) for key, value in kwargs.items()]))
 
+def _hash_hex(x):
+    """Returns `hash(x)` in hex format."""
+    ret = "%x" % hash(x)
+    if len(ret) < 8:
+        ret = "0" * (8 - len(ret)) + ret
+    return ret
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -162,6 +169,7 @@ utils = struct(
     compare_file_names = _compare_file_names,
     sanitize_label_as_filename = _sanitize_label_as_filename,
     kwargs_to_def = _kwargs_to_def,
+    hash_hex = _hash_hex,
 )
 
 def _filter_module_srcs(files):

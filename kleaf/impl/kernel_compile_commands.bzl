@@ -12,46 +12,63 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Support `compile_commands.json`."""
+
+load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
     "KernelBuildInfo",
-    "KernelEnvInfo",
+)
+
+def _kernel_compile_commands_transition_impl(_settings, _attr):
+    return {"//build/kernel/kleaf/impl:build_compile_commands": True}
+
+_kernel_compile_commands_transition = transition(
+    implementation = _kernel_compile_commands_transition_impl,
+    inputs = [],
+    outputs = ["//build/kernel/kleaf/impl:build_compile_commands"],
 )
 
 def _kernel_compile_commands_impl(ctx):
-    interceptor_output = ctx.attr.kernel_build[KernelBuildInfo].interceptor_output
-    if not interceptor_output:
-        fail("{}: kernel_build {} does not have enable_interceptor = True.".format(ctx.label, ctx.attr.kernel_build.label))
-    compile_commands = ctx.actions.declare_file(ctx.attr.name + "/compile_commands.json")
-    inputs = [interceptor_output]
-    inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
-    command = ctx.attr.kernel_build[KernelEnvInfo].setup
-    command += """
-             # Generate compile_commands.json
-               interceptor_analysis -l {interceptor_output} -o {compile_commands} -t compdb_commands --relative
+    compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
+    compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
+
+    script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+    script_content = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup + """
+        OUTPUT=${{1:-${{BUILD_WORKSPACE_DIRECTORY}}/compile_commands.json}}
+        sed -e "s:\\${{OUT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}/{compile_commands_out_dir}:g;s:\\${{ROOT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}:g" \\
+            {compile_commands_with_vars} > ${{OUTPUT}}
+        echo "Written to ${{OUTPUT}}"
     """.format(
-        interceptor_output = interceptor_output.path,
-        compile_commands = compile_commands.path,
+        compile_commands_with_vars = compile_commands_with_vars.short_path,
+        compile_commands_out_dir = compile_commands_out_dir.short_path,
     )
-    ctx.actions.run_shell(
-        mnemonic = "KernelCompileCommands",
-        inputs = inputs,
-        outputs = [compile_commands],
-        command = command,
-        progress_message = "Building compile_commands.json {}".format(ctx.label),
+    ctx.actions.write(script, script_content, is_executable = True)
+
+    direct_runfiles = [compile_commands_with_vars]
+    direct_runfiles += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+
+    return DefaultInfo(
+        executable = script,
+        runfiles = ctx.runfiles(files = direct_runfiles),
     )
-    return DefaultInfo(files = depset([compile_commands]))
 
 kernel_compile_commands = rule(
     implementation = _kernel_compile_commands_impl,
-    doc = """
-Generate `compile_commands.json` from a `kernel_build`.
-    """,
+    doc = """Define an executable that creates `compile_commands.json` from a `kernel_build`.""",
     attrs = {
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` rule to extract from.",
-            providers = [KernelEnvInfo, KernelBuildInfo],
+            providers = [KernelBuildInfo],
+        ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
+        # Allow any package to use kernel_compile_commands because it is a public API.
+        # The ACK source tree may be checked out anywhere; it is not necessarily //common
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
+    executable = True,
+    cfg = _kernel_compile_commands_transition,
 )
