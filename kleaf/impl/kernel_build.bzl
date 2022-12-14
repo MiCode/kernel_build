@@ -43,6 +43,7 @@ load(
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
+load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(
     ":constants.bzl",
     "MODULES_STAGING_ARCHIVE",
@@ -1009,6 +1010,7 @@ def _build_main_action(
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
     grab_gcno_step = _get_grab_gcno_step(ctx)
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
+    compile_commands_step = compile_commands_utils.kernel_build_step(ctx)
     grab_gdb_scripts_step = kgdb.get_grab_gdb_scripts_step(ctx)
     check_remaining_modules_step = _get_check_remaining_modules_step(
         ctx = ctx,
@@ -1024,6 +1026,7 @@ def _build_main_action(
         grab_symtypes_step,
         grab_gcno_step,
         grab_cmd_step,
+        compile_commands_step,
         grab_gdb_scripts_step,
         check_remaining_modules_step,
     )
@@ -1066,6 +1069,8 @@ def _build_main_action(
            {grab_gcno_step_cmd}
          # Grab *.cmd
            {grab_cmd_cmd}
+         # Grab files for compile_commands.json
+           {compile_commands_step}
          # Grab GDB scripts
            {grab_gdb_scripts_cmd}
          # Grab in-tree modules
@@ -1090,6 +1095,7 @@ def _build_main_action(
         grab_symtypes_cmd = grab_symtypes_step.cmd,
         grab_gcno_step_cmd = grab_gcno_step.cmd,
         grab_cmd_cmd = grab_cmd_step.cmd,
+        compile_commands_step = compile_commands_step.cmd,
         grab_gdb_scripts_cmd = grab_gdb_scripts_step.cmd,
         check_remaining_modules_cmd = check_remaining_modules_step.cmd,
         modules_staging_dir = modules_staging_dir,
@@ -1145,6 +1151,8 @@ def _build_main_action(
         unstripped_dir = grab_unstripped_modules_step.unstripped_dir,
         ruledir = ruledir,
         cmd_dir = grab_cmd_step.cmd_dir,
+        compile_commands_with_vars = compile_commands_step.compile_commands_with_vars,
+        compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
     )
 
 def _create_infos(
@@ -1191,6 +1199,8 @@ def _create_infos(
         outs = all_output_files["outs"].values(),
         base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
         interceptor_output = main_action_ret.interceptor_output,
+        compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
+        compile_commands_out_dir = main_action_ret.compile_commands_out_dir,
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 

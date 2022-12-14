@@ -53,6 +53,8 @@ KernelBuildInfo = provider(
             [Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs)
             of the rule specified by `base_kernel`""",
         "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
+        "compile_commands_with_vars": "A file that can be transformed into `compile_commands.json`.",
+        "compile_commands_out_dir": "A subset of `$OUT_DIR` for `compile_commands.json`.",
         "kernel_release": "The file `kernel.release`.",
     },
 )
