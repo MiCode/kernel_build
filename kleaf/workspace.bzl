@@ -91,6 +91,12 @@ def define_kleaf_workspace(common_kernel_package = None):
         path = "build/kernel/kleaf/impl/fake_rules_cc",
     )
 
+    # Stub out @remote_coverage_tools required for testing.
+    native.local_repository(
+        name = "remote_coverage_tools",
+        path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
+    )
+
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
     )
