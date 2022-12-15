@@ -716,12 +716,14 @@ def _get_cache_dir_step(ctx):
       * tools
       * cmd
       * outputs
+      * post_cmd
     """
 
     # Use a local cache directory for ${OUT_DIR} so that, even when this _kernel_build
     # target needs to be rebuilt, we are using $OUT_DIR from previous invocations. This
     # boosts --config=local builds. See (b/235632059).
     cache_dir_cmd = ""
+    post_cmd = ""
     inputs = []
     if ctx.attr._config_is_local[BuildSettingInfo].value:
         if not ctx.attr._cache_dir[BuildSettingInfo].value:
@@ -766,11 +768,18 @@ def _get_cache_dir_step(ctx):
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
             config_tags_json_file = config_tags_json_file.path,
         )
+
+        post_cmd = """
+            ln -sf ${{OUT_DIR_SUFFIX}} {cache_dir}/last_build
+        """.format(
+            cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
+        )
     return struct(
         inputs = inputs,
         tools = [],
         cmd = cache_dir_cmd,
         outputs = [],
+        post_cmd = post_cmd,
     )
 
 def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, ruledir, all_module_names_file):
@@ -1139,8 +1148,11 @@ def _build_main_action(
            {check_remaining_modules_cmd}
          # Clean up staging directories
            rm -rf {modules_staging_dir}
+         # Create last_build symlink in cache_dir
+           {cache_dir_post_cmd}
          """.format(
         cache_dir_cmd = cache_dir_step.cmd,
+        cache_dir_post_cmd = cache_dir_step.post_cmd,
         kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
         search_and_cp_output = ctx.file._search_and_cp_output.path,
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,

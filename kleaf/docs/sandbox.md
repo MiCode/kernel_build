@@ -76,12 +76,23 @@ $ tools/bazel run --config=local --cache_dir=/some/fast/disk //common:kernel_aar
 
 If you have built multiple `kernel_build` before and/or with different
 configurations (e.g. LTO), there may be multiple subdirectories under
-the cache directory. Sample directory structure:
+the cache directory.
+
+Usually, a symlink named `last_build` points to the `COMMON_OUT_DIR` from
+building the last `kernel_build`. The destination of the symlink may be
+unexpected if:
+
+- There are multiple `kernel_build`'s building in the same `bazel` command
+- Bazel cached the build result so the last `bazel` command doesn't actually
+  build anything.
+
+Sample directory structure:
 
 ```text
 out/cache
 ├── 39c6af8c
-└── 5f914ca4
+├── 5f914ca4
+└── last_build -> 5f914ca4
 ```
 
 To understand what `kernel_build` is built with a given cache directory and
@@ -95,7 +106,7 @@ $ tail -n +1 */kleaf_config_tags.json
 Sample output snippet:
 
 ```text
-==> 5f914ca4/kleaf_config_tags.json <==
+==> last_build/kleaf_config_tags.json <==
 {
   "@//build/kernel/kleaf/impl:force_add_vmlinux": false,
   "@//build/kernel/kleaf/impl:force_ignore_base_kernel": false,
