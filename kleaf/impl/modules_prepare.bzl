@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Runs `make modules_prepare` to prepare `$OUT_DIR` for modules."""
+
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
+load(":utils.bzl", "kernel_utils")
 
 def _modules_prepare_impl(ctx):
     command = ctx.attr.config[KernelEnvInfo].setup + """
@@ -31,6 +34,7 @@ def _modules_prepare_impl(ctx):
         tools = ctx.attr.config[KernelEnvInfo].dependencies,
         progress_message = "Preparing for module build %s" % ctx.label,
         command = command,
+        execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
     setup = """
@@ -59,5 +63,6 @@ modules_prepare = rule(
             doc = "the packaged ${OUT_DIR} files",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
     },
 )
