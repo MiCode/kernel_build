@@ -233,14 +233,15 @@ def _check_kernel_build(kernel_modules, kernel_build, this_label):
                 dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
             ))
 
-def _local_mnemonic_suffix(ctx):
-    """Returns a suffix for the mnemonic if `--config=local`.
+def _local_exec_requirements(ctx):
+    """Returns the execution requirement for `--config=local`.
 
-    This should only be used on the actions specified in `local.bazelrc`.
+    This should only be used on the actions that are proven to be safe to be
+    built outside of the sandbox.
     """
     if ctx.attr._config_is_local[BuildSettingInfo].value:
-        return "Local"
-    return ""
+        return {"local": "1"}
+    return None
 
 def _split_kernel_module_deps(deps, this_label):
     """Splits `deps` for a `kernel_module` or `ddk_module`.
@@ -281,6 +282,6 @@ kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
-    local_mnemonic_suffix = _local_mnemonic_suffix,
+    local_exec_requirements = _local_exec_requirements,
     split_kernel_module_deps = _split_kernel_module_deps,
 )

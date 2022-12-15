@@ -1166,12 +1166,13 @@ def _build_main_action(
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelBuild" + kernel_utils.local_mnemonic_suffix(ctx),
+        mnemonic = "KernelBuild",
         inputs = depset(_uniq(inputs), transitive = transitive_inputs),
         outputs = command_outputs,
         tools = _uniq(tools),
         progress_message = "Building kernel {}".format(_progress_message_suffix(ctx)),
         command = command,
+        execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
     return struct(

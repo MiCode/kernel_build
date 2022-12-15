@@ -258,7 +258,7 @@ def _kernel_config_impl(ctx):
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelConfig" + kernel_utils.local_mnemonic_suffix(ctx),
+        mnemonic = "KernelConfig",
         inputs = inputs,
         outputs = [config, include_dir],
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
@@ -267,6 +267,7 @@ def _kernel_config_impl(ctx):
             ctx.label,
         ),
         command = command,
+        execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
     setup_deps = ctx.attr.env[KernelEnvInfo].dependencies + \
