@@ -78,7 +78,7 @@ def _kernel_kythe_impl(ctx):
                for zip in $(find {kzip_dir} -name '*.kzip'); do
                    unzip -qn "${{zip}}" -d {extracted_kzip_dir}
                done
-               soong_zip -C {extracted_kzip_dir} -D {extracted_kzip_dir} -o {all_kzip}
+               soong_zip -d -C {extracted_kzip_dir} -D {extracted_kzip_dir} -o {all_kzip}
              # Clean up directories
                rm -rf {kzip_dir}
                rm -rf {extracted_kzip_dir}
