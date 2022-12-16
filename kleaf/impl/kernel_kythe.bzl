@@ -78,6 +78,7 @@ def _kernel_kythe_impl(ctx):
                for zip in $(find {kzip_dir} -name '*.kzip'); do
                    unzip -qn "${{zip}}" -d {extracted_kzip_dir}
                done
+               find {extracted_kzip_dir}/root/units -type f -exec sed -i'' -e 's:/etc:fake_root/etc:g' {{}} \\+
                soong_zip -d -C {extracted_kzip_dir} -D {extracted_kzip_dir} -o {all_kzip}
              # Clean up directories
                rm -rf {kzip_dir}
