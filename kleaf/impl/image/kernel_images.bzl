@@ -42,9 +42,11 @@ def kernel_images(
         modules_blocklist = None,
         modules_options = None,
         vendor_ramdisk_binaries = None,
+        system_dlkm_fs_type = None,
         system_dlkm_modules_list = None,
         system_dlkm_modules_blocklist = None,
         system_dlkm_props = None,
+        vendor_dlkm_fs_type = None,
         vendor_dlkm_modules_list = None,
         vendor_dlkm_modules_blocklist = None,
         vendor_dlkm_props = None,
@@ -64,12 +66,13 @@ def kernel_images(
 
           The main kernel build is inferred from the `kernel_build` attribute of the
           specified `kernel_modules_install` rule. The main kernel build must contain
-          `System.map` in `outs` (which is included if you use `aarch64_outs` or
-          `x86_64_outs` from `common_kernels.bzl`).
+          `System.map` in `outs` (which is included if you use `DEFAULT_GKI_OUTS` or
+          `X86_64_OUTS` from `common_kernels.bzl`).
         kernel_build: A `kernel_build` rule. Must specify if `build_boot`.
         mkbootimg: Path to the mkbootimg.py script which builds boot.img.
-          Keep in sync with `MKBOOTIMG_PATH`. Only used if `build_boot`. If `None`,
+          Only used if `build_boot`. If `None`,
           default to `//tools/mkbootimg:mkbootimg.py`.
+          NOTE: This overrides `MKBOOTIMG_PATH`.
         deps: Additional dependencies to build images.
 
           This must include the following:
@@ -111,8 +114,8 @@ def kernel_images(
         build_boot: Whether to build boot image. It must be set if either `BUILD_BOOT_IMG`
           or `BUILD_VENDOR_BOOT_IMG` is set.
 
-          This depends on `initramfs` and `kernel_build`. Hence, if this is set to `True`,
-          `build_initramfs` is implicitly true, and `kernel_build` must be set.
+          This depends on `kernel_build`. Hence, if this is set to `True`,
+          `kernel_build` must be set.
 
           If `True`, adds `boot.img` to `boot_image_outs` if not already in the list.
         build_vendor_boot: Whether to build `vendor_boot.img`. It must be set if either
@@ -183,6 +186,7 @@ def kernel_images(
           ```
 
           This corresponds to `MODULES_OPTIONS` in `build.config` for `build.sh`.
+        system_dlkm_fs_type: Supported filesystems for `system_dlkm.img` are `ext4` and `erofs`. Defaults to `ext4` if not specified.
         system_dlkm_modules_list: location of an optional file
           containing the list of kernel modules which shall be copied into a
           system_dlkm partition image.
@@ -204,6 +208,7 @@ def kernel_images(
           which assumes an ext4 filesystem and a dynamic partition.
 
           This corresponds to `SYSTEM_DLKM_PROPS` in `build.config` for `build.sh`.
+        vendor_dlkm_fs_type: Supported filesystems for `vendor_dlkm.img` are `ext4` and `erofs`. Defaults to `ext4` if not specified.
         vendor_dlkm_modules_list: location of an optional file
           containing the list of kernel modules which shall be copied into a
           `vendor_dlkm` partition image. Any modules passed into `MODULES_LIST` which
@@ -327,6 +332,9 @@ def kernel_images(
         all_rules.append(":{}_initramfs".format(name))
 
     if build_system_dlkm:
+        if system_dlkm_fs_type == None:
+            system_dlkm_fs_type = "ext4"
+
         system_dlkm_image(
             name = "{}_system_dlkm_image".format(name),
             # For GKI system_dlkm
@@ -336,6 +344,7 @@ def kernel_images(
             deps = deps,
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
+            system_dlkm_fs_type = system_dlkm_fs_type,
             system_dlkm_modules_list = system_dlkm_modules_list,
             system_dlkm_modules_blocklist = system_dlkm_modules_blocklist,
             system_dlkm_props = system_dlkm_props,
@@ -344,11 +353,15 @@ def kernel_images(
         all_rules.append(":{}_system_dlkm_image".format(name))
 
     if build_vendor_dlkm:
+        if vendor_dlkm_fs_type == None:
+            vendor_dlkm_fs_type = "ext4"
+
         vendor_dlkm_image(
             name = "{}_vendor_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
             vendor_boot_modules_load = vendor_boot_modules_load,
             deps = deps,
+            vendor_dlkm_fs_type = vendor_dlkm_fs_type,
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
             vendor_dlkm_props = vendor_dlkm_props,

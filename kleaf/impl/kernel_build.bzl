@@ -43,6 +43,7 @@ load(
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
+load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(
     ":constants.bzl",
     "MODULES_STAGING_ARCHIVE",
@@ -58,6 +59,7 @@ load(":kernel_env.bzl", "kernel_env")
 load(":kernel_headers.bzl", "kernel_headers")
 load(":kernel_toolchain_aspect.bzl", "KernelToolchainInfo", "kernel_toolchain_aspect")
 load(":kernel_uapi_headers.bzl", "kernel_uapi_headers")
+load(":kgdb.bzl", "kgdb")
 load(":kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load(":modules_prepare.bzl", "modules_prepare")
 load(":raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
@@ -140,10 +142,10 @@ def kernel_build(
           - `//common:kernel_{arch}`
           - A `kernel_filegroup` rule, e.g.
             ```
-            load("//build/kernel/kleaf:constants.bzl, "aarch64_outs")
+            load("//build/kernel/kleaf:constants.bzl, "DEFAULT_GKI_OUTS")
             kernel_filegroup(
               name = "my_kernel_filegroup",
-              srcs = aarch64_outs,
+              srcs = DEFAULT_GKI_OUTS,
             )
             ```
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
@@ -363,7 +365,7 @@ def kernel_build(
         strip_modules = False
 
     internal_kwargs = dict(kwargs)
-    internal_kwargs.pop("visibility", default = None)
+    internal_kwargs.pop("visibility", None)
 
     kwargs_with_manual = dict(kwargs)
     kwargs_with_manual["tags"] = ["manual"]
@@ -720,19 +722,56 @@ def _get_cache_dir_step(ctx):
     # target needs to be rebuilt, we are using $OUT_DIR from previous invocations. This
     # boosts --config=local builds. See (b/235632059).
     cache_dir_cmd = ""
+    inputs = []
     if ctx.attr._config_is_local[BuildSettingInfo].value:
         if not ctx.attr._cache_dir[BuildSettingInfo].value:
             fail("--config=local requires --cache_dir.")
+
+        config_tags_json = json.encode_indent(ctx.attr.config[KernelEnvAttrInfo].config_tags, indent = "  ")
+        config_tags_json_file = ctx.actions.declare_file("{}_config_tags/config_tags.json".format(ctx.label.name))
+        ctx.actions.write(config_tags_json_file, config_tags_json)
+        inputs.append(config_tags_json_file)
+
         cache_dir_cmd = """
-              KLEAF_CACHED_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
-              mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
-              rsync -aL "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+              KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
+              KLEAF_CACHED_OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
+              (
+                  mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
+                  KLEAF_CONIFG_TAGS="${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
+
+                  # {config_tags_json_file} is readonly. If ${{KLEAF_CONIFG_TAGS}} exists,
+                  # it should be readonly too.
+                  # If ${{KLEAF_CONIFG_TAGS}} exists, copying fails, and then we diff the file
+                  # to ensure we aren't polluting the sandbox for something else.
+                  if ! cp -p {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}" 2>/dev/null; then
+                    if ! diff -q {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}"; then
+                      echo "Collision detected in ${{KLEAF_CONIFG_TAGS}}" >&2
+                      diff {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}" >&2
+                      echo 'Run `tools/bazel clean` and try again. If the error persists, report a bug.' >&2
+                      exit 1
+                    fi
+                  fi
+
+                  # source/ and build/ are symlinks to the source tree and $OUT_DIR, respectively,
+                  rsync -aL --exclude=source --exclude=build \\
+                      "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+                  rsync -al --include=source --include=build --exclude='*' \\
+                      "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
+              )
+
               export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
               unset KLEAF_CACHED_OUT_DIR
+              unset KLEAF_CACHED_COMMON_OUT_DIR
         """.format(
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
+            config_tags_json_file = config_tags_json_file.path,
         )
-    return struct(inputs = [], tools = [], cmd = cache_dir_cmd, outputs = [])
+    return struct(
+        inputs = inputs,
+        tools = [],
+        cmd = cache_dir_cmd,
+        outputs = [],
+    )
 
 def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, ruledir, all_module_names_file):
     """Returns a step for grabbing the in-tree modules from `OUT_DIR`.
@@ -1002,6 +1041,8 @@ def _build_main_action(
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
     grab_gcno_step = _get_grab_gcno_step(ctx)
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
+    compile_commands_step = compile_commands_utils.kernel_build_step(ctx)
+    grab_gdb_scripts_step = kgdb.get_grab_gdb_scripts_step(ctx)
     check_remaining_modules_step = _get_check_remaining_modules_step(
         ctx = ctx,
         all_module_names_file = all_module_names_file,
@@ -1016,6 +1057,8 @@ def _build_main_action(
         grab_symtypes_step,
         grab_gcno_step,
         grab_cmd_step,
+        compile_commands_step,
+        grab_gdb_scripts_step,
         check_remaining_modules_step,
     )
 
@@ -1037,7 +1080,7 @@ def _build_main_action(
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
            else
                # Workaround as this file is required, hence just produce a placeholder.
-               touch ${{OUT_DIR}}/Module.symvers
+               touch {internal_outs_under_out_dir}
            fi
          # Archive headers in OUT_DIR
            find ${{OUT_DIR}} -name *.h -print0                          \
@@ -1057,6 +1100,10 @@ def _build_main_action(
            {grab_gcno_step_cmd}
          # Grab *.cmd
            {grab_cmd_cmd}
+         # Grab files for compile_commands.json
+           {compile_commands_step}
+         # Grab GDB scripts
+           {grab_gdb_scripts_cmd}
          # Grab in-tree modules
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
@@ -1072,12 +1119,15 @@ def _build_main_action(
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
+        internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         all_output_names_minus_modules = " ".join(all_output_names.non_modules),
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_modules_step.cmd,
         grab_symtypes_cmd = grab_symtypes_step.cmd,
         grab_gcno_step_cmd = grab_gcno_step.cmd,
         grab_cmd_cmd = grab_cmd_step.cmd,
+        compile_commands_step = compile_commands_step.cmd,
+        grab_gdb_scripts_cmd = grab_gdb_scripts_step.cmd,
         check_remaining_modules_cmd = check_remaining_modules_step.cmd,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
@@ -1132,6 +1182,8 @@ def _build_main_action(
         unstripped_dir = grab_unstripped_modules_step.unstripped_dir,
         ruledir = ruledir,
         cmd_dir = grab_cmd_step.cmd_dir,
+        compile_commands_with_vars = compile_commands_step.compile_commands_with_vars,
+        compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
     )
 
 def _create_infos(
@@ -1178,6 +1230,8 @@ def _create_infos(
         outs = all_output_files["outs"].values(),
         base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
         interceptor_output = main_action_ret.interceptor_output,
+        compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
+        compile_commands_out_dir = main_action_ret.compile_commands_out_dir,
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
@@ -1254,6 +1308,7 @@ def _create_infos(
     return [
         cmds_info,
         env_info,
+        ctx.attr.config[KernelEnvAttrInfo],
         kbuild_mixed_tree_info,
         kernel_build_info,
         kernel_build_module_info,
@@ -1369,6 +1424,7 @@ _kernel_build = rule(
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_allow_undeclared_modules": attr.label(default = "//build/kernel/kleaf:allow_undeclared_modules"),
+        "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the

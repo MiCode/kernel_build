@@ -25,23 +25,26 @@ Only *_flag / *_settings that affects the content of the cached $OUT_DIR should 
 In particular:
 - --config=stamp is not in these lists because it is mutually exclusive with --config=local.
 - --allow_undeclared_modules is not listed because it only affects artifact collection.
+- --preserve_cmd is not listed because it only affects artifact collection.
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":abi/base_kernel_utils.bzl", "base_kernel_utils")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
+load(":compile_commands_utils.bzl", "compile_commands_utils")
+load(":kgdb.bzl", "kgdb")
 
 def _kernel_build_config_settings_raw():
     return dicts.add(
         trim_nonlisted_kmi_utils.config_settings_raw(),
         force_add_vmlinux_utils.config_settings_raw(),
         base_kernel_utils.config_settings_raw(),
+        kgdb.config_settings_raw(),
+        compile_commands_utils.config_settings_raw(),
         {
-            "_preserve_cmd": "//build/kernel/kleaf/impl:preserve_cmd",
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
             "_gcov": "//build/kernel/kleaf:gcov",
         },
@@ -56,6 +59,7 @@ def _kernel_build_config_settings():
 def _kernel_config_config_settings_raw():
     return dicts.add(
         trim_nonlisted_kmi_utils.config_settings_raw(),
+        kgdb.config_settings_raw(),
         {
             "kasan": "//build/kernel/kleaf:kasan",
             "lto": "//build/kernel/kleaf:lto",
@@ -74,6 +78,8 @@ def _kernel_env_config_settings_raw():
         _kernel_build_config_settings_raw(),
         _kernel_config_config_settings_raw(),
         force_add_vmlinux_utils.config_settings_raw(),
+        kgdb.config_settings_raw(),
+        compile_commands_utils.config_settings_raw(),
         {
             "_kbuild_symtypes_flag": "//build/kernel/kleaf:kbuild_symtypes",
         },
@@ -85,19 +91,16 @@ def _kernel_env_config_settings():
         for attr_name, label in _kernel_env_config_settings_raw().items()
     }
 
-def _kernel_env_get_out_dir_suffix(ctx):
-    """Returns `OUT_DIR_SUFFIX` for `kernel_env`."""
+def _kernel_env_get_config_tags(ctx):
+    """Returns dict to compute `OUT_DIR_SUFFIX` for `kernel_env`."""
     attr_to_label = _kernel_env_config_settings_raw()
 
-    ret = []
+    ret = {}
     for attr_name in attr_to_label:
         attr_target = getattr(ctx.attr, attr_name)
-        attr_label_name = attr_target.label.name
         attr_val = attr_target[BuildSettingInfo].value
-        item = "{}_{}".format(attr_label_name, attr_val)
-        ret.append(item)
-    ret = sorted(sets.to_list(sets.make(ret)))
-    return paths.join(*ret)
+        ret[str(attr_target.label)] = attr_val
+    return ret
 
 # Map of config settings to shortened names
 _PROGRESS_MESSAGE_SETTINGS_MAP = {
@@ -115,7 +118,7 @@ _PROGRESS_MESSAGE_INTERESTING_SETTINGS = [
 def _get_progress_message_note(ctx):
     """Returns a description text for progress message.
 
-    This is a shortened and human-readable version of `kernel_env_get_out_dir_suffix`.
+    This is a shortened and human-readable version of `kernel_env_get_config_tags`.
     """
     attr_to_label = _kernel_env_config_settings_raw()
 
@@ -150,6 +153,6 @@ kernel_config_settings = struct(
     of_kernel_build = _kernel_build_config_settings,
     of_kernel_config = _kernel_config_config_settings,
     of_kernel_env = _kernel_env_config_settings,
-    kernel_env_get_out_dir_suffix = _kernel_env_get_out_dir_suffix,
+    kernel_env_get_config_tags = _kernel_env_get_config_tags,
     get_progress_message_note = _get_progress_message_note,
 )

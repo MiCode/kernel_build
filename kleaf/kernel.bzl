@@ -12,20 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# All public rules and macros to build the kernel.
-# This file serves as a central place for users to import these public
+"""All public rules and macros to build the kernel."""
+
+# This extension serves as a central place for users to import these public
 # rules and macros. The implementations stays in sub-extensions,
 # which is not expected to be loaded directly by users.
 
-load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", _kernel_build_abi = "kernel_build_abi")
-load("//build/kernel/kleaf/impl:abi/kernel_build_abi_dist.bzl", _kernel_build_abi_dist = "kernel_build_abi_dist")
+# TODO(b/242072873): kernel_build_abi is deprecated
+# buildifier: disable=deprecated-function
+load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", _kernel_abi = "kernel_abi", _kernel_build_abi = "kernel_build_abi")
+
+# TODO(b/242072873): kernel_build_abi_dist is deprecated
+# buildifier: disable=deprecated-function
+load("//build/kernel/kleaf/impl:abi/kernel_build_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist", _kernel_build_abi_dist = "kernel_build_abi_dist")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
+load("//build/kernel/kleaf/impl:ddk/ddk_submodule.bzl", _ddk_submodule = "ddk_submodule")
 load("//build/kernel/kleaf/impl:image/kernel_images.bzl", _kernel_images = "kernel_images")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", _kernel_build_macro = "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
 load("//build/kernel/kleaf/impl:kernel_compile_commands.bzl", _kernel_compile_commands = "kernel_compile_commands")
-load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", "DtstreeInfo", _kernel_dtstree = "kernel_dtstree")
+load("//build/kernel/kleaf/impl:kernel_dtstree.bzl", _kernel_dtstree = "kernel_dtstree")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", _kernel_filegroup = "kernel_filegroup")
 load("//build/kernel/kleaf/impl:kernel_kythe.bzl", _kernel_kythe = "kernel_kythe")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", _kernel_module_macro = "kernel_module")
@@ -38,6 +45,9 @@ load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_
 # Re-exports. This is the list of public rules and macros.
 ddk_headers = _ddk_headers
 ddk_module = _ddk_module
+ddk_submodule = _ddk_submodule
+kernel_abi = _kernel_abi
+kernel_abi_dist = _kernel_abi_dist
 kernel_build = _kernel_build_macro
 kernel_build_abi = _kernel_build_abi
 kernel_build_abi_dist = _kernel_build_abi_dist

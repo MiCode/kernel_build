@@ -140,6 +140,24 @@ def _sanitize_label_as_filename(label):
     label_text = str(label)
     return "".join([c if c.isalnum() else "_" for c in label_text.elems()])
 
+def _kwargs_to_def(**kwargs):
+    """Turns d into text that can be copied to BUILD files. May be inaccurate."""
+    for key, value in list(kwargs.items()):
+        if value == None:
+            kwargs.pop(key)
+
+    return ",\n    ".join(sorted(["{key} = {value_repr}".format(
+        key = key,
+        value_repr = repr(value),
+    ) for key, value in kwargs.items()]))
+
+def _hash_hex(x):
+    """Returns `hash(x)` in hex format."""
+    ret = "%x" % hash(x)
+    if len(ret) < 8:
+        ret = "0" * (8 - len(ret)) + ret
+    return ret
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -150,6 +168,8 @@ utils = struct(
     find_files = find_files,
     compare_file_names = _compare_file_names,
     sanitize_label_as_filename = _sanitize_label_as_filename,
+    kwargs_to_def = _kwargs_to_def,
+    hash_hex = _hash_hex,
 )
 
 def _filter_module_srcs(files):
@@ -233,6 +253,7 @@ def _split_kernel_module_deps(deps, this_label):
     kernel_module_deps = []
     hdr_deps = []
     submodule_deps = []
+    module_symvers_deps = []
     for dep in deps:
         is_valid_dep = False
         if DdkHeadersInfo in dep:
@@ -244,12 +265,16 @@ def _split_kernel_module_deps(deps, this_label):
         if all([info in dep for info in [DdkHeadersInfo, DdkSubmoduleInfo]]):
             submodule_deps.append(dep)
             is_valid_dep = True
+        if ModuleSymversInfo in dep:
+            module_symvers_deps.append(dep)
+            is_valid_dep = True
         if not is_valid_dep:
             fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers, ddk_submodule are accepted.".format(this_label, dep.label))
     return struct(
         kernel_modules = kernel_module_deps,
         hdrs = hdr_deps,
         submodules = submodule_deps,
+        module_symvers_deps = module_symvers_deps,
     )
 
 kernel_utils = struct(

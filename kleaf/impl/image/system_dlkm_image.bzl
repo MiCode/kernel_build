@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Build system_dlkm image for GKI modules.
+"""
 
 load("//build/kernel/kleaf/impl:constants.bzl", "SYSTEM_DLKM_OUTS")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
-load(":debug.bzl", "debug")
 load(":image/image_utils.bzl", "image_utils")
 load(
     ":common_providers.bzl",
@@ -31,6 +33,7 @@ def _system_dlkm_image_impl(ctx):
 
     modules_staging_dir = system_dlkm_img.dirname + "/staging"
     system_dlkm_staging_dir = modules_staging_dir + "/system_dlkm_staging"
+    system_dlkm_fs_type = ctx.attr.system_dlkm_fs_type
 
     additional_inputs = []
     restore_modules_install = True
@@ -86,6 +89,7 @@ def _system_dlkm_image_impl(ctx):
                mkdir -p {system_dlkm_staging_dir}
                (
                  MODULES_STAGING_DIR={modules_staging_dir}
+                 SYSTEM_DLKM_FS_TYPE={system_dlkm_fs_type}
                  SYSTEM_DLKM_STAGING_DIR={system_dlkm_staging_dir}
                  {extra_flags_cmd}
                  build_system_dlkm
@@ -101,6 +105,7 @@ def _system_dlkm_image_impl(ctx):
         extract_staging_archive_cmd = extract_staging_archive_cmd,
         extra_flags_cmd = extra_flags_cmd,
         modules_staging_dir = modules_staging_dir,
+        system_dlkm_fs_type = system_dlkm_fs_type,
         system_dlkm_staging_dir = system_dlkm_staging_dir,
         system_dlkm_img = system_dlkm_img.path,
         system_dlkm_modules_load = system_dlkm_modules_load.path,
@@ -143,6 +148,7 @@ When included in a `copy_to_dist_dir` rule, this rule copies the following to `D
         "base_kernel_images": attr.label(allow_files = True),
         "modules_list": attr.label(allow_single_file = True),
         "modules_blocklist": attr.label(allow_single_file = True),
+        "system_dlkm_fs_type": attr.string(doc = """system_dlkm.img fs type""", values = ["ext4", "erofs"]),
         "system_dlkm_modules_list": attr.label(allow_single_file = True),
         "system_dlkm_modules_blocklist": attr.label(allow_single_file = True),
         "system_dlkm_props": attr.label(allow_single_file = True),

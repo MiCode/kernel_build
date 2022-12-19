@@ -22,8 +22,8 @@ MODULE_OUTS_FILE_SUFFIX = "_modules"
 # the list of `module_outs` for that kernel_build.
 MODULE_OUTS_FILE_OUTPUT_GROUP = "module_outs_file"
 
-# List of images produced by the aarch64 kernel.
-AARCH64_IMAGES = [
+# List of images produced by non-x86 kernels.
+DEFAULT_IMAGES = [
     "Image",
     "Image.lz4",
     "Image.gz",
@@ -35,7 +35,7 @@ GKI_ARTIFACTS_AARCH64_OUTS = [
     "gki-info.txt",
 ] + [
     "boot.img" if e == "Image" else "boot-{}.img".format(e[len("Image."):])
-    for e in AARCH64_IMAGES
+    for e in DEFAULT_IMAGES
 ]
 
 SYSTEM_DLKM_OUTS = [

@@ -74,6 +74,42 @@ performs well or better for the kernel build workload. Full example:
 $ tools/bazel run --config=local --cache_dir=/some/fast/disk //common:kernel_aarch64_dist
 ```
 
+If you have built multiple `kernel_build` before and/or with different
+configurations (e.g. LTO), there may be multiple subdirectories under
+the cache directory. Sample directory structure:
+
+```text
+out/cache
+├── 39c6af8c
+└── 5f914ca4
+```
+
+To understand what `kernel_build` is built with a given cache directory and
+relevant configurations to build it, check the `kleaf_config_tags.json` file
+under the subdirectories:
+
+```shell
+$ tail -n +1 */kleaf_config_tags.json
+```
+
+Sample output snippet:
+
+```text
+==> 5f914ca4/kleaf_config_tags.json <==
+{
+  "@//build/kernel/kleaf/impl:force_add_vmlinux": false,
+  "@//build/kernel/kleaf/impl:force_ignore_base_kernel": false,
+  "@//build/kernel/kleaf/impl:preserve_cmd": false,
+  "@//build/kernel/kleaf/impl:trim_nonlisted_kmi_setting": false,
+  "@//build/kernel/kleaf:gcov": false,
+  "@//build/kernel/kleaf:kasan": true,
+  "@//build/kernel/kleaf:kbuild_symtypes": false,
+  "@//build/kernel/kleaf:kmi_symbol_list_strict_mode": true,
+  "@//build/kernel/kleaf:lto": "none",
+  "_kernel_build": "@//common:kernel_aarch64"
+}
+```
+
 ## Other flags
 
 The flag `--config=local` is also implied by other flags, e.g.:

@@ -38,9 +38,11 @@ is in its own extension instead of `kernel_env.bzl`.
 KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
+        "env_info": "`KernelEnvInfo` of the `kernel_env` target.",
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
         "progress_message_note": """A note in the progress message that differentiates multiple
             instances of the same action due to different configs.""",
+        "config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
     },
 )
 
@@ -53,6 +55,8 @@ KernelBuildInfo = provider(
             [Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs)
             of the rule specified by `base_kernel`""",
         "interceptor_output": "`interceptor` log. See [`interceptor`](https://android.googlesource.com/kernel/tools/interceptor/) project.",
+        "compile_commands_with_vars": "A file that can be transformed into `compile_commands.json`.",
+        "compile_commands_out_dir": "A subset of `$OUT_DIR` for `compile_commands.json`.",
         "kernel_release": "The file `kernel.release`.",
     },
 )

@@ -75,7 +75,7 @@ def define_kleaf_workspace(common_kernel_package = None):
         name = "gki_prebuilts",
         files = gki_prebuilts_files,
         optional_files = gki_prebuilts_optional_files,
-        target = "kernel_kleaf",
+        target = "kernel_aarch64",
     )
 
     # Fake local_jdk to avoid fetching rules_java for any exec targets.
@@ -83,6 +83,18 @@ def define_kleaf_workspace(common_kernel_package = None):
     native.local_repository(
         name = "local_jdk",
         path = "build/kernel/kleaf/impl/fake_local_jdk",
+    )
+
+    # Fake rules_cc to avoid fetching it for any py_binary targets.
+    native.local_repository(
+        name = "rules_cc",
+        path = "build/kernel/kleaf/impl/fake_rules_cc",
+    )
+
+    # Stub out @remote_coverage_tools required for testing.
+    native.local_repository(
+        name = "remote_coverage_tools",
+        path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
     )
 
     native.register_toolchains(

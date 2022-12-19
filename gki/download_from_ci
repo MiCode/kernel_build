@@ -41,6 +41,7 @@ from abitool import dump_kernel_abi
 BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
 ARM_TARGETS = ["u-boot_qemu_arm"]
 ARM64_TARGETS = ["kernel_aarch64",
+                 "kernel_aarch64_16k",
                  "kernel_debug_aarch64",
                  "kernel_microdroid_aarch64",
                  "kernel_rockpi4",
@@ -91,6 +92,10 @@ def parse_args():
       action="store_true",
       help="update GKI kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
+      "--update-16k",
+      action="store_true",
+      help="update 16k kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
       "--update-u-boot",
       action="store_true",
       help="update U-Boot prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
@@ -112,7 +117,11 @@ def parse_args():
 
   _args = parser.parse_args()
 
-  if _args.update_gki or _args.update_u_boot or _args.update_microdroid:
+  if any((
+    _args.update_gki,
+    _args.update_16k,
+    _args.update_u_boot,
+    _args.update_microdroid)):
     if _args.build_target is not None:
       raise Exception("build_target cannot be specified when updating prebuilts")
     if "ANDROID_BUILD_TOP" not in os.environ:
@@ -331,6 +340,12 @@ def download_kernel_modules(target, output_dir, fetch_initramfs=False):
   func = functools.partial(download, url_base, output_dir)
   _pool.map(func, files_to_fetch)
 
+def clean_download_dir(download_dir):
+  subprocess.run(["git", "rm", "-rf", "*"], cwd=download_dir)
+  os.makedirs(download_dir, exist_ok=True)
+  subprocess.run(["git", "checkout", "HEAD", "Android.bp"], cwd=download_dir)
+  subprocess.run(["git", "checkout", "HEAD", "16k"], cwd=download_dir)
+
 def update_android_4_1x_pq(output_dir, version):
   output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")
 
@@ -368,7 +383,7 @@ def update_android_4_19_r(output_dir):
       (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
 
   # arm64 GKI kernels and kernel modules
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
+  clean_download_dir(arm64_dir)
   download_kernel("kernel_debug_aarch64", "4.19" , arm64_dir)
   download_kernel("kernel_aarch64", "4.19", arm64_dir)
   download_kernel_modules("kernel_aarch64", arm64_dir)
@@ -421,17 +436,8 @@ def update_androidx_virtual_device_modules(gitlog, output_dir, version):
   arm64_mods_dir = os.path.join(ver_mods_dir, "arm64")
   x86_64_mods_dir = os.path.join(ver_mods_dir, "x86-64")
 
-  try:
-    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_mods_dir)
-    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_mods_dir)
-  except subprocess.CalledProcessError:
-    pass
-
-  try:
-    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_mods_dir)
-    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_mods_dir)
-  except subprocess.CalledProcessError:
-    pass
+  clean_download_dir(arm64_mods_dir)
+  clean_download_dir(x86_64_mods_dir)
 
   download_kernel_modules("kernel_virt_aarch64", arm64_mods_dir, fetch_initramfs=True)
   download_kernel_modules("kernel_virt_x86_64", x86_64_mods_dir, fetch_initramfs=True)
@@ -466,8 +472,7 @@ def update_androidx(output_dir, version):
   (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
 
   # arm64 GKI kernels and kernel modules
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
-  subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_dir)
+  clean_download_dir(arm64_dir)
   download_kernel("kernel_debug_aarch64", version, arm64_dir)
   download_kernel("kernel_aarch64", version, arm64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_aarch64", arm64_dir)
@@ -478,8 +483,7 @@ def update_androidx(output_dir, version):
   commit_prebuilts(arm64_dir, gitlog)
 
   # x86_64 GKI kernels and kernel modules
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_dir)
-  subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_dir)
+  clean_download_dir(x86_64_dir)
   download_kernel("kernel_debug_x86_64", version, x86_64_dir)
   download_kernel("kernel_x86_64", version, x86_64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_x86_64", x86_64_dir)
@@ -506,6 +510,34 @@ def update_android_mainline(output_dir):
 
   gitlog = get_git_log(old_sha, new_sha)
   commit_prebuilts(arm64_dir, gitlog)
+
+def update_16k():
+  url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_aarch64")
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  version = get_build_kernel_version(data)
+
+  output_dir = os.environ["ANDROID_BUILD_TOP"]
+
+  arm64_16k_dir = os.path.join(output_dir, "kernel", "prebuilts", version, "arm64", "16k")
+  arm64_kernel = os.path.join(arm64_16k_dir, "kernel-" + version)
+  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  clean_download_dir(arm64_16k_dir)
+  download_kernel("kernel_aarch64_16k", version, arm64_16k_dir, fetch_system_dlkm=True)
+  download_kernel_modules("kernel_aarch64_16k", arm64_16k_dir)
+  write_prebuilt_info(arm64_16k_dir)
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+  gitlog = get_git_log(old_sha, new_sha)
+  commit_prebuilts(arm64_16k_dir, gitlog)
+
+  arm64_16k_mods_dir = os.path.join(output_dir, "kernel", "prebuilts", "common-modules",
+                                    "virtual-device", version, "arm64", "16k")
+
+  clean_download_dir(arm64_16k_mods_dir)
+  download_kernel_modules("kernel_virt_aarch64_16k", arm64_16k_mods_dir, fetch_initramfs=True)
+  commit_prebuilts(arm64_16k_mods_dir, gitlog)
 
 def update_gki():
   url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_aarch64")
@@ -640,8 +672,7 @@ def update_microdroid_kernel():
     kernel = os.path.join(directory, "kernel-" + version)
     (old_version, old_sha) = get_binary_kernel_version(kernel)
 
-    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=directory)
-    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=directory)
+    clean_download_dir(directory)
     download_kernel("kernel_microdroid_" + arch_suffix, version, directory)
     write_prebuilt_info(directory)
     (new_version, new_sha) = get_binary_kernel_version(kernel)
@@ -657,6 +688,10 @@ def main():
 
   if _args.update_gki:
     update_gki()
+    return
+
+  if _args.update_16k:
+    update_16k()
     return
 
   if _args.update_u_boot:

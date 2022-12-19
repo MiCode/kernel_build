@@ -168,6 +168,7 @@ def dump_kernel_abi(linux_tree, dump_path, symbol_list, vmlinux_path=None):
                             "--all",
                             "--renumber-anonymous-types",
                             "--no-report-untyped",
+                            "--locations", "file",
                             "--input", temp_path,
                             "--output", dump_path]
 

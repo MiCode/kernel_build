@@ -156,6 +156,7 @@ def _makefiles_impl(ctx):
     kernel_module_deps = split_deps.kernel_modules
     submodule_deps = split_deps.submodules
     hdr_deps = split_deps.hdrs
+    module_symvers_deps = split_deps.module_symvers_deps
 
     if submodule_deps:
         _check_empty_with_submodules(ctx, module_label, kernel_module_deps)
@@ -177,6 +178,11 @@ def _makefiles_impl(ctx):
         ctx.attr.module_linux_includes,
         "linux_includes",
     )
+
+    module_symvers_depset = depset(transitive = [
+        target[ModuleSymversInfo].restore_paths
+        for target in module_symvers_deps
+    ])
 
     args = ctx.actions.args()
 
@@ -204,13 +210,8 @@ def _makefiles_impl(ctx):
     args.add_all("--linux-include-dirs", linux_include_dirs, uniquify = True)
     args.add_all("--include-dirs", include_dirs, uniquify = True)
 
-    args.add_all(
-        "--module-symvers-list",
-        depset(transitive = [
-            kernel_module[ModuleSymversInfo].restore_paths
-            for kernel_module in kernel_module_deps
-        ]),
-    )
+    if ctx.attr.top_level_makefile:
+        args.add_all("--module-symvers-list", module_symvers_depset)
 
     args.add_all("--local-defines", ctx.attr.module_local_defines)
 
@@ -263,6 +264,9 @@ def _makefiles_impl(ctx):
                 kernel_module_deps,
                 transitive = [dep[DdkSubmoduleInfo].kernel_module_deps for dep in submodule_deps],
             ),
+        ),
+        ModuleSymversInfo(
+            restore_paths = module_symvers_depset,
         ),
         ddk_headers_info,
     ]

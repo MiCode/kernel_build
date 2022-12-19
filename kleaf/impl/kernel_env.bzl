@@ -15,8 +15,6 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -26,9 +24,11 @@ load(
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
+load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
+load(":kgdb.bzl", "kgdb")
 load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
 load(":utils.bzl", "utils")
@@ -106,10 +106,17 @@ def _kernel_env_impl(ctx):
           export MAKEFLAGS="${MAKEFLAGS} V=1"
         """
     else:
-        command += """
-        # Run Make in silence mode to suppress most of the info output
-          export MAKEFLAGS="${MAKEFLAGS} -s"
-        """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "E":
+            command += """
+            # Run Make in silence mode to suppress most of the info output
+            export MAKEFLAGS="${MAKEFLAGS} -s"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
+            command += """
+            # Similar to similar to --debug_annotate_scripts without additional traps.
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=1"
+            """
 
     kbuild_symtypes = _get_kbuild_symtypes(ctx)
     command += """
@@ -118,11 +125,15 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
-    config_tags = kernel_config_settings.kernel_env_get_out_dir_suffix(ctx)
-    out_dir_suffix = paths.join(
-        utils.sanitize_label_as_filename(ctx.label).removesuffix("_env"),
-        config_tags,
-    )
+    config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
+    config_tags["_kernel_build"] = str(ctx.label.relative(ctx.label.name.removesuffix("_env")))
+    config_tags_json = json.encode_indent(config_tags, indent = "  ")
+    config_tags_comment_file = ctx.actions.declare_file("{}/config_tags.txt".format(ctx.label.name))
+    config_tags_comment_lines = "\n".join(["# " + line for line in config_tags_json.splitlines()]) + "\n"
+    ctx.actions.write(config_tags_comment_file, config_tags_comment_lines)
+    inputs.append(config_tags_comment_file)
+
+    out_dir_suffix = utils.hash_hex(config_tags_json)
     command += """
           export OUT_DIR_SUFFIX={}
     """.format(out_dir_suffix)
@@ -134,6 +145,8 @@ def _kernel_env_impl(ctx):
     command += stamp.set_localversion_cmd(ctx)
 
     additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
+    additional_make_goals += kgdb.additional_make_goals(ctx)
+    additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
 
     command += """
         # create a build environment
@@ -143,7 +156,8 @@ def _kernel_env_impl(ctx):
         # Add to MAKE_GOALS if necessary
           export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
         # Add a comment with config_tags for debugging
-          echo {config_tags} > {out}
+          cp -p {config_tags_comment_file} {out}
+          chmod +w {out}
         # capture it as a file to be sourced in downstream rules
           {preserve_env} >> {out}
         """.format(
@@ -153,7 +167,7 @@ def _kernel_env_impl(ctx):
         additional_make_goals = " ".join(additional_make_goals),
         preserve_env = preserve_env.path,
         out = out_file.path,
-        config_tags = shell.quote("# " + config_tags),
+        config_tags_comment_file = config_tags_comment_file.path,
     )
 
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
@@ -237,14 +251,18 @@ def _kernel_env_impl(ctx):
     if kconfig_ext:
         dependencies.append(kconfig_ext)
     dependencies += dtstree_srcs
+
+    env_info = KernelEnvInfo(
+        dependencies = dependencies,
+        setup = setup,
+    )
     return [
-        KernelEnvInfo(
-            dependencies = dependencies,
-            setup = setup,
-        ),
+        env_info,
         KernelEnvAttrInfo(
+            env_info = env_info,
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
+            config_tags = config_tags,
         ),
         DefaultInfo(files = depset([out_file])),
     ]
@@ -333,6 +351,7 @@ kernel_env = rule(
         "_debug_annotate_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_annotate_scripts",
         ),
+        "_debug_make_verbosity": attr.label(default = "//build/kernel/kleaf:debug_make_verbosity"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
