@@ -47,6 +47,7 @@ def _kernel_build_config_settings_raw():
         {
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
             "_gcov": "//build/kernel/kleaf:gcov",
+            "_preserve_kbuild_output": "//build/kernel/kleaf:preserve_kbuild_output",
         },
     )
 

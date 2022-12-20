@@ -66,6 +66,12 @@ bool_flag(
     build_setting_default = False,
 )
 
+# If true, everything inside OUT_DIR is collected unconditionally
+bool_flag(
+    name = "preserve_kbuild_output",
+    build_setting_default = False,
+)
+
 config_setting(
     name = "allow_ddk_unsafe_headers_set",
     flag_values = {
