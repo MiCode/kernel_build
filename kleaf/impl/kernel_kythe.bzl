@@ -41,6 +41,20 @@ _kernel_kythe_transition = transition(
     ],
 )
 
+def _create_vnames_mappings(ctx):
+    mappings = [
+        {
+            "pattern": "^(/etc/.*)",
+            "vname": {
+                "path": "fake_root/@1@",
+            },
+        },
+    ]
+    mappings_json = json.encode_indent(mappings, indent = "  ")
+    output = ctx.actions.declare_file(ctx.attr.name + "/vnames.json")
+    ctx.actions.write(output = output, content = mappings_json)
+    return output
+
 def _kernel_kythe_impl(ctx):
     compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
     compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
@@ -49,7 +63,12 @@ def _kernel_kythe_impl(ctx):
     kzip_dir = intermediates_dir + "/kzip"
     extracted_kzip_dir = intermediates_dir + "/extracted"
     transitive_inputs = [src.files for src in ctx.attr.kernel_build[SrcsInfo].srcs]
-    inputs = [compile_commands_with_vars, compile_commands_out_dir]
+    vnames_mappings_json_file = _create_vnames_mappings(ctx)
+    inputs = [
+        compile_commands_with_vars,
+        compile_commands_out_dir,
+        vnames_mappings_json_file,
+    ]
 
     # Use KernelEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
     # kernel_config or kernel_build.
@@ -71,6 +90,7 @@ def _kernel_kythe_impl(ctx):
                export KYTHE_ROOT_DIRECTORY=${{ROOT_DIR}}
                export KYTHE_OUTPUT_DIRECTORY={kzip_dir}
                export KYTHE_CORPUS={quoted_corpus}
+               export KYTHE_VNAMES=$(realpath {vnames_mappings_json_file})
              # Generate kzips
                runextractor compdb -extractor $(which cxx_extractor)
 
@@ -78,7 +98,6 @@ def _kernel_kythe_impl(ctx):
                for zip in $(find {kzip_dir} -name '*.kzip'); do
                    unzip -qn "${{zip}}" -d {extracted_kzip_dir}
                done
-               find {extracted_kzip_dir}/root/units -type f -exec sed -i'' -e 's:/etc:fake_root/etc:g' {{}} \\+
                soong_zip -d -C {extracted_kzip_dir} -D {extracted_kzip_dir} -o {all_kzip}
              # Clean up directories
                rm -rf {kzip_dir}
@@ -86,6 +105,7 @@ def _kernel_kythe_impl(ctx):
     """.format(
         compile_commands_with_vars = compile_commands_with_vars.path,
         compile_commands_out_dir = compile_commands_out_dir.path,
+        vnames_mappings_json_file = vnames_mappings_json_file.path,
         reconstruct_out_dir = ctx.executable._reconstruct_out_dir.path,
         kzip_dir = kzip_dir,
         extracted_kzip_dir = extracted_kzip_dir,
