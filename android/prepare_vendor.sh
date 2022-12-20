@@ -141,6 +141,12 @@ trap "rm -rf ${TEMP_KP_OUT_DIR}" exit
 )
 
 ################################################################################
+# If KERNEL_VARIANT is still unset at this point, grab it from the brunch output
+if [ -z "$KERNEL_VARIANT" ]; then
+  KERNEL_VARIANT=$(cd "$ROOT_DIR" && source build/_setup_env.sh && echo "$VARIANT")
+fi
+
+################################################################################
 # Determine output folder
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
 ANDROID_KP_OUT_DIR="${3:-${OUT_DIR}}"
