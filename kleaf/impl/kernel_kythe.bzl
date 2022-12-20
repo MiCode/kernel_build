@@ -91,6 +91,7 @@ def _kernel_kythe_impl(ctx):
                export KYTHE_OUTPUT_DIRECTORY={kzip_dir}
                export KYTHE_CORPUS={quoted_corpus}
                export KYTHE_VNAMES=$(realpath {vnames_mappings_json_file})
+               export KYTHE_KZIP_ENCODING=PROTO
              # Generate kzips
                runextractor compdb -extractor $(which cxx_extractor)
 
