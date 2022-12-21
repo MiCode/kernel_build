@@ -32,6 +32,7 @@ bzl_library(
         "abi/kernel_build_abi_dist.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
         "btf.bzl",
+        "cache_dir.bzl",
         "common_providers.bzl",
         "compile_commands_utils.bzl",
         "constants.bzl",

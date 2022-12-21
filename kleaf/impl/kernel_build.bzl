@@ -29,6 +29,7 @@ load(":abi/base_kernel_utils.bzl", "base_kernel_utils")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(":btf.bzl", "btf")
+load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
@@ -706,82 +707,6 @@ def _get_interceptor_step(ctx):
         output_file = interceptor_output,
     )
 
-def _get_cache_dir_step(ctx):
-    """Returns a step for caching the output directory.
-
-    Returns:
-      A struct with these fields:
-
-      * inputs
-      * tools
-      * cmd
-      * outputs
-      * post_cmd
-    """
-
-    # Use a local cache directory for ${OUT_DIR} so that, even when this _kernel_build
-    # target needs to be rebuilt, we are using $OUT_DIR from previous invocations. This
-    # boosts --config=local builds. See (b/235632059).
-    cache_dir_cmd = ""
-    post_cmd = ""
-    inputs = []
-    if ctx.attr._config_is_local[BuildSettingInfo].value:
-        if not ctx.attr._cache_dir[BuildSettingInfo].value:
-            fail("--config=local requires --cache_dir.")
-
-        config_tags_json = json.encode_indent(ctx.attr.config[KernelEnvAttrInfo].config_tags, indent = "  ")
-        config_tags_json_file = ctx.actions.declare_file("{}_config_tags/config_tags.json".format(ctx.label.name))
-        ctx.actions.write(config_tags_json_file, config_tags_json)
-        inputs.append(config_tags_json_file)
-
-        cache_dir_cmd = """
-              KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
-              KLEAF_CACHED_OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
-              (
-                  mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
-                  KLEAF_CONIFG_TAGS="${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
-
-                  # {config_tags_json_file} is readonly. If ${{KLEAF_CONIFG_TAGS}} exists,
-                  # it should be readonly too.
-                  # If ${{KLEAF_CONIFG_TAGS}} exists, copying fails, and then we diff the file
-                  # to ensure we aren't polluting the sandbox for something else.
-                  if ! cp -p {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}" 2>/dev/null; then
-                    if ! diff -q {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}"; then
-                      echo "Collision detected in ${{KLEAF_CONIFG_TAGS}}" >&2
-                      diff {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}" >&2
-                      echo 'Run `tools/bazel clean` and try again. If the error persists, report a bug.' >&2
-                      exit 1
-                    fi
-                  fi
-
-                  # source/ and build/ are symlinks to the source tree and $OUT_DIR, respectively,
-                  rsync -aL --exclude=source --exclude=build \\
-                      "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
-                  rsync -al --include=source --include=build --exclude='*' \\
-                      "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
-              )
-
-              export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
-              unset KLEAF_CACHED_OUT_DIR
-              unset KLEAF_CACHED_COMMON_OUT_DIR
-        """.format(
-            cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
-            config_tags_json_file = config_tags_json_file.path,
-        )
-
-        post_cmd = """
-            ln -sf ${{OUT_DIR_SUFFIX}} {cache_dir}/last_build
-        """.format(
-            cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
-        )
-    return struct(
-        inputs = inputs,
-        tools = [],
-        cmd = cache_dir_cmd,
-        outputs = [],
-        post_cmd = post_cmd,
-    )
-
 def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, ruledir, all_module_names_file):
     """Returns a step for grabbing the in-tree modules from `OUT_DIR`.
 
@@ -1057,7 +982,7 @@ def _build_main_action(
 
     # Individual steps of the final command.
     interceptor_step = _get_interceptor_step(ctx)
-    cache_dir_step = _get_cache_dir_step(ctx)
+    cache_dir_step = cache_dir.get_step(ctx, ctx.attr.config[KernelEnvAttrInfo].config_tags)
     grab_intree_modules_step = _get_grab_intree_modules_step(
         ctx = ctx,
         has_any_modules = bool(all_output_names.modules),
