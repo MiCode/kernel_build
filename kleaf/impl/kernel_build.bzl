@@ -37,6 +37,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildInfo",
     "KernelBuildMixedTreeInfo",
+    "KernelBuildOriginalEnvInfo",
     "KernelBuildUapiInfo",
     "KernelCmdsInfo",
     "KernelConfigEnvInfo",
@@ -1204,6 +1205,10 @@ def _create_infos(
         setup = env_info_setup,
     )
 
+    orig_env_info = KernelBuildOriginalEnvInfo(
+        env_info = ctx.attr.config[KernelConfigEnvInfo].env_info,
+    )
+
     kernel_build_info = KernelBuildInfo(
         out_dir_kernel_headers_tar = main_action_ret.out_dir_kernel_headers_tar,
         outs = all_output_files["outs"].values(),
@@ -1287,7 +1292,7 @@ def _create_infos(
     return [
         cmds_info,
         env_info,
-        ctx.attr.config[KernelEnvAttrInfo],
+        orig_env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
         kernel_build_module_info,

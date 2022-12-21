@@ -19,7 +19,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "KernelBuildInfo",
-    "KernelEnvAttrInfo",
+    "KernelBuildOriginalEnvInfo",
 )
 load(":srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
 load(":utils.bzl", "utils")
@@ -71,10 +71,10 @@ def _kernel_kythe_impl(ctx):
         vnames_mappings_json_file,
     ]
 
-    # Use KernelEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
+    # Use KernelBuildOriginalEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
     # kernel_config or kernel_build.
-    inputs += ctx.attr.kernel_build[KernelEnvAttrInfo].env_info.dependencies
-    command = ctx.attr.kernel_build[KernelEnvAttrInfo].env_info.setup
+    inputs += ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.dependencies
+    command = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.setup
     command += """
              # Copy compile_commands.json to root, resolving $ROOT_DIR to the real value,
              # and $OUT_DIR to $ROOT_DIR/$KERNEL_DIR.
@@ -136,7 +136,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
-            providers = [KernelEnvAttrInfo, KernelBuildInfo],
+            providers = [KernelBuildOriginalEnvInfo, KernelBuildInfo],
             aspects = [srcs_aspect],
         ),
         "corpus": attr.label(
