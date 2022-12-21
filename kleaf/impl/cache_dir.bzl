@@ -70,12 +70,6 @@ def _get_step(ctx, common_config_tags, symlink_name):
                       exit 1
                     fi
                   fi
-
-                  # source/ and build/ are symlinks to the source tree and $OUT_DIR, respectively,
-                  rsync -aL --exclude=source --exclude=build \\
-                      "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
-                  rsync -al --include=source --include=build --exclude='*' \\
-                      "${{OUT_DIR}}/" "${{KLEAF_CACHED_OUT_DIR}}/"
               )
 
               export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}

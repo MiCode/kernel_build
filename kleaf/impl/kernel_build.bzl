@@ -1031,9 +1031,9 @@ def _build_main_action(
 
     # Build the command for the main action.
     command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    command += cache_dir_step.cmd
     command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
     command += """
-           {cache_dir_cmd}
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
            {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
@@ -1081,7 +1081,6 @@ def _build_main_action(
          # Create last_build symlink in cache_dir
            {cache_dir_post_cmd}
          """.format(
-        cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
         search_and_cp_output = ctx.file._search_and_cp_output.path,
