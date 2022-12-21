@@ -414,7 +414,6 @@ def kernel_build(
         name = config_target_name,
         env = env_target_name,
         srcs = srcs,
-        config = config_target_name + "/.config",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
         **internal_kwargs
