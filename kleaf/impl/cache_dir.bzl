@@ -15,6 +15,7 @@
 """Utilities for handling `--cache_dir`."""
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(":utils.bzl", "utils")
 
 def _get_step(ctx, common_config_tags, symlink_name):
     """Returns a step for caching the output directory.
@@ -51,7 +52,10 @@ def _get_step(ctx, common_config_tags, symlink_name):
         ctx.actions.write(config_tags_json_file, config_tags_json)
         inputs.append(config_tags_json_file)
 
+        out_dir_suffix = utils.hash_hex(config_tags_json)
+
         cache_dir_cmd = """
+              export OUT_DIR_SUFFIX={out_dir_suffix}
               KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
               KLEAF_CACHED_OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
               (
@@ -76,6 +80,7 @@ def _get_step(ctx, common_config_tags, symlink_name):
               unset KLEAF_CACHED_OUT_DIR
               unset KLEAF_CACHED_COMMON_OUT_DIR
         """.format(
+            out_dir_suffix = out_dir_suffix,
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
             config_tags_json_file = config_tags_json_file.path,
         )
