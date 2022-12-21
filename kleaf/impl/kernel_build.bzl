@@ -982,7 +982,7 @@ def _build_main_action(
 
     # Individual steps of the final command.
     interceptor_step = _get_interceptor_step(ctx)
-    cache_dir_step = cache_dir.get_step(ctx, ctx.attr.config[KernelEnvAttrInfo].config_tags)
+    cache_dir_step = cache_dir.get_step(ctx, ctx.attr.config[KernelEnvAttrInfo].common_config_tags)
     grab_intree_modules_step = _get_grab_intree_modules_step(
         ctx = ctx,
         has_any_modules = bool(all_output_names.modules),

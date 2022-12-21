@@ -43,7 +43,9 @@ def _get_step(ctx, common_config_tags):
         if not ctx.attr._cache_dir[BuildSettingInfo].value:
             fail("--config=local requires --cache_dir.")
 
-        config_tags_json = json.encode_indent(common_config_tags, indent = "  ")
+        config_tags = dict(common_config_tags)
+        config_tags["_target"] = str(ctx.label)
+        config_tags_json = json.encode_indent(config_tags, indent = "  ")
         config_tags_json_file = ctx.actions.declare_file("{}_config_tags/config_tags.json".format(ctx.label.name))
         ctx.actions.write(config_tags_json_file, config_tags_json)
         inputs.append(config_tags_json_file)

@@ -125,8 +125,9 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
-    config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
-    config_tags["_kernel_build"] = str(ctx.label.relative(ctx.label.name.removesuffix("_env")))
+    common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
+    config_tags = dict(common_config_tags)
+    config_tags["_target"] = str(ctx.label)
     config_tags_json = json.encode_indent(config_tags, indent = "  ")
     config_tags_comment_file = ctx.actions.declare_file("{}/config_tags.txt".format(ctx.label.name))
     config_tags_comment_lines = "\n".join(["# " + line for line in config_tags_json.splitlines()]) + "\n"
@@ -262,7 +263,7 @@ def _kernel_env_impl(ctx):
             env_info = env_info,
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
-            config_tags = config_tags,
+            common_config_tags = common_config_tags,
         ),
         DefaultInfo(files = depset([out_file])),
     ]

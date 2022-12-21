@@ -42,7 +42,7 @@ KernelEnvAttrInfo = provider(
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
         "progress_message_note": """A note in the progress message that differentiates multiple
             instances of the same action due to different configs.""",
-        "config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
+        "common_config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
     },
 )
 
