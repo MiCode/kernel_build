@@ -84,7 +84,7 @@ def _get_step(ctx, common_config_tags):
         )
 
         post_cmd = """
-            ln -sf ${{OUT_DIR_SUFFIX}} {cache_dir}/last_build
+            ln -sfT ${{OUT_DIR_SUFFIX}} {cache_dir}/last_build
         """.format(
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
         )
