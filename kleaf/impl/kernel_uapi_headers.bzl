@@ -16,11 +16,13 @@
 
 load(":common_providers.bzl", "KernelConfigEnvInfo")
 load(":debug.bzl", "debug")
+load(":utils.bzl", "utils")
 
 def _kernel_uapi_headers_impl(ctx):
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.label.name))
 
     command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    command += utils.get_check_sandbox_cmd()
     command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
     command += """
          # Create staging directory

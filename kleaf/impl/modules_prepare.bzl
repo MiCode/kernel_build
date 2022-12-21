@@ -20,6 +20,7 @@ load(
     "KernelEnvInfo",
 )
 load(":debug.bzl", "debug")
+load(":utils.bzl", "utils")
 
 def _modules_prepare_impl(ctx):
     tools = []
@@ -27,6 +28,7 @@ def _modules_prepare_impl(ctx):
     tools += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
 
     command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    command += utils.get_check_sandbox_cmd()
     command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
     command += """
          # Prepare for the module build
