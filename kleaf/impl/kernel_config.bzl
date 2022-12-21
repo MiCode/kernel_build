@@ -20,6 +20,7 @@ load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
+    "KernelConfigEnvInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
@@ -270,9 +271,9 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    setup_deps = ctx.attr.env[KernelEnvInfo].dependencies + \
-                 [config, include_dir]
-    setup = ctx.attr.env[KernelEnvInfo].setup + """
+    setup_deps = [config, include_dir]
+    setup = """
+           [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
            rsync -aL {config} ${{OUT_DIR}}/.config
@@ -285,13 +286,19 @@ def _kernel_config_impl(ctx):
         # at the absolute path specified in abi_symbollist.raw.abspath
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
 
+    post_env_info = KernelEnvInfo(
+        dependencies = setup_deps,
+        setup = setup,
+    )
+    kernel_config_env_info = KernelConfigEnvInfo(
+        env_info = ctx.attr.env[KernelEnvInfo],
+        post_env_info = post_env_info,
+    )
+
     config_script_ret = _get_config_script(ctx)
 
     return [
-        KernelEnvInfo(
-            dependencies = setup_deps,
-            setup = setup,
-        ),
+        kernel_config_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
         DefaultInfo(
             files = depset([config, include_dir]),

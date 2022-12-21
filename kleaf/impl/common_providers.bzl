@@ -35,6 +35,14 @@ is in its own extension instead of `kernel_env.bzl`.
     },
 )
 
+KernelConfigEnvInfo = provider(
+    doc = """Similar to `KernelEnvInfo` but specialized for `kernel_config`.""",
+    fields = {
+        "env_info": "`KernelEnvInfo` from `kernel_env`",
+        "post_env_info": "post setup script and deps after `OUT_DIR` is calculated properly.",
+    },
+)
+
 KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
