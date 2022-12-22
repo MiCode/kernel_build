@@ -1,1 +1,4 @@
-../../../../../prebuilts/build-tools/path/linux-x86/tar
+#!/bin/sh
+
+$(dirname $(readlink -f $0))/../../../../../prebuilts/build-tools/path/linux-x86/tar \
+  "$@" --mtime=@0 --owner=0 --group=0 --numeric-owner
