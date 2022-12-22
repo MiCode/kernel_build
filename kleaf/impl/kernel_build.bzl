@@ -1192,17 +1192,17 @@ def _create_infos(
 
     # We don't have local actions that depends on this setup script yet. If
     # we do in the future, this needs to be split into KernelConfigEnvInfo.
-    env_info_setup = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
-    env_info_setup += utils.get_check_sandbox_cmd()
-    env_info_setup += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
-    env_info_setup += """
+    env_info_setup_pre = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    env_info_setup_pre += utils.get_check_sandbox_cmd()
+    env_info_setup_pre += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
+    env_info_setup_restore_outputs = """
          # Restore kernel build outputs
            cp -R {ruledir}/* ${{OUT_DIR}}
            """.format(ruledir = main_action_ret.ruledir.path)
-    env_info_setup += kbuild_mixed_tree_ret.cmd
+    env_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
     env_info = KernelEnvInfo(
         dependencies = env_info_dependencies,
-        setup = env_info_setup,
+        setup = env_info_setup_pre + env_info_setup_restore_outputs,
     )
 
     orig_env_info = KernelBuildOriginalEnvInfo(
@@ -1221,12 +1221,22 @@ def _create_infos(
 
     module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
 
+    ext_mod_setup = env_info_setup_pre
+    ext_mod_setup += ctx.attr.modules_prepare[KernelEnvInfo].setup
+    ext_mod_setup += env_info_setup_restore_outputs
+    ext_mod_deps = []
+    ext_mod_deps += env_info_dependencies
+    ext_mod_deps += ctx.attr.modules_prepare[KernelEnvInfo].dependencies
+    ext_mod_env_info = KernelEnvInfo(
+        setup = ext_mod_setup,
+        dependencies = ext_mod_deps,
+    )
+
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
-        modules_prepare_setup = ctx.attr.modules_prepare[KernelEnvInfo].setup,
-        modules_prepare_deps = ctx.attr.modules_prepare[KernelEnvInfo].dependencies,
+        env_info = ext_mod_env_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )
