@@ -124,16 +124,20 @@ def _gen_ddk_makefile_for_module(
         output_makefiles: pathlib.Path,
         package: pathlib.Path,
         kernel_module_out: pathlib.Path,
-        kernel_module_srcs: list[pathlib.Path],
+        kernel_module_srcs_json: TextIO,
         include_dirs: list[pathlib.Path],
         linux_include_dirs: list[pathlib.Path],
         local_defines: list[str],
         copt_file: Optional[TextIO],
 ):
+    kernel_module_srcs_json_content = json.load(kernel_module_srcs_json)
     rel_srcs = []
-    for src in kernel_module_srcs:
-        if src.is_relative_to(package):
-            rel_srcs.append(src.relative_to(package))
+    for kernel_module_srcs_json_item in kernel_module_srcs_json_content:
+        rel_item = dict(kernel_module_srcs_json_item)
+        rel_item["files"] = [pathlib.Path(src).relative_to(package)
+                             for src in rel_item["files"]
+                             if pathlib.Path(src).is_relative_to(package)]
+        rel_srcs.append(rel_item)
 
     if kernel_module_out.suffix != ".ko":
         die("Invalid output: %s; must end with .ko", kernel_module_out)
@@ -157,17 +161,30 @@ def _gen_ddk_makefile_for_module(
 
         _handle_linux_includes(out_file, linux_include_dirs, rel_root)
 
-        for src in rel_srcs:
-            _handle_src(
-                src=src,
-                out_file=out_file,
-                kernel_module_out=kernel_module_out,
-                package=package,
-                local_defines=local_defines,
-                include_dirs=include_dirs,
-                rel_root=rel_root,
-                copts=copts,
-            )
+        for src_item in rel_srcs:
+            config = src_item.get("config")
+            value = src_item.get("value")
+
+            if config is not None:
+                conditional = f"ifeq ($({config}),{value})"
+                out_file.write(f"{conditional}\n")
+
+            for src in src_item["files"]:
+                _handle_src(
+                    src=src,
+                    out_file=out_file,
+                    kernel_module_out=kernel_module_out,
+                    package=package,
+                    local_defines=local_defines,
+                    include_dirs=include_dirs,
+                    rel_root=rel_root,
+                    copts=copts,
+                )
+
+            if config is not None:
+                out_file.write(textwrap.dedent(f"""\
+                    endif # {conditional}
+                """))
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -293,7 +310,7 @@ if __name__ == "__main__":
     parser = absl.flags.argparse_flags.ArgumentParser(description=__doc__)
     parser.add_argument("--package", type=pathlib.Path)
     parser.add_argument("--kernel-module-out", type=pathlib.Path)
-    parser.add_argument("--kernel-module-srcs", type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--kernel-module-srcs-json", type=argparse.FileType("r"), required=True)
     parser.add_argument("--output-makefiles", type=pathlib.Path)
     parser.add_argument("--linux-include-dirs", type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])

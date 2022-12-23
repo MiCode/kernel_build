@@ -21,8 +21,9 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load("//build/kernel/kleaf/impl:ddk/makefiles.bzl", "makefiles")
-load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
+load("//build/kernel/kleaf/impl:ddk/ddk_conditional_filegroup.bzl", "ddk_conditional_filegroup")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
+load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "ModuleSymversInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
@@ -66,13 +67,6 @@ def _makefiles_test_impl(ctx):
     action = test_utils.find_action(env, "DdkMakefiles")
 
     argv_dict = _argv_to_dict(action.argv[1:])
-
-    asserts.set_equals(
-        env,
-        sets.make([e.path for e in ctx.files.expected_module_srcs]),
-        sets.make(argv_dict.get("--kernel-module-srcs", [])),
-        "--kernel-module-srcs mismatch",
-    )
 
     actual_module_out = argv_dict.get("--kernel-module-out")
     if actual_module_out:
@@ -175,7 +169,7 @@ def _get_top_level_file_impl(ctx):
         runfiles = ctx.runfiles(files = [out]),
     )
 
-_get_top_level_file = rule(
+get_top_level_file = rule(
     implementation = _get_top_level_file_impl,
     doc = "Gets the top level file from a `makefiles` rule.",
     attrs = {
@@ -220,7 +214,7 @@ def _create_makefiles_artifact_test(
         content = expected_lines,
     )
 
-    _get_top_level_file(
+    get_top_level_file(
         name = name + "_kbuild",
         filename = "Kbuild",
         target = name + "_module_makefiles",
@@ -239,7 +233,7 @@ def _create_makefiles_artifact_test(
         content = expected_makefile_lines,
     )
 
-    _get_top_level_file(
+    get_top_level_file(
         name = name + "_makefile",
         filename = "Makefile",
         target = name + "_module_makefiles",
@@ -557,6 +551,46 @@ def _makefiles_submodule_symvers_test(
         ],
     )
 
+def _makefiles_cond_srcs_test(name):
+    """Test on makefiles depending on ddk_conditional_filegroup."""
+
+    ddk_conditional_filegroup(
+        name = name + "_a_y_srcs",
+        config = "CONFIG_A",
+        value = "y",
+        srcs = ["cond_srcs/a_y.c"],
+    )
+    ddk_conditional_filegroup(
+        name = name + "_a_n_srcs",
+        config = "CONFIG_A",
+        value = "",
+        srcs = ["cond_srcs/a_n.c"],
+    )
+
+    tests = []
+    _create_makefiles_artifact_test(
+        name = name + "_simple",
+        srcs = [
+            name + "_a_y_srcs",
+            name + "_a_n_srcs",
+        ],
+        out = name + "_simple.ko",
+        expected_lines = [
+            "ifeq ($(CONFIG_A),y)",
+            "{}_simple-y += cond_srcs/a_y.o".format(name),
+            "endif # ifeq ($(CONFIG_A),y)",
+            "ifeq ($(CONFIG_A),)",
+            "{}_simple-y += cond_srcs/a_n.o".format(name),
+            "endif # ifeq ($(CONFIG_A),)",
+        ],
+    )
+    tests.append(name + "_simple")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
 def makefiles_test_suite(name):
     """Defines tests for `makefiles`.
 
@@ -796,6 +830,11 @@ def makefiles_test_suite(name):
         kernel_build = name + "_kernel_build",
     )
     tests.append(name + "_submodule_symvers_test")
+
+    _makefiles_cond_srcs_test(
+        name = name + "_cond_srcs_test",
+    )
+    tests.append(name + "_cond_srcs_test")
 
     native.test_suite(
         name = name,
