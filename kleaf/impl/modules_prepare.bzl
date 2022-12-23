@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Runs `make modules_prepare` to prepare `$OUT_DIR` for modules."""
+
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 

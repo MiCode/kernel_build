@@ -34,7 +34,7 @@ load(
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_headers_depset")
+load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
@@ -155,6 +155,7 @@ def kernel_module(
     # TODO(b/245348323): Stop supporting kernel_module_deps after all mainline
     #   users cleans up.
     if kernel_module_deps:
+        # buildifier: disable=print
         print("\nWARNING: //{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
             native.package_name(),
             name,
