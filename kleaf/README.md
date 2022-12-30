@@ -30,6 +30,8 @@
 
 [Kleaf Development](docs/kleaf_development.md)
 
+[Kleaf Flags for debugging](docs/flags.md)
+
 ### Configurations
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
@@ -49,3 +51,4 @@
 `--kgdb`: [GDB scripts](docs/kgdb.md)
 
 `--lto`: [Configure LTO during development](docs/lto.md)
+
