@@ -26,7 +26,7 @@ KernelEnvInfo = provider(
     doc = """Describe a generic environment setup with some dependencies and a setup script.
 
 `KernelEnvInfo` is a legacy name; it is not only provided by `kernel_env`, but
-other rules like `kernel_config` and `kernel_build`. Hence, the `KernelEnvInfo`
+other rules like `kernel_build`. Hence, the `KernelEnvInfo`
 is in its own extension instead of `kernel_env.bzl`.
     """,
     fields = {
