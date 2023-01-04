@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":common_providers.bzl", "KernelEnvInfo")
+"""Build kernel-uapi-headers.tar.gz."""
+
+load(":common_providers.bzl", "KernelConfigEnvInfo")
 load(":debug.bzl", "debug")
 
 def _kernel_uapi_headers_impl(ctx):
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.label.name))
-    command = ctx.attr.config[KernelEnvInfo].setup + """
+
+    command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
+    command += """
          # Create staging directory
            mkdir -p {kernel_uapi_headers_dir}/usr
          # Actual headers_install
@@ -30,13 +35,15 @@ def _kernel_uapi_headers_impl(ctx):
         out_file = out_file.path,
         kernel_uapi_headers_dir = out_file.path + "_staging",
     )
+    inputs = []
+    inputs += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
+    inputs += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
+
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelUapiHeaders",
-        inputs = depset(
-            ctx.attr.config[KernelEnvInfo].dependencies,
-            transitive = [target.files for target in ctx.attr.srcs],
-        ),
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
         progress_message = "Building UAPI kernel headers %s" % ctx.attr.name,
         command = command,
@@ -53,7 +60,7 @@ kernel_uapi_headers = rule(
         "srcs": attr.label_list(allow_files = True),
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo],
+            providers = [KernelConfigEnvInfo],
             doc = "the kernel_config target",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),

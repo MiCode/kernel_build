@@ -39,6 +39,7 @@ load(
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
     "KernelCmdsInfo",
+    "KernelConfigEnvInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelImagesInfo",
@@ -413,7 +414,6 @@ def kernel_build(
         name = config_target_name,
         env = env_target_name,
         srcs = srcs,
-        config = config_target_name + "/.config",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
         **internal_kwargs
@@ -982,7 +982,11 @@ def _build_main_action(
 
     # Individual steps of the final command.
     interceptor_step = _get_interceptor_step(ctx)
-    cache_dir_step = cache_dir.get_step(ctx, ctx.attr.config[KernelEnvAttrInfo].common_config_tags)
+    cache_dir_step = cache_dir.get_step(
+        ctx = ctx,
+        common_config_tags = ctx.attr.config[KernelEnvAttrInfo].common_config_tags,
+        symlink_name = "build",
+    )
     grab_intree_modules_step = _get_grab_intree_modules_step(
         ctx = ctx,
         has_any_modules = bool(all_output_names.modules),
@@ -1026,7 +1030,8 @@ def _build_main_action(
         module_strip_flag += "1"
 
     # Build the command for the main action.
-    command = ctx.attr.config[KernelEnvInfo].setup
+    command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
     command += """
            {cache_dir_cmd}
            {kbuild_mixed_tree_cmd}
@@ -1114,7 +1119,8 @@ def _build_main_action(
     tools = [
         ctx.file._search_and_cp_output,
     ]
-    tools += ctx.attr.config[KernelEnvInfo].dependencies
+    tools += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
+    tools += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
     for step in steps:
         tools += step.tools
 
@@ -1177,11 +1183,18 @@ def _create_infos(
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs and implicit_outs too.
     env_info_dependencies = []
-    env_info_dependencies += ctx.attr.config[KernelEnvInfo].dependencies
+
+    env_info_dependencies += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
+    env_info_dependencies += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
     for d in all_output_files.values():
         env_info_dependencies += d.values()
     env_info_dependencies += kbuild_mixed_tree_ret.outputs
-    env_info_setup = ctx.attr.config[KernelEnvInfo].setup + """
+
+    # We don't have local actions that depends on this setup script yet. If
+    # we do in the future, this needs to be split into KernelConfigEnvInfo.
+    env_info_setup = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    env_info_setup += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
+    env_info_setup += """
          # Restore kernel build outputs
            cp -R {ruledir}/* ${{OUT_DIR}}
            """.format(ruledir = main_action_ret.ruledir.path)
@@ -1355,7 +1368,7 @@ _kernel_build = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo, KernelEnvAttrInfo],
+            providers = [KernelConfigEnvInfo, KernelEnvAttrInfo],
             aspects = [kernel_toolchain_aspect],
             doc = "the kernel_config target",
         ),
@@ -1531,11 +1544,14 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         ctx.file.raw_kmi_symbol_list,
         all_module_names_file,
     ]
-    inputs += ctx.attr.config[KernelEnvInfo].dependencies
+    inputs += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
+    inputs += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
     inputs += ctx.files._compare_to_symbol_list
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
-    command = ctx.attr.config[KernelEnvInfo].setup + """
+    command = ctx.attr.config[KernelConfigEnvInfo].setup
+    command += ctx.attr.config[KernelConfigEnvInfo].post_setup
+    command += """
         KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
         touch {out}
     """.format(

@@ -16,12 +16,13 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-def _get_step(ctx, common_config_tags):
+def _get_step(ctx, common_config_tags, symlink_name):
     """Returns a step for caching the output directory.
 
     Args:
         ctx: ctx
         common_config_tags: from `kernel_env[KernelEnvAttrInfo]`
+        symlink_name: name of the "last" symlink
 
     Returns:
       A struct with these fields:
@@ -86,9 +87,10 @@ def _get_step(ctx, common_config_tags):
         )
 
         post_cmd = """
-            ln -sfT ${{OUT_DIR_SUFFIX}} {cache_dir}/last_build
+            ln -sfT ${{OUT_DIR_SUFFIX}} {cache_dir}/last_{symlink_name}
         """.format(
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
+            symlink_name = symlink_name,
         )
     return struct(
         inputs = inputs,

@@ -15,6 +15,9 @@
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env
 
+# By default, output all the logs to stdout/stderr by disabling the console limit
+build --experimental_ui_max_stdouterr_bytes=-1
+
 # Show the full set of flags for observability and debuggability.
 # common --announce_rc
 

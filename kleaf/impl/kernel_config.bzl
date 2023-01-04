@@ -20,6 +20,7 @@ load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
+    "KernelConfigEnvInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
@@ -226,8 +227,8 @@ def _kernel_config_impl(ctx):
         ]])
     ]
 
-    config = ctx.outputs.config
-    include_dir = ctx.actions.declare_directory(ctx.attr.name + "_include")
+    out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
+    outputs = [out_dir]
 
     scmversion_command = stamp.scmversion_config_cmd(ctx)
     reconfig = _reconfig(ctx)
@@ -247,11 +248,10 @@ def _kernel_config_impl(ctx):
         # HACK: run syncconfig to avoid re-triggerring kernel_build
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
-          rsync -aL ${{OUT_DIR}}/.config {config}
-          rsync -aL ${{OUT_DIR}}/include/ {include_dir}/
+          rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
+          rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
         """.format(
-        config = config.path,
-        include_dir = include_dir.path,
+        out_dir = out_dir.path,
         scmversion_command = scmversion_command,
         reconfig_cmd = reconfig.cmd,
     )
@@ -260,7 +260,7 @@ def _kernel_config_impl(ctx):
     ctx.actions.run_shell(
         mnemonic = "KernelConfig",
         inputs = inputs,
-        outputs = [config, include_dir],
+        outputs = outputs,
         tools = ctx.attr.env[KernelEnvInfo].dependencies,
         progress_message = "Creating kernel config {}{}".format(
             ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
@@ -270,31 +270,38 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    setup_deps = ctx.attr.env[KernelEnvInfo].dependencies + \
-                 [config, include_dir]
-    setup = ctx.attr.env[KernelEnvInfo].setup + """
+    setup_deps = [out_dir]
+    setup = """
+           [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
-           rsync -aL {config} ${{OUT_DIR}}/.config
-           rsync -aL {include_dir}/ ${{OUT_DIR}}/include/
-           find ${{OUT_DIR}}/include -type d -exec chmod +w {{}} \\;
-    """.format(config = config.path, include_dir = include_dir.path)
+           rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
+           rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+    """.format(
+        out_dir = out_dir.path,
+    )
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
 
+    post_env_info = KernelEnvInfo(
+        dependencies = setup_deps,
+        setup = setup,
+    )
+    kernel_config_env_info = KernelConfigEnvInfo(
+        env_info = ctx.attr.env[KernelEnvInfo],
+        post_env_info = post_env_info,
+    )
+
     config_script_ret = _get_config_script(ctx)
 
     return [
-        KernelEnvInfo(
-            dependencies = setup_deps,
-            setup = setup,
-        ),
+        kernel_config_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
         DefaultInfo(
-            files = depset([config, include_dir]),
+            files = depset([out_dir]),
             executable = config_script_ret.executable,
             runfiles = config_script_ret.runfiles,
         ),
@@ -368,7 +375,6 @@ kernel_config = rule(
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
-        "config": attr.output(mandatory = True, doc = "the .config file"),
         "raw_kmi_symbol_list": attr.label(
             doc = "Label to abi_symbollist.raw.",
             allow_single_file = True,

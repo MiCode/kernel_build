@@ -26,12 +26,20 @@ KernelEnvInfo = provider(
     doc = """Describe a generic environment setup with some dependencies and a setup script.
 
 `KernelEnvInfo` is a legacy name; it is not only provided by `kernel_env`, but
-other rules like `kernel_config` and `kernel_build`. Hence, the `KernelEnvInfo`
+other rules like `kernel_build`. Hence, the `KernelEnvInfo`
 is in its own extension instead of `kernel_env.bzl`.
     """,
     fields = {
         "dependencies": "dependencies required to use this environment setup",
         "setup": "setup script to initialize the environment",
+    },
+)
+
+KernelConfigEnvInfo = provider(
+    doc = """Similar to `KernelEnvInfo` but specialized for `kernel_config`.""",
+    fields = {
+        "env_info": "`KernelEnvInfo` from `kernel_env`",
+        "post_env_info": "post setup script and deps after `OUT_DIR` is calculated properly.",
     },
 )
 
