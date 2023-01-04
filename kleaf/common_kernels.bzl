@@ -15,7 +15,7 @@
 """Functions that are useful in the common kernel package (usually `//common`)."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(
     ":kernel.bzl",
     "kernel_abi",
@@ -769,9 +769,16 @@ def define_common_kernels(
         kernel_build = ":kernel_aarch64",
     )
 
+    string_flag(
+        name = "kernel_kythe_corpus",
+        # TODO(b/201801372): Remove the default value once build bots are configured properly.
+        build_setting_default = "android.googlesource.com/kernel/superproject//common-android-mainline",
+    )
+
     kernel_kythe(
         name = "kernel_aarch64_kythe",
         kernel_build = ":kernel_aarch64",
+        corpus = ":kernel_kythe_corpus",
     )
 
     copy_to_dist_dir(
