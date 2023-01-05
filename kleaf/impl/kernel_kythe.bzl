@@ -15,6 +15,7 @@
 """Build kzips for [Kythe](https://kythe.io/)."""
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "KernelBuildInfo",
@@ -110,7 +111,7 @@ def _kernel_kythe_impl(ctx):
         reconstruct_out_dir = ctx.executable._reconstruct_out_dir.path,
         kzip_dir = kzip_dir,
         extracted_kzip_dir = extracted_kzip_dir,
-        quoted_corpus = shell.quote(ctx.attr.corpus),
+        quoted_corpus = shell.quote(ctx.attr.corpus[BuildSettingInfo].value),
         all_kzip = all_kzip.path,
     )
     ctx.actions.run_shell(
@@ -138,9 +139,9 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
             providers = [KernelEnvAttrInfo, KernelBuildInfo],
             aspects = [srcs_aspect],
         ),
-        "corpus": attr.string(
-            default = "android.googlesource.com/kernel/superproject",
-            doc = "The value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
+        "corpus": attr.label(
+            mandatory = True,
+            doc = "A flag containing value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
         ),
         "_reconstruct_out_dir": attr.label(
             default = "//build/kernel/kleaf/impl:kernel_kythe_reconstruct_out_dir",
