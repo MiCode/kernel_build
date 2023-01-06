@@ -611,29 +611,39 @@ def update_u_boot_mainline(output_dir):
 
   (old_version, old_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
 
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_locked_aarch64_dir)
-  download_u_boot("u-boot_crosvm_locked_aarch64", crosvm_locked_aarch64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_locked_x86_64_dir)
-  download_u_boot("u-boot_crosvm_locked_x86_64", crosvm_locked_x86_64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_aarch64_dir)
-  download_u_boot("u-boot_crosvm_aarch64", crosvm_aarch64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
-  download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=gem5_aarch64_dir)
-  download_u_boot("u-boot_gem5_aarch64", gem5_aarch64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
-  download_u_boot("u-boot_qemu_aarch64", qemu_aarch64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_arm_dir)
-  download_u_boot("u-boot_qemu_arm", qemu_arm_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_x86_64_dir)
-  download_u_boot("u-boot_qemu_x86_64", qemu_x86_64_dir)
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=rockpi_aarch64_dir)
-  download_u_boot("u-boot_rockpi4", rockpi_aarch64_dir)
+  if os.path.exists(crosvm_locked_aarch64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_locked_aarch64_dir)
+    download_u_boot("u-boot_crosvm_locked_aarch64", crosvm_locked_aarch64_dir)
+  if os.path.exists(crosvm_locked_x86_64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_locked_x86_64_dir)
+    download_u_boot("u-boot_crosvm_locked_x86_64", crosvm_locked_x86_64_dir)
+  if os.path.exists(crosvm_aarch64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_aarch64_dir)
+    download_u_boot("u-boot_crosvm_aarch64", crosvm_aarch64_dir)
+  if os.path.exists(crosvm_x86_64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
+    download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
+  if os.path.exists(gem5_aarch64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=gem5_aarch64_dir)
+    download_u_boot("u-boot_gem5_aarch64", gem5_aarch64_dir)
+  if os.path.exists(qemu_aarch64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
+    download_u_boot("u-boot_qemu_aarch64", qemu_aarch64_dir)
+  if os.path.exists(qemu_arm_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_arm_dir)
+    download_u_boot("u-boot_qemu_arm", qemu_arm_dir)
+  if os.path.exists(qemu_x86_64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_x86_64_dir)
+    download_u_boot("u-boot_qemu_x86_64", qemu_x86_64_dir)
+  if os.path.exists(rockpi_aarch64_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=rockpi_aarch64_dir)
+    download_u_boot("u-boot_rockpi4", rockpi_aarch64_dir)
 
   tools_dir = os.path.join(cf_dir, "uboot_tools")
-  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
-  download_u_boot_tools("u-boot_tools", tools_dir)
-  subprocess.run(["git", "checkout", "HEAD", "mkenvimage_mac.sh"], cwd=tools_dir)
+  if os.path.exists(tools_dir):
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
+    download_u_boot_tools("u-boot_tools", tools_dir)
+    subprocess.run(["git", "checkout", "HEAD", "mkenvimage_mac.sh"], cwd=tools_dir)
 
   (new_version, new_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
   gitlog = get_git_log(old_sha, new_sha, get_u_boot_dir())

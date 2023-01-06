@@ -37,6 +37,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildInfo",
     "KernelBuildMixedTreeInfo",
+    "KernelBuildOriginalEnvInfo",
     "KernelBuildUapiInfo",
     "KernelCmdsInfo",
     "KernelConfigEnvInfo",
@@ -1192,6 +1193,7 @@ def _create_infos(
     # We don't have local actions that depends on this setup script yet. If
     # we do in the future, this needs to be split into KernelConfigEnvInfo.
     env_info_setup = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
+    env_info_setup += utils.get_check_sandbox_cmd()
     env_info_setup += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
     env_info_setup += """
          # Restore kernel build outputs
@@ -1201,6 +1203,10 @@ def _create_infos(
     env_info = KernelEnvInfo(
         dependencies = env_info_dependencies,
         setup = env_info_setup,
+    )
+
+    orig_env_info = KernelBuildOriginalEnvInfo(
+        env_info = ctx.attr.config[KernelConfigEnvInfo].env_info,
     )
 
     kernel_build_info = KernelBuildInfo(
@@ -1286,7 +1292,7 @@ def _create_infos(
     return [
         cmds_info,
         env_info,
-        ctx.attr.config[KernelEnvAttrInfo],
+        orig_env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
         kernel_build_module_info,
@@ -1549,6 +1555,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
     command = ctx.attr.config[KernelConfigEnvInfo].setup
+    command += utils.get_check_sandbox_cmd()
     command += ctx.attr.config[KernelConfigEnvInfo].post_setup
     command += """
         KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}

@@ -158,6 +158,18 @@ def _hash_hex(x):
         ret = "0" * (8 - len(ret)) + ret
     return ret
 
+def _get_check_sandbox_cmd():
+    """Returns a script that tries to check if we are running in a sandbox.
+
+    Note: This is not always accurate."""
+
+    return """
+           if [[ $PWD != */sandbox/* ]]; then
+             echo "FATAL: this action must be executed in a sandbox!" >&2
+             exit 1
+           fi
+    """
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -170,6 +182,7 @@ utils = struct(
     sanitize_label_as_filename = _sanitize_label_as_filename,
     kwargs_to_def = _kwargs_to_def,
     hash_hex = _hash_hex,
+    get_check_sandbox_cmd = _get_check_sandbox_cmd,
 )
 
 def _filter_module_srcs(files):

@@ -43,10 +43,16 @@ KernelConfigEnvInfo = provider(
     },
 )
 
+KernelBuildOriginalEnvInfo = provider(
+    doc = """For `kernel_build` to expose `KernelEnvInfo` from `kernel_env`.""",
+    fields = {
+        "env_info": "`KernelEnvInfo` from `kernel_env`",
+    },
+)
+
 KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
-        "env_info": "`KernelEnvInfo` of the `kernel_env` target.",
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
         "progress_message_note": """A note in the progress message that differentiates multiple
             instances of the same action due to different configs.""",

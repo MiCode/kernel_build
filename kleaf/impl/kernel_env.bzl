@@ -260,7 +260,6 @@ def _kernel_env_impl(ctx):
     return [
         env_info,
         KernelEnvAttrInfo(
-            env_info = env_info,
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
             common_config_tags = common_config_tags,
