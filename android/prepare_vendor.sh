@@ -285,19 +285,18 @@ if [ "${COPY_NEEDED}" == "1" ]; then
 
   system_dlkm_kos=$(mktemp)
   if [ -s ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load ]; then
-    cat ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load | \
-    xargs -L 1 basename | \
-    xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${system_dlkm_kos}
+    xargs -L 1 -a "${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load" basename | \
+    sed -e "s|^|${ANDROID_KP_OUT_DIR}/dist/|g" > "$system_dlkm_kos"
   else
     echo "  system_dlkm_kos.modules.load file is not found or is empty"
   fi
 
   rm -rf ${ANDROID_KERNEL_OUT}/system_dlkm/*
-  if [ -s "${system_dlkm_kos}" ]; then
-    mkdir -p ${ANDROID_KERNEL_OUT}/system_dlkm/
+  system_dlkm_archive="${ANDROID_KP_OUT_DIR}/dist/system_dlkm_staging_archive.tar.gz"
+  if [ -e "$system_dlkm_archive" ]; then
+    mkdir -p "${ANDROID_KERNEL_OUT}/system_dlkm/"
     # Unzip the system_dlkm staging tar copied from kernel_platform to system_dlkm out directory
-    tar -xf ${ANDROID_KP_OUT_DIR}/dist/system_dlkm_staging_archive.tar.gz \
-	-C ${ANDROID_KERNEL_OUT}/system_dlkm/
+    tar -xf "$system_dlkm_archive" -C "${ANDROID_KERNEL_OUT}/system_dlkm/"
   else
     echo "  WARNING!! No system_dlkm (second stage) modules found"
   fi
