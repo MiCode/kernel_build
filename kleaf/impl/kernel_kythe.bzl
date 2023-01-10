@@ -15,10 +15,11 @@
 """Build kzips for [Kythe](https://kythe.io/)."""
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "KernelBuildInfo",
-    "KernelEnvAttrInfo",
+    "KernelBuildOriginalEnvInfo",
 )
 load(":srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
 load(":utils.bzl", "utils")
@@ -41,6 +42,20 @@ _kernel_kythe_transition = transition(
     ],
 )
 
+def _create_vnames_mappings(ctx):
+    mappings = [
+        {
+            "pattern": "^(/etc/.*)",
+            "vname": {
+                "path": "fake_root/@1@",
+            },
+        },
+    ]
+    mappings_json = json.encode_indent(mappings, indent = "  ")
+    output = ctx.actions.declare_file(ctx.attr.name + "/vnames.json")
+    ctx.actions.write(output = output, content = mappings_json)
+    return output
+
 def _kernel_kythe_impl(ctx):
     compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
     compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
@@ -49,12 +64,17 @@ def _kernel_kythe_impl(ctx):
     kzip_dir = intermediates_dir + "/kzip"
     extracted_kzip_dir = intermediates_dir + "/extracted"
     transitive_inputs = [src.files for src in ctx.attr.kernel_build[SrcsInfo].srcs]
-    inputs = [compile_commands_with_vars, compile_commands_out_dir]
+    vnames_mappings_json_file = _create_vnames_mappings(ctx)
+    inputs = [
+        compile_commands_with_vars,
+        compile_commands_out_dir,
+        vnames_mappings_json_file,
+    ]
 
-    # Use KernelEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
+    # Use KernelBuildOriginalEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
     # kernel_config or kernel_build.
-    inputs += ctx.attr.kernel_build[KernelEnvAttrInfo].env_info.dependencies
-    command = ctx.attr.kernel_build[KernelEnvAttrInfo].env_info.setup
+    inputs += ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.dependencies
+    command = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.setup
     command += """
              # Copy compile_commands.json to root, resolving $ROOT_DIR to the real value,
              # and $OUT_DIR to $ROOT_DIR/$KERNEL_DIR.
@@ -71,6 +91,8 @@ def _kernel_kythe_impl(ctx):
                export KYTHE_ROOT_DIRECTORY=${{ROOT_DIR}}
                export KYTHE_OUTPUT_DIRECTORY={kzip_dir}
                export KYTHE_CORPUS={quoted_corpus}
+               export KYTHE_VNAMES=$(realpath {vnames_mappings_json_file})
+               export KYTHE_KZIP_ENCODING=PROTO
              # Generate kzips
                runextractor compdb -extractor $(which cxx_extractor)
 
@@ -78,7 +100,6 @@ def _kernel_kythe_impl(ctx):
                for zip in $(find {kzip_dir} -name '*.kzip'); do
                    unzip -qn "${{zip}}" -d {extracted_kzip_dir}
                done
-               find {extracted_kzip_dir}/root/units -type f -exec sed -i'' -e 's:/etc:fake_root/etc:g' {{}} \\+
                soong_zip -d -C {extracted_kzip_dir} -D {extracted_kzip_dir} -o {all_kzip}
              # Clean up directories
                rm -rf {kzip_dir}
@@ -86,10 +107,11 @@ def _kernel_kythe_impl(ctx):
     """.format(
         compile_commands_with_vars = compile_commands_with_vars.path,
         compile_commands_out_dir = compile_commands_out_dir.path,
+        vnames_mappings_json_file = vnames_mappings_json_file.path,
         reconstruct_out_dir = ctx.executable._reconstruct_out_dir.path,
         kzip_dir = kzip_dir,
         extracted_kzip_dir = extracted_kzip_dir,
-        quoted_corpus = shell.quote(ctx.attr.corpus),
+        quoted_corpus = shell.quote(ctx.attr.corpus[BuildSettingInfo].value),
         all_kzip = all_kzip.path,
     )
     ctx.actions.run_shell(
@@ -114,12 +136,12 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
-            providers = [KernelEnvAttrInfo, KernelBuildInfo],
+            providers = [KernelBuildOriginalEnvInfo, KernelBuildInfo],
             aspects = [srcs_aspect],
         ),
-        "corpus": attr.string(
-            default = "android.googlesource.com/kernel/superproject",
-            doc = "The value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
+        "corpus": attr.label(
+            mandatory = True,
+            doc = "A flag containing value of `KYTHE_CORPUS`. See [kythe.io/examples](https://kythe.io/examples).",
         ),
         "_reconstruct_out_dir": attr.label(
             default = "//build/kernel/kleaf/impl:kernel_kythe_reconstruct_out_dir",

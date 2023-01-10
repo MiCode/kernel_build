@@ -21,6 +21,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/kernel/kleaf:constants.bzl", "LTO_VALUES")
 load("//build/kernel/kleaf:kernel.bzl", "kernel_build")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_test")
 load(":kernel_config_aspect.bzl", "KernelConfigAspectInfo", "kernel_config_aspect")
@@ -32,8 +33,8 @@ _KGDB_FLAG = "//build/kernel/kleaf:kgdb"
 _LTO_FLAG = "//build/kernel/kleaf:lto"
 _ARCHS = ("aarch64", "x86_64")
 
-def _symlink_config(ctx, kernel_build, filename):
-    """Symlinks the `.config` file of the `kernel_build` to a file with file name `{filename}`.
+def _get_config_file(ctx, kernel_build, filename):
+    """Gets the `.config` file of the `kernel_build` to a file with file name `{filename}`.
 
     The config file is compared with `data/{filename}` later by the caller.
 
@@ -41,17 +42,32 @@ def _symlink_config(ctx, kernel_build, filename):
         The file with name `{prefix}_config`, which points to the `.config` of the kernel.
     """
     kernel_config = kernel_build[KernelConfigAspectInfo].kernel_config
-    config_file = utils.find_file(
-        name = ".config",
+    out_dir = utils.find_file(
+        name = "out_dir",
         files = kernel_config.files.to_list(),
         what = "{}: kernel_config outputs".format(kernel_build.label),
     )
 
     # Create symlink so that the Python test script compares with the correct expected file.
-    symlink = ctx.actions.declare_file("{}/{}".format(ctx.label.name, filename))
-    ctx.actions.symlink(output = symlink, target_file = config_file)
+    out = ctx.actions.declare_file("{}/{}".format(ctx.label.name, filename))
 
-    return symlink
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        cp -pl {out_dir}/.config {out}
+    """.format(
+        out_dir = out_dir.path,
+        out = out.path,
+    )
+
+    ctx.actions.run_shell(
+        inputs = [out_dir],
+        outputs = [out],
+        command = command,
+        tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        mnemonic = "GetConfigFile",
+        progress_message = "Getting .config {}".format(ctx.label),
+    )
+
+    return out
 
 def _get_config_attrs_common(transition):
     """Common attrs for rules to get `.config` of the given `kernel_build` with the given transition.
@@ -61,6 +77,7 @@ def _get_config_attrs_common(transition):
     """
     attrs = {
         "kernel_build": attr.label(cfg = transition, aspects = [kernel_config_aspect], mandatory = True),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     }
     if transition != None:
         attrs.update({
@@ -76,7 +93,7 @@ def _get_transitioned_config_impl(ctx):
     Helper for testing a flag.
     """
     files = [
-        _symlink_config(ctx, kernel_build, key + "_config")
+        _get_config_file(ctx, kernel_build, key + "_config")
         for key, kernel_build in ctx.split_attr.kernel_build.items()
     ]
     return DefaultInfo(files = depset(files), runfiles = ctx.runfiles(files = files))
@@ -109,7 +126,7 @@ def _transition_test(name, kernel_build, test_data_rule, expected, **test_data_r
     )
 
 def _get_config_impl(ctx):
-    symlink = _symlink_config(ctx, ctx.attr.kernel_build, ctx.attr.prefix + "_config")
+    symlink = _get_config_file(ctx, ctx.attr.kernel_build, ctx.attr.prefix + "_config")
     return DefaultInfo(files = depset([symlink]), runfiles = ctx.runfiles(files = [symlink]))
 
 _get_config = rule(
@@ -291,13 +308,13 @@ def _combined_test_actual_impl(ctx):
 
         files += [
             # Test LTO setting
-            _symlink_config(ctx, kernel_build, paths.join(flag_dir, key["lto"] + "_config")),
+            _get_config_file(ctx, kernel_build, paths.join(flag_dir, key["lto"] + "_config")),
             # Test kasan setting
-            _symlink_config(ctx, kernel_build, paths.join(flag_dir, _kasan_str(key["kasan"]) + "_config")),
+            _get_config_file(ctx, kernel_build, paths.join(flag_dir, _kasan_str(key["kasan"]) + "_config")),
             # Test kgdb setting
-            _symlink_config(ctx, kernel_build, paths.join(flag_dir, _kgdb_str(key["kgdb"], key["arch"]) + "_config")),
+            _get_config_file(ctx, kernel_build, paths.join(flag_dir, _kgdb_str(key["kgdb"], key["arch"]) + "_config")),
             # Test trim setting
-            _symlink_config(ctx, kernel_build, paths.join(flag_dir, ctx.attr.trim_str + "_config")),
+            _get_config_file(ctx, kernel_build, paths.join(flag_dir, ctx.attr.trim_str + "_config")),
         ]
 
     return DefaultInfo(files = depset(files), runfiles = ctx.runfiles(files = files))

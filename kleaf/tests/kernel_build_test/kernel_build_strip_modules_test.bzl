@@ -20,7 +20,6 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", "kernel_build_abi")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
-load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 # Check effect of strip_modules
@@ -28,8 +27,6 @@ def _strip_modules_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     expected_mnemonic = ctx.attr.action_mnemonic
-    if expected_mnemonic == "KernelBuild":
-        expected_mnemonic += kernel_utils.local_mnemonic_suffix(ctx)
 
     action = test_utils.find_action(env, expected_mnemonic)
     script = test_utils.get_shell_script(env, action)

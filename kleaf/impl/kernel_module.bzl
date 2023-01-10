@@ -34,7 +34,7 @@ load(
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl", "get_headers_depset")
+load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
@@ -46,7 +46,6 @@ def kernel_module(
         outs = None,
         srcs = None,
         deps = None,
-        kernel_module_deps = None,
         makefile = None,
         **kwargs):
     """Generates a rule that builds an external kernel module.
@@ -90,7 +89,6 @@ def kernel_module(
 
           It is an undefined behavior to put targets of other types to this list
           (e.g. `ddk_headers`).
-        kernel_module_deps: **Deprecated**. Same as `deps`.
         outs: The expected output files. If unspecified or value is `None`, it
           is `["{name}.ko"]` by default.
 
@@ -152,14 +150,11 @@ def kernel_module(
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
-    # TODO(b/245348323): Stop supporting kernel_module_deps after all mainline
-    #   users cleans up.
-    if kernel_module_deps:
-        print("\nWARNING: //{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
+    if kwargs.get("kernel_module_deps"):
+        fail("//{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
             native.package_name(),
             name,
         ))
-        deps = (deps or []) + kernel_module_deps
 
     kwargs.update(
         # This should be the exact list of arguments of kernel_module.

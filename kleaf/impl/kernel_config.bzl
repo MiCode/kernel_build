@@ -18,8 +18,10 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
+load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "KernelConfigEnvInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
@@ -89,6 +91,8 @@ def _config_gcov(ctx):
     configs = [
         _config.enable("GCOV_KERNEL"),
         _config.enable("GCOV_PROFILE_ALL"),
+        # TODO: Re-enable when https://github.com/ClangBuiltLinux/linux/issues/1778 is fixed.
+        _config.disable("CFI_CLANG"),
     ]
     return struct(configs = configs, deps = [])
 
@@ -226,14 +230,26 @@ def _kernel_config_impl(ctx):
         ]])
     ]
 
-    config = ctx.outputs.config
-    include_dir = ctx.actions.declare_directory(ctx.attr.name + "_include")
+    out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
+    outputs = [out_dir]
 
     scmversion_command = stamp.scmversion_config_cmd(ctx)
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
+    tools = [] + ctx.attr.env[KernelEnvInfo].dependencies
+
+    cache_dir_step = cache_dir.get_step(
+        ctx = ctx,
+        common_config_tags = ctx.attr.env[KernelEnvAttrInfo].common_config_tags,
+        symlink_name = "config",
+    )
+    inputs += cache_dir_step.inputs
+    outputs += cache_dir_step.outputs
+    tools += cache_dir_step.tools
+
     command = ctx.attr.env[KernelEnvInfo].setup + """
+          {cache_dir_cmd}
         # Pre-defconfig commands
           eval ${{PRE_DEFCONFIG_CMDS}}
         # Actual defconfig
@@ -247,53 +263,71 @@ def _kernel_config_impl(ctx):
         # HACK: run syncconfig to avoid re-triggerring kernel_build
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
-          rsync -aL ${{OUT_DIR}}/.config {config}
-          rsync -aL ${{OUT_DIR}}/include/ {include_dir}/
+          rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
+          rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
+        # HACK: also keep fixdep for --config=local builds.
+        # TODO(b/263415662): Drop it
+          mkdir -p {out_dir}/scripts/basic
+          rsync -aL ${{OUT_DIR}}/scripts/basic/fixdep {out_dir}/scripts/basic/fixdep
+          {cache_dir_post_cmd}
         """.format(
-        config = config.path,
-        include_dir = include_dir.path,
+        out_dir = out_dir.path,
+        cache_dir_cmd = cache_dir_step.cmd,
+        cache_dir_post_cmd = cache_dir_step.post_cmd,
         scmversion_command = scmversion_command,
         reconfig_cmd = reconfig.cmd,
     )
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelConfig" + kernel_utils.local_mnemonic_suffix(ctx),
+        mnemonic = "KernelConfig",
         inputs = inputs,
-        outputs = [config, include_dir],
-        tools = ctx.attr.env[KernelEnvInfo].dependencies,
+        outputs = outputs,
+        tools = tools,
         progress_message = "Creating kernel config {}{}".format(
             ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
             ctx.label,
         ),
         command = command,
+        execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    setup_deps = ctx.attr.env[KernelEnvInfo].dependencies + \
-                 [config, include_dir]
-    setup = ctx.attr.env[KernelEnvInfo].setup + """
+    setup_deps = [out_dir]
+    setup = """
+           [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
-           rsync -aL {config} ${{OUT_DIR}}/.config
-           rsync -aL {include_dir}/ ${{OUT_DIR}}/include/
-           find ${{OUT_DIR}}/include -type d -exec chmod +w {{}} \\;
-    """.format(config = config.path, include_dir = include_dir.path)
+           rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
+           rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+         # HACK: also keep fixdep for --config=local builds.
+         # TODO(b/263415662): Drop it
+           mkdir -p ${{OUT_DIR}}/scripts/basic
+           rsync -aL --chmod=D+w {out_dir}/scripts/basic/fixdep ${{OUT_DIR}}/scripts/basic/fixdep
+    """.format(
+        out_dir = out_dir.path,
+    )
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
         setup_deps.append(ctx.file.raw_kmi_symbol_list)
 
+    post_env_info = KernelEnvInfo(
+        dependencies = setup_deps,
+        setup = setup,
+    )
+    kernel_config_env_info = KernelConfigEnvInfo(
+        env_info = ctx.attr.env[KernelEnvInfo],
+        post_env_info = post_env_info,
+    )
+
     config_script_ret = _get_config_script(ctx)
 
     return [
-        KernelEnvInfo(
-            dependencies = setup_deps,
-            setup = setup,
-        ),
+        kernel_config_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
         DefaultInfo(
-            files = depset([config, include_dir]),
+            files = depset([out_dir]),
             executable = config_script_ret.executable,
             runfiles = config_script_ret.runfiles,
         ),
@@ -367,11 +401,11 @@ kernel_config = rule(
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
-        "config": attr.output(mandatory = True, doc = "the .config file"),
         "raw_kmi_symbol_list": attr.label(
             doc = "Label to abi_symbollist.raw.",
             allow_single_file = True,
         ),
+        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),

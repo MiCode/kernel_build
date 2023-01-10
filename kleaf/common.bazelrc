@@ -15,6 +15,9 @@
 # Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
 build --experimental_strict_action_env
 
+# By default, output all the logs to stdout/stderr by disabling the console limit
+build --experimental_ui_max_stdouterr_bytes=-1
+
 # Show the full set of flags for observability and debuggability.
 # common --announce_rc
 
@@ -36,6 +39,7 @@ build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
 build --flag_alias=kgdb=//build/kernel/kleaf:kgdb
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=nokmi_symbol_list_strict_mode=no//build/kernel/kleaf:kmi_symbol_list_strict_mode
+build --flag_alias=preserve_kbuild_output=//build/kernel/kleaf:preserve_kbuild_output
 
 # add a flag alias to allow passing --debug_* flags
 build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts

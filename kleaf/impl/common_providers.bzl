@@ -26,7 +26,7 @@ KernelEnvInfo = provider(
     doc = """Describe a generic environment setup with some dependencies and a setup script.
 
 `KernelEnvInfo` is a legacy name; it is not only provided by `kernel_env`, but
-other rules like `kernel_config` and `kernel_build`. Hence, the `KernelEnvInfo`
+other rules like `kernel_build`. Hence, the `KernelEnvInfo`
 is in its own extension instead of `kernel_env.bzl`.
     """,
     fields = {
@@ -35,14 +35,28 @@ is in its own extension instead of `kernel_env.bzl`.
     },
 )
 
+KernelConfigEnvInfo = provider(
+    doc = """Similar to `KernelEnvInfo` but specialized for `kernel_config`.""",
+    fields = {
+        "env_info": "`KernelEnvInfo` from `kernel_env`",
+        "post_env_info": "post setup script and deps after `OUT_DIR` is calculated properly.",
+    },
+)
+
+KernelBuildOriginalEnvInfo = provider(
+    doc = """For `kernel_build` to expose `KernelEnvInfo` from `kernel_env`.""",
+    fields = {
+        "env_info": "`KernelEnvInfo` from `kernel_env`",
+    },
+)
+
 KernelEnvAttrInfo = provider(
     doc = "Provide attributes of `kernel_env`.",
     fields = {
-        "env_info": "`KernelEnvInfo` of the `kernel_env` target.",
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
         "progress_message_note": """A note in the progress message that differentiates multiple
             instances of the same action due to different configs.""",
-        "config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
+        "common_config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
     },
 )
 
