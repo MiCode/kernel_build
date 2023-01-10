@@ -32,6 +32,8 @@
 
 [Kleaf Flags for debugging](docs/flags.md)
 
+[Building `compile_commands.json`](docs/compile_commands.md)
+
 ### Configurations
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
