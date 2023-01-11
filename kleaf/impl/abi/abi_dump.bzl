@@ -34,12 +34,18 @@ def _abi_dump_impl(ctx):
     full_abi_out_file_stg = _abi_dump_full_stg(ctx)
     abi_out_file_stg = _abi_dump_filtered_stg(ctx, full_abi_out_file_stg)
 
+    # Create an STG file for each XML generated
+    full_stg_from_xml_file = _abi_create_stg_from_xml(ctx, full_abi_out_file)
+    stg_from_xml_file = _abi_create_stg_from_xml(ctx, abi_out_file)
+
     return [
         DefaultInfo(files = depset([
             full_abi_out_file,
             abi_out_file,
             full_abi_out_file_stg,
             abi_out_file_stg,
+            full_stg_from_xml_file,
+            stg_from_xml_file,
         ])),
         OutputGroupInfo(abi_out_file = depset([abi_out_file])),
     ]
@@ -79,6 +85,28 @@ def _find_vmlinux(ctx):
         what = "{}: kernel_build".format(ctx.attr.name),
         required = True,
     )
+
+def _abi_create_stg_from_xml(ctx, xml_file):
+    from_xml_stg_file = ctx.actions.declare_file("{}/{}.stg".format(ctx.attr.name, xml_file.basename))
+
+    inputs = [xml_file, ctx.file._stg]
+    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+            {stg} --abi {xml_file} -o {from_xml_stg_file}
+    """.format(
+        stg = ctx.file._stg.path,
+        xml_file = xml_file.path,
+        from_xml_stg_file = from_xml_stg_file.path,
+    )
+    debug.print_scripts(ctx, command)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [from_xml_stg_file],
+        command = command,
+        mnemonic = "AbiConvertXmlToStg",
+        progress_message = "Converting .xml to .stg {}".format(ctx.label),
+    )
+    return from_xml_stg_file
 
 def _abi_dump_full(ctx):
     abi_linux_tree = utils.intermediates_dir(ctx) + "/abi_linux_tree"
