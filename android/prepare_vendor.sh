@@ -202,10 +202,14 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
 
   "${ROOT_DIR}/build_with_bazel.py" \
     -t "$KERNEL_TARGET" "$KERNEL_VARIANT" \
-    --out_dir "${ANDROID_KP_OUT_DIR}"
+    --out_dir "${ANDROID_KP_OUT_DIR}" && ret="$?" || ret="$?"
 
   # Modify the output directory's permissions so cleanup can occur later
   find "${ROOT_DIR}/out/bazel" -type d -exec chmod 0755 {} +
+
+  if [ "$ret" -ne 0 ]; then
+    exit "$ret"
+  fi
 
   COPY_NEEDED=1
 fi
@@ -250,10 +254,14 @@ if [ "${RECOMPILE_ABL}" == "1" ]; then
       cd "${ROOT_DIR}"
       ./tools/bazel run \
         "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
-        -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist"
+        -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist" && ret="$?" || ret="$?"
 
       # Modify the output directory's permissions so cleanup can occur later
       find out/bazel -type d -exec chmod 0755 {} +
+
+      if [ "$ret" -ne 0 ]; then
+        exit "$ret"
+      fi
     )
 
     COPY_ABL_NEEDED=1
