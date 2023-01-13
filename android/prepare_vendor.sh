@@ -204,6 +204,9 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
     -t "$KERNEL_TARGET" "$KERNEL_VARIANT" \
     --out_dir "${ANDROID_KP_OUT_DIR}"
 
+  # Modify the output directory's permissions so cleanup can occur later
+  find "${ROOT_DIR}/out/bazel" -type d -exec chmod 0755 {} +
+
   COPY_NEEDED=1
 fi
 
@@ -248,6 +251,9 @@ if [ "${RECOMPILE_ABL}" == "1" ]; then
       ./tools/bazel run \
         "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
         -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist"
+
+      # Modify the output directory's permissions so cleanup can occur later
+      find out/bazel -type d -exec chmod 0755 {} +
     )
 
     COPY_ABL_NEEDED=1
