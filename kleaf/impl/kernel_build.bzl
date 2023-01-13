@@ -1564,9 +1564,9 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     inputs += ctx.files._compare_to_symbol_list
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
-    command = ctx.attr.config[KernelConfigEnvInfo].setup
+    command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
     command += utils.get_check_sandbox_cmd()
-    command += ctx.attr.config[KernelConfigEnvInfo].post_setup
+    command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
     command += """
         KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
         touch {out}
