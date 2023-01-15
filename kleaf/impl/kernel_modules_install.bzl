@@ -20,7 +20,6 @@ load(
     ":common_providers.bzl",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
-    "KernelEnvInfo",
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
@@ -50,8 +49,7 @@ def _kernel_modules_install_impl(ctx):
     modules_staging_dws_list = modules_staging_dws_depset.to_list()
 
     inputs = []
-    inputs += kernel_build[KernelEnvInfo].dependencies
-    inputs += kernel_build[KernelBuildExtModuleInfo].modules_prepare_deps
+    inputs += kernel_build[KernelBuildExtModuleInfo].env_info.dependencies
     inputs += [
         ctx.file._search_and_cp_output,
         ctx.file._check_duplicated_files_in_archives,
@@ -73,9 +71,7 @@ def _kernel_modules_install_impl(ctx):
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
-    command = ""
-    command += kernel_build[KernelEnvInfo].setup
-    command += kernel_build[KernelBuildExtModuleInfo].modules_prepare_setup
+    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_info.setup
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -209,7 +205,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             doc = "A list of labels referring to `kernel_module`s to install.",
         ),
         "kernel_build": attr.label(
-            providers = [KernelEnvInfo, KernelBuildExtModuleInfo],
+            providers = [KernelBuildExtModuleInfo],
             doc = "Label referring to the `kernel_build` module. Otherwise, it" +
                   " is inferred from `kernel_modules`.",
         ),

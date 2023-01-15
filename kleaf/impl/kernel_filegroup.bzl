@@ -22,6 +22,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
+    "KernelEnvInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
@@ -39,7 +40,7 @@ load(
 def _kernel_filegroup_impl(ctx):
     all_deps = ctx.files.srcs + ctx.files.deps
 
-    # TODO(b/219112010): implement KernelEnvInfo for the modules_prepare target
+    # TODO(b/219112010): need to set up env and restore outputs
     modules_prepare_out_dir_tar_gz = utils.find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label)
     modules_prepare_setup = """
          # Restore modules_prepare outputs. Assumes env setup.
@@ -52,8 +53,10 @@ def _kernel_filegroup_impl(ctx):
 
     kernel_module_dev_info = KernelBuildExtModuleInfo(
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
-        modules_prepare_setup = modules_prepare_setup,
-        modules_prepare_deps = modules_prepare_deps,
+        env_info = KernelEnvInfo(
+            setup = modules_prepare_setup,
+            dependencies = modules_prepare_deps,
+        ),
         # TODO(b/211515836): module_hdrs / module_scripts might also be downloaded
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
