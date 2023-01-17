@@ -1013,6 +1013,7 @@ def define_db845c(
         base_kernel = ":kernel_aarch64",
         kmi_symbol_list = kmi_symbol_list,
         collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+        strip_modules = True,
     )
 
     # enable ABI Monitoring
