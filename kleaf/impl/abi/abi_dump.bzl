@@ -156,7 +156,6 @@ def _abi_dump_full_stg(ctx):
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
     # Collect all modules from all directories
-    # buildifier: disable=unused-variable
     all_modules = ""
     for unstripped_dir in unstripped_dirs:
         all_modules += "{dir_path}/*.ko ".format(
@@ -169,10 +168,7 @@ def _abi_dump_full_stg(ctx):
         stg = ctx.file._stg.path,
         full_abi_out_file = full_abi_out_file.path,
         vmlinux = vmlinux.path,
-        # TODO(umendez): re-add after fixing errors.
-        # 1. "Unknown encoding 0x0 for DWARF entry <0x5e996>"; will be fixed after stg update.
-        # 2. "merge failed with duplicate symbol: __this_module"; pending.
-        all_modules = "",  # all_modules,
+        all_modules = all_modules,
     )
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
