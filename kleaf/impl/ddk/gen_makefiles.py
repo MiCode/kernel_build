@@ -163,22 +163,23 @@ def _gen_ddk_makefile_for_module(
                 continue
             if src.suffix.lower() not in _SOURCE_SUFFIXES:
                 die("Invalid source %s", src)
+            if not src.is_relative_to(kernel_module_out.parent):
+                die("%s is not a valid source because it is not under %s",
+                    src, kernel_module_out.parent)
+
+            out = src.with_suffix(".o").relative_to(kernel_module_out.parent)
             # Ignore self (don't omit obj-foo += foo.o)
             if src.with_suffix(".ko") == kernel_module_out:
                 out_file.write(textwrap.dedent(f"""\
                     # The module {kernel_module_out} has a source file {src}
                 """))
-                continue
-            if not src.is_relative_to(kernel_module_out.parent):
-                die("%s is not a valid source because it is not under %s",
-                    src, kernel_module_out.parent)
-            out = src.with_suffix(".o").relative_to(kernel_module_out.parent)
-            out_file.write(textwrap.dedent(f"""\
-                # Source: {package / src}
-                {kernel_module_out.with_suffix('').name}-y += {out}
-            """))
+            else:
+                out_file.write(textwrap.dedent(f"""\
+                    # Source: {package / src}
+                    {kernel_module_out.with_suffix('').name}-y += {out}
+                """))
 
-            out_file.write("\n")
+                out_file.write("\n")
 
             # At this time of writing (2022-11-01), this is the order how cc_library
             # constructs arguments to the compiler.
