@@ -68,6 +68,8 @@ def _initramfs_impl(ctx):
     ).ramdisk_compress
 
     command = """
+             # Use `strip_modules` intead of relying on this.
+               unset DO_NOT_STRIP_MODULES
                mkdir -p {initramfs_staging_dir}
              # Build initramfs
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
@@ -79,7 +81,9 @@ def _initramfs_impl(ctx):
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
                {ramdisk_compress} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
              # Archive initramfs_staging_dir
-               tar czf {initramfs_staging_archive} -C {initramfs_staging_dir} .
+             # TODO(b/243737262): Use tar czf
+               mkdir -p $(dirname {initramfs_staging_archive})
+               tar c -C {initramfs_staging_dir} . | gzip - > {initramfs_staging_archive}
              # Remove staging directories
                rm -rf {initramfs_staging_dir}
     """.format(

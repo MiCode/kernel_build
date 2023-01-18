@@ -30,6 +30,8 @@
 
 [Kleaf Development](docs/kleaf_development.md)
 
+[Driver Development Kit (DDK)](docs/ddk/main.md)
+
 [Kleaf Flags for debugging](docs/flags.md)
 
 [Building `compile_commands.json`](docs/compile_commands.md)
