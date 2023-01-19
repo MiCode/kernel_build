@@ -159,7 +159,7 @@ def _gen_ddk_makefile_for_module(
 
         for src in rel_srcs:
             # Ignore non-exported headers specified in srcs
-            if src.suffix.lower() in (".h"):
+            if src.suffix.lower() in (".h",):
                 continue
             if src.suffix.lower() not in _SOURCE_SUFFIXES:
                 die("Invalid source %s", src)
