@@ -35,6 +35,12 @@ hermetic_tools(
         "sh",
         "tar",
     ],
+    tar_args = [
+        "--mtime=@0",
+        "--owner=0",
+        "--group=0",
+        "--numeric-owner",
+    ],
     deps = glob(
         ["build-tools/sysroot/**"],
         allow_empty = False,
