@@ -24,6 +24,8 @@ import re
 import subprocess
 import sys
 
+import symbol_extraction
+
 _ALWAYS_INCLUDED = [
     "module_layout",  # is exported even if CONFIG_TRIM_UNUSED_KSYMS is enabled
     "__put_task_struct",  # this allows us to keep `struct task_struct` stable
@@ -91,28 +93,20 @@ def extract_undefined_symbols(modules):
   return result
 
 
-def extract_exported_symbols(binary):
-  """Extracts the ksymtab exported symbols from a kernel binary."""
-  symbols = []
-  out = subprocess.check_output(["llvm-nm", "--defined-only", binary],
-                                stderr=subprocess.DEVNULL).decode("ascii")
-  for line in out.splitlines():
-    pos = line.find(" __ksymtab_")
-    if pos != -1:
-      symbols.append(line[pos + len(" __ksymtab_"):])
-
-  return symbol_sort(symbols)
-
 def extract_generic_exports(vmlinux, modules):
   """Extracts the ksymtab exported symbols from vmlinux and a set of modules."""
-  symbols = extract_exported_symbols(vmlinux)
+  symbols = symbol_extraction.extract_exported_symbols(vmlinux)
   for module in modules:
-    symbols.extend(extract_exported_symbols(module))
-  return symbols
+    symbols.extend(symbol_extraction.extract_exported_symbols(module))
+  return symbol_sort(symbols)
+
 
 def extract_exported_in_modules(modules):
   """Extracts the ksymtab exported symbols for a list of kernel modules."""
-  return {module: extract_exported_symbols(module) for module in modules}
+  return {
+      module: symbol_sort(symbol_extraction.extract_exported_symbols(module))
+      for module in modules
+  }
 
 
 def report_missing(module_symbols, exported):
