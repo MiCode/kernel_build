@@ -73,6 +73,10 @@ in [impl.md#step-5](impl.md#step-5).
 The `kernel_abi` attribute should be set to the label of the
 `kernel_abi()` target.
 
+Set `kernel_build_add_vmlinux` to `True` and remove the GKI `kernel_build`
+target (likely `//common:kernel_aarch64`) from `data` to avoid building
+`kernel_build`s twice.
+
 See `define_db845c()` in [common_kernels.bzl](../common_kernels.bzl) for an
 example.
 
