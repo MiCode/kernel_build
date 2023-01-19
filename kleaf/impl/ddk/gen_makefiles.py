@@ -158,36 +158,16 @@ def _gen_ddk_makefile_for_module(
         _handle_linux_includes(out_file, linux_include_dirs, rel_root)
 
         for src in rel_srcs:
-            # Ignore non-exported headers specified in srcs
-            if src.suffix.lower() in (".h",):
-                continue
-            if src.suffix.lower() not in _SOURCE_SUFFIXES:
-                die("Invalid source %s", src)
-            if not src.is_relative_to(kernel_module_out.parent):
-                die("%s is not a valid source because it is not under %s",
-                    src, kernel_module_out.parent)
-
-            out = src.with_suffix(".o").relative_to(kernel_module_out.parent)
-            # Ignore self (don't omit obj-foo += foo.o)
-            if src.with_suffix(".ko") == kernel_module_out:
-                out_file.write(textwrap.dedent(f"""\
-                    # The module {kernel_module_out} has a source file {src}
-                """))
-            else:
-                out_file.write(textwrap.dedent(f"""\
-                    # Source: {package / src}
-                    {kernel_module_out.with_suffix('').name}-y += {out}
-                """))
-
-                out_file.write("\n")
-
-            # At this time of writing (2022-11-01), this is the order how cc_library
-            # constructs arguments to the compiler.
-            _handle_defines(out_file, out, local_defines)
-            _handle_includes(out_file, out, include_dirs, rel_root)
-            _handle_copts(out_file, out, copts, rel_root)
-
-            out_file.write("\n")
+            _handle_src(
+                src=src,
+                out_file=out_file,
+                kernel_module_out=kernel_module_out,
+                package=package,
+                local_defines=local_defines,
+                include_dirs=include_dirs,
+                rel_root=rel_root,
+                copts=copts,
+            )
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -198,6 +178,47 @@ def _gen_ddk_makefile_for_module(
                 obj-y += {kernel_module_out.parent}/
                 """))
 
+
+def _handle_src(
+        src: pathlib.Path,
+        out_file: TextIO,
+        kernel_module_out: pathlib.Path,
+        package: pathlib.Path,
+        local_defines: list[str],
+        include_dirs: list[pathlib.Path],
+        rel_root: pathlib.Path,
+        copts: Optional[list[dict[str, str | bool]]],
+):
+    # Ignore non-exported headers specified in srcs
+    if src.suffix.lower() in (".h",):
+        return
+    if src.suffix.lower() not in _SOURCE_SUFFIXES:
+        die("Invalid source %s", src)
+    if not src.is_relative_to(kernel_module_out.parent):
+        die("%s is not a valid source because it is not under %s",
+            src, kernel_module_out.parent)
+
+    out = src.with_suffix(".o").relative_to(kernel_module_out.parent)
+    # Ignore self (don't omit obj-foo += foo.o)
+    if src.with_suffix(".ko") == kernel_module_out:
+        out_file.write(textwrap.dedent(f"""\
+                        # The module {kernel_module_out} has a source file {src}
+                    """))
+    else:
+        out_file.write(textwrap.dedent(f"""\
+                        # Source: {package / src}
+                        {kernel_module_out.with_suffix('').name}-y += {out}
+                    """))
+
+        out_file.write("\n")
+
+    # At this time of writing (2022-11-01), this is the order how cc_library
+    # constructs arguments to the compiler.
+    _handle_defines(out_file, out, local_defines)
+    _handle_includes(out_file, out, include_dirs, rel_root)
+    _handle_copts(out_file, out, copts, rel_root)
+
+    out_file.write("\n")
 
 def _handle_linux_includes(out_file: TextIO,
                            linux_include_dirs: list[pathlib.Path],
