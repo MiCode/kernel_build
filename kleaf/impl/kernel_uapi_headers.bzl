@@ -14,16 +14,17 @@
 
 """Build kernel-uapi-headers.tar.gz."""
 
-load(":common_providers.bzl", "KernelConfigEnvInfo")
+load(":common_providers.bzl", "KernelEnvAndOutputsInfo")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
 def _kernel_uapi_headers_impl(ctx):
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.label.name))
 
-    command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
-    command += utils.get_check_sandbox_cmd()
-    command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
+    command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
     command += """
          # Create staging directory
            mkdir -p {kernel_uapi_headers_dir}/usr
@@ -38,14 +39,15 @@ def _kernel_uapi_headers_impl(ctx):
         kernel_uapi_headers_dir = out_file.path + "_staging",
     )
     inputs = []
-    inputs += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
-    inputs += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
     transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs.append(ctx.attr.config[KernelEnvAndOutputsInfo].inputs)
+    tools = ctx.attr.config[KernelEnvAndOutputsInfo].tools
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelUapiHeaders",
         inputs = depset(inputs, transitive = transitive_inputs),
+        tools = tools,
         outputs = [out_file],
         progress_message = "Building UAPI kernel headers %s" % ctx.attr.name,
         command = command,
@@ -62,7 +64,7 @@ kernel_uapi_headers = rule(
         "srcs": attr.label_list(allow_files = True),
         "config": attr.label(
             mandatory = True,
-            providers = [KernelConfigEnvInfo],
+            providers = [KernelEnvAndOutputsInfo],
             doc = "the kernel_config target",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),

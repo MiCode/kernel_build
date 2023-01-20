@@ -35,11 +35,41 @@ is in its own extension instead of `kernel_env.bzl`.
     },
 )
 
-KernelConfigEnvInfo = provider(
-    doc = """Similar to `KernelEnvInfo` but specialized for `kernel_config`.""",
+KernelEnvAndOutputsInfo = provider(
+    doc = """Like `KernelEnvInfo` but also restores artifacts.
+
+It is expected to use these infos in the following way:
+
+```
+command = ctx.attr.dep[KernelEnvAndOutputsInfo].get_setup_script(
+    data = ctx.attr.dep[KernelEnvAndOutputsInfo].data,
+    restore_out_dir_cmd = cache_dir_step.cmd, # or utils.get_check_sandbox_cmd(),
+)
+```
+    """,
     fields = {
-        "env_info": "`KernelEnvInfo` from `kernel_env`",
-        "post_env_info": "post setup script and deps after `OUT_DIR` is calculated properly.",
+        "get_setup_script": """A function.
+
+The function should have the following signature:
+
+```
+def get_setup_script(data, restore_out_dir_cmd):
+```
+
+where:
+
+* `data`: the `data` field of this info.
+* `restore_out_dir_cmd`: A string that contains command to adjust the value of `OUT_DIR`.
+
+The function should return a string that contains the setup script.
+""",
+        "data": "Additional data consumed by `get_setup_script`.",
+        "inputs": """A [depset](https://bazel.build/extending/depsets) containing inputs used
+                   by `get_setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
+                   included. `inputs` are compiled against the target platform.""",
+        "tools": """A [depset](https://bazel.build/extending/depsets) containing tools used
+                   by `get_setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
+                   included. `tools` are compiled against the execution platform.""",
     },
 )
 

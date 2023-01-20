@@ -22,7 +22,7 @@ load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "KernelBuildOriginalEnvInfo",
-    "KernelConfigEnvInfo",
+    "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
 )
@@ -293,8 +293,8 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    setup_deps = [out_dir]
-    setup = """
+    post_setup_deps = [out_dir]
+    post_setup = """
            [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
@@ -311,21 +311,23 @@ def _kernel_config_impl(ctx):
     if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
-        setup_deps.append(ctx.file.raw_kmi_symbol_list)
+        post_setup_deps.append(ctx.file.raw_kmi_symbol_list)
 
-    post_env_info = KernelEnvInfo(
-        dependencies = setup_deps,
-        setup = setup,
-    )
-    kernel_config_env_info = KernelConfigEnvInfo(
-        env_info = ctx.attr.env[KernelEnvInfo],
-        post_env_info = post_env_info,
+    env_and_outputs_info = KernelEnvAndOutputsInfo(
+        get_setup_script = _env_and_outputs_get_setup_script,
+        # TODO(b/263385781): Split KernelEnvInfo.dependencies
+        tools = depset(),
+        inputs = depset(ctx.attr.env[KernelEnvInfo].dependencies + post_setup_deps),
+        data = struct(
+            pre_setup = ctx.attr.env[KernelEnvInfo].setup,
+            post_setup = post_setup,
+        ),
     )
 
     config_script_ret = _get_config_script(ctx)
 
     return [
-        kernel_config_env_info,
+        env_and_outputs_info,
         ctx.attr.env[KernelEnvAttrInfo],
         KernelBuildOriginalEnvInfo(
             env_info = ctx.attr.env[KernelEnvInfo],
@@ -336,6 +338,24 @@ def _kernel_config_impl(ctx):
             runfiles = config_script_ret.runfiles,
         ),
     ]
+
+def _env_and_outputs_get_setup_script(data, restore_out_dir_cmd):
+    """Setup script generator for `KernelEnvAndOutputsInfo`.
+
+    Args:
+        data: `data` from `KernelEnvAndOutputsInfo`
+        restore_out_dir_cmd: See `KernelEnvAndOutputsInfo`. Provided by user of the info.
+    Returns:
+        The setup script."""
+    return """
+        {pre_setup}
+        {restore_out_dir_cmd}
+        {post_setup}
+    """.format(
+        pre_setup = data.pre_setup,
+        restore_out_dir_cmd = restore_out_dir_cmd,
+        post_setup = data.post_setup,
+    )
 
 def _get_config_script(ctx):
     """Handles config.sh."""
