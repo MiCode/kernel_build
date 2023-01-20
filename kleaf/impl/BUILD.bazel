@@ -15,7 +15,8 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_setting")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_setting", "string_setting")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_SETTING_VALUES")
 
 bzl_library(
     name = "impl",
@@ -111,17 +112,19 @@ bool_setting(
 )
 
 # Whether trimming is actually enabled.
-bool_setting(
+# * unknown: the value is unknown. Rules that depends on this setting
+#    must have a transition that sets this properly (possibly based on attrs)
+# * enabled: trimming is enabled
+# * disabled: trimming is disabled
+# Do not use directly. Use APIs in trim_nonlisted_kmi_utils.bzl instead.
+string_setting(
     name = "trim_nonlisted_kmi_setting",
-    build_setting_default = False,
-    # All kernel_* from different packages can see this
-    visibility = ["//visibility:public"],
-)
-
-# Helper setting to forcefully disable trimming.
-bool_setting(
-    name = "force_disable_trim",
-    build_setting_default = False,
+    build_setting_default = TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
+    values = [
+        TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
+        TRIM_NONLISTED_KMI_SETTING_VALUES.enabled,
+        TRIM_NONLISTED_KMI_SETTING_VALUES.disabled,
+    ],
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
