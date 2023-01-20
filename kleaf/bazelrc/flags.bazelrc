@@ -1,0 +1,37 @@
+# Copyright (C) 2023 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# User defined flags.
+
+# flags that control kleaf integrity checking
+build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers
+build --flag_alias=allow_undeclared_modules=//build/kernel/kleaf:allow_undeclared_modules
+build --flag_alias=nokmi_symbol_list_strict_mode=no//build/kernel/kleaf:kmi_symbol_list_strict_mode
+
+# flags that control binary features
+build --flag_alias=gcov=//build/kernel/kleaf:gcov
+build --flag_alias=kasan=//build/kernel/kleaf:kasan
+build --flag_alias=lto=//build/kernel/kleaf:lto
+
+# flags that control the distribution
+build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
+build --flag_alias=kgdb=//build/kernel/kleaf:kgdb
+build --flag_alias=preserve_kbuild_output=//build/kernel/kleaf:preserve_kbuild_output
+
+# flags alias to allow passing --debug_* flags
+build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts
+build --flag_alias=debug_make_verbosity=//build/kernel/kleaf:debug_make_verbosity
+build --flag_alias=debug_modpost_warn=//build/kernel/kleaf:debug_modpost_warn
+build --flag_alias=debug_print_scripts=//build/kernel/kleaf:debug_print_scripts
+

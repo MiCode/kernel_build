@@ -15,8 +15,7 @@
 """Dist rules for devices with ABI monitoring enabled."""
 
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
-load("//build/bazel_common_rules/exec:exec.bzl", "exec_rule")
-load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
+load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load(":utils.bzl", "utils")
 
 def kernel_build_abi_dist(
@@ -66,15 +65,6 @@ kernel_abi_dist(
         **kwargs
     )
 
-_kernel_abi_dist_exec = exec_rule(
-    cfg = with_vmlinux_transition,
-    attrs = {
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
-    },
-)
-
 def kernel_abi_dist(
         name,
         kernel_abi,
@@ -82,12 +72,6 @@ def kernel_abi_dist(
     """A wrapper over `copy_to_dist_dir` for [`kernel_abi`](#kernel_abi).
 
     After copying all files to dist dir, return the exit code from `diff_abi`.
-
-    **Implementation notes**:
-
-    `with_vmlinux_transition` is applied on all targets by default. In
-    particular, the `kernel_build` targets in `data` automatically builds
-    `vmlinux` regardless of whether `vmlinux` is specified in `outs`.
 
     Args:
       name: name of the dist target
@@ -111,7 +95,7 @@ def kernel_abi_dist(
         **kwargs
     )
 
-    _kernel_abi_dist_exec(
+    exec(
         name = name,
         data = [
             name + "_copy_to_dist_dir",
