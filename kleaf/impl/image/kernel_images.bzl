@@ -38,6 +38,7 @@ def kernel_images(
         mkbootimg = None,
         deps = None,
         boot_image_outs = None,
+        gki_ramdisk_prebuilt_binary = None,
         modules_list = None,
         modules_blocklist = None,
         modules_options = None,
@@ -296,6 +297,9 @@ def kernel_images(
     if build_boot and "boot.img" not in boot_image_outs:
         boot_image_outs.append("boot.img")
 
+    if gki_ramdisk_prebuilt_binary and "init_boot.img" not in boot_image_outs:
+        boot_image_outs.append("init_boot.img")
+
     if build_vendor_boot and "vendor_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_boot.img")
         boot_image_outs.append("vendor-bootconfig.img")
@@ -384,6 +388,7 @@ def kernel_images(
             initramfs = ":{}_initramfs".format(name) if build_initramfs else None,
             mkbootimg = mkbootimg,
             vendor_ramdisk_binaries = vendor_ramdisk_binaries,
+            gki_ramdisk_prebuilt_binary = gki_ramdisk_prebuilt_binary,
             build_boot = build_boot,
             vendor_boot_name = vendor_boot_name,
             avb_sign_boot_img = avb_sign_boot_img,

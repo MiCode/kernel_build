@@ -53,6 +53,8 @@ def _boot_images_impl(ctx):
     inputs += ctx.files.deps
     inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.files.vendor_ramdisk_binaries
+    if ctx.attr.gki_ramdisk_prebuilt_binary:
+        inputs += [ctx.file.gki_ramdisk_prebuilt_binary]
 
     transitive_inputs = [kernel_build_outs]
 
@@ -96,6 +98,11 @@ def _boot_images_impl(ctx):
         """.format(
             vendor_ramdisk_binaries = " ".join([file.path for file in ctx.files.vendor_ramdisk_binaries]),
         )
+
+    if ctx.attr.gki_ramdisk_prebuilt_binary:
+        command += """
+            GKI_RAMDISK_PREBUILT_BINARY="{gki_ramdisk_prebuilt_binary}"
+        """.format(gki_ramdisk_prebuilt_binary = ctx.file.gki_ramdisk_prebuilt_binary.path)
 
     command += """
              # Create and restore DIST_DIR.
@@ -209,6 +216,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
 * If `None`, skip `vendor_boot`.
 """, values = ["vendor_boot", "vendor_kernel_boot"]),
         "vendor_ramdisk_binaries": attr.label_list(allow_files = True),
+        "gki_ramdisk_prebuilt_binary": attr.label(allow_single_file = True),
         "avb_sign_boot_img": attr.bool(
             doc = """ If set to `True` signs the boot image using the avb_boot_key.
             The kernel prebuilt tool `avbtool` is used for signing.""",
