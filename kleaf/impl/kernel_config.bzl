@@ -21,6 +21,7 @@ load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "KernelBuildOriginalEnvInfo",
     "KernelConfigEnvInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
@@ -326,6 +327,9 @@ def _kernel_config_impl(ctx):
     return [
         kernel_config_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
+        KernelBuildOriginalEnvInfo(
+            env_info = ctx.attr.env[KernelEnvInfo],
+        ),
         DefaultInfo(
             files = depset([out_dir]),
             executable = config_script_ret.executable,

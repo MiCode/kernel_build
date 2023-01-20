@@ -1206,9 +1206,7 @@ def _create_infos(
         setup = env_info_setup_pre + env_info_setup_restore_outputs,
     )
 
-    orig_env_info = KernelBuildOriginalEnvInfo(
-        env_info = ctx.attr.config[KernelConfigEnvInfo].env_info,
-    )
+    orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
 
     kernel_build_info = KernelBuildInfo(
         out_dir_kernel_headers_tar = main_action_ret.out_dir_kernel_headers_tar,
