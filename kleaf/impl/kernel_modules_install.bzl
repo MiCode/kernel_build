@@ -20,6 +20,7 @@ load(
     ":common_providers.bzl",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
+    "KernelEnvAndOutputsInfo",
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
@@ -205,7 +206,12 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             doc = "A list of labels referring to `kernel_module`s to install.",
         ),
         "kernel_build": attr.label(
-            providers = [KernelBuildExtModuleInfo],
+            providers = [
+                KernelBuildExtModuleInfo,
+                # Needed by KernelModuleInfo.kernel_build
+                # TODO(b/247622808): Should put the info in KernelModuleInfo directly.
+                KernelEnvAndOutputsInfo,
+            ],
             doc = "Label referring to the `kernel_build` module. Otherwise, it" +
                   " is inferred from `kernel_modules`.",
         ),
