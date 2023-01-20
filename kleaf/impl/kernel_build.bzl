@@ -1310,6 +1310,7 @@ def _create_infos(
         kernel_unstripped_modules_info,
         in_tree_modules_info,
         images_info,
+        ctx.attr.config[KernelEnvAttrInfo],
         output_group_info,
         default_info,
     ]

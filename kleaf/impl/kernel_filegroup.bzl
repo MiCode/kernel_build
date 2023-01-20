@@ -14,6 +14,7 @@
 
 """A target that mimics [`kernel_build`](#kernel_build) from a list of prebuilt files."""
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
@@ -22,6 +23,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
+    "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
@@ -31,6 +33,7 @@ load(
     "MODULES_STAGING_ARCHIVE",
 )
 load(":debug.bzl", "debug")
+load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(
     ":utils.bzl",
     "kernel_utils",
@@ -104,6 +107,13 @@ def _kernel_filegroup_impl(ctx):
 
     images_info = KernelImagesInfo(base_kernel = None)
 
+    common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
+    progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
+    kernel_env_attr_info = KernelEnvAttrInfo(
+        common_config_tags = common_config_tags,
+        progress_message_note = progress_message_note,
+    )
+
     srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
 
     return [
@@ -116,7 +126,13 @@ def _kernel_filegroup_impl(ctx):
         abi_info,
         in_tree_modules_info,
         images_info,
+        kernel_env_attr_info,
     ]
+
+def _kernel_filegroup_additional_attrs():
+    return dicts.add(
+        kernel_config_settings.of_kernel_env(),
+    )
 
 kernel_filegroup = rule(
     implementation = _kernel_filegroup_impl,
@@ -209,5 +225,5 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
-    },
+    } | _kernel_filegroup_additional_attrs(),
 )
