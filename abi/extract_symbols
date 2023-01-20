@@ -75,20 +75,15 @@ def find_binaries(directory):
   return vmlinux, modules
 
 
-def extract_undefined_symbols(modules):
+def extract_undefined_symbols_multiple(modules):
   """Extracts undefined symbols from a list of module files."""
 
   # yes, we could pass all of them to nm, but I want to avoid hitting shell
   # limits with long lists of modules
   result = {}
   for module in sorted(modules):
-    symbols = []
-    out = subprocess.check_output(["llvm-nm", "--undefined-only", module],
-                                  stderr=subprocess.DEVNULL).decode("ascii")
-    for line in out.splitlines():
-      symbols.append(line.strip().split()[1])
-
-    result[os.path.basename(module)] = symbol_sort(symbols)
+    result[os.path.basename(module)] = symbol_sort(
+        symbol_extraction.extract_undefined_symbols(module))
 
   return result
 
@@ -311,8 +306,8 @@ def main():
     return 1
 
   # Get required symbols of all modules
-  gki_undefined_symbols = extract_undefined_symbols(gki_modules)
-  local_undefined_symbols = extract_undefined_symbols(local_modules)
+  gki_undefined_symbols = extract_undefined_symbols_multiple(gki_modules)
+  local_undefined_symbols = extract_undefined_symbols_multiple(local_modules)
   undefined_symbols = {}
   undefined_symbols.update(gki_undefined_symbols)
   undefined_symbols.update(local_undefined_symbols)
