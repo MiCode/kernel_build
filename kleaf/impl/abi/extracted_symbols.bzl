@@ -18,7 +18,7 @@ load(":abi/abi_transitions.bzl", "notrim_transition")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
-    "KernelEnvInfo",
+    "KernelEnvAndOutputsInfo",
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
@@ -52,7 +52,8 @@ def _extracted_symbols_impl(ctx):
 
     inputs = [ctx.file._extract_symbols]
     inputs += srcs
-    inputs += ctx.attr.kernel_build_notrim[KernelEnvInfo].dependencies
+    transitive_inputs = [ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].inputs]
+    tools = ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].tools
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
@@ -75,7 +76,10 @@ def _extracted_symbols_impl(ctx):
         base_modules_archive = ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].modules_staging_archive
     inputs.append(base_modules_archive)
 
-    command = ctx.attr.kernel_build_notrim[KernelEnvInfo].setup
+    command = ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
     command += """
         mkdir -p {intermediates_dir}
         # Extract archive and copy the GKI modules First
@@ -100,9 +104,10 @@ def _extracted_symbols_impl(ctx):
     )
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out],
         command = command,
+        tools = tools,
         progress_message = "Extracting symbols {}".format(ctx.label),
         mnemonic = "KernelExtractedSymbols",
     )
@@ -116,7 +121,7 @@ extracted_symbols = rule(
         # - extract_symbols depends on the clang toolchain, which requires us to
         #   know the toolchain_version ahead of time.
         # - We also don't have the necessity to extract symbols from prebuilts.
-        "kernel_build_notrim": attr.label(providers = [KernelEnvInfo, KernelBuildAbiInfo]),
+        "kernel_build_notrim": attr.label(providers = [KernelEnvAndOutputsInfo, KernelBuildAbiInfo]),
         "kernel_modules": attr.label_list(providers = [KernelModuleInfo]),
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),

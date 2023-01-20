@@ -1164,6 +1164,49 @@ def _build_main_action(
         compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
     )
 
+def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
+    """Setup script generator for `KernelEnvAndOutputsInfo`.
+
+    Args:
+        data: `data` from `KernelEnvAndOutputsInfo`
+        restore_out_dir_cmd: See `KernelEnvAndOutputsInfo`. Provided by user of the info.
+    Returns:
+        The setup script."""
+    pre_info = data.pre_info
+    restore_outputs_cmd = data.restore_outputs_cmd
+
+    script = pre_info.get_setup_script(
+        data = pre_info.data,
+        restore_out_dir_cmd = restore_out_dir_cmd,
+    )
+    script += restore_outputs_cmd
+
+    return script
+
+def _create_env_and_outputs_info(pre_info, restore_outputs_cmd_deps, restore_outputs_cmd):
+    """Creates an KernelEnvAndOutputsInfo.
+
+    Args:
+        pre_info: pre setup script and dependencies
+        restore_outputs_cmd_deps: list of outputs to restore
+        restore_outputs_cmd: command to restore these outputs
+
+    Returns:
+        A KernelEnvAndOutputsInfo that runs pre_info, then restore outputs given the list of
+        outputs and cmd."""
+    return KernelEnvAndOutputsInfo(
+        get_setup_script = _env_and_outputs_info_get_setup_script,
+        inputs = depset(
+            restore_outputs_cmd_deps,
+            transitive = [pre_info.inputs],
+        ),
+        tools = pre_info.tools,
+        data = struct(
+            pre_info = pre_info,
+            restore_outputs_cmd = restore_outputs_cmd,
+        ),
+    )
+
 def _create_infos(
         ctx,
         kbuild_mixed_tree_ret,
@@ -1188,29 +1231,21 @@ def _create_infos(
 
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs and implicit_outs too.
-    env_info_dependencies = []
-
-    # TODO(b/263385781): kernel_build should return KernelEnvAndOutputsInfo
-    env_info_dependencies += ctx.attr.config[KernelEnvAndOutputsInfo].inputs.to_list()
-    env_info_dependencies += ctx.attr.config[KernelEnvAndOutputsInfo].tools.to_list()
+    env_and_outputs_info_dependencies = []
     for d in all_output_files.values():
-        env_info_dependencies += d.values()
-    env_info_dependencies += kbuild_mixed_tree_ret.outputs
+        env_and_outputs_info_dependencies += d.values()
+    env_and_outputs_info_dependencies += kbuild_mixed_tree_ret.outputs
 
-    # We don't have local actions that depends on this setup script yet. If
-    # we do in the future, this needs to be split into KernelEnvAndOutputsInfo.
-    env_info_setup_pre = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
-        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
-    )
-    env_info_setup_restore_outputs = """
+    env_and_outputs_info_setup_restore_outputs = """
          # Restore kernel build outputs
            rsync -aL --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
            """.format(ruledir = main_action_ret.ruledir.path)
-    env_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
-    env_info = KernelEnvInfo(
-        dependencies = env_info_dependencies,
-        setup = env_info_setup_pre + env_info_setup_restore_outputs,
+    env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
+
+    env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
+        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
     )
 
     orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
@@ -1227,11 +1262,25 @@ def _create_infos(
 
     module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
 
-    ext_mod_setup = env_info_setup_pre
+    # We don't have local actions that depends on this setup script yet. If
+    # we do in the future, this needs to be split into KernelEnvAndOutputsInfo.
+    ext_mod_setup = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
     ext_mod_setup += ctx.attr.modules_prepare[KernelEnvInfo].setup
-    ext_mod_setup += env_info_setup_restore_outputs
+    ext_mod_setup += env_and_outputs_info_setup_restore_outputs
     ext_mod_deps = []
-    ext_mod_deps += env_info_dependencies
+
+    # TODO(b/254357534): KernelBuildExtModuleInfo should return KernelEnvAndOutputsInfo
+    ext_mod_deps += depset(
+        env_and_outputs_info_dependencies,
+        transitive = [
+            ctx.attr.config[KernelEnvAndOutputsInfo].inputs,
+            ctx.attr.config[KernelEnvAndOutputsInfo].tools,
+        ],
+    ).to_list()
+
     ext_mod_deps += ctx.attr.modules_prepare[KernelEnvInfo].dependencies
     ext_mod_env_info = KernelEnvInfo(
         setup = ext_mod_setup,
@@ -1307,7 +1356,7 @@ def _create_infos(
 
     return [
         cmds_info,
-        env_info,
+        env_and_outputs_info,
         orig_env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
