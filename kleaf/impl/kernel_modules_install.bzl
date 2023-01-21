@@ -27,6 +27,7 @@ load(":debug.bzl", "debug")
 load(
     ":utils.bzl",
     "kernel_utils",
+    "utils",
 )
 
 def _kernel_modules_install_impl(ctx):
@@ -50,7 +51,6 @@ def _kernel_modules_install_impl(ctx):
     modules_staging_dws_list = modules_staging_dws_depset.to_list()
 
     inputs = []
-    inputs += kernel_build[KernelBuildExtModuleInfo].env_info.dependencies
     inputs += [
         ctx.file._search_and_cp_output,
         ctx.file._check_duplicated_files_in_archives,
@@ -68,11 +68,19 @@ def _kernel_modules_install_impl(ctx):
         declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
         external_modules.append(declared_file)
 
-    transitive_inputs = [kernel_build[KernelBuildExtModuleInfo].module_scripts]
+    transitive_inputs = [
+        kernel_build[KernelBuildExtModuleInfo].module_scripts,
+        kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.inputs,
+    ]
+
+    tools = kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.tools
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_info.setup
+    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.get_setup_script(
+        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
     command += """
              # create dirs for modules
                mkdir -p {modules_staging_dir}
@@ -148,6 +156,7 @@ def _kernel_modules_install_impl(ctx):
     ctx.actions.run_shell(
         mnemonic = "KernelModulesInstall",
         inputs = depset(inputs, transitive = transitive_inputs),
+        tools = tools,
         outputs = external_modules + dws.files(modules_staging_dws),
         command = command,
         progress_message = "Running depmod {}".format(ctx.label),

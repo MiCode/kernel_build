@@ -42,7 +42,6 @@ load(
     "KernelCmdsInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
-    "KernelEnvInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
@@ -1262,36 +1261,17 @@ def _create_infos(
 
     module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
 
-    # We don't have local actions that depends on this setup script yet. If
-    # we do in the future, this needs to be split into KernelEnvAndOutputsInfo.
-    ext_mod_setup = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
-        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
-    )
-    ext_mod_setup += ctx.attr.modules_prepare[KernelEnvInfo].setup
-    ext_mod_setup += env_and_outputs_info_setup_restore_outputs
-    ext_mod_deps = []
-
-    # TODO(b/254357534): KernelBuildExtModuleInfo should return KernelEnvAndOutputsInfo
-    ext_mod_deps += depset(
-        env_and_outputs_info_dependencies,
-        transitive = [
-            ctx.attr.config[KernelEnvAndOutputsInfo].inputs,
-            ctx.attr.config[KernelEnvAndOutputsInfo].tools,
-        ],
-    ).to_list()
-
-    ext_mod_deps += ctx.attr.modules_prepare[KernelEnvInfo].dependencies
-    ext_mod_env_info = KernelEnvInfo(
-        setup = ext_mod_setup,
-        dependencies = ext_mod_deps,
+    ext_mod_env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
+        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
     )
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
-        env_info = ext_mod_env_info,
+        env_and_outputs_info = ext_mod_env_and_outputs_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )
@@ -1479,7 +1459,7 @@ _kernel_build = rule(
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
         # `_kernel_build` target.
-        "modules_prepare": attr.label(),
+        "modules_prepare": attr.label(providers = [KernelEnvAndOutputsInfo]),
         "kernel_uapi_headers": attr.label(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),

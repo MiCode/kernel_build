@@ -18,7 +18,6 @@ load(
     ":common_providers.bzl",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
-    "KernelEnvInfo",
 )
 load(":cache_dir.bzl", "cache_dir")
 load(":debug.bzl", "debug")
@@ -74,17 +73,37 @@ def _modules_prepare_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    setup = """
+    restore_outputs_cmd = """
          # Restore modules_prepare outputs. Assumes env setup.
            [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
            mkdir -p ${{OUT_DIR}}
            tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
            """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
 
-    return [KernelEnvInfo(
-        dependencies = [ctx.outputs.outdir_tar_gz],
-        setup = setup,
-    )]
+    return [
+        KernelEnvAndOutputsInfo(
+            get_setup_script = _env_and_outputs_info_get_setup_script,
+            inputs = depset(
+                [ctx.outputs.outdir_tar_gz],
+                transitive = [ctx.attr.config[KernelEnvAndOutputsInfo].inputs],
+            ),
+            tools = ctx.attr.config[KernelEnvAndOutputsInfo].tools,
+            data = struct(
+                config_env_and_outputs_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+                restore_outputs_cmd = restore_outputs_cmd,
+            ),
+        ),
+    ]
+
+def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
+    config_env_and_outputs_info = data.config_env_and_outputs_info
+    restore_outputs_cmd = data.restore_outputs_cmd
+    script = config_env_and_outputs_info.get_setup_script(
+        data = config_env_and_outputs_info.data,
+        restore_out_dir_cmd = restore_out_dir_cmd,
+    )
+    script += restore_outputs_cmd
+    return script
 
 modules_prepare = rule(
     doc = "Rule that runs `make modules_prepare` to prepare `$OUT_DIR` for modules.",

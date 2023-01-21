@@ -38,7 +38,7 @@ load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
-load(":utils.bzl", "kernel_utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 def kernel_module(
         name,
@@ -264,7 +264,6 @@ def _kernel_module_impl(ctx):
         fail("{}: must not define `makefile` for `ddk_module`")
 
     inputs = []
-    inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_info.dependencies
     inputs += ctx.files.makefile
     inputs += ctx.files.internal_ddk_makefiles_dir
     inputs += [
@@ -275,12 +274,15 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.inputs)
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
     if not ctx.attr.internal_exclude_kernel_build_module_srcs:
         transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
 
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
+
+    tools = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.tools
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -331,7 +333,10 @@ def _kernel_module_impl(ctx):
     if unstripped_dir:
         command_outputs.append(unstripped_dir)
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_info.setup
+    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.get_setup_script(
+        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
     command += """
              # create dirs for modules
                mkdir -p {kernel_uapi_headers_dir}/usr
@@ -451,6 +456,7 @@ def _kernel_module_impl(ctx):
     ctx.actions.run_shell(
         mnemonic = "KernelModule",
         inputs = depset(inputs, transitive = transitive_inputs),
+        tools = tools,
         outputs = command_outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),
