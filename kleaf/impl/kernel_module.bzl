@@ -18,17 +18,20 @@ Makefile and Kbuild files are required.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_module_test",
 )
+load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
+    "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
     "KernelUnstrippedModulesInfo",
@@ -38,7 +41,7 @@ load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
-load(":utils.bzl", "kernel_utils", "utils")
+load(":utils.bzl", "kernel_utils")
 
 def kernel_module(
         name,
@@ -282,7 +285,8 @@ def _kernel_module_impl(ctx):
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
 
-    tools = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.tools
+    tools = []
+    transitive_tools = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.tools]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -333,9 +337,18 @@ def _kernel_module_impl(ctx):
     if unstripped_dir:
         command_outputs.append(unstripped_dir)
 
+    cache_dir_step = cache_dir.get_step(
+        ctx = ctx,
+        common_config_tags = ctx.attr.kernel_build[KernelEnvAttrInfo].common_config_tags,
+        symlink_name = "module_{}".format(ctx.attr.name),
+    )
+    inputs += cache_dir_step.inputs
+    command_outputs += cache_dir_step.outputs
+    tools += cache_dir_step.tools
+
     command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.get_setup_script(
         data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.data,
-        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+        restore_out_dir_cmd = cache_dir_step.cmd,
     )
     command += """
              # create dirs for modules
@@ -452,14 +465,28 @@ def _kernel_module_impl(ctx):
     command += dws.record(modules_staging_dws)
     command += dws.record(kernel_uapi_headers_dws)
 
+    # Unlike other rules (e.g. KernelBuild / ModulesPrepare), a DDK module must be executed
+    # in a sandbox so that restoring the makefiles does not mutate the source tree. However,
+    # we can't use linux-sandbox because --cache_dir is mounted as readonly. Hence, use
+    # the weaker form processwrapper-sandbox instead.
+    # See https://bazel.build/docs/sandboxing#sandboxing-strategies
+    strategy = ""
+    execution_requirements = None
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        if ctx.file.internal_ddk_makefiles_dir:
+            strategy = "ProcessWrapperSandbox"
+        else:
+            execution_requirements = kernel_utils.local_exec_requirements(ctx)
+
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelModule",
+        mnemonic = "KernelModule" + strategy,
         inputs = depset(inputs, transitive = transitive_inputs),
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         outputs = command_outputs,
         command = command,
         progress_message = "Building external kernel module {}".format(ctx.label),
+        execution_requirements = execution_requirements,
     )
 
     # Additional outputs because of the value in outs. This is
@@ -590,6 +617,7 @@ _kernel_module = rule(
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
+        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_search_and_cp_output": attr.label(
             allow_single_file = True,
@@ -600,6 +628,7 @@ _kernel_module = rule(
             allow_single_file = True,
             default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
         ),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
