@@ -111,7 +111,7 @@ Sample output snippet:
   "@//build/kernel/kleaf/impl:force_add_vmlinux": false,
   "@//build/kernel/kleaf/impl:force_ignore_base_kernel": false,
   "@//build/kernel/kleaf/impl:preserve_cmd": false,
-  "@//build/kernel/kleaf/impl:trim_nonlisted_kmi_setting": false,
+  "@//build/kernel/kleaf/impl:trim_nonlisted_kmi_setting": "disabled",
   "@//build/kernel/kleaf:gcov": false,
   "@//build/kernel/kleaf:kasan": true,
   "@//build/kernel/kleaf:kbuild_symtypes": false,

@@ -448,6 +448,7 @@ def kernel_build(
         enable_interceptor = enable_interceptor,
         strip_modules = strip_modules,
         src_kmi_symbol_list = kmi_symbol_list,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
         **kwargs
     )
 

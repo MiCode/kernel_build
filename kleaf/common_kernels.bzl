@@ -730,6 +730,7 @@ def define_common_kernels(
         kernel_abi_dist(
             name = name + "_abi_dist",
             kernel_abi = name + "_abi",
+            kernel_build_add_vmlinux = True,
             data = dist_targets,
             flat = True,
             dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),

@@ -16,13 +16,16 @@
 
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "ModuleSymversInfo")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
+load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_test")
 load(":ddk_headers_test.bzl", "check_ddk_headers_info")
+load(":makefiles_test.bzl", "get_top_level_file")
 
 def _ddk_module_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -95,6 +98,48 @@ def _ddk_module_test_make(
         expected_inputs = expected_inputs,
         expected_hdrs = expected_hdrs,
         expected_includes = expected_includes,
+    )
+
+def _conditional_srcs_test(
+        name,
+        kernel_build):
+    ddk_module(
+        name = name + "_module",
+        kernel_build = kernel_build,
+        out = name + "_module.ko",
+        conditional_srcs = {
+            "CONFIG_A": {
+                True: ["cond_srcs/a_y.c"],
+                False: ["cond_srcs/a_n.c"],
+            },
+        },
+        tags = ["manual"],
+    )
+
+    get_top_level_file(
+        name = name + "_kbuild",
+        filename = "Kbuild",
+        target = name + "_module_makefiles",
+    )
+
+    write_file(
+        name = name + "_expected",
+        out = name + "_expected/Kbuild",
+        content = [
+            "ifeq ($(CONFIG_A),y)",
+            "{}_module-y += cond_srcs/a_y.o".format(name),
+            "endif # ifeq ($(CONFIG_A),y)",
+            "ifeq ($(CONFIG_A),)",
+            "{}_module-y += cond_srcs/a_n.o".format(name),
+            "endif # ifeq ($(CONFIG_A),)",
+        ],
+    )
+
+    contain_lines_test(
+        name = name,
+        expected = name + "_expected",
+        actual = name + "_kbuild",
+        order = True,
     )
 
 def ddk_module_test_suite(name):
@@ -236,6 +281,12 @@ def ddk_module_test_suite(name):
         error_message_substrs = ["out is not specified."],
     )
     tests.append(name + "_no_out")
+
+    _conditional_srcs_test(
+        name = name + "_conditional_srcs_test",
+        kernel_build = name + "_kernel_build",
+    )
+    tests.append(name + "_conditional_srcs_test")
 
     native.test_suite(
         name = name,
