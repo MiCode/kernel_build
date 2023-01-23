@@ -17,7 +17,6 @@ load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
-    "KernelEnvInfo",
     "KernelUnstrippedModulesInfo",
 )
 load(":debug.bzl", "debug")
@@ -262,7 +261,7 @@ abi_dump = rule(
     implementation = _abi_dump_impl,
     doc = "Extracts the ABI.",
     attrs = {
-        "kernel_build": attr.label(providers = [KernelEnvInfo, KernelBuildAbiInfo, KernelUnstrippedModulesInfo]),
+        "kernel_build": attr.label(providers = [KernelBuildAbiInfo, KernelUnstrippedModulesInfo]),
         "kernel_modules": attr.label_list(providers = [KernelUnstrippedModulesInfo]),
         "_dump_abi_scripts": attr.label(default = "//build/kernel:dump-abi-scripts"),
         "_dump_abi": attr.label(default = "//build/kernel:abi/dump_abi", allow_single_file = True),

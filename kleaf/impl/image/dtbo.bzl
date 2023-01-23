@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Build dtbo."""
+
 load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvInfo")
 load(":debug.bzl", "debug")
-load(":image/image_utils.bzl", "image_utils")
 
 def _dtbo_impl(ctx):
     output = ctx.actions.declare_file("{}/dtbo.img".format(ctx.label.name))
