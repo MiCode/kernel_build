@@ -226,6 +226,7 @@ fi
 for variant in "userdebug" "user"
 do
   if [ -e "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${variant}.elf" ] && \
+     [ -e "${ANDROID_ABL_OUT_DIR}/abl-${variant}/unsigned_abl.elf" ] && \
     ! diff -q "${ANDROID_ABL_OUT_DIR}/abl-${variant}/unsigned_abl.elf" \
     "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${variant}.elf" ; then
     COPY_ABL_NEEDED=1
