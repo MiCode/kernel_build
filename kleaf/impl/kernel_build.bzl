@@ -1271,7 +1271,8 @@ def _create_infos(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
-        env_and_outputs_info = ext_mod_env_and_outputs_info,
+        modules_env_and_outputs_info = ext_mod_env_and_outputs_info,
+        modules_install_env_and_outputs_info = ext_mod_env_and_outputs_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )

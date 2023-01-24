@@ -277,7 +277,7 @@ def _kernel_module_impl(ctx):
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
-    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.inputs)
+    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.inputs)
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
     if not ctx.attr.internal_exclude_kernel_build_module_srcs:
         transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
@@ -286,7 +286,7 @@ def _kernel_module_impl(ctx):
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
 
     tools = []
-    transitive_tools = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.tools]
+    transitive_tools = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.tools]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -346,8 +346,8 @@ def _kernel_module_impl(ctx):
     command_outputs += cache_dir_step.outputs
     tools += cache_dir_step.tools
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.get_setup_script(
-        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.data,
+    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.get_setup_script(
+        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.data,
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
     command += """

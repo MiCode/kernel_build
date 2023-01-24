@@ -70,15 +70,15 @@ def _kernel_modules_install_impl(ctx):
 
     transitive_inputs = [
         kernel_build[KernelBuildExtModuleInfo].module_scripts,
-        kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.inputs,
+        kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.inputs,
     ]
 
-    tools = kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.tools
+    tools = kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.tools
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.get_setup_script(
-        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_and_outputs_info.data,
+    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.get_setup_script(
+        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.data,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """
