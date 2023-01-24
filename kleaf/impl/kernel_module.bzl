@@ -508,7 +508,7 @@ def _kernel_module_impl(ctx):
                ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
              # Restore Modules.symvers
                mkdir -p $(dirname ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name})
-               cp {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name}
+               rsync -aL {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name}
              # New shell ends
                )
     """.format(
