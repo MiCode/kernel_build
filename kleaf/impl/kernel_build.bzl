@@ -1262,7 +1262,37 @@ def _create_infos(
 
     module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
 
+    ext_mod_env_and_outputs_info_deps = all_output_files["internal_outs"].values()
+
+    # Create a fake System.map because `make modules` does not need it. For kernel_module(),
+    # make modules_install needs it, but we aren't running depmod in kernel_module, so a fake one
+    # is good enough.
+    ext_mod_env_and_outputs_info_setup_restore_outputs = """
+        # Fake System.map for kernel_module
+          touch ${OUT_DIR}/System.map
+    """
+    ext_mod_env_and_outputs_info_setup_restore_outputs += """
+        # Restore kernel build outputs necessary for building external modules
+    """
+    for dep in ext_mod_env_and_outputs_info_deps:
+        relpath = paths.relativize(dep.path, main_action_ret.ruledir.path)
+        ext_mod_env_and_outputs_info_setup_restore_outputs += """
+            mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
+            rsync -aL {dep} ${{OUT_DIR}}/{relpath}
+        """.format(
+            dep = dep.path,
+            relpath = relpath,
+        )
+
+    # For kernel_module()
     ext_mod_env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = ext_mod_env_and_outputs_info_deps,
+        restore_outputs_cmd = ext_mod_env_and_outputs_info_setup_restore_outputs,
+    )
+
+    # For kernel_modules_install()
+    ext_modinst_env_and_outputs_info = _create_env_and_outputs_info(
         pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
@@ -1273,7 +1303,7 @@ def _create_infos(
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
         modules_env_and_outputs_info = ext_mod_env_and_outputs_info,
-        modules_install_env_and_outputs_info = ext_mod_env_and_outputs_info,
+        modules_install_env_and_outputs_info = ext_modinst_env_and_outputs_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )
