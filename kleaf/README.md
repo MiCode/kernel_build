@@ -18,8 +18,6 @@
 
 [Resolving common errors](docs/errors.md)
 
-[References to Bazel rules and macros for the Android Kernel](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
-
 [Kleaf testing](docs/testing.md)
 
 [Building against downloaded prebuilts](docs/download_prebuilt.md)
@@ -56,3 +54,6 @@
 
 `--lto`: [Configure LTO during development](docs/lto.md)
 
+### References
+
+[References to Bazel rules and macros for the Android Kernel](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
