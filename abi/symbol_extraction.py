@@ -29,3 +29,14 @@ def extract_exported_symbols(binary):
       symbols.append(line[pos + len(" __ksymtab_"):])
 
   return symbols
+
+
+def extract_undefined_symbols(binary_path):
+  """Extracts the undefined symbols from an ELF file at  binary_path."""
+  symbols = []
+  out = subprocess.check_output(["llvm-nm", "--undefined-only", binary_path],
+                                stderr=subprocess.DEVNULL).decode("ascii")
+  for line in out.splitlines():
+    symbols.append(line.strip().split()[1])
+
+  return symbols

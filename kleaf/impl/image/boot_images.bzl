@@ -15,9 +15,10 @@
 Rules for building boot images.
 """
 
-load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvInfo")
+load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
 load(":debug.bzl", "debug")
 load(":image/initramfs.bzl", "InitramfsInfo")
+load(":utils.bzl", "utils")
 
 def _boot_images_impl(ctx):
     outdir = ctx.actions.declare_directory(ctx.label.name)
@@ -51,13 +52,19 @@ def _boot_images_impl(ctx):
             initramfs_staging_archive,
         ]
     inputs += ctx.files.deps
-    inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     inputs += ctx.files.vendor_ramdisk_binaries
 
-    transitive_inputs = [kernel_build_outs]
+    transitive_inputs = [
+        kernel_build_outs,
+        ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs,
+    ]
 
-    command = ""
-    command += ctx.attr.kernel_build[KernelEnvInfo].setup
+    tools = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools
+
+    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
 
     command += """
         MKBOOTIMG_PATH={mkbootimg}
@@ -177,6 +184,7 @@ def _boot_images_impl(ctx):
         mnemonic = "BootImages",
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = ctx.outputs.outs + [outdir],
+        tools = tools,
         progress_message = "Building boot images {}".format(ctx.label),
         command = command,
     )
@@ -189,7 +197,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
     attrs = {
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo, KernelBuildInfo],
+            providers = [KernelEnvAndOutputsInfo, KernelBuildInfo],
         ),
         "initramfs": attr.label(
             providers = [InitramfsInfo],
