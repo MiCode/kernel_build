@@ -17,14 +17,27 @@
 # $1 directory of kernel modules ($1/lib/modules/x.y)
 # $2 flags to pass to depmod
 # $3 kernel version
+# $4 Optional: File with list of modules to run depmod on.
+#              If left empty, depmod will run on all modules
+#              under $1/lib/modules/x.y
 function run_depmod() {
   (
     local ramdisk_dir=$1
     local depmod_stdout
     local depmod_stderr=$(mktemp)
+    local version=$3
+    local modules_list_file=$4
+    local modules_list=""
+
+    if [[ -n "${modules_list_file}" ]]; then
+      while read -r line; do
+        # depmod expects absolute paths for module files
+        modules_list+="$(realpath ${ramdisk_dir}/lib/modules/${version}/${line}) "
+      done <${modules_list_file}
+    fi
 
     cd ${ramdisk_dir}
-    if ! depmod_stdout="$(depmod $2 -F ${DIST_DIR}/System.map -b . $3 \
+    if ! depmod_stdout="$(depmod $2 -F ${DIST_DIR}/System.map -b . ${version} ${modules_list} \
         2>${depmod_stderr})"; then
       echo "$depmod_stdout"
       cat ${depmod_stderr} >&2
@@ -42,12 +55,116 @@ function run_depmod() {
   )
 }
 
+# $1 MODULES_LIST, <File containing the list of modules that should go in the
+#                   ramdisk.>
+# $2 MODULES_RECOVERY_LIST, <File containing the list of modules that should
+#                            go in the ramdisk and be loaded when booting into
+#                            recovery mode during first stage init.
+#
+#                            This parameter is optional, and if not used, should
+#                            be passed as an empty string to ensure that
+#                            subsequent parameters are treated correctly.>
+# $3 MODULES_CHARGER_LIST, <File containing the list of modules that should
+#                           go in the ramdisk and be loaded when booting into
+#                           charger mode during first stage init.
+#
+#                           This parameter is optional, and if not used, should
+#                           be passed as an empty string to ensure that
+#                           subsequent paratmers are treated correctly.>
+# $4 MODULES_ORDER_LIST, <The modules.order file that contains all of the
+#                         modules that were built.>
+#
+# This function creates new modules.order* files by filtering the module lists
+# through the set of modules that were built ($MODULES_ORDER_LIST).
+#
+# Each modules.order* file is created by filtering each list as follows:
+#
+# Let f be the filter_module_list function, which filters arg 1 through arg 2.
+#
+# f(MODULES_LIST, MODULES_ORDER_LIST) ==> modules.order
+#
+# f(MODULES_RECOVERY_LIST, MODULES_ORDER_LIST) ==> modules.order.recovery
+#
+# f(MODULES_CHARGER_LIST, MODULES_ORDER_LIST) ==> modules.order.charger
+#
+# Filtering ensures that only the modules in MODULES_LIST end up in the
+# respective partition that create_modules_staging() is invoked for.
+#
+# Note: This function overwrites the original file pointed to by
+# MODULES_ORDER_LIST when MODULES_LIST is set.
+function create_modules_order_lists() {
+  local modules_list_file="${1}"
+  local modules_recovery_list_file="${2}"
+  local modules_charger_list_file="${3}"
+  local modules_order_list_file="${4}"
+  local dest_dir=$(dirname $(realpath ${modules_order_list_file}))
+  local tmp_modules_order_file=$(mktemp)
+
+  cp ${modules_order_list_file} ${tmp_modules_order_file}
+
+  declare -A module_lists_arr
+  module_lists_arr["modules.order"]=${modules_list_file}
+  module_lists_arr["modules.order.recovery"]=${modules_recoverylist_file}
+  module_lists_arr["modules.order.charger"]=${modules_chargerlist_file}
+
+  for mod_order_file in ${!module_lists_arr[@]}; do
+    local mod_list_file=${module_lists_arr[${mod_order_file}]}
+    local dest_file=${dest_dir}/${mod_order_file}
+
+    # Need to make sure we can find modules_list_file from the staging dir
+    if [[ -n "${mod_list_file}" ]]; then
+      if [[ -f "${ROOT_DIR}/${mod_list_file}" ]]; then
+        modules_list_file="${ROOT_DIR}/${mod_list_file}"
+      elif [[ "${mod_list_file}" != /* ]]; then
+        echo "ERROR: modules list must be an absolute path or relative to ${ROOT_DIR}: ${mod_list_file}" >&2
+        rm -f ${tmp_modules_order_file}
+        exit 1
+      elif [[ ! -f "${mod_list_file}" ]]; then
+        echo "ERROR: Failed to find modules list: ${mod_list_file}" >&2
+        rm -f ${tmp_modules_order_file}
+        exit 1
+      fi
+
+      local modules_list_filter=$(mktemp)
+
+      # Remove all lines starting with "#" (comments)
+      # Exclamation point makes interpreter ignore the exit code under set -e
+      ! grep -v "^\#" ${mod_list_file} > ${modules_list_filter}
+
+      # Append a new line at the end of file
+      # If file doesn't end in newline the last module is skipped from filter
+      echo >> ${modules_list_filter}
+
+      # grep the modules.order for any KOs in the modules list
+      ! grep -w -f ${modules_list_filter} ${tmp_modules_order_file} > ${dest_file}
+
+      rm -f ${modules_list_filter}
+    fi
+  done
+
+  rm -f ${tmp_modules_order_file}
+}
+
 # $1 MODULES_LIST, <File contains the list of modules that should go in the ramdisk>
 # $2 MODULES_STAGING_DIR    <The directory to look for all the compiled modules>
 # $3 IMAGE_STAGING_DIR  <The destination directory in which MODULES_LIST is
 #                        expected, and it's corresponding modules.* files>
 # $4 MODULES_BLOCKLIST, <File contains the list of modules to prevent from loading>
-# $5 flags to pass to depmod
+# $5 MODULES_RECOVERY_LIST <File contains the list of modules that should go in
+#                           the ramdisk but should only be loaded when booting
+#                           into recovery.
+#
+#                           This parameter is optional, and if not used, should
+#                           be passed as an empty string to ensure that the depmod
+#                           flags are assigned correctly.>
+# $6 MODULES_CHARGER_LIST <File contains the list of modules that should go in
+#                          the ramdisk but should only be loaded when booting
+#                          into charger mode.
+#
+#                          This parameter is optional, and if not used, should
+#                          be passed as an empty string to ensure that the
+#                          depmod flags are assigned correctly.>
+# $7 flags to pass to depmod
 function create_modules_staging() {
   local modules_list_file=$1
   local src_dir=$(echo $2/lib/modules/*)
@@ -55,7 +172,9 @@ function create_modules_staging() {
   local dest_dir=$3/lib/modules/${version}
   local dest_stage=$3
   local modules_blocklist_file=$4
-  local depmod_flags=$5
+  local modules_recoverylist_file=$5
+  local modules_chargerlist_file=$6
+  local depmod_flags=$7
 
   rm -rf ${dest_dir}
   mkdir -p ${dest_dir}/kernel
@@ -109,34 +228,10 @@ function create_modules_staging() {
       -exec ${OBJCOPY:-${CROSS_COMPILE}objcopy} --strip-debug {} \;
   fi
 
-  if [ -n "${modules_list_file}" ]; then
-    # Need to make sure we can find modules_list_file from the staging dir
-    if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
-      modules_list_file="${ROOT_DIR}/${modules_list_file}"
-    elif [[ "${modules_list_file}" != /* ]]; then
-      echo "ERROR: modules list must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}" >&2
-      exit 1
-    elif [[ ! -f "${modules_list_file}" ]]; then
-      echo "ERROR: Failed to find modules list: ${modules_list_file}" >&2
-      exit 1
-    fi
-
-    local modules_list_filter=$(mktemp)
-    local old_modules_list=$(mktemp)
-
-    # Remove all lines starting with "#" (comments)
-    # Exclamation point makes interpreter ignore the exit code under set -e
-    ! grep -v "^\#" ${modules_list_file} > ${modules_list_filter}
-
-    # Append a new line at the end of file
-    # If file doesn't end in newline the last module is skipped from filter
-    echo >> ${modules_list_filter}
-
-    # grep the modules.order for any KOs in the modules list
-    cp ${dest_dir}/modules.order ${old_modules_list}
-    ! grep -w -f ${modules_list_filter} ${old_modules_list} > ${dest_dir}/modules.order
-    rm -f ${modules_list_filter} ${old_modules_list}
-  fi
+  # create_modules_order_lists() will overwrite modules.order if MODULES_LIST is
+  # set.
+  create_modules_order_lists "${modules_list_file:-""}" "${modules_recovery_list_file:-""}" \
+	                     "${modules_charger_list_file:-""}" ${dest_dir}/modules.order
 
   if [ -n "${modules_blocklist_file}" ]; then
     # Need to make sure we can find modules_blocklist_file from the staging dir
@@ -163,21 +258,46 @@ function create_modules_staging() {
     # Trim modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
-      find * -type f -name "*.ko" | (grep -v -w -f modules.order -f $used_blocklist_modules - || true) | xargs -r rm
+      local grep_flags="-v -w -f modules.order -f ${used_blocklist_modules} "
+      if [[ -f modules.order.recovery ]]; then
+        grep_flags+="-f modules.order.recovery "
+      fi
+      if [[ -f modules.order.charger ]]; then
+        grep_flags+="-f modules.order.charger "
+      fi
+      find * -type f -name "*.ko" | (grep ${grep_flags} - || true) | xargs -r rm
     )
     rm $used_blocklist_modules
   fi
 
   # Re-run depmod to detect any dependencies between in-kernel and external
-  # modules. Then, create modules.order based on all the modules compiled.
-  run_depmod ${dest_stage} "${depmod_flags}" "${version}"
-  cp ${dest_dir}/modules.order ${dest_dir}/modules.load
+  # modules, as well as recovery and charger modules. Then, create the
+  # modules.order files based on all the modules compiled.
+  declare -A module_load_lists_arr
+  module_load_lists_arr["modules.order"]="modules.load"
+  module_load_lists_arr["modules.order.recovery"]="modules.load.recovery"
+  module_load_lists_arr["modules.order.charger"]="modules.load.charger"
+
+  for mod_order_file in ${!module_load_lists_arr[@]}; do
+    local mod_order_filepath=${dest_dir}/${mod_order_file}
+    local mod_load_filepath=${dest_dir}/${module_load_lists_arr[${mod_order_file}]}
+
+    if [[ -f ${mod_order_filepath} ]]; then
+      if [[ "${mod_order_file}" == "modules.order" ]]; then
+        run_depmod ${dest_stage} "${depmod_flags}" "${version}"
+      else
+        run_depmod ${dest_stage} "${depmod_flags}" "${version}" "${mod_order_filepath}"
+      fi
+      cp ${mod_order_filepath} ${mod_load_filepath}
+    fi
+  done
 }
 
 function build_system_dlkm() {
   rm -rf ${SYSTEM_DLKM_STAGING_DIR}
   create_modules_staging "${SYSTEM_DLKM_MODULES_LIST:-${MODULES_LIST}}" "${MODULES_STAGING_DIR}" \
-    ${SYSTEM_DLKM_STAGING_DIR} "${SYSTEM_DLKM_MODULES_BLOCKLIST:-${MODULES_BLOCKLIST}}" "-e"
+    ${SYSTEM_DLKM_STAGING_DIR} "${SYSTEM_DLKM_MODULES_BLOCKLIST:-${MODULES_BLOCKLIST}}" \
+    "${MODULES_RECOVERY_LIST:-""}" "${MODULES_CHARGER_LIST:-""}" "-e"
 
   local system_dlkm_root_dir=$(echo ${SYSTEM_DLKM_STAGING_DIR}/lib/modules/*)
   cp ${system_dlkm_root_dir}/modules.load ${DIST_DIR}/system_dlkm.modules.load

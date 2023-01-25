@@ -117,3 +117,61 @@ def initramfs_modules_options_test(
         timeout = "short",
         **kwargs
     )
+
+def initramfs_modules_lists_test(
+        name,
+        kernel_images,
+        expected_modules_list = None,
+        expected_modules_recovery_list = None,
+        expected_modules_charger_list = None,
+        **kwargs):
+    """Tests that the initramfs has modules.load* files with the given content.
+
+    Args:
+        name: name of the test
+        kernel_images: name of the `kernel_images` target. It must build initramfs.
+        expected_modules_list: file with the expected content for `modules.load`
+        expected_modules_recovery_list: file with the expected content for `modules.load.recovery`
+        expected_modules_charger_list: file with the expected content for `modules.load.charger`
+        **kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+    """
+    test_binary = Label("//build/kernel/kleaf/artifact_tests:initramfs_modules_lists_test")
+    args = []
+
+    if expected_modules_list:
+        args += [
+            "--expected_modules_list",
+            "$(rootpath {})".format(expected_modules_list),
+        ]
+
+    if expected_modules_recovery_list:
+        args += [
+            "--expected_modules_recovery_list",
+            "$(rootpath {})".format(expected_modules_recovery_list),
+        ]
+
+    if expected_modules_charger_list:
+        args += [
+            "--expected_modules_charger_list",
+            "$(rootpath {})".format(expected_modules_charger_list),
+        ]
+
+    args.append("$(rootpaths {})".format(kernel_images))
+
+    hermetic_exec_test(
+        name = name,
+        data = [
+            expected_modules_list,
+            expected_modules_recovery_list,
+            expected_modules_charger_list,
+            kernel_images,
+            test_binary,
+        ],
+        script = run_py_binary_cmd(test_binary),
+        args = args,
+        timeout = "short",
+        **kwargs
+    )
