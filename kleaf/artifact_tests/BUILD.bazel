@@ -79,3 +79,14 @@ py_binary(
         "@io_abseil_py//absl/testing:absltest",
     ],
 )
+
+py_binary(
+    name = "initramfs_modules_lists_test",
+    srcs = ["initramfs_modules_lists_test.py"],
+    python_version = "PY3",
+    # All packages that uses kernel_module must be able to see this.
+    visibility = ["//visibility:public"],
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
