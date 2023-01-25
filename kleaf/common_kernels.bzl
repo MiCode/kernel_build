@@ -101,6 +101,7 @@ _KERNEL_BUILD_VALID_KEYS = [
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
 _KERNEL_ABI_VALID_KEYS = [
     "abi_definition",
+    "abi_definition_stg",
     "kmi_enforced",
 ]
 
@@ -131,6 +132,8 @@ def _default_target_configs():
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
     aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
     aarch64_abi_definition = aarch64_abi_definition[0] if aarch64_abi_definition else None
+    aarch64_abi_definition_stg = native.glob(["android/abi_gki_aarch64.stg"])
+    aarch64_abi_definition_stg = aarch64_abi_definition_stg[0] if aarch64_abi_definition_stg else None
 
     # Common configs for aarch64 and aarch64_debug
     aarch64_common = {
@@ -139,6 +142,7 @@ def _default_target_configs():
         "kmi_symbol_list": aarch64_kmi_symbol_list,
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
         "abi_definition": aarch64_abi_definition,
+        "abi_definition_stg": aarch64_abi_definition_stg,
         "kmi_enforced": bool(aarch64_abi_definition),
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
