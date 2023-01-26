@@ -46,7 +46,10 @@ def _abi_dump_impl(ctx):
             full_stg_from_xml_file,
             stg_from_xml_file,
         ])),
-        OutputGroupInfo(abi_out_file = depset([abi_out_file])),
+        OutputGroupInfo(
+            abi_out_file = depset([abi_out_file]),
+            stg_abi_out_file = depset([full_abi_out_file_stg]),
+        ),
     ]
 
 def _abi_dump_epilog_cmd(path, append_version):
