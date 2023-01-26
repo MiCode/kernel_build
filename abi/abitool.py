@@ -225,6 +225,10 @@ def _shorten_abidiff(diff_report, short_report):
 STGDIFF_ERROR      = (1<<0)
 STGDIFF_ABI_CHANGE = (1<<1)
 STGDIFF_FORMATS    = ["plain", "flat", "small", "short", "viz"]
+STGDIFF_COMPARE_OPTIONS = [
+    "ignore_symbol_type_presence_changes",
+    "ignore_type_declaration_status_changes",
+]
 
 
 def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
@@ -248,7 +252,7 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
 
         command = [
             "stgdiff",
-            "--compare-options", "all",
+            "--compare-options", ",".join(STGDIFF_COMPARE_OPTIONS),
             "--abi", dumps[0], dumps[1]
         ]
         for f in STGDIFF_FORMATS:
