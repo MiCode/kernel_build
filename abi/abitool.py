@@ -250,11 +250,9 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
                     ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
                 dumps[ix] = cooked
 
-        command = [
-            "stgdiff",
-            "--compare-options", ",".join(STGDIFF_COMPARE_OPTIONS),
-            "--abi", dumps[0], dumps[1]
-        ]
+        command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+        for c in STGDIFF_COMPARE_OPTIONS:
+            command.extend(["--compare-option", c])
         for f in STGDIFF_FORMATS:
             command.extend(["--format", f, "--output", f"{basename}.{f}"])
 
