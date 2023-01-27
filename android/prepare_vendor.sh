@@ -75,6 +75,7 @@
 #                        $ANDROID_BUILD_TOP/out/$BRANCH and $KP_ROOT_DIR/out/$BRANCH
 #   DIST_DIR           - Kernel Platform dist folder for the KERNEL_TARGET and KERNEL_VARIANT
 #   RECOMPILE_KERNEL   - Recompile the kernel platform
+#   EXTRA_KBUILD_ARGS  - Arguments to pass to kernel build (build_with_bazel.py)
 #
 # To compile out-of-tree kernel objects and set up the prebuilt UAPI headers,
 # these environment variables must be set.
@@ -200,8 +201,9 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
   echo
   echo "  Recompiling kernel"
 
+  # shellcheck disable=SC2086
   "${ROOT_DIR}/build_with_bazel.py" \
-    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" \
+    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $EXTRA_KBUILD_ARGS \
     --out_dir "${ANDROID_KP_OUT_DIR}" && ret="$?" || ret="$?"
 
   # Modify the output directory's permissions so cleanup can occur later
