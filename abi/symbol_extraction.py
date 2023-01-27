@@ -14,6 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Common APIs related to symbol extractions.
+
+extract_exported_symbols(): Extracts the ksymtab exported symbols from an ELF
+binary.
+extract_undefined_symbols(): Extracts the undefined symbols from an ELF file at
+binary_path.
+is_signature_present(): Checks whether a kernel module file has a PKCS#7
+signature appended.
+read_symbol_list(): Reads a previously created libabigail symbols symbol list
+into a list of symbols.
+"""
 
 import subprocess
 
@@ -39,4 +50,22 @@ def extract_undefined_symbols(binary_path):
   for line in out.splitlines():
     symbols.append(line.strip().split()[1])
 
+  return symbols
+
+
+def is_signature_present(module):
+  """Checks whether module has a signature appended (GKI) or not (vendor)"""
+  out = subprocess.check_output(["modinfo", "-F", "sig_id", module],
+                                stderr=subprocess.STDOUT).decode("ascii")
+  return out == "PKCS#7\n"
+
+
+def read_symbol_list(symbol_list):
+  """Reads a previously created libabigail symbol symbol list."""
+  symbols = []
+  with open(symbol_list) as symbol_list_file:
+    for line in [l.strip() for l in symbol_list_file]:
+      if not line or line.startswith("#") or line.startswith("["):
+        continue
+      symbols.append(line)
   return symbols

@@ -133,24 +133,13 @@ def add_dependent_symbols(module_symbols, exported):
     module_symbols[module].extend(syms)
 
 
-def read_symbol_list(symbol_list):
-  """Reads a previously created libabigail symbol symbol list."""
-  symbols = []
-  with open(symbol_list) as wl:
-    for line in [l.strip() for l in wl]:
-      if not line or line.startswith("#") or line.startswith("["):
-        continue
-      symbols.append(line)
-  return symbols
-
-
 def create_symbol_list(symbol_list, undefined_symbols, exported,
                        emit_module_symbol_lists, module_grouping,
                        additions_only):
   """Creates a symbol symbol list for libabigail."""
   precious_symbols = set()
   if additions_only:
-    precious_symbols.update(read_symbol_list(symbol_list))
+    precious_symbols.update(symbol_extraction.read_symbol_list(symbol_list))
 
   symbol_counter = collections.Counter(
       itertools.chain.from_iterable(undefined_symbols.values()))
@@ -209,11 +198,6 @@ def create_symbol_list(symbol_list, undefined_symbols, exported,
       wl.write("\n  ".join(symbol_sort(precious_symbols)))
       wl.write("\n")
 
-def is_signature_present(module):
-  """Checks whether module has a signature appended (GKI) or not (vendor)"""
-  out = subprocess.check_output(["modinfo", "-F", "sig_id", module],
-                                stderr=subprocess.STDOUT).decode("ascii")
-  return out == "PKCS#7\n"
 
 def main():
   """Extracts the required symbols for a directory full of kernel modules."""
@@ -298,8 +282,9 @@ def main():
 
   # Partition vendor (unsigned) and GKI modules (signed) in two lists
   t1, t2 = itertools.tee(modules)
-  gki_modules = list(filter(is_signature_present, t1))
-  local_modules = list(itertools.filterfalse(is_signature_present, t2))
+  gki_modules = list(filter(symbol_extraction.is_signature_present, t1))
+  local_modules = list(
+      itertools.filterfalse(symbol_extraction.is_signature_present, t2))
 
   if vmlinux is None or not os.path.isfile(vmlinux):
     print("Could not find a suitable vmlinux file.")
