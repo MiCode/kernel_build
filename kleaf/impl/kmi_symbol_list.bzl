@@ -23,7 +23,6 @@ def _kmi_symbol_list_impl(ctx):
 
     inputs = [] + ctx.files.srcs
     inputs += ctx.attr.env[KernelEnvInfo].dependencies
-    inputs += ctx.files._kernel_abi_scripts
 
     outputs = []
     out_file = ctx.actions.declare_file("{}/abi_symbollist".format(ctx.attr.name))
@@ -36,7 +35,7 @@ def _kmi_symbol_list_impl(ctx):
             --report-file={report_file_base} --in-dir="${{ROOT_DIR}}" \
             {srcs}
     """.format(
-        process_symbols = ctx.file._process_symbols.path,
+        process_symbols = ctx.executable._process_symbols.path,
         out_dir = out_file.dirname,
         out_file_base = out_file.basename,
         report_file_base = report_file.basename,
@@ -48,6 +47,7 @@ def _kmi_symbol_list_impl(ctx):
         mnemonic = "KmiSymbolList",
         inputs = inputs,
         outputs = outputs,
+        tools = [ctx.executable._process_symbols],
         progress_message = "Creating abi_symbollist and report {}".format(ctx.label),
         command = command,
     )
@@ -70,8 +70,11 @@ kmi_symbol_list = rule(
             doc = "`KMI_SYMBOL_LIST` + `ADDTIONAL_KMI_SYMBOL_LISTS`",
             allow_files = True,
         ),
-        "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
-        "_process_symbols": attr.label(default = "//build/kernel:abi/process_symbols", allow_single_file = True),
+        "_process_symbols": attr.label(
+            default = "//build/kernel:abi_process_symbols",
+            cfg = "exec",
+            executable = True,
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )

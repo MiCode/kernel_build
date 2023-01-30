@@ -84,13 +84,17 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "kernel-abi-scripts",
-    srcs = [
-        "abi/process_symbols",
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_process_symbols",
+    srcs = ["abi/process_symbols.py"],
+    data = [
         "abi/symbols.allow",
         "abi/symbols.deny",
     ],
+    main = "abi/process_symbols.py",
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
