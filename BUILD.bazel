@@ -51,12 +51,20 @@ hermetic_tools(
     ],
 )
 
-filegroup(
-    name = "kernel-build-scripts",
-    srcs = [
-        "_setup_env.sh",
-        "build_utils.sh",
-    ],
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "_setup_env",
+    srcs = ["_setup_env.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "build_utils",
+    srcs = ["build_utils.sh"],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
