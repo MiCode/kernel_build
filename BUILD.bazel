@@ -55,7 +55,6 @@ filegroup(
     name = "kernel-build-scripts",
     srcs = [
         "_setup_env.sh",
-        "build.sh",
         "build_utils.sh",
     ],
 )
