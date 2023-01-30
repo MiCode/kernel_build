@@ -1450,7 +1450,11 @@ _kernel_build = rule(
         ),
         "collect_unstripped_modules": attr.bool(),
         "enable_interceptor": attr.bool(),
-        "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
+        "_compare_to_symbol_list": attr.label(
+            default = "//build/kernel:abi_compare_to_symbol_list",
+            executable = True,
+            cfg = "exec",
+        ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
@@ -1597,9 +1601,9 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         ctx.file.raw_kmi_symbol_list,
         all_module_names_file,
     ]
-    inputs += ctx.files._compare_to_symbol_list
     transitive_inputs = [ctx.attr.config[KernelEnvAndOutputsInfo].inputs]
-    tools = ctx.attr.config[KernelEnvAndOutputsInfo].tools
+    tools = [ctx.executable._compare_to_symbol_list]
+    transitive_tools = [ctx.attr.config[KernelEnvAndOutputsInfo].tools]
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
 
@@ -1613,7 +1617,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     """.format(
         vmlinux_base = vmlinux.basename,  # A fancy way of saying "vmlinux"
         all_module_names_file = all_module_names_file.path,
-        compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
+        compare_to_symbol_list = ctx.executable._compare_to_symbol_list.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
         out = out.path,
@@ -1622,7 +1626,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     ctx.actions.run_shell(
         mnemonic = "KernelBuildKmiSymbolListStrictMode",
         inputs = depset(inputs, transitive = transitive_inputs),
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         outputs = [out],
         command = command,
         progress_message = "Checking for kmi_symbol_list_strict_mode {}".format(_progress_message_suffix(ctx)),

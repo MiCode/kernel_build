@@ -67,10 +67,17 @@ sh_library(
     visibility = ["//visibility:public"],
 )
 
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_binary(
+    name = "abi_compare_to_symbol_list",
+    srcs = ["abi/compare_to_symbol_list"],
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "kernel-abi-scripts",
     srcs = [
-        "abi/compare_to_symbol_list",
         "abi/flatten_symbol_list",
         "abi/process_symbols",
         "abi/symbols.allow",
