@@ -424,6 +424,7 @@ def kernel_build(
         config = config_target_name,
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
         **internal_kwargs
     )
 

@@ -74,6 +74,7 @@ bzl_library(
         "kmi_symbol_list.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
+        "modules_prepare_transition.bzl",
         "out_headers_allowlist_archive.bzl",
         "raw_kmi_symbol_list.bzl",
         "scripts_config_arg_builder.bzl",
