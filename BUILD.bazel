@@ -75,10 +75,18 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_flatten_symbol_list",
+    srcs = ["abi/flatten_symbol_list.py"],
+    main = "abi/flatten_symbol_list.py",
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "kernel-abi-scripts",
     srcs = [
-        "abi/flatten_symbol_list",
         "abi/process_symbols",
         "abi/symbols.allow",
         "abi/symbols.deny",
