@@ -71,7 +71,10 @@ def _modules_prepare_impl(ctx):
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = outputs,
         tools = depset(tools, transitive = transitive_tools),
-        progress_message = "Preparing for module build %s" % ctx.label,
+        progress_message = "Preparing for module build {}{}".format(
+            ctx.attr.config[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
         command = command,
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
