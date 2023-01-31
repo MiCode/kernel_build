@@ -820,7 +820,7 @@ def _get_check_remaining_modules_step(
            fi
     """.format(
         message_type = message_type,
-        check_declared_output_list = ctx.file._check_declared_output_list.path,
+        check_declared_output_list = ctx.executable._check_declared_output_list.path,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
@@ -830,7 +830,7 @@ def _get_check_remaining_modules_step(
     inputs = [all_module_names_file]
     if base_kernel_all_module_names_file:
         inputs.append(base_kernel_all_module_names_file)
-    tools = [ctx.file._check_declared_output_list]
+    tools = [ctx.executable._check_declared_output_list]
 
     return struct(
         cmd = cmd,
@@ -1432,8 +1432,9 @@ _kernel_build = rule(
         "module_implicit_outs": attr.string_list(doc = "Like `module_outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_check_declared_output_list": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
+            default = Label("//build/kernel/kleaf:check_declared_output_list"),
+            cfg = "exec",
+            executable = True,
         ),
         "_search_and_cp_output": attr.label(
             allow_single_file = True,
