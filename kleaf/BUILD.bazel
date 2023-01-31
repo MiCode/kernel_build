@@ -165,9 +165,16 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+# Tools visible to all packages that uses kernel_modules_install.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "check_duplicated_files_in_archives",
+    srcs = ["check_duplicated_files_in_archives.py"],
+    visibility = ["//visibility:public"],
+)
+
 exports_files([
     "search_and_cp_output.py",
-    "check_duplicated_files_in_archives.py",
 ])
 
 bzl_library(
