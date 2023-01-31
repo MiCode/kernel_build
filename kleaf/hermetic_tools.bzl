@@ -139,7 +139,8 @@ def hermetic_tools(
         srcs,
         host_tools = None,
         deps = None,
-        tar_args = None):
+        tar_args = None,
+        **kwargs):
     """Provide tools for a hermetic build.
 
     Args:
@@ -152,6 +153,10 @@ def hermetic_tools(
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
         tar_args: List of fixed arguments provided to `tar` commands.
+        **kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common
     """
 
     if host_tools:
@@ -168,4 +173,5 @@ def hermetic_tools(
         host_tools = host_tools,
         deps = deps,
         tar_args = tar_args,
+        **kwargs
     )
