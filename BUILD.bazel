@@ -123,6 +123,22 @@ py_binary(
     deps = [":abitool"],
 )
 
+py_library(
+    name = "symbol_extraction",
+    srcs = ["abi/symbol_extraction.py"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "extract_symbols",
+    srcs = ["abi/extract_symbols.py"],
+    main = "abi/extract_symbols.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
 _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
 
 _GKI_CERTIFICATION_BINARIES = [
@@ -153,6 +169,5 @@ genrule(
 )
 
 exports_files([
-    "abi/extract_symbols",
     "abi/filter_abi",
 ])
