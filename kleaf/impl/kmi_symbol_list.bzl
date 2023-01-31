@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Processes KMI symbols."""
+
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
 def _kmi_symbol_list_impl(ctx):
     if not ctx.files.srcs:
-        return
+        return []
 
     inputs = [] + ctx.files.srcs
     inputs += ctx.attr.env[KernelEnvInfo].dependencies

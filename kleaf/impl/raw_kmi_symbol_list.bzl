@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Flattens KMI symbol list."""
+
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
 def _raw_kmi_symbol_list_impl(ctx):
     if not ctx.file.src:
-        return
+        return []
 
     inputs = [ctx.file.src]
     inputs += ctx.files._kernel_abi_scripts
@@ -44,7 +46,7 @@ def _raw_kmi_symbol_list_impl(ctx):
         command = command,
     )
 
-    return DefaultInfo(files = depset([out_file]))
+    return [DefaultInfo(files = depset([out_file]))]
 
 raw_kmi_symbol_list = rule(
     implementation = _raw_kmi_symbol_list_impl,
