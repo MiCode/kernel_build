@@ -18,6 +18,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
+    "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
@@ -117,6 +118,7 @@ def _kernel_filegroup_impl(ctx):
     in_tree_modules_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
 
     images_info = KernelImagesInfo(base_kernel = None)
+    gcov_info = GcovInfo(gcno_mapping = None)
 
     common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
@@ -138,6 +140,7 @@ def _kernel_filegroup_impl(ctx):
         in_tree_modules_info,
         images_info,
         kernel_env_attr_info,
+        gcov_info,
     ]
 
 def _kernel_filegroup_additional_attrs():

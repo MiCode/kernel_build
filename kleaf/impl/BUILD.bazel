@@ -161,3 +161,9 @@ py_binary(
     srcs = ["kernel_kythe_reconstruct_out_dir.py"],
     visibility = ["//visibility:public"],
 )
+
+py_binary(
+    name = "print_gcno_mapping",
+    srcs = ["print_gcno_mapping.py"],
+    visibility = ["//visibility:public"],
+)
