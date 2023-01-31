@@ -149,8 +149,15 @@ print_flags(
     ] + [":config_" + value for value in _config_values],
 )
 
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_binary(
+    name = "preserve_env",
+    srcs = ["preserve_env.sh"],
+    visibility = ["//visibility:public"],
+)
+
 exports_files([
-    "preserve_env.sh",
     "search_and_cp_output.py",
     "check_declared_output_list.py",
     "check_duplicated_files_in_archives.py",

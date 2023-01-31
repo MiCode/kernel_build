@@ -65,18 +65,18 @@ def _kernel_env_impl(ctx):
         dtstree_srcs = ctx.attr.dtstree[DtstreeInfo].srcs
 
     setup_env = ctx.file.setup_env
-    preserve_env = ctx.file.preserve_env
+    preserve_env = ctx.executable.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
     inputs = [
         build_config,
-        preserve_env,
     ]
     inputs += srcs
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     tools = [
         setup_env,
         ctx.file._build_utils_sh,
+        preserve_env,
     ]
 
     command = ""
@@ -326,9 +326,10 @@ kernel_env = rule(
             cfg = "exec",
         ),
         "preserve_env": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:preserve_env.sh"),
+            default = Label("//build/kernel/kleaf:preserve_env"),
             doc = "label referring to the script capturing the environment",
+            cfg = "exec",
+            executable = True,
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
