@@ -113,12 +113,14 @@ py_binary(
     deps = [":abitool"],
 )
 
-filegroup(
-    name = "diff-abi-scripts",
-    srcs = [
-        "abi/abitool.py",
-        "abi/diff_abi",
-    ],
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "diff_abi",
+    srcs = ["abi/diff_abi.py"],
+    main = "abi/diff_abi.py",
+    visibility = ["//visibility:public"],
+    deps = [":abitool"],
 )
 
 _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
