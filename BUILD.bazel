@@ -139,6 +139,15 @@ py_binary(
     deps = [":symbol_extraction"],
 )
 
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "filter_abi",
+    srcs = ["abi/filter_abi.py"],
+    main = "abi/filter_abi.py",
+    visibility = ["//visibility:public"],
+)
+
 _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
 
 _GKI_CERTIFICATION_BINARIES = [
@@ -167,7 +176,3 @@ genrule(
         ":hermetic-tools/readlink",
     ],
 )
-
-exports_files([
-    "abi/filter_abi",
-])
