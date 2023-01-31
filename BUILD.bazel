@@ -128,6 +128,16 @@ py_library(
     visibility = ["//visibility:private"],
 )
 
+# Tools visible to all packages that uses kernel_abi
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "check_buildtime_symbol_protection",
+    srcs = ["abi/check_buildtime_symbol_protection.py"],
+    main = "abi/check_buildtime_symbol_protection.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
 # Tools visible to all packages that uses kernel_abi.
 # Implementation detail of kernel_abi; do not use directly.
 py_binary(
