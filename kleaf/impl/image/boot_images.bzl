@@ -44,7 +44,6 @@ def _boot_images_impl(ctx):
 
     inputs = [
         ctx.file.mkbootimg,
-        ctx.file._search_and_cp_output,
     ]
     if ctx.attr.initramfs:
         inputs += [
@@ -59,7 +58,8 @@ def _boot_images_impl(ctx):
         ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs,
     ]
 
-    tools = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools
+    tools = [ctx.executable._search_and_cp_output]
+    transitive_tools = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools]
 
     command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
         data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
@@ -170,7 +170,7 @@ def _boot_images_impl(ctx):
                rm -rf {modules_staging_dir}
     """.format(
         mkbootimg_staging_dir = mkbootimg_staging_dir,
-        search_and_cp_output = ctx.file._search_and_cp_output.path,
+        search_and_cp_output = ctx.executable._search_and_cp_output.path,
         outdir = outdir.path,
         outs = " ".join(outs),
         modules_staging_dir = modules_staging_dir,
@@ -184,7 +184,7 @@ def _boot_images_impl(ctx):
         mnemonic = "BootImages",
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = ctx.outputs.outs + [outdir],
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Building boot images {}".format(ctx.label),
         command = command,
     )
@@ -249,8 +249,9 @@ Execute `build_boot_images` in `build_utils.sh`.""",
             default = "//build/kernel/kleaf:debug_print_scripts",
         ),
         "_search_and_cp_output": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
         ),
     },
 )

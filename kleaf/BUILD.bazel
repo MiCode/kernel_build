@@ -173,9 +173,13 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
-exports_files([
-    "search_and_cp_output.py",
-])
+# Tools visible to all packages that uses various Kleaf build rules.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "search_and_cp_output",
+    srcs = ["search_and_cp_output.py"],
+    visibility = ["//visibility:public"],
+)
 
 bzl_library(
     name = "directory_with_structure_def",

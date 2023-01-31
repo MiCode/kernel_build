@@ -51,10 +51,9 @@ def _kernel_modules_install_impl(ctx):
     modules_staging_dws_list = modules_staging_dws_depset.to_list()
 
     inputs = []
-    inputs += [
-        ctx.file._search_and_cp_output,
+    inputs.append(
         kernel_build[KernelBuildExtModuleInfo].modules_staging_archive,
-    ]
+    )
 
     for input_modules_staging_dws in modules_staging_dws_list:
         inputs += dws.files(input_modules_staging_dws)
@@ -74,6 +73,7 @@ def _kernel_modules_install_impl(ctx):
 
     tools = [
         ctx.executable._check_duplicated_files_in_archives,
+        ctx.executable._search_and_cp_output,
     ]
     transitive_tools = [kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.tools]
 
@@ -149,7 +149,7 @@ def _kernel_modules_install_impl(ctx):
             modules_staging_dir = modules_staging_dws.directory.path,
             outdir = external_module_dir,
             filenames = " ".join([declared_file.basename for declared_file in external_modules]),
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
         )
 
     command += dws.record(modules_staging_dws)
@@ -234,8 +234,9 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             executable = True,
         ),
         "_search_and_cp_output": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
             doc = "Label referring to the script to process outputs",
         ),
     },

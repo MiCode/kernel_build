@@ -269,7 +269,6 @@ def _kernel_module_impl(ctx):
     inputs = []
     inputs += ctx.files.makefile
     inputs += ctx.files.internal_ddk_makefiles_dir
-    inputs.append(ctx.file._search_and_cp_output)
     for kernel_module_dep in kernel_module_deps:
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
@@ -284,6 +283,7 @@ def _kernel_module_impl(ctx):
 
     tools = [
         ctx.executable._check_declared_output_list,
+        ctx.executable._search_and_cp_output,
     ]
     transitive_tools = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.tools]
 
@@ -364,7 +364,7 @@ def _kernel_module_impl(ctx):
             mkdir -p {unstripped_dir}
             {search_and_cp_output} --srcdir ${{OUT_DIR}}/${{ext_mod_rel}} --dstdir {unstripped_dir} {outs}
         """.format(
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
             unstripped_dir = unstripped_dir.path,
             # Use basenames to flatten the unstripped directory, even though outs may contain items with slash.
             outs = " ".join(original_outs_base),
@@ -508,7 +508,7 @@ def _kernel_module_impl(ctx):
              # Copy files into place
                {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
         """.format(
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dws.directory.path,
             ext_mod = ext_mod,
             outdir = outdir,
@@ -520,7 +520,9 @@ def _kernel_module_impl(ctx):
             inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
                 # We don't need structure_file here because we only care about files in the directory.
                 modules_staging_dws.directory,
-                ctx.file._search_and_cp_output,
+            ],
+            tools = [
+                ctx.executable._search_and_cp_output,
             ],
             outputs = cp_cmd_outputs,
             command = command,
@@ -622,8 +624,9 @@ _kernel_module = rule(
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_search_and_cp_output": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
             doc = "Label referring to the script to process outputs",
         ),
         "_check_declared_output_list": attr.label(

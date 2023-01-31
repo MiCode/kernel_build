@@ -723,11 +723,11 @@ def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, rul
     tools = []
     grab_intree_modules_cmd = ""
     if has_any_modules:
-        tools.append(ctx.file._search_and_cp_output)
+        tools.append(ctx.executable._search_and_cp_output)
         grab_intree_modules_cmd = """
             {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/kernel --dstdir {ruledir} $(cat {all_module_names_file})
         """.format(
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
             ruledir = ruledir.path,
             all_module_names_file = all_module_names_file.path,
@@ -763,13 +763,13 @@ def _get_grab_unstripped_modules_step(ctx, has_any_modules, all_module_basenames
         outputs.append(unstripped_dir)
 
         if has_any_modules:
-            tools.append(ctx.file._search_and_cp_output)
+            tools.append(ctx.executable._search_and_cp_output)
             inputs.append(all_module_basenames_file)
             grab_unstripped_intree_modules_cmd = """
                 mkdir -p {unstripped_dir}
                 {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_basenames_file})
             """.format(
-                search_and_cp_output = ctx.file._search_and_cp_output.path,
+                search_and_cp_output = ctx.executable._search_and_cp_output.path,
                 unstripped_dir = unstripped_dir.path,
                 all_module_basenames_file = all_module_basenames_file.path,
             )
@@ -1086,7 +1086,7 @@ def _build_main_action(
          """.format(
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
-        search_and_cp_output = ctx.file._search_and_cp_output.path,
+        search_and_cp_output = ctx.executable._search_and_cp_output.path,
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
@@ -1122,7 +1122,7 @@ def _build_main_action(
 
     # All tools that |command| needs
     tools = [
-        ctx.file._search_and_cp_output,
+        ctx.executable._search_and_cp_output,
     ]
     transitive_tools = [
         ctx.attr.config[KernelEnvAndOutputsInfo].tools,
@@ -1437,8 +1437,9 @@ _kernel_build = rule(
             executable = True,
         ),
         "_search_and_cp_output": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
             doc = "label referring to the script to process outputs",
         ),
         "deps": attr.label_list(
