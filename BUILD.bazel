@@ -97,12 +97,20 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "dump-abi-scripts",
-    srcs = [
-        "abi/abitool.py",
-        "abi/dump_abi",
-    ],
+py_library(
+    name = "abitool",
+    srcs = ["abi/abitool.py"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "dump_abi",
+    srcs = ["abi/dump_abi.py"],
+    main = "abi/dump_abi.py",
+    visibility = ["//visibility:public"],
+    deps = [":abitool"],
 )
 
 filegroup(
