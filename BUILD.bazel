@@ -15,8 +15,6 @@
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 
-package(default_visibility = ["//visibility:public"])
-
 hermetic_tools(
     name = "hermetic-tools",
     srcs = glob(
@@ -41,6 +39,7 @@ hermetic_tools(
         "--group=0",
         "--numeric-owner",
     ],
+    visibility = ["//visibility:public"],
     deps = glob(
         ["build-tools/sysroot/**"],
         allow_empty = False,
@@ -175,4 +174,5 @@ genrule(
         ":hermetic-tools/dirname",
         ":hermetic-tools/readlink",
     ],
+    visibility = ["//visibility:public"],
 )
