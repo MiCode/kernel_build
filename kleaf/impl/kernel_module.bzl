@@ -485,7 +485,10 @@ def _kernel_module_impl(ctx):
         tools = depset(tools, transitive = transitive_tools),
         outputs = command_outputs,
         command = command,
-        progress_message = "Building external kernel module {}".format(ctx.label),
+        progress_message = "Building external kernel module {}{}".format(
+            ctx.attr.kernel_build[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
         execution_requirements = execution_requirements,
     )
 

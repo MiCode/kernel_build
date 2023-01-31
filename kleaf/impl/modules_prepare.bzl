@@ -14,6 +14,8 @@
 
 """Runs `make modules_prepare` to prepare `$OUT_DIR` for modules."""
 
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAndOutputsInfo",
@@ -21,6 +23,7 @@ load(
 )
 load(":cache_dir.bzl", "cache_dir")
 load(":debug.bzl", "debug")
+load(":modules_prepare_transition.bzl", "modules_prepare_transition")
 load(":utils.bzl", "kernel_utils")
 
 def _modules_prepare_impl(ctx):
@@ -68,7 +71,10 @@ def _modules_prepare_impl(ctx):
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = outputs,
         tools = depset(tools, transitive = transitive_tools),
-        progress_message = "Preparing for module build %s" % ctx.label,
+        progress_message = "Preparing for module build {}{}".format(
+            ctx.attr.config[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
         command = command,
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
@@ -105,6 +111,11 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
     script += restore_outputs_cmd
     return script
 
+def _modules_prepare_additional_attrs():
+    return dicts.add(
+        trim_nonlisted_kmi_utils.non_config_attrs(),
+    )
+
 modules_prepare = rule(
     doc = "Rule that runs `make modules_prepare` to prepare `$OUT_DIR` for modules.",
     implementation = _modules_prepare_impl,
@@ -122,5 +133,9 @@ modules_prepare = rule(
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
-    },
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    } | _modules_prepare_additional_attrs(),
+    cfg = modules_prepare_transition,
 )
