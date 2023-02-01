@@ -116,8 +116,7 @@ def _abi_dump_full(ctx):
     vmlinux = _find_vmlinux(ctx)
     unstripped_dirs = _unstripped_dirs(ctx)
 
-    inputs = [vmlinux, ctx.file._dump_abi]
-    inputs += ctx.files._dump_abi_scripts
+    inputs = [vmlinux]
     inputs += unstripped_dirs
 
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
@@ -133,7 +132,7 @@ def _abi_dump_full(ctx):
     """.format(
         abi_linux_tree = abi_linux_tree,
         unstripped_dirs = " ".join([unstripped_dir.path for unstripped_dir in unstripped_dirs]),
-        dump_abi = ctx.file._dump_abi.path,
+        dump_abi = ctx.executable._dump_abi.path,
         vmlinux = vmlinux.path,
         full_abi_out_file = full_abi_out_file.path,
         epilog = _abi_dump_epilog_cmd(full_abi_out_file.path, True),
@@ -142,6 +141,7 @@ def _abi_dump_full(ctx):
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [full_abi_out_file],
+        tools = [ctx.executable._dump_abi],
         command = command,
         mnemonic = "AbiDumpFull",
         progress_message = "Extracting ABI {}".format(ctx.label),
@@ -189,11 +189,10 @@ def _abi_dump_filtered(ctx, full_abi_out_file):
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup
     combined_abi_symbollist = ctx.attr.kernel_build[KernelBuildAbiInfo].combined_abi_symbollist
+    tools = []
     if combined_abi_symbollist:
-        inputs += [
-            ctx.file._filter_abi,
-            combined_abi_symbollist,
-        ]
+        inputs.append(combined_abi_symbollist)
+        tools.append(ctx.executable._filter_abi)
 
         command += """
             {filter_abi} --in-file {full_abi_out_file} --out-file {abi_out_file} --kmi-symbol-list {abi_symbollist}
@@ -201,7 +200,7 @@ def _abi_dump_filtered(ctx, full_abi_out_file):
         """.format(
             abi_out_file = abi_out_file.path,
             full_abi_out_file = full_abi_out_file.path,
-            filter_abi = ctx.file._filter_abi.path,
+            filter_abi = ctx.executable._filter_abi.path,
             abi_symbollist = combined_abi_symbollist.path,
             epilog = _abi_dump_epilog_cmd(abi_out_file.path, False),
         )
@@ -216,6 +215,7 @@ def _abi_dump_filtered(ctx, full_abi_out_file):
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [abi_out_file],
+        tools = tools,
         command = command,
         mnemonic = "AbiDumpFiltered",
         progress_message = "Filtering ABI dump {}".format(ctx.label),
@@ -266,9 +266,16 @@ abi_dump = rule(
     attrs = {
         "kernel_build": attr.label(providers = [KernelBuildAbiInfo, KernelUnstrippedModulesInfo]),
         "kernel_modules": attr.label_list(providers = [KernelUnstrippedModulesInfo]),
-        "_dump_abi_scripts": attr.label(default = "//build/kernel:dump-abi-scripts"),
-        "_dump_abi": attr.label(default = "//build/kernel:abi/dump_abi", allow_single_file = True),
-        "_filter_abi": attr.label(default = "//build/kernel:abi/filter_abi", allow_single_file = True),
+        "_dump_abi": attr.label(
+            default = "//build/kernel:dump_abi",
+            cfg = "exec",
+            executable = True,
+        ),
+        "_filter_abi": attr.label(
+            default = "//build/kernel:filter_abi",
+            cfg = "exec",
+            executable = True,
+        ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_allowlist_function_transition": attr.label(

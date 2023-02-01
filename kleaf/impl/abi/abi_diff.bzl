@@ -21,12 +21,10 @@ load(":debug.bzl", "debug")
 
 def _abi_diff_impl(ctx):
     inputs = [
-        ctx.file._diff_abi,
         ctx.file.baseline,
         ctx.file.new,
     ]
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    inputs += ctx.files._diff_abi_scripts
 
     output_dir = ctx.actions.declare_directory("{}/abi_diff".format(ctx.attr.name))
     error_msg_file = ctx.actions.declare_file("{}/error_msg_file".format(ctx.attr.name))
@@ -71,7 +69,7 @@ EOF
             echo "INFO: exit code is not checked. 'tools/bazel run {label}' to check the exit code." >&2
         fi
     """.format(
-        diff_abi = ctx.file._diff_abi.path,
+        diff_abi = ctx.executable._diff_abi.path,
         baseline = ctx.file.baseline.path,
         new = ctx.file.new.path,
         output_dir = output_dir.path,
@@ -85,6 +83,7 @@ EOF
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = command_outputs,
+        tools = [ctx.executable._diff_abi],
         command = command,
         mnemonic = "KernelDiffAbi",
         progress_message = "Comparing ABI {}".format(ctx.label),
@@ -128,8 +127,11 @@ abi_diff = rule(
         "new": attr.label(allow_single_file = True),
         "kmi_enforced": attr.bool(),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
-        "_diff_abi_scripts": attr.label(default = "//build/kernel:diff-abi-scripts"),
-        "_diff_abi": attr.label(default = "//build/kernel:abi/diff_abi", allow_single_file = True),
+        "_diff_abi": attr.label(
+            default = "//build/kernel:diff_abi",
+            cfg = "exec",
+            executable = True,
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
     executable = True,

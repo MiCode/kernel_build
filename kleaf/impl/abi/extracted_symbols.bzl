@@ -50,10 +50,10 @@ def _extracted_symbols_impl(ctx):
         for kernel_module in ctx.attr.kernel_modules
     ]).to_list()
 
-    inputs = [ctx.file._extract_symbols]
-    inputs += srcs
+    inputs = [] + srcs
     transitive_inputs = [ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].inputs]
-    tools = ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].tools
+    tools = [ctx.executable._extract_symbols]
+    transitive_tools = [ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].tools]
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
@@ -97,7 +97,7 @@ def _extracted_symbols_impl(ctx):
     """.format(
         srcs = " ".join([file.path for file in srcs]),
         intermediates_dir = intermediates_dir,
-        extract_symbols = ctx.file._extract_symbols.path,
+        extract_symbols = ctx.executable._extract_symbols.path,
         flags = " ".join(flags),
         cp_src_cmd = cp_src_cmd,
         base_modules_archive = base_modules_archive.path,
@@ -107,7 +107,7 @@ def _extracted_symbols_impl(ctx):
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out],
         command = command,
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Extracting symbols {}".format(ctx.label),
         mnemonic = "KernelExtractedSymbols",
     )
@@ -126,7 +126,11 @@ extracted_symbols = rule(
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
-        "_extract_symbols": attr.label(default = "//build/kernel:abi/extract_symbols", allow_single_file = True),
+        "_extract_symbols": attr.label(
+            default = "//build/kernel:extract_symbols",
+            cfg = "exec",
+            executable = True,
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
