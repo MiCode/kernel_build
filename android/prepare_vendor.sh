@@ -359,9 +359,11 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   rm -rf ${ANDROID_KERNEL_OUT}/host
   cp -r ${ANDROID_KP_OUT_DIR}/host ${ANDROID_KERNEL_OUT}/
 
-  rm -rf ${ANDROID_KERNEL_OUT}/debug
-  if [ -e ${ANDROID_KP_OUT_DIR}/debug ]; then
-    cp -r ${ANDROID_KP_OUT_DIR}/debug ${ANDROID_KERNEL_OUT}/
+  rm -rf "${ANDROID_KERNEL_OUT}/debug"
+  debug_tar="${ANDROID_KP_OUT_DIR}/dist/${KERNEL_TARGET}_${KERNEL_VARIANT}_debug.tar.gz"
+  if [ -f "$debug_tar" ]; then
+    mkdir -p "${ANDROID_KERNEL_OUT}/debug"
+    tar -C "${ANDROID_KERNEL_OUT}/debug" -xf "$debug_tar"
   fi
 
   if [ -z "${KERNEL_VARIANT}" ]; then
