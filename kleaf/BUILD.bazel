@@ -105,13 +105,15 @@ bool_flag(
 )
 
 # Debug flag to control make verbosity
-# E (default) = Error
+# E (default) = Error (-s)
 # I = Info
-# D = Debug
+# D = Debug (V=1)
+# V = Verbose (V=2)
 string_flag(
     name = "debug_make_verbosity",
     build_setting_default = "E",
     values = [
+        "V",
         "D",
         "E",
         "I",
