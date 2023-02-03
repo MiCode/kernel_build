@@ -66,7 +66,6 @@ class BazelWrapper(object):
         self.env = env.copy()
 
         self.bazel_path = f"{self.root_dir}/{_BAZEL_REL_PATH}"
-        self.absolute_out_dir = f"{self.root_dir}/out"
 
         command_idx = None
         for idx, arg in enumerate(bazel_args):
@@ -102,11 +101,15 @@ class BazelWrapper(object):
         """
 
         parser = argparse.ArgumentParser(add_help=False)
-        parser.add_argument("--output_user_root",
+        parser.add_argument("--output_root",
                             type=_require_absolute_path,
-                            default=_require_absolute_path(f"{self.absolute_out_dir}/bazel/output_user_root"))
+                            default=_require_absolute_path(f"{self.root_dir}/out"))
+        parser.add_argument("--output_user_root",
+                            type=_require_absolute_path)
         known_startup_options, user_startup_options = parser.parse_known_args(self.startup_options)
-        self.absolute_user_root = known_startup_options.output_user_root
+        self.absolute_out_dir = known_startup_options.output_root
+        self.absolute_user_root = known_startup_options.output_user_root or \
+                                  f"{self.absolute_out_dir}/bazel/output_user_root"
         self.transformed_startup_options = [
             f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
         ]
