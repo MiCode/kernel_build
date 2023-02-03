@@ -56,7 +56,7 @@ function determine_targets_internal() (
 
     # Determine the package that contains the build config by going up and
     # looking for BUILD / BUILD.bazel files.
-    rel_build_config=$(rel_path "$(readlink -e $BUILD_CONFIG)" $ROOT_DIR)
+    rel_build_config=$(realpath "$(readlink -e $BUILD_CONFIG)" --relative-to $ROOT_DIR)
     package_path=$(
         cur_path=$(dirname "$rel_build_config")
         while [[ $cur_path != "." ]] && [[ ! -f $cur_path/BUILD.bazel ]] && [[ ! -f $cur_path/BUILD ]]; do
@@ -133,10 +133,10 @@ if [[ -n "$LTO" ]]; then
     flags="$flags --lto=$LTO"
 fi
 
-# Attempt to determine the relative path from DIST_DIR to CWD. If unable to do so (because
-# rel_path requires DIST_DIR to exist), fallback to the value of DIST_DIR.
+# Attempt to determine the relative path from DIST_DIR to CWD. If unable to do so,
+# fallback to the value of DIST_DIR.
 my_dist_dir_code=0
-my_dist_dir=$(rel_path $DIST_DIR .) || my_dist_dir_code=$?
+my_dist_dir=$(realpath $DIST_DIR  --relative-to .) || my_dist_dir_code=$?
 if [[ $my_dist_dir_code != 0 ]]; then
     my_dist_dir=$DIST_DIR
 fi
