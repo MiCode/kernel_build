@@ -105,8 +105,12 @@ class BazelWrapper(object):
         parser.add_argument("--output_user_root",
                             type=_require_absolute_path,
                             default=_require_absolute_path(f"{self.absolute_out_dir}/bazel/output_user_root"))
-        known_startup_options, self.transformed_startup_options = parser.parse_known_args(self.startup_options)
+        known_startup_options, user_startup_options = parser.parse_known_args(self.startup_options)
         self.absolute_user_root = known_startup_options.output_user_root
+        self.transformed_startup_options = [
+            f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
+        ]
+        self.transformed_startup_options += user_startup_options
         self.transformed_startup_options.append(f"--output_user_root={self.absolute_user_root}")
 
     def _parse_command_args(self):
@@ -177,7 +181,6 @@ class BazelWrapper(object):
         bazel_jdk_path = f"{self.root_dir}/{_BAZEL_JDK_REL_PATH}"
         final_args = [self.bazel_path] + self.transformed_startup_options + [
             f"--server_javabase={bazel_jdk_path}",
-            f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
             f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
         ]
         if self.command is not None:

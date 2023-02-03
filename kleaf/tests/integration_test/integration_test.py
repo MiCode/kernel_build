@@ -91,10 +91,13 @@ class Exec(object):
 
 
 class KleafIntegrationTest(unittest.TestCase):
-    def _check_call(self, command: str, command_args: list[str], **kwargs) -> None:
+    def _check_call(self, command: str, command_args: list[str],
+                    startup_options = (),
+                    **kwargs) -> None:
         """Executes a bazel command."""
-        Exec.check_call([str(_BAZEL),
-                         f"--bazelrc={self._bazel_rc.name}",
+        startup_options = list(startup_options)
+        startup_options.append(f"--bazelrc={self._bazel_rc.name}")
+        Exec.check_call([str(_BAZEL)] + startup_options + [
                          command,
                         ] + command_args, **kwargs)
 
@@ -249,6 +252,20 @@ class KleafIntegrationTest(unittest.TestCase):
         ])
         self._check_call("build", [f"//{self._common()}:kernel_dist"] + _LOCAL + _LTO_NONE)
 
+    def test_override_javatmp(self):
+        """Tests that out/bazel/javatmp can be overridden.
+
+        See b/267580482."""
+        default_java_tmp = pathlib.Path("out/bazel/javatmp")
+        try:
+            shutil.rmtree(default_java_tmp)
+        except FileNotFoundError:
+            pass
+        self._check_call(
+            startup_options=[f"--host_jvm_args=-Djava.io.tmpdir=/tmp/bazel/javatmp"],
+            command="build",
+            command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
+        self.assertFalse(default_java_tmp.exists())
 
 if __name__ == "__main__":
     arguments, unknown = load_arguments()
