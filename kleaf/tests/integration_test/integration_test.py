@@ -180,7 +180,7 @@ class KleafIntegrationTest(unittest.TestCase):
     def test_change_to_core_kernel_does_not_affect_modules_prepare(self):
         """Tests that, with a small change to the core kernel, modules_prepare does not change.
 
-        See b/254357038.
+        See b/254357038, b/267385639, b/263415662.
         """
         modules_prepare_archive = \
             f"bazel-bin/{self._common()}/kernel_aarch64_modules_prepare/modules_prepare_outdir.tar.gz"
