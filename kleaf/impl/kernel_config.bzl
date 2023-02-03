@@ -267,6 +267,9 @@ def _kernel_config_impl(ctx):
           rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
           rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
 
+        # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
+          sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
+
         # HACK: Ensure we always SYNC auto.conf. This ensures binaries like fixdep are always
         # re-built. See b/263415662
           echo "include/config/auto.conf: FORCE" >> {out_dir}/include/config/auto.conf.cmd
@@ -301,6 +304,9 @@ def _kernel_config_impl(ctx):
            mkdir -p ${{OUT_DIR}}/include/
            rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+
+         # Restore real value of $ROOT_DIR in auto.conf.cmd
+           sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
     """.format(
         out_dir = out_dir.path,
     )
