@@ -17,6 +17,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
+    "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
@@ -35,7 +36,12 @@ def _base_kernel_non_config_attrs():
     return {
         "base_kernel": attr.label(
             aspects = [kernel_toolchain_aspect],
-            providers = [KernelBuildInTreeModulesInfo, KernelBuildMixedTreeInfo, KernelBuildAbiInfo],
+            providers = [
+                KernelBuildInTreeModulesInfo,
+                KernelBuildMixedTreeInfo,
+                KernelBuildAbiInfo,
+                GcovInfo,
+            ],
         ),
     }
 

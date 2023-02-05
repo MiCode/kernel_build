@@ -115,9 +115,15 @@ def _kernel_env_impl(ctx):
             """
         if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
             command += """
-            # Similar to similar to --debug_annotate_scripts without additional traps.
+            # Similar to --debug_annotate_scripts without additional traps.
             set -x
             export MAKEFLAGS="${MAKEFLAGS} V=1"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "V":
+            command += """
+            # Similar to D but even more verbsose
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=2"
             """
 
     kbuild_symtypes = _get_kbuild_symtypes(ctx)

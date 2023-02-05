@@ -32,6 +32,7 @@ load(":btf.bzl", "btf")
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
@@ -871,23 +872,43 @@ def _get_grab_gcno_step(ctx):
     """Returns a step for grabbing the `*.gcno`files from `OUT_DIR`.
 
     Returns:
-      A struct with fields (inputs, tools, outputs, cmd)
+      A struct with fields (inputs, tools, outputs, cmd, gcno_mapping)
     """
     grab_gcno_cmd = ""
+    inputs = []
     outputs = []
+    tools = []
+    gcno_mapping = None
     if ctx.attr._gcov[BuildSettingInfo].value:
         gcno_dir = ctx.actions.declare_directory("{name}/gcno".format(name = ctx.label.name))
-        outputs.append(gcno_dir)
+        gcno_mapping = ctx.actions.declare_file("{name}/gcno/gcno_mapping.{name}.json".format(name = ctx.label.name))
+        outputs += [gcno_dir, gcno_mapping]
+        tools.append(ctx.executable._print_gcno_mapping)
+
+        extra_args = ""
+        base_kernel = base_kernel_utils.get_base_kernel(ctx)
+        if base_kernel and base_kernel[GcovInfo].gcno_mapping:
+            extra_args = "--base {}".format(base_kernel[GcovInfo].gcno_mapping.path)
+            inputs.append(base_kernel[GcovInfo].gcno_mapping)
+
+        # Note: Emitting ${OUT_DIR} is one source of ir-reproducible output for sandbox actions.
+        # However, note that these ir-reproducibility are tied to vmlinux, because these paths are already
+        # embedded in vmlinux. This file just makes such ir-reproducibility more explicit.
         grab_gcno_cmd = """
             rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
+            {print_gcno_mapping} {extra_args} ${{OUT_DIR}}:{gcno_dir} > {gcno_mapping}
         """.format(
             gcno_dir = gcno_dir.path,
+            gcno_mapping = gcno_mapping.path,
+            print_gcno_mapping = ctx.executable._print_gcno_mapping.path,
+            extra_args = extra_args,
         )
     return struct(
-        inputs = [],
-        tools = [],
+        inputs = inputs,
+        tools = tools,
         cmd = grab_gcno_cmd,
         outputs = outputs,
+        gcno_mapping = gcno_mapping,
     )
 
 def _get_grab_kbuild_output_step(ctx):
@@ -1162,6 +1183,7 @@ def _build_main_action(
         cmd_dir = grab_cmd_step.cmd_dir,
         compile_commands_with_vars = compile_commands_step.compile_commands_with_vars,
         compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
+        gcno_mapping = grab_gcno_step.gcno_mapping,
     )
 
 def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
@@ -1341,6 +1363,10 @@ def _create_infos(
 
     images_info = KernelImagesInfo(base_kernel = base_kernel_utils.get_base_kernel(ctx))
 
+    gcov_info = GcovInfo(
+        gcno_mapping = main_action_ret.gcno_mapping,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -1360,6 +1386,8 @@ def _create_infos(
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
+    if main_action_ret.gcno_mapping:
+        default_info_files.append(main_action_ret.gcno_mapping)
     default_info = DefaultInfo(
         files = depset(default_info_files),
         # For kernel_build_test
@@ -1378,6 +1406,7 @@ def _create_infos(
         kernel_unstripped_modules_info,
         in_tree_modules_info,
         images_info,
+        gcov_info,
         ctx.attr.config[KernelEnvAttrInfo],
         output_group_info,
         default_info,
@@ -1471,6 +1500,11 @@ _kernel_build = rule(
             cfg = "exec",
             executable = True,
             doc = "label referring to the script to process outputs",
+        ),
+        "_print_gcno_mapping": attr.label(
+            default = Label("//build/kernel/kleaf/impl:print_gcno_mapping"),
+            cfg = "exec",
+            executable = True,
         ),
         "deps": attr.label_list(
             allow_files = True,

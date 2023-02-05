@@ -161,6 +161,13 @@ files required to build `KBUILD_MIXED_TREE` for the device kernel.""",
     },
 )
 
+GcovInfo = provider(
+    doc = """A provider providing information about --gcov.""",
+    fields = {
+        "gcno_mapping": "`gcno_mapping.json`",
+    },
+)
+
 KernelUnstrippedModulesInfo = provider(
     doc = "A provider that provides unstripped modules",
     fields = {
