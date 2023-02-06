@@ -177,6 +177,16 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+selects.config_setting_group(
+    name = "lto_is_default_and_kcsan_is_true",
+    match_all = [
+        "//build/kernel/kleaf:lto_is_default",
+        "//build/kernel/kleaf:kcsan_is_true",
+    ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
 py_binary(
     name = "ddk/gen_makefiles",
     srcs = ["ddk/gen_makefiles.py"],

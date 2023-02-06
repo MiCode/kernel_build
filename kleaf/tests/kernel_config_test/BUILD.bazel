@@ -13,11 +13,14 @@
 # limitations under the License.
 
 load(":kasan_test.bzl", "kasan_test")
+load(":kcsan_test.bzl", "kcsan_test")
 load(":kernel_config_option_test.bzl", "kernel_config_option_test_suite")
 
 # Analysis test
 
 kasan_test(name = "kasan_test")
+
+kcsan_test(name = "kcsan_test")
 
 # Quick test on artifacts.
 
