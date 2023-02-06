@@ -68,6 +68,8 @@ def load_arguments():
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--bazel-arg", action="append", dest="bazel_args", default=[],
                         help="arg to bazel build calls")
+    parser.add_argument("--bazel-wrapper-arg", action="append", dest="bazel_wrapper_args",
+                        default=[], help="arg to bazel.py wrapper")
     return parser.parse_known_args()
 
 
@@ -97,6 +99,8 @@ class KleafIntegrationTest(unittest.TestCase):
         """Executes a bazel command."""
         startup_options = list(startup_options)
         startup_options.append(f"--bazelrc={self._bazel_rc.name}")
+        command_args = list(command_args)
+        command_args.extend(arguments.bazel_wrapper_args)
         Exec.check_call([str(_BAZEL)] + startup_options + [
                          command,
                         ] + command_args, **kwargs)
