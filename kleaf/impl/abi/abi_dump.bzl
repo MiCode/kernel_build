@@ -48,7 +48,7 @@ def _abi_dump_impl(ctx):
         ])),
         OutputGroupInfo(
             abi_out_file = depset([abi_out_file]),
-            stg_abi_out_file = depset([abi_out_file_stg]),
+            abi_out_file_stg = depset([abi_out_file_stg]),
         ),
     ]
 

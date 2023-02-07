@@ -33,6 +33,7 @@ Example:
 """
 
 import argparse
+import functools
 import hashlib
 import os
 import shlex
@@ -68,6 +69,8 @@ def load_arguments():
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--bazel-arg", action="append", dest="bazel_args", default=[],
                         help="arg to bazel build calls")
+    parser.add_argument("--bazel-wrapper-arg", action="append", dest="bazel_wrapper_args",
+                        default=[], help="arg to bazel.py wrapper")
     return parser.parse_known_args()
 
 
@@ -97,6 +100,8 @@ class KleafIntegrationTest(unittest.TestCase):
         """Executes a bazel command."""
         startup_options = list(startup_options)
         startup_options.append(f"--bazelrc={self._bazel_rc.name}")
+        command_args = list(command_args)
+        command_args.extend(arguments.bazel_wrapper_args)
         Exec.check_call([str(_BAZEL)] + startup_options + [
                          command,
                         ] + command_args, **kwargs)
@@ -180,7 +185,7 @@ class KleafIntegrationTest(unittest.TestCase):
     def test_change_to_core_kernel_does_not_affect_modules_prepare(self):
         """Tests that, with a small change to the core kernel, modules_prepare does not change.
 
-        See b/254357038.
+        See b/254357038, b/267385639, b/263415662.
         """
         modules_prepare_archive = \
             f"bazel-bin/{self._common()}/kernel_aarch64_modules_prepare/modules_prepare_outdir.tar.gz"
@@ -257,15 +262,40 @@ class KleafIntegrationTest(unittest.TestCase):
 
         See b/267580482."""
         default_java_tmp = pathlib.Path("out/bazel/javatmp")
+        new_java_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(new_java_tmp.cleanup)
         try:
             shutil.rmtree(default_java_tmp)
         except FileNotFoundError:
             pass
         self._check_call(
-            startup_options=[f"--host_jvm_args=-Djava.io.tmpdir=/tmp/bazel/javatmp"],
+            startup_options=[f"--host_jvm_args=-Djava.io.tmpdir={new_java_tmp.name}"],
             command="build",
             command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
         self.assertFalse(default_java_tmp.exists())
+
+    def test_override_absolute_out_dir(self):
+        """Tests that out/ can be overridden.
+
+        See b/267580482."""
+        default_out = pathlib.Path("out")
+        new_out = tempfile.TemporaryDirectory()
+        self.addCleanup(new_out.cleanup)
+        try:
+            shutil.rmtree(default_out)
+        except FileNotFoundError:
+            pass
+        self._check_call(
+            command="build",
+            command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
+        self.assertTrue(default_out.exists())
+        shutil.rmtree(default_out)
+        self._check_call(
+            startup_options=[f"--output_root={new_out.name}"],
+            command="build",
+            command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
+        self.assertFalse(default_out.exists())
+
 
 if __name__ == "__main__":
     arguments, unknown = load_arguments()
