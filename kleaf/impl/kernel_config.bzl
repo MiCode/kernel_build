@@ -25,6 +25,7 @@ load(
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
+    "KernelEnvMakeGoalsInfo",
 )
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
@@ -429,6 +430,7 @@ def _kernel_config_impl(ctx):
     return [
         env_and_outputs_info,
         ctx.attr.env[KernelEnvAttrInfo],
+        ctx.attr.env[KernelEnvMakeGoalsInfo],
         KernelBuildOriginalEnvInfo(
             env_info = ctx.attr.env[KernelEnvInfo],
         ),
@@ -553,7 +555,7 @@ kernel_config = rule(
     attrs = {
         "env": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo, KernelEnvAttrInfo],
+            providers = [KernelEnvInfo, KernelEnvAttrInfo, KernelEnvMakeGoalsInfo],
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),

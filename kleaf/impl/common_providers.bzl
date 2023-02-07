@@ -40,6 +40,13 @@ without actually modifying any variables suitable for a proper kernel build.
     },
 )
 
+KernelEnvMakeGoalsInfo = provider(
+    doc = "Describe the targets for the current build.",
+    fields = {
+        "make_goals": "A list of strings defining targets for the kernel build.",
+    },
+)
+
 KernelEnvAndOutputsInfo = provider(
     doc = """Like `KernelEnvInfo` but also restores artifacts.
 

@@ -43,6 +43,7 @@ load(
     "KernelCmdsInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
+    "KernelEnvMakeGoalsInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
@@ -87,6 +88,7 @@ def kernel_build(
         generate_vmlinux_btf = None,
         deps = None,
         base_kernel = None,
+        make_goals = None,
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
@@ -155,6 +157,8 @@ def kernel_build(
               srcs = DEFAULT_GKI_OUTS,
             )
             ```
+        make_goals: A list of strings defining targets for the kernel build.
+          This overrides `MAKE_GOALS` from build config if provided.
         generate_vmlinux_btf: If `True`, generates `vmlinux.btf` that is stripped of any debug
           symbols, but contains type and symbol information within a .BTF section.
           This is suitable for ABI analysis through BTF.
@@ -419,6 +423,7 @@ def kernel_build(
         kbuild_symtypes = kbuild_symtypes,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         lto = lto,
+        make_goals = make_goals,
         **internal_kwargs
     )
 
@@ -1117,14 +1122,15 @@ def _build_main_action(
         data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
+    make_goals = ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals
     command += """
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
-           {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{MAKE_GOALS}}
+           {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
          # Set variables and create dirs for modules
            mkdir -p {modules_staging_dir}
          # Install modules
-           if grep -q "\\bmodules\\b" <<< ${{MAKE_GOALS}} ; then
+           if grep -q "\\bmodules\\b" <<< "{make_goals}" ; then
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
            else
                # Workaround as this file is required, hence just produce a placeholder.
@@ -1158,7 +1164,7 @@ def _build_main_action(
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
            {grab_unstripped_intree_modules_cmd}
-           if grep -q "\\bmodules\\b" <<< ${{MAKE_GOALS}} ; then
+           if grep -q "\\bmodules\\b" <<< "{make_goals}"; then
              # Check if there are remaining *.ko files
                {check_remaining_modules_cmd}
            fi
@@ -1190,6 +1196,7 @@ def _build_main_action(
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
         interceptor_command_prefix = interceptor_step.command_prefix,
         label = ctx.label,
+        make_goals = " ".join(make_goals),
     )
 
     # all inputs that |command| needs
@@ -1557,7 +1564,7 @@ _kernel_build = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvAndOutputsInfo, KernelEnvAttrInfo],
+            providers = [KernelEnvAndOutputsInfo, KernelEnvAttrInfo, KernelEnvMakeGoalsInfo],
             aspects = [kernel_toolchain_aspect],
             doc = "the kernel_config target",
         ),

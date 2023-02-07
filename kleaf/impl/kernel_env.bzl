@@ -24,6 +24,7 @@ load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
+    "KernelEnvMakeGoalsInfo",
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
@@ -44,6 +45,35 @@ def _get_kbuild_symtypes(ctx):
 
     # Should not reach
     fail("{}: kernel_env has unknown value for kbuild_symtypes: {}".format(ctx.attr.label, ctx.attr.kbuild_symtypes))
+
+def _get_make_goals(ctx):
+    # Fallback to goals from build.config
+    make_goals = ["${MAKE_GOALS}"]
+    if ctx.attr.make_goals:
+        # This is a basic sanitization of the input.
+        for goal in ctx.attr.make_goals:
+            if " " in goal or ";" in goal:
+                fail("ERROR {}: '{}' is not a valid item of make_goals.".format(ctx.label, goal))
+        make_goals = list(ctx.attr.make_goals)
+    make_goals += force_add_vmlinux_utils.additional_make_goals(ctx)
+    make_goals += kgdb.additional_make_goals(ctx)
+    make_goals += compile_commands_utils.additional_make_goals(ctx)
+    return make_goals
+
+def _get_make_goals_deprecation_warning(ctx):
+    msg = """
+          # Warning about MAKE_GOALS deprecation.
+          if [[ -n ${{MAKE_GOALS}} ]] ; then
+            KLEAF_MAKE_TARGETS=$(echo "${{MAKE_GOALS% }}" | sed '/^$/d' | sed 's/\\S*/  "&",/g')
+            echo "WARNING: MAKE_GOALS from build.config is being deprecated, use make_goals in kernel_build;" >&2
+            echo "Consider adding:\n\nmake_goals = [\n${{KLEAF_MAKE_TARGETS}}" >&2
+            echo "],\n\nto {build_target} kernel." >&2
+            unset KLEAF_MAKE_TARGETS
+          fi
+    """.format(
+        build_target = str(ctx.label).removesuffix("_env"),
+    )
+    return msg
 
 def _kernel_env_impl(ctx):
     srcs = [
@@ -120,9 +150,8 @@ def _kernel_env_impl(ctx):
     command += set_source_date_epoch_ret.cmd
     inputs += set_source_date_epoch_ret.deps
 
-    additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
-    additional_make_goals += kgdb.additional_make_goals(ctx)
-    additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
+    make_goals = _get_make_goals(ctx)
+    make_goals_deprecation_warning = _get_make_goals_deprecation_warning(ctx)
 
     if ctx.attr._rust_tools:
         rustc = utils.find_file("rustc", ctx.files._rust_tools, "rust tools", required = True)
@@ -141,8 +170,8 @@ def _kernel_env_impl(ctx):
           export BUILD_CONFIG={build_config}
           {set_localversion_cmd}
           source {setup_env}
-        # Add to MAKE_GOALS if necessary
-          export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
+        # TODO(b/236012223) Remove the warning after deprecation.
+          {make_goals_deprecation_warning}
         # Add a comment with config_tags for debugging
           cp -p {config_tags_comment_file} {out}
           chmod +w {out}
@@ -153,7 +182,7 @@ def _kernel_env_impl(ctx):
         build_config = build_config.path,
         set_localversion_cmd = stamp.set_localversion_cmd(ctx),
         setup_env = setup_env.path,
-        additional_make_goals = " ".join(additional_make_goals),
+        make_goals_deprecation_warning = make_goals_deprecation_warning,
         preserve_env = preserve_env.path,
         out = out_file.path,
         config_tags_comment_file = config_tags_comment_file.path,
@@ -255,6 +284,9 @@ def _kernel_env_impl(ctx):
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
             common_config_tags = common_config_tags,
+        ),
+        KernelEnvMakeGoalsInfo(
+            make_goals = make_goals,
         ),
         DefaultInfo(files = depset([out_file])),
     ]
@@ -425,6 +457,7 @@ kernel_env = rule(
             default = "auto",
             values = ["true", "false", "auto"],
         ),
+        "make_goals": attr.string_list(doc = "`MAKE_GOALS`"),
         "_tools": attr.label_list(default = _get_tools),
         "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
