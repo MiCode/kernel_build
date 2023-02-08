@@ -561,4 +561,64 @@ def _define_abi_definition_targets(
         )
         default_outputs.append(name + "_diff_stg")
 
+        # Use this filegroup to select the executable.
+        native.filegroup(
+            name = name + "_diff_executable_stg",
+            srcs = [name + "_diff_stg"],
+            output_group = "executable",
+            **kwargs
+        )
+
+        update_source_file(
+            name = name + "_update_definition_stg",
+            src = name + "_out_file_stg",
+            dst = abi_definition_stg,
+            **kwargs
+        )
+
+        exec(
+            name = name + "_nodiff_update_stg",
+            data = [
+                name + "_extracted_symbols",
+                name + "_update_definition_stg",
+                kmi_symbol_list,
+            ],
+            script = """
+                # Ensure that symbol list is updated
+                if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
+                    echo "ERROR: symbol list must be updated before updating ABI definition."
+                    echo " To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                    exit 1
+                fi
+                # Update abi_definition
+                $(rootpath {update_definition})
+                """.format(
+                src_symbol_list = name + "_extracted_symbols",
+                dst_symbol_list = kmi_symbol_list,
+                package = native.package_name(),
+                update_symbol_list_label = name + "_update_symbol_list",
+                update_definition = name + "_update_definition_stg",
+            ),
+            **kwargs
+        )
+
+        exec(
+            name = name + "_update_stg",
+            data = [
+                abi_definition_stg,
+                name + "_diff_executable_stg",
+                name + "_nodiff_update_stg",
+            ],
+            script = """
+                # Update abi_definition
+                $(rootpath {nodiff_update})
+                $(rootpath {diff})
+                """.format(
+                diff = name + "_diff_executable_stg",
+                nodiff_update = name + "_nodiff_update_stg",
+                abi_definition = abi_definition_stg,
+            ),
+            **kwargs
+        )
+
     return default_outputs
