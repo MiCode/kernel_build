@@ -880,8 +880,8 @@ def _get_grab_gcno_step(ctx):
     tools = []
     gcno_mapping = None
     if ctx.attr._gcov[BuildSettingInfo].value:
-        gcno_dir = ctx.actions.declare_directory("{name}/{name}_gcno".format(name = ctx.label.name))
-        gcno_mapping = ctx.actions.declare_file("{name}/gcno_mapping.{name}.json".format(name = ctx.label.name))
+        gcno_dir = ctx.actions.declare_directory("{name}/gcno".format(name = ctx.label.name))
+        gcno_mapping = ctx.actions.declare_file("{name}/gcno/gcno_mapping.{name}.json".format(name = ctx.label.name))
         outputs += [gcno_dir, gcno_mapping]
         tools.append(ctx.executable._print_gcno_mapping)
 
@@ -1183,7 +1183,6 @@ def _build_main_action(
         cmd_dir = grab_cmd_step.cmd_dir,
         compile_commands_with_vars = compile_commands_step.compile_commands_with_vars,
         compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
-        gcno_outputs = grab_gcno_step.outputs,
         gcno_mapping = grab_gcno_step.gcno_mapping,
     )
 
@@ -1387,7 +1386,8 @@ def _create_infos(
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
-    default_info_files.extend(main_action_ret.gcno_outputs)
+    if main_action_ret.gcno_mapping:
+        default_info_files.append(main_action_ret.gcno_mapping)
     default_info = DefaultInfo(
         files = depset(default_info_files),
         # For kernel_build_test
