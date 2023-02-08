@@ -100,8 +100,8 @@ _KERNEL_BUILD_VALID_KEYS = [
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
 _KERNEL_ABI_VALID_KEYS = [
-    "abi_definition",
     "abi_definition_stg",
+    "abi_definition_xml",
     "kmi_enforced",
 ]
 
@@ -130,8 +130,8 @@ def _default_target_configs():
         exclude = ["**/*.xml", "**/*.stg", "android/abi_gki_aarch64"],
     )
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
-    aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
-    aarch64_abi_definition = aarch64_abi_definition[0] if aarch64_abi_definition else None
+    aarch64_abi_definition_xml = native.glob(["android/abi_gki_aarch64.xml"])
+    aarch64_abi_definition_xml = aarch64_abi_definition_xml[0] if aarch64_abi_definition_xml else None
     aarch64_abi_definition_stg = native.glob(["android/abi_gki_aarch64.stg"])
     aarch64_abi_definition_stg = aarch64_abi_definition_stg[0] if aarch64_abi_definition_stg else None
 
@@ -141,9 +141,9 @@ def _default_target_configs():
         # for build.config.gki.aarch64
         "kmi_symbol_list": aarch64_kmi_symbol_list,
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-        "abi_definition": aarch64_abi_definition,
+        "abi_definition_xml": aarch64_abi_definition_xml,
         "abi_definition_stg": aarch64_abi_definition_stg,
-        "kmi_enforced": bool(aarch64_abi_definition) or bool(aarch64_abi_definition_stg),
+        "kmi_enforced": bool(aarch64_abi_definition_stg) or bool(aarch64_abi_definition_xml),
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {

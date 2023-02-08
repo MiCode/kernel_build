@@ -33,7 +33,6 @@ def kernel_build_abi(
         kernel_modules = None,
         module_grouping = None,
         abi_definition = None,
-        abi_definition_stg = None,
         kmi_enforced = None,
         unstripped_modules_archive = None,
         kmi_symbol_list_add_only = None,
@@ -76,8 +75,7 @@ def kernel_build_abi(
       define_abi_targets: See [`kernel_abi.define_abi_targets`](#kernel_abi-define_abi_targets)
       kernel_modules: See [`kernel_abi.kernel_modules`](#kernel_abi-kernel_modules)
       module_grouping: See [`kernel_abi.module_grouping`](#kernel_abi-module_grouping)
-      abi_definition: See [`kernel_abi.abi_definition`](#kernel_abi-abi_definition)
-      abi_definition_stg: See [`kernel_abi.abi_definition_stg`](#kernel_abi-abi_definition_stg)
+      abi_definition: See [`kernel_abi.abi_definition_xml`](#kernel_abi-abi_definition_xml)
       kmi_enforced: See [`kernel_abi.kmi_enforced`](#kernel_abi-kmi_enforced)
       unstripped_modules_archive: See [`kernel_abi.unstripped_modules_archive`](#kernel_abi-unstripped_modules_archive)
       kmi_symbol_list_add_only: See [`kernel_abi.kmi_symbol_list_add_only`](#kernel_abi-kmi_symbol_list_add_only)
@@ -125,7 +123,6 @@ kernel_abi(
             kernel_modules = kernel_modules,
             module_grouping = module_grouping,
             abi_definition = abi_definition,
-            abi_definition_stg = abi_definition_stg,
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
             kmi_symbol_list_add_only = kmi_symbol_list_add_only,
@@ -143,8 +140,7 @@ kernel_abi(
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        abi_definition = abi_definition,
-        abi_definition_stg = abi_definition_stg,
+        abi_definition_xml = abi_definition,
         kmi_enforced = kmi_enforced,
         unstripped_modules_archive = unstripped_modules_archive,
         # common attributes
@@ -170,8 +166,8 @@ def kernel_abi(
         define_abi_targets = None,
         kernel_modules = None,
         module_grouping = None,
-        abi_definition = None,
         abi_definition_stg = None,
+        abi_definition_xml = None,
         kmi_enforced = None,
         unstripped_modules_archive = None,
         kmi_symbol_list_add_only = None,
@@ -244,8 +240,8 @@ def kernel_abi(
         on the kernel modules that reference the symbol. Otherwise the symbol
         list will simply be a sorted list of symbols used by all the kernel
         modules.
-      abi_definition: Location of the ABI definition.
       abi_definition_stg: Location of the ABI definition in STG format.
+      abi_definition_xml: Location of the ABI definition in XML format.
       kmi_enforced: This is an indicative option to signal that KMI is enforced.
         If set to `True`, KMI checking tools respects it and
         reacts to it by failing if KMI differences are detected.
@@ -292,8 +288,8 @@ def kernel_abi(
             kernel_modules = kernel_modules,
             module_grouping = module_grouping,
             kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-            abi_definition = abi_definition,
             abi_definition_stg = abi_definition_stg,
+            abi_definition_xml = abi_definition_xml,
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
             abi_dump_target = name + "_dump",
@@ -331,7 +327,7 @@ def _not_define_abi_targets(
         **private_kwargs
     )
     exec(
-        name = name + "_diff_executable_stg",
+        name = name + "_diff_executable_xml",
         script = "",
         **private_kwargs
     )
@@ -342,8 +338,8 @@ def _define_abi_targets(
         kernel_modules,
         module_grouping,
         kmi_symbol_list_add_only,
-        abi_definition,
         abi_definition_stg,
+        abi_definition_xml,
         kmi_enforced,
         unstripped_modules_archive,
         abi_dump_target,
@@ -387,16 +383,23 @@ def _define_abi_targets(
     )
     default_outputs += _define_abi_definition_targets(
         name = name,
-        abi_definition = abi_definition,
         abi_definition_stg = abi_definition_stg,
+        abi_definition_xml = abi_definition_xml,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_src_kmi_symbol_list",
         **private_kwargs
     )
 
+    out_file = None
+    if abi_definition_xml:
+        out_file = name + "_out_file_xml"
+
+    # Ok to override as STG takes preference.
+    if abi_definition_stg:
+        out_file = name + "_out_file"
     abi_prop(
         name = name + "_prop",
-        kmi_definition = name + "_out_file" if abi_definition else None,
+        kmi_definition = out_file,
         kmi_enforced = kmi_enforced,
         kernel_build = kernel_build,
         modules_archive = unstripped_modules_archive,
@@ -412,8 +415,8 @@ def _define_abi_targets(
 
 def _define_abi_definition_targets(
         name,
-        abi_definition,
         abi_definition_stg,
+        abi_definition_xml,
         kmi_enforced,
         kmi_symbol_list,
         **kwargs):
@@ -426,60 +429,60 @@ def _define_abi_definition_targets(
 
     default_outputs = []
 
-    if not abi_definition:
-        # For kernel_abi_dist to use when abi_definition is empty.
+    if not abi_definition_xml:
+        # For kernel_abi_dist to use when abi_definition_xml is empty.
         exec(
-            name = name + "_diff_executable",
+            name = name + "_diff_executable_xml",
             script = "",
             **kwargs
         )
-        default_outputs.append(name + "_diff_executable")
+        default_outputs.append(name + "_diff_executable_xml")
     else:
         native.filegroup(
-            name = name + "_out_file",
+            name = name + "_out_file_xml",
             srcs = [name + "_dump"],
-            output_group = "abi_out_file",
+            output_group = "abi_out_file_xml",
             **kwargs
         )
 
         abi_diff(
-            name = name + "_diff",
-            baseline = abi_definition,
-            new = name + "_out_file",
+            name = name + "_diff_xml",
+            baseline = abi_definition_xml,
+            new = name + "_out_file_xml",
             kmi_enforced = kmi_enforced,
             **kwargs
         )
-        default_outputs.append(name + "_diff")
+        default_outputs.append(name + "_diff_xml")
 
         # The default outputs of _diff does not contain the executable,
         # but the reports. Use this filegroup to select the executable
         # so rootpath in _update works.
         native.filegroup(
-            name = name + "_diff_executable",
-            srcs = [name + "_diff"],
+            name = name + "_diff_executable_xml",
+            srcs = [name + "_diff_xml"],
             output_group = "executable",
             **kwargs
         )
 
         native.filegroup(
             name = name + "_diff_git_message",
-            srcs = [name + "_diff"],
+            srcs = [name + "_diff_xml"],
             output_group = "git_message",
             **kwargs
         )
 
         update_source_file(
-            name = name + "_update_definition",
-            src = name + "_out_file",
-            dst = abi_definition,
+            name = name + "_update_definition_xml",
+            src = name + "_out_file_xml",
+            dst = abi_definition_xml,
             **kwargs
         )
 
         exec(
-            name = name + "_nodiff_update",
+            name = name + "_nodiff_update_xml",
             data = [
                 name + "_extracted_symbols",
-                name + "_update_definition",
+                name + "_update_definition_xml",
                 kmi_symbol_list,
             ],
             script = """
@@ -495,18 +498,18 @@ def _define_abi_definition_targets(
                 dst_symbol_list = kmi_symbol_list,
                 package = native.package_name(),
                 update_symbol_list_label = name + "_update_symbol_list",
-                update_definition = name + "_update_definition",
+                update_definition = name + "_update_definition_xml",
             ),
             **kwargs
         )
 
         exec(
-            name = name + "_update",
+            name = name + "_update_xml",
             data = [
-                abi_definition,
+                abi_definition_xml,
                 name + "_diff_git_message",
-                name + "_diff_executable",
-                name + "_nodiff_update",
+                name + "_diff_executable_xml",
+                name + "_nodiff_update_xml",
             ],
             script = """
                 # Update abi_definition
@@ -530,9 +533,9 @@ def _define_abi_definition_targets(
                     fi
                     exit $rc
                 """.format(
-                diff = name + "_diff_executable",
-                nodiff_update = name + "_nodiff_update",
-                abi_definition = abi_definition,
+                diff = name + "_diff_executable_xml",
+                nodiff_update = name + "_nodiff_update_xml",
+                abi_definition = abi_definition_xml,
                 git_message = name + "_diff_git_message",
             ),
             **kwargs
@@ -541,46 +544,46 @@ def _define_abi_definition_targets(
     if not abi_definition_stg:
         # For kernel_abi_dist to use when abi_definition is empty.
         exec(
-            name = name + "_diff_executable_stg",
+            name = name + "_diff_executable",
             script = "",
             **kwargs
         )
-        default_outputs.append(name + "_diff_executable_stg")
+        default_outputs.append(name + "_diff_executable")
     else:
         native.filegroup(
-            name = name + "_out_file_stg",
+            name = name + "_out_file",
             srcs = [name + "_dump"],
-            output_group = "abi_out_file_stg",
+            output_group = "abi_out_file",
             **kwargs
         )
         stgdiff(
-            name = name + "_diff_stg",
+            name = name + "_diff",
             baseline = abi_definition_stg,
-            new = name + "_out_file_stg",
+            new = name + "_out_file",
             kmi_enforced = kmi_enforced,
         )
-        default_outputs.append(name + "_diff_stg")
+        default_outputs.append(name + "_diff")
 
         # Use this filegroup to select the executable.
         native.filegroup(
-            name = name + "_diff_executable_stg",
-            srcs = [name + "_diff_stg"],
+            name = name + "_diff_executable",
+            srcs = [name + "_diff"],
             output_group = "executable",
             **kwargs
         )
 
         update_source_file(
-            name = name + "_update_definition_stg",
-            src = name + "_out_file_stg",
+            name = name + "_update_definition",
+            src = name + "_out_file",
             dst = abi_definition_stg,
             **kwargs
         )
 
         exec(
-            name = name + "_nodiff_update_stg",
+            name = name + "_nodiff_update",
             data = [
                 name + "_extracted_symbols",
-                name + "_update_definition_stg",
+                name + "_update_definition",
                 kmi_symbol_list,
             ],
             script = """
@@ -597,25 +600,25 @@ def _define_abi_definition_targets(
                 dst_symbol_list = kmi_symbol_list,
                 package = native.package_name(),
                 update_symbol_list_label = name + "_update_symbol_list",
-                update_definition = name + "_update_definition_stg",
+                update_definition = name + "_update_definition",
             ),
             **kwargs
         )
 
         exec(
-            name = name + "_update_stg",
+            name = name + "_update",
             data = [
                 abi_definition_stg,
-                name + "_diff_executable_stg",
-                name + "_nodiff_update_stg",
+                name + "_diff_executable",
+                name + "_nodiff_update",
             ],
             script = """
                 # Update abi_definition
                 $(rootpath {nodiff_update})
                 $(rootpath {diff})
                 """.format(
-                diff = name + "_diff_executable_stg",
-                nodiff_update = name + "_nodiff_update_stg",
+                diff = name + "_diff_executable",
+                nodiff_update = name + "_nodiff_update",
                 abi_definition = abi_definition_stg,
             ),
             **kwargs
