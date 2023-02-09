@@ -69,7 +69,7 @@ pre-filled message. For example:
 
 ```shell
 # -- is needed before --commit to pass the argument to the script.
-$ bazel run //common:kernel_aarch64_abi_update -- --commit
+$ tools/bazel run //common:kernel_aarch64_abi_update -- --commit
 ```
 
 The command brings up your pre-configured text editor for git to edit the

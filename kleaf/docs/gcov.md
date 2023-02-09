@@ -10,21 +10,12 @@ $ tools/bazel build --gcov //common:kernel_aarch64
 ```
 
 You may find the `*.gcno` files under the
-`bazel-bin/<package_name>/<target_name>/<target_name>_gcno` directory,
+`bazel-bin/<package_name>/<target_name>/gcno` directory,
 where `<target_name>` is the name of the `kernel_build()`
 macro. In the above example, the `.gcno` files can be found at
 
 ```
-bazel-bin/common/kernel_aarch64/kernel_aarch64_gcno/
-```
-
-... or in `dist_dir`:
-
-```shell
-$ tools/bazel run --gcov //common:kernel_aarch64_dist
-[...]
-$ ls bazel-bin/common/kernel_aarch64/kernel_aarch64_gcno/
-[...]
+bazel-bin/common/kernel_aarch64/gcno/
 ```
 
 ## Handling path mapping
@@ -41,7 +32,7 @@ You may see gcno files under:
 /sys/kernel/debug/gcov/<some_host_absolute_path_to_repository>/<some_out_directory>/common/<some_source_file>.gcno
 ```
 
-To map between these paths to the host, consult the `gcno_mapping.<name>.json`
+To map between these paths to the host, consult the `gcno/gcno_mapping.<name>.json`
 under `bazel-bin/`.
 
 ### GKI
@@ -51,7 +42,7 @@ In the above example, the file can be found after a build:
 ```shell
 $ tools/bazel build --gcov //common:kernel_aarch64
 [...]
-$ cat bazel-bin/common/kernel_aarch64/gcno_mapping.kernel_aarch64.json
+$ cat bazel-bin/common/kernel_aarch64/gcno/gcno_mapping.kernel_aarch64.json
 [...]
 ```
 
@@ -72,7 +63,7 @@ Using virtual device as an example, you may find the files under:
 ```shell
 $ tools/bazel build --gcov //common-modules/virtual-device:virtual_device_x86_64
 [...]
-$ cat bazel-bin/common-modules/virtual-device/virtual_device_x86_64/gcno_mapping.virtual_device_x86_64.json
+$ cat bazel-bin/common-modules/virtual-device/virtual_device_x86_64/gcno/gcno_mapping.virtual_device_x86_64.json
 [...]
 ```
 
@@ -88,7 +79,7 @@ $ cat out/vd/dist/gcno_mapping.virtual_device_x86_64.json
 **Note**: You will also see `gcno_mapping.kernel_x86_64.json` under `dist_dir`. That file is incomplete
 as it does not contain mappings for in-tree modules specific for virtual device.
 
-### Sample content of `gcno_mapping.<name>.json`:
+### Sample content of `gcno/gcno_mapping.<name>.json`:
 
 Without `--config=local` (see [sandboxing](sandbox.md)):
 
