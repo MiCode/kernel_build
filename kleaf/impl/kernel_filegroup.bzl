@@ -54,6 +54,11 @@ def _ext_mod_env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
     )
     return script
 
+def _get_mixed_tree_files(target):
+    if KernelBuildMixedTreeInfo in target:
+        return target[KernelBuildMixedTreeInfo].files
+    return target.files
+
 def _kernel_filegroup_impl(ctx):
     all_deps = ctx.files.srcs + ctx.files.deps
 
@@ -128,10 +133,11 @@ def _kernel_filegroup_impl(ctx):
     )
 
     srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
+    mixed_tree_files = depset(transitive = [_get_mixed_tree_files(target) for target in ctx.attr.srcs])
 
     return [
         DefaultInfo(files = srcs_depset),
-        KernelBuildMixedTreeInfo(files = srcs_depset),
+        KernelBuildMixedTreeInfo(files = mixed_tree_files),
         kernel_module_dev_info,
         # TODO(b/219112010): implement KernelEnvAndOutputsInfo properly for kernel_filegroup
         uapi_info,
