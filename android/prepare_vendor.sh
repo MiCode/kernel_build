@@ -240,8 +240,17 @@ if [ "${RECOMPILE_ABL}" == "1" -a -n "${TARGET_BUILD_VARIANT}" ]; then
   echo
   echo "  Recompiling edk2"
 
+    # Make sure Bazel extensions are linked properly
+    if [ ! -f "${ROOT_DIR}/build/msm_kernel_extensions.bzl" ]; then
+      ln -fs "../msm-kernel/msm_kernel_extensions.bzl" "${ROOT_DIR}/build/msm_kernel_extensions.bzl"
+    fi
+    if [ ! -f "${ROOT_DIR}/build/abl_extensions.bzl" ]; then
+      ln -fs "../bootable/bootloader/edk2/abl_extensions.bzl" "${ROOT_DIR}/build/abl_extensions.bzl"
+    fi
+
     (
       cd "${ROOT_DIR}"
+
       ./tools/bazel run \
         --"//bootable/bootloader/edk2:target_build_variant=${TARGET_BUILD_VARIANT}" \
         "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
