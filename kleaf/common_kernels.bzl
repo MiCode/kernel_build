@@ -143,7 +143,7 @@ def _default_target_configs():
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
         "abi_definition": aarch64_abi_definition,
         "abi_definition_stg": aarch64_abi_definition_stg,
-        "kmi_enforced": bool(aarch64_abi_definition),
+        "kmi_enforced": bool(aarch64_abi_definition) or bool(aarch64_abi_definition_stg),
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {
