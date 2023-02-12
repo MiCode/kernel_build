@@ -1054,11 +1054,13 @@ fi
 if [ -n "${ABL_SRC}" ]; then
   if [ -e "${ROOT_DIR}/${ABL_SRC}" ]; then
     if [ -n "${MSM_ARCH}" ]; then
+      [ -z "${TARGET_BUILD_VARIANT}" ] && TARGET_BUILD_VARIANT=userdebug
       ABL_ENVIRON=("ABL_SRC=${ABL_SRC}")
       ABL_ENVIRON+=("ABL_OUT_DIR=${COMMON_OUT_DIR}")
       ABL_ENVIRON+=("ABL_IMAGE_DIR=${DIST_DIR}")
-      BUILD_VARIANTS=("userdebug")
-      [ -n "${COMPILE_ABL}" ] && BUILD_VARIANTS+=("user")
+      BUILD_VARIANTS=("${TARGET_BUILD_VARIANT}")
+      # Define COMPILE_ABL then need to compile userdebug and user abl
+      [ -n "${COMPILE_ABL}" ] && BUILD_VARIANTS=("userdebug" "user")
       for variant in "${BUILD_VARIANTS[@]}"
       do
         ( env -i bash -c "source ${ABL_OLD_ENVIRONMENT}; \
@@ -1066,7 +1068,6 @@ if [ -n "${ABL_SRC}" ]; then
         export ${ABL_ENVIRON[*]} ; \
         ./build/build_abl.sh ${MSM_ARCH}" )
       done
-      [ -z "${TARGET_BUILD_VARIANT}" ] && TARGET_BUILD_VARIANT=userdebug
       if [ -e "${DIST_DIR}/abl_${TARGET_BUILD_VARIANT}.elf" ]; then
         ln -sf ${DIST_DIR}/abl_${TARGET_BUILD_VARIANT}.elf ${DIST_DIR}/abl.elf
       fi
