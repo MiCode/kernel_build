@@ -1,4 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//build/kernel/kleaf/impl:android_filegroup.bzl", "android_filegroup")
 
 _LINUX_X86_64 = [
     "@platforms//os:linux",
@@ -146,8 +147,9 @@ cc_binary(
     deps = [":mylib_android"],
 )
 
-filegroup(
-    name = "android_tests_internal",
+# Build with --config=hermetic_cc
+android_filegroup(
+    name = "android_tests_arm64",
     srcs = [
         ":hello_world_android",
         ":mybin_dynamic_android",
@@ -155,21 +157,39 @@ filegroup(
         ":mybin_static_android",
         ":mylib_android",
     ],
+    cpu = "arm64",
 )
 
-# Build with one of --config=android_*
+# Build with --config=hermetic_cc
+android_filegroup(
+    name = "android_tests_x86_64",
+    srcs = [
+        ":hello_world_android",
+        ":mybin_dynamic_android",
+        ":mybin_full_static_android",
+        ":mybin_static_android",
+        ":mylib_android",
+    ],
+    cpu = "x86_64",
+)
+
+# TODO(b/228238975): Add tests for riscv
+
+# Build with --config=hermetic_cc
 build_test(
     name = "android_tests",
     targets = [
-        ":android_tests_internal",
+        ":android_tests_arm64",
+        ":android_tests_x86_64",
     ],
 )
 
-# Build with one of --config=android_*
+# Build with --config=hermetic_cc
 build_test(
     name = "cc_testing",
     targets = [
         ":linux_x86_64_tests_genrule",
-        ":android_tests_internal",
+        ":android_tests_arm64",
+        ":android_tests_x86_64",
     ],
 )

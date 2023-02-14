@@ -34,6 +34,7 @@ bzl_library(
         "abi/kernel_build_abi_dist.bzl",
         "abi/protected_exports.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
+        "android_filegroup.bzl",
         "btf.bzl",
         "cache_dir.bzl",
         "common_providers.bzl",

@@ -26,3 +26,5 @@ build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:andr
 build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:android_x86_64_clang_toolchain
 build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:android_riscv64_clang_toolchain
 build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:linux_x86_64_clang_toolchain
+
+build:hermetic_cc --//build/kernel/kleaf:config_hermetic_cc
