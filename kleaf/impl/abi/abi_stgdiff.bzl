@@ -39,7 +39,7 @@ def _stgdiff_impl(ctx):
         error_msg_file,
         exit_code_file,
     ]
-    basename = "{output_dir}/abi.stg_report".format(output_dir = output_dir.path)
+    basename = "{output_dir}/abi.report".format(output_dir = output_dir.path)
     short_report = basename + ".short"
     outputs = " ".join(["--format {ext} --output {basename}.{ext}".format(
         basename = basename,

@@ -127,7 +127,7 @@ def _default_target_configs():
     aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
     aarch64_additional_kmi_symbol_lists = native.glob(
         ["android/abi_gki_aarch64*"],
-        exclude = ["**/*.xml", "android/abi_gki_aarch64"],
+        exclude = ["**/*.xml", "**/*.stg", "android/abi_gki_aarch64"],
     )
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
     aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
