@@ -14,21 +14,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Deprecated. Use `realpath --relative-to` directly.
+# TODO (b/231473697): rel_path and rel_path2 should use realpath --relative-to
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
-  echo "WARNING: rel_path is deprecated. Instead, use: realpath $1 --relative-to $2" >&2
-  realpath "$1" --relative-to="$2"
+  local to=$1
+  local from=$2
+  local path=
+  local stem=
+  local prevstem=
+  [ -n "$to" ] || return 1
+  [ -n "$from" ] || return 1
+  to=$(readlink -e "$to")
+  from=$(readlink -e "$from")
+  [ -n "$to" ] || return 1
+  [ -n "$from" ] || return 1
+  stem=${from}/
+  while [ "${to#$stem}" == "${to}" -a "${stem}" != "${prevstem}" ]; do
+    prevstem=$stem
+    stem=$(readlink -e "${stem}/..")
+    [ "${stem%/}" == "${stem}" ] && stem=${stem}/
+    path=${path}../
+  done
+  echo ${path}${to#$stem}
 }
 
-# TODO(b/266980402): remove it
-# Deprecated. Use `realpath --relative-to` directly.
+# TODO (b/231473697): rel_path and rel_path2 should use realpath --relative-to
 # rel_path2 <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
+# This is slower than rel_path, but returns a simpler path when <from>
+# is directly under <to>.
 function rel_path2() {
-  echo "WARNING: rel_path2 is deprecated. Instead, use: realpath $1 --relative-to $2" >&2
-  realpath "$1" --relative-to="$2"
+  local to=$1
+  local from=$2
+  python3 -c 'import os,sys;print(os.path.relpath(*(sys.argv[1:])))' "$to" "$from"
 }
 
 # $1 directory of kernel modules ($1/lib/modules/x.y)
