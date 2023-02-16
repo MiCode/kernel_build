@@ -555,7 +555,7 @@ if [ -n "${KCONFIG_EXT_PREFIX}" ]; then
   if [ -f "${ROOT_DIR}/${KCONFIG_EXT_PREFIX}Kconfig.ext" ]; then
     # KCONFIG_EXT_PREFIX is currently relative to ROOT_DIR. So recalculate it to be
     # relative to KERNEL_DIR
-    KCONFIG_EXT_PREFIX=$(rel_path ${ROOT_DIR}/${KCONFIG_EXT_PREFIX} ${KERNEL_DIR})
+    KCONFIG_EXT_PREFIX=$(realpath ${ROOT_DIR}/${KCONFIG_EXT_PREFIX} --relative-to ${KERNEL_DIR})
   elif [ ! -f "${KERNEL_DIR}/${KCONFIG_EXT_PREFIX}Kconfig.ext" ]; then
     echo "Couldn't find the Kconfig.ext in ${KCONFIG_EXT_PREFIX}" >&2
     exit 1
@@ -575,7 +575,7 @@ if [ -n "${DTS_EXT_DIR}" ]; then
     if [ -d "${ROOT_DIR}/${DTS_EXT_DIR}" ]; then
       # DTS_EXT_DIR is currently relative to ROOT_DIR. So recalcuate it to be
       # relative to KERNEL_DIR
-      DTS_EXT_DIR=$(rel_path ${ROOT_DIR}/${DTS_EXT_DIR} ${KERNEL_DIR})
+      DTS_EXT_DIR=$(realpath ${ROOT_DIR}/${DTS_EXT_DIR} --relative-to ${KERNEL_DIR})
     elif [ ! -d "${KERNEL_DIR}/${DTS_EXT_DIR}" ]; then
       echo "Couldn't find the dtstree -- ${DTS_EXT_DIR}" >&2
       exit 1
@@ -845,7 +845,7 @@ if [[ -z "${SKIP_EXT_MODULES}" ]] && [[ -n "${EXT_MODULES}" ]]; then
     # and .ko) files will be stored in ${OUT_DIR}/${EXT_MOD_REL}. If we
     # instead set M to an absolute path, then object (i.e. .o and .ko) files
     # are stored in the module source directory which is not what we want.
-    EXT_MOD_REL=$(rel_path ${ROOT_DIR}/${EXT_MOD} ${KERNEL_DIR})
+    EXT_MOD_REL=$(realpath ${ROOT_DIR}/${EXT_MOD} --relative-to ${KERNEL_DIR})
     # The output directory must exist before we invoke make. Otherwise, the
     # build system behaves horribly wrong.
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}

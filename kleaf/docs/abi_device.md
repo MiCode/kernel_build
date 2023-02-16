@@ -5,7 +5,7 @@
 ABI monitoring only needs to be configured for core kernel build targets. Mixed
 build configurations (ones that define `base_kernel`) that compile directly
 with the GKI kernel only need to add support for tracking the device symbol
-list. The ABI xml can be updated using the GKI build.
+list. The ABI definition can be updated using the GKI build.
 
 To setup the device symbol list, update the relevant targets in `BUILD.bazel`.
 
@@ -42,7 +42,7 @@ You may optionally define the following:
 See documentation for explanation of the `kernel_abi` rule and its
 attributes: [API Reference and Documentation for all rules](api_reference.md).
 
-See `define_db845c()` in [common_kernels.bzl](../common_kernels.bzl) for an
+See `define_db845c()` in [common\_kernels.bzl](../common_kernels.bzl) for an
 example.
 
 <!-- TODO(b/260913198): we need a better example that uses kernel_abi -->
@@ -58,7 +58,7 @@ See documentation for explanation of the `kernel_unstripped_modules_archive`
 rule and its attributes:
 [API Reference and Documentation for all rules](api_reference.md).
 
-See `define_db845c()` in [common_kernels.bzl](../common_kernels.bzl) for an
+See `define_db845c()` in [common\_kernels.bzl](../common_kernels.bzl) for an
 example.
 
 <!-- TODO(b/260913198): we need a better example that uses kernel_abi -->
@@ -77,7 +77,7 @@ Set `kernel_build_add_vmlinux` to `True` and remove the GKI `kernel_build`
 target (likely `//common:kernel_aarch64`) from `data` to avoid building
 `kernel_build`s twice.
 
-See `define_db845c()` in [common_kernels.bzl](../common_kernels.bzl) for an
+See `define_db845c()` in [common\_kernels.bzl](../common_kernels.bzl) for an
 example.
 
 <!-- TODO(b/260913198): we need a better example that uses kernel_abi -->
@@ -89,7 +89,7 @@ to build artifacts for distribution.
 
 <!-- TODO(b/260913198): we need a better example that uses kernel_abi -->
 
-See `define_db845c()` in [common_kernels.bzl](../common_kernels.bzl) for an
+See `define_db845c()` in [common\_kernels.bzl](../common_kernels.bzl) for an
 example.
 
 ## Build kernel and ABI artifacts {#build-dist}
@@ -124,7 +124,7 @@ This updates `common/android/abi_gki_aarch64_db845c`.
 ## Update the ABI definition
 
 After the KMI symbol list is [updated](#update-symbol-list), you may update the
-ABI definition at `common/android/abi_gki_aarch64.xml` with the following
+ABI definition at `common/android/abi_gki_aarch64.stg` with the following
 command:
 
 ```shell
