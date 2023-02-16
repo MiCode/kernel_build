@@ -1534,8 +1534,8 @@ _kernel_build = rule(
             allow_single_file = True,
         ),
         "enable_interceptor": attr.bool(),
-        "_compare_to_symbol_list": attr.label(
-            default = "//build/kernel:abi_compare_to_symbol_list",
+        "_verify_ksymtab": attr.label(
+            default = "//build/kernel:abi_verify_ksymtab",
             executable = True,
             cfg = "exec",
         ),
@@ -1686,7 +1686,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         all_module_names_file,
     ]
     transitive_inputs = [ctx.attr.config[KernelEnvAndOutputsInfo].inputs]
-    tools = [ctx.executable._compare_to_symbol_list]
+    tools = [ctx.executable._verify_ksymtab]
     transitive_tools = [ctx.attr.config[KernelEnvAndOutputsInfo].tools]
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
@@ -1696,12 +1696,15 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """
-        KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+        {verify_ksymtab} \\
+            --symvers-file {module_symvers} \\
+            --raw-kmi-symbol-list {raw_kmi_symbol_list} \\
+            --objects {vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')
         touch {out}
     """.format(
         vmlinux_base = vmlinux.basename,  # A fancy way of saying "vmlinux"
         all_module_names_file = all_module_names_file.path,
-        compare_to_symbol_list = ctx.executable._compare_to_symbol_list.path,
+        verify_ksymtab = ctx.executable._verify_ksymtab.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
         out = out.path,

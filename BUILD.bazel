@@ -68,9 +68,10 @@ sh_library(
 
 # Tools visible to all packages that uses kernel_build.
 # Implementation detail of kernel_build; do not use directly.
-sh_binary(
-    name = "abi_compare_to_symbol_list",
-    srcs = ["abi/compare_to_symbol_list"],
+py_binary(
+    name = "abi_verify_ksymtab",
+    srcs = ["abi/verify_ksymtab.py"],
+    main = "abi/verify_ksymtab.py",
     visibility = ["//visibility:public"],
 )
 
