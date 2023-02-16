@@ -86,7 +86,7 @@ def _stgdiff_impl(ctx):
     script = ctx.actions.declare_file("{}/print_results.sh".format(ctx.attr.name))
 
     # TODO(b/265020068) Remove duplicate code here.
-    short_report = "{output_dir}/abi.stg_report.short".format(output_dir = output_dir.short_path)
+    short_report = "{output_dir}/abi.report.short".format(output_dir = output_dir.short_path)
     script_content = """#!/bin/bash -e
         rc=$(cat {exit_code_file})
         if [[ $rc == 0 ]]; then
