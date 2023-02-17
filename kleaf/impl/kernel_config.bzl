@@ -34,15 +34,15 @@ load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
-def _determine_raw_symbollist_path(ctx):
-    """A local action that stores the path to `abi_symbollist.raw` to a file object."""
+def _determine_local_path(ctx, file_name, file_attr):
+    """A local action that stores the path to sandboxed file to a file object"""
 
     # Use a local action so we get an absolute path in the execroot that
     # does not tear down as sandboxes. Then write the absolute path into the
-    # abi_symbollist.raw.abspath.
+    # abspath.
     #
     # In practice, the absolute path looks something like:
-    #    /<workspace_root>/out/bazel/output_user_root/<hash>/execroot/__main__/bazel-out/k8-fastbuild/bin/common/kernel_aarch64_raw_kmi_symbol_list/abi_symbollist.raw
+    #    /<workspace_root>/out/bazel/output_user_root/<hash>/execroot/__main__/bazel-out/k8-fastbuild/<file>
     #
     # Alternatively, we could use a relative path. However, gen_autoksyms.sh
     # interprets relative paths as paths relative to $abs_srctree, which
@@ -51,30 +51,52 @@ def _determine_raw_symbollist_path(ctx):
     # - /<workspace_root>/$KERNEL_DIR for local actions
     # Whether KernelConfig is executed in a sandbox may not be consistent with
     # whether a dependant action is executed in a sandbox. This causes the
-    # interpretation of CONFIG_UNUSED_KSYMS_WHITELIST inconsistent in the
-    # two actions. Hence, we stick with absolute paths.
+    # interpretation of CONFIG_* to be inconsistent in the two actions. Hence,
+    # we stick with absolute paths.
     #
     # NOTE: This may hurt remote caching for developer builds. We may want to
     # re-visit this when we implement remote caching for developers.
-    abspath = ctx.actions.declare_file("{}/abi_symbollist.raw.abspath".format(ctx.attr.name))
+
+    abspath = ctx.actions.declare_file("{}/{}.abspath".format(ctx.attr.name, file_name))
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
       # Record the absolute path so we can use in .config
-        readlink -e {raw_kmi_symbol_list} > {abspath}
+        readlink -e {file_attr_path} > {abspath}
     """.format(
         abspath = abspath.path,
-        raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
+        file_attr_path = file_attr.path,
     )
     ctx.actions.run_shell(
         command = command,
-        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [ctx.file.raw_kmi_symbol_list],
+        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [file_attr],
         outputs = [abspath],
-        mnemonic = "KernelConfigLocalRawSymbolList",
-        progress_message = "Determining raw symbol list path for trimming {}".format(ctx.label),
+        mnemonic = "KernelConfigLocalPath",
+        progress_message = "Storing sandboxed path for {}".format(file_name),
         execution_requirements = {
             "local": "1",
         },
     )
     return abspath
+
+def _determine_raw_symbollist_path(ctx):
+    """A local action that stores the path to `abi_symbollist.raw` to a file object."""
+
+    return _determine_local_path(ctx, "abi_symbollist.raw", ctx.file.raw_kmi_symbol_list)
+
+def _determine_module_signing_key_path(ctx):
+    """A local action that stores the path to `signing_key.pem` to a file object."""
+
+    if not ctx.file.module_signing_key:
+        return None
+
+    return _determine_local_path(ctx, "signing_key.pem", ctx.file.module_signing_key)
+
+def _determine_system_trusted_key_path(ctx):
+    """A local action that stores the path to `trusted_key.pem` to a file object."""
+
+    if not ctx.file.system_trusted_key:
+        return None
+
+    return _determine_local_path(ctx, "trusted_key.pem", ctx.file.system_trusted_key)
 
 def _config_gcov(ctx):
     """Return configs for GCOV.
@@ -163,6 +185,41 @@ def _config_trim(ctx):
     ]
     return struct(configs = configs, deps = [raw_symbol_list_path_file])
 
+def _config_keys(ctx):
+    """Return configs for module signing keys and system trusted keys.
+
+    Note: by embedding the system path into the binary, the resulting build
+    becomes non-deterministic and the path leaks into the binary. It can be
+    discovered with `strings` or even by inspecting the kernel config from the
+    binary.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+
+    module_signing_key_file = _determine_module_signing_key_path(ctx)
+    system_trusted_key_file = _determine_system_trusted_key_path(ctx)
+    configs = []
+    deps = []
+    if module_signing_key_file:
+        configs.append(_config.set_str(
+            "MODULE_SIG_KEY",
+            "$(cat {})".format(module_signing_key_file.path),
+        ))
+        deps.append(module_signing_key_file)
+
+    if system_trusted_key_file:
+        configs.append(_config.set_str(
+            "SYSTEM_TRUSTED_KEYS",
+            "$(cat {})".format(system_trusted_key_file.path),
+        ))
+        deps.append(system_trusted_key_file)
+
+    return struct(configs = configs, deps = deps)
+
 def _config_kasan(ctx):
     """Return configs for --kasan.
 
@@ -203,6 +260,7 @@ def _reconfig(ctx):
         _config_trim,
         _config_kasan,
         _config_gcov,
+        _config_keys,
         kgdb.get_scripts_config_args,
     ):
         pair = fn(ctx)
@@ -430,6 +488,14 @@ kernel_config = rule(
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "raw_kmi_symbol_list": attr.label(
             doc = "Label to abi_symbollist.raw.",
+            allow_single_file = True,
+        ),
+        "module_signing_key": attr.label(
+            doc = "Label to module signing key.",
+            allow_single_file = True,
+        ),
+        "system_trusted_key": attr.label(
+            doc = "Label to trusted system key.",
             allow_single_file = True,
         ),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
