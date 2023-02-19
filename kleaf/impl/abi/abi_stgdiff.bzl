@@ -55,8 +55,8 @@ def _stgdiff_impl(ctx):
         if [[ $rc == 0 ]]; then
             echo "INFO: $(cat {error_msg_file})"
         elif [[ $rc == {change_code} ]]; then
-            echo "INFO: ABI DIFFERENCES HAVE BEEN DETECTED!"
-            echo "INFO: $(cat {short_report})"
+            echo "INFO: ABI DIFFERENCES HAVE BEEN DETECTED!" >&2
+            echo "INFO: $(cat {short_report})" >&2
         else
             echo "ERROR: $(cat {error_msg_file})" >&2
             echo "INFO: exit code is not checked. 'tools/bazel run {label}' to check the exit code." >&2
