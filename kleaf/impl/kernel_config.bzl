@@ -262,6 +262,28 @@ def _config_kasan(ctx):
     ]
     return struct(configs = configs, deps = [])
 
+def _config_btf_debug_info(ctx):
+    """Return configs for DEBUG_INFO_BTF.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+    btf_debug_info = ctx.attr.btf_debug_info[BuildSettingInfo].value
+
+    if btf_debug_info == "default":
+        configs = []
+    elif btf_debug_info == "enable":
+        configs = [_config.enable("DEBUG_INFO_BTF")]
+    elif btf_debug_info == "disable":
+        configs = [_config.disable("DEBUG_INFO_BTF")]
+    else:
+        fail("{}: unexpected value for --btf_debug_info: {}".format(ctx.label, btf_debug_info))
+
+    return struct(configs = configs, deps = [])
+
 def _reconfig(ctx):
     """Return a command and extra inputs to re-configure `.config` file."""
     configs = []
@@ -273,6 +295,7 @@ def _reconfig(ctx):
         _config_kasan,
         _config_gcov,
         _config_keys,
+        _config_btf_debug_info,
         kgdb.get_scripts_config_args,
     ):
         pair = fn(ctx)

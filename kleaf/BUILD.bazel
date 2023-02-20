@@ -97,6 +97,17 @@ bool_flag(
     build_setting_default = True,
 )
 
+# Flag to enable/disable BTF debug information
+string_flag(
+    name = "btf_debug_info",
+    build_setting_default = "default",
+    values = [
+        "default",  # don't change generation of BTF debug information
+        "enable",
+        "disable",
+    ],
+)
+
 # Debug options
 
 bool_flag(
