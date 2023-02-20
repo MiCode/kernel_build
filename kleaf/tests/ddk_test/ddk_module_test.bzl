@@ -15,6 +15,7 @@
 """Tests for `ddk_module`."""
 
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "ModuleSymversInfo")
@@ -52,8 +53,12 @@ def _ddk_module_test_impl(ctx):
     expected_inputs = sets.make(ctx.files.expected_inputs)
 
     action = None
+    mnemonic = "KernelModule"
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        mnemonic += "ProcessWrapperSandbox"
+
     for a in target_under_test.actions:
-        if a.mnemonic == "KernelModule":
+        if a.mnemonic == mnemonic:
             action = a
     asserts.true(env, action, "Can't find action with mnemonic KernelModule")
 
@@ -76,6 +81,9 @@ ddk_module_test = analysistest.make(
         "expected_inputs": attr.label_list(allow_files = True),
         "expected_includes": attr.string_list(),
         "expected_hdrs": attr.label_list(allow_files = [".h"]),
+        "_config_is_local": attr.label(
+            default = "//build/kernel/kleaf:config_local",
+        ),
     },
 )
 

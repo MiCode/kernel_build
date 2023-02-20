@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test that if --kasan is specified and --lto is not none or unspecified, fail.
+"""Test that if --kasan is specified and --lto is not none or unspecified, fail."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
@@ -20,6 +20,7 @@ load("//build/kernel/kleaf:constants.bzl", "LTO_VALUES")
 
 def _kasan_test_impl(ctx):
     env = analysistest.begin(ctx)
+
     if ctx.attr._expect_failure:
         asserts.expect_failure(env, "--kasan requires --lto=none")
     return analysistest.end(env)
@@ -47,17 +48,20 @@ _kasan_tests = {
 
 # Hack to fix "Invalid rule class hasn't been exported by a bzl file"
 # List all values in _kasan_tests explicitly.
-_kasan_true_default_test = _kasan_tests[True, "default"]
-_kasan_true_thin_test = _kasan_tests[True, "thin"]
-_kasan_true_full_test = _kasan_tests[True, "full"]
-_kasan_true_none_test = _kasan_tests[True, "none"]
-_kasan_false_default_test = _kasan_tests[False, "default"]
-_kasan_false_thin_test = _kasan_tests[False, "thin"]
-_kasan_false_full_test = _kasan_tests[False, "full"]
-_kasan_false_none_test = _kasan_tests[False, "none"]
+_kasan_true_default_test = _kasan_tests[True, "default"]  # @unused
+_kasan_true_thin_test = _kasan_tests[True, "thin"]  # @unused
+_kasan_true_full_test = _kasan_tests[True, "full"]  # @unused
+_kasan_true_none_test = _kasan_tests[True, "none"]  # @unused
+_kasan_false_default_test = _kasan_tests[False, "default"]  # @unused
+_kasan_false_thin_test = _kasan_tests[False, "thin"]  # @unused
+_kasan_false_full_test = _kasan_tests[False, "full"]  # @unused
+_kasan_false_none_test = _kasan_tests[False, "none"]  # @unused
 
 def kasan_test(name):
     """Define tests for `--kasan`.
+
+    Args:
+        name: Name for this test.
     """
     tests = []
 
