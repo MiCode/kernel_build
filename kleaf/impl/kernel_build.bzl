@@ -1525,14 +1525,6 @@ _kernel_build = rule(
             allow_single_file = True,
         ),
         "collect_unstripped_modules": attr.bool(),
-        "module_signing_key": attr.label(
-            doc = "Label to module signing key.",
-            allow_single_file = True,
-        ),
-        "system_trusted_key": attr.label(
-            doc = "Label to trusted system key.",
-            allow_single_file = True,
-        ),
         "enable_interceptor": attr.bool(),
         "_verify_ksymtab": attr.label(
             default = "//build/kernel:abi_verify_ksymtab",
