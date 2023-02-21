@@ -99,6 +99,8 @@ def kernel_build(
         kbuild_symtypes = None,
         toolchain_version = None,
         strip_modules = None,
+        module_signing_key = None,
+        system_trusted_key = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -338,6 +340,12 @@ def kernel_build(
           If set to `True`, debug information for distributed modules is stripped.
 
           This corresponds to negated value of `DO_NOT_STRIP_MODULES` in `build.config`.
+        module_signing_key: A label referring to a module signing key.
+
+          This is to allow for dynamic setting of `CONFIG_MODULE_SIG_KEY` from Bazel.
+        system_trusted_key: A label referring to a trusted system key.
+
+          This is to allow for dynamic setting of `CONFIG_SYSTEM_TRUSTED_KEY` from Bazel.
         dtstree: Device tree support.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
@@ -417,6 +425,8 @@ def kernel_build(
         srcs = srcs,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
+        module_signing_key = module_signing_key,
+        system_trusted_key = system_trusted_key,
         **internal_kwargs
     )
 
@@ -1515,6 +1525,14 @@ _kernel_build = rule(
             allow_single_file = True,
         ),
         "collect_unstripped_modules": attr.bool(),
+        "module_signing_key": attr.label(
+            doc = "Label to module signing key.",
+            allow_single_file = True,
+        ),
+        "system_trusted_key": attr.label(
+            doc = "Label to trusted system key.",
+            allow_single_file = True,
+        ),
         "enable_interceptor": attr.bool(),
         "_compare_to_symbol_list": attr.label(
             default = "//build/kernel:abi_compare_to_symbol_list",

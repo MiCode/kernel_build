@@ -45,7 +45,7 @@ def _read_config(allow_file, deny_file):
         if len(fields) > 1:
           reason = fields[1]
         if symbol in config:
-          print(f'symbol \'{symbol}\' duplicate configuration', file=sys.stderr)
+          print(f"symbol '{symbol}' duplicate configuration", file=sys.stderr)
           continue
         config[symbol] = (status, reason)
 
@@ -95,18 +95,30 @@ def main():
   deny_file = os.path.join(dir, 'symbols.deny')
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('symbol_lists', metavar='FILE', type=str, nargs='+',
-                      help='a symbol list file')
-  parser.add_argument('--in-dir', required=True,
-                      help='where to find the symbol list files')
-  parser.add_argument('--out-dir', required=True,
-                      help='where to put the combined symbol list and report')
-  parser.add_argument('--out-file', required=True,
-                      help='combined symbol list file name')
-  parser.add_argument('--report-file', required=True,
-                      help='symbol list report file name')
-  parser.add_argument('--verbose', action='store_true',
-                      help='increase verbosity of the output')
+  parser.add_argument(
+      'symbol_lists',
+      metavar='FILE',
+      type=str,
+      nargs='+',
+      help='a symbol list file',
+  )
+  parser.add_argument(
+      '--in-dir', required=True, help='where to find the symbol list files'
+  )
+  parser.add_argument(
+      '--out-dir',
+      required=True,
+      help='where to put the combined symbol list and report',
+  )
+  parser.add_argument(
+      '--out-file', required=True, help='combined symbol list file name'
+  )
+  parser.add_argument(
+      '--report-file', required=True, help='symbol list report file name'
+  )
+  parser.add_argument(
+      '--verbose', action='store_true', help='increase verbosity of the output'
+  )
 
   args = parser.parse_args()
 
@@ -134,10 +146,11 @@ def main():
     for symbol, status, reason in report:
       rf.write(f'{symbol}\t{status.name}\t{reason}\n')
       if status == Status.FORBIDDEN:
-        print(f'symbol \'{symbol}\' is not allowed: {reason}', file=sys.stderr)
+        print(f"symbol '{symbol}' is not allowed: {reason}", file=sys.stderr)
         exit_status = 1
 
   return exit_status
+
 
 if __name__ == '__main__':
   sys.exit(main())
