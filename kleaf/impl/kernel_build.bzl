@@ -1740,6 +1740,13 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
     if not ctx.file.raw_kmi_symbol_list:
         return None
 
+    # Skip for --kasan build as they are not valid GKI releasae configurations.
+    # Downstreams are expect to build kernel+modules+vendor modules locally
+    # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
+    # if required.
+    if ctx.attr._kasan[BuildSettingInfo].value:
+        return None
+
     inputs = [
         ctx.file.raw_kmi_symbol_list,
         modules_staging_archive,
