@@ -61,6 +61,7 @@ bzl_library(
         "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
+        "kernel_env_transition.bzl",
         "kernel_filegroup.bzl",
         "kernel_headers.bzl",
         "kernel_kythe.bzl",

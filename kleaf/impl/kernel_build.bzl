@@ -389,6 +389,7 @@ def kernel_build(
         srcs = srcs,
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
         **internal_kwargs
     )
 
