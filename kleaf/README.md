@@ -30,6 +30,12 @@
 
 [Kleaf Development](docs/kleaf_development.md)
 
+[Driver Development Kit (DDK)](docs/ddk/main.md)
+
+[Kleaf Flags for debugging](docs/flags.md)
+
+[Building `compile_commands.json`](docs/compile_commands.md)
+
 ### Configurations
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
@@ -49,3 +55,4 @@
 `--kgdb`: [GDB scripts](docs/kgdb.md)
 
 `--lto`: [Configure LTO during development](docs/lto.md)
+

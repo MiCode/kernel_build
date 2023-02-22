@@ -194,6 +194,8 @@ def _filter_module_srcs(files):
             hdrs.append(file)
         elif "Makefile" in file.path or "scripts/" in file.path:
             scripts.append(file)
+        elif file.basename == "module.lds.S":
+            scripts.append(file)
     return struct(
         module_scripts = depset(scripts),
         module_hdrs = depset(hdrs),

@@ -92,22 +92,21 @@ genrule(
     name = "gki_certification_tools",
     srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
     outs = ["gki_certification_tools.tar.gz"],
-    # Clear PATH to ensure hermeticity.
+    # Set PATH to ensure hermeticity.
     cmd = """
-        PATH=
-        $(location :hermetic-tools/tar) -c \\
-            -C $$($(location :hermetic-tools/dirname) $$($(location :hermetic-tools/dirname) $(location {prefix}{first}))) \\
-            {files} | \\
-          $(location :hermetic-tools/gzip) > $@
+        PATH=$$($(location :hermetic-tools/readlink) -m $$($(location :hermetic-tools/dirname) $(location :hermetic-tools/dirname)))
+        tar -czf $@ \\
+            -C $$(dirname $$(dirname $(location {prefix}{first}))) \\
+            {files}
     """.format(
         files = " ".join(["bin/" + tool for tool in _GKI_CERTIFICATION_BINARIES]),
         first = _GKI_CERTIFICATION_BINARIES[0],
         prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
     ),
     tools = [
+        ":hermetic-tools",
         ":hermetic-tools/dirname",
-        ":hermetic-tools/gzip",
-        ":hermetic-tools/tar",
+        ":hermetic-tools/readlink",
     ],
 )
 

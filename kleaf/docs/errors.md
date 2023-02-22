@@ -355,7 +355,7 @@ Second, run ABI definition update with no diff as reference file will be an empt
 bazel run //common:kernel_aarch64_abi_nodiff_update
 ```
 
-This will geneate the base line ABI definition file and ABI definition update target
+This will generate the base line ABI definition file and ABI definition update target
 `//common:kernel_aarch64_abi_update` will be available now onwards.
 
 For details, see [abi.md#update-abi](abi.md#update-abi)

@@ -18,7 +18,6 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
-load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", "kernel_build_abi")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
@@ -99,28 +98,6 @@ def kernel_build_strip_modules_test(name):
             expect_strip_modules = strip_modules,
         )
         tests.append(test_prefix + "_module_test")
-
-        # kernel_build_abi defines different targets depending on this
-        #  attribute, so adding both to cover more targets.
-        for define_abi_targets in (True, False):
-            kernel_build_abi(
-                name = name_prefix + str(define_abi_targets) + "_abi",
-                build_config = "build.config.fake",
-                outs = [],
-                define_abi_targets = define_abi_targets,
-                # Note: When working with mixed builds, device and base kernel
-                #  are considered separated and can have distintic values.
-                strip_modules = strip_modules,
-                tags = ["manual"],
-            )
-            _strip_modules_test(
-                name = test_prefix + str(define_abi_targets) + "_abi_test",
-                target_under_test = name_prefix +
-                                    str(define_abi_targets) + "_abi",
-                action_mnemonic = "KernelBuild",
-                expect_strip_modules = strip_modules,
-            )
-            tests.append(name_prefix + str(define_abi_targets) + "_abi_test")
 
     native.test_suite(
         name = name,

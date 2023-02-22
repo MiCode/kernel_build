@@ -259,8 +259,12 @@ class BuildConfigToBazelTest(unittest.TestCase):
             (3, f'"//{_TEST_DATA}/ext_module1"'),
             (3, f'"//{_TEST_DATA}/ext_module2"'),
 
+            textwrap.dedent(f'''\
+                kernel_abi(
+                    name = "everything_abi",'''),
             # ABI_DEFINITION
-            f'abi_definition = "//common:androidabi.xml"',
+            f'abi_definition = None',
+            f'//common:androidabi.xml',
             # KMI_ENFORCED
             f'kmi_enforced = True',
             # KMI_SYMBOL_LIST_ADD_ONLY
