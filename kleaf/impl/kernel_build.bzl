@@ -375,6 +375,8 @@ def kernel_build(
     if strip_modules == None:
         strip_modules = False
 
+    trim_nonlisted_kmi = trim_nonlisted_kmi_utils.selected_attr(trim_nonlisted_kmi)
+
     internal_kwargs = dict(kwargs)
     internal_kwargs.pop("visibility", None)
 

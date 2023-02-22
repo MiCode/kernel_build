@@ -16,8 +16,7 @@
 
 load(
     ":abi/trim_nonlisted_kmi_utils.bzl",
-    "TRIM_NONLISTED_KMI_SETTING",
-    "TRIM_NONLISTED_KMI_SETTING_VALUES",
+    "FORCE_DISABLE_TRIM",
 )
 
 _FORCE_ADD_VMLINUX_SETTING = "//build/kernel/kleaf/impl:force_add_vmlinux"
@@ -47,13 +46,13 @@ with_vmlinux_transition = transition(
 def _notrim_transition_impl(settings, attr):
     """notrim: like _with_vmlinux, but trim_nonlisted_kmi = False"""
     return _with_vmlinx_transition_impl(settings, attr) | {
-        TRIM_NONLISTED_KMI_SETTING: TRIM_NONLISTED_KMI_SETTING_VALUES.disabled,
+        FORCE_DISABLE_TRIM: True,
     }
 
 notrim_transition = transition(
     implementation = _notrim_transition_impl,
     inputs = [],
     outputs = _WITH_VMLINUX_TRANSITION_OUTPUT_SETTINGS + [
-        TRIM_NONLISTED_KMI_SETTING,
+        FORCE_DISABLE_TRIM,
     ],
 )

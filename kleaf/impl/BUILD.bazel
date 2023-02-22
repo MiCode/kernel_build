@@ -115,6 +115,7 @@ bool_setting(
     visibility = ["//visibility:public"],
 )
 
+# TODO(b/269674780): Delete unused trim_nonlisted_kmi_setting
 # Whether trimming is actually enabled.
 # * unknown: the value is unknown. Rules that depends on this setting
 #    must have a transition that sets this properly (possibly based on attrs)
@@ -129,6 +130,23 @@ string_setting(
         TRIM_NONLISTED_KMI_SETTING_VALUES.enabled,
         TRIM_NONLISTED_KMI_SETTING_VALUES.disabled,
     ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# Helper setting to forcefully disable trimming.
+bool_setting(
+    name = "force_disable_trim",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "force_disable_trim_is_true",
+    flag_values = {
+        ":force_disable_trim": "1",
+    },
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
