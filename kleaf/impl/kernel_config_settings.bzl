@@ -33,13 +33,21 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":abi/base_kernel_utils.bzl", "base_kernel_utils")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
-load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_ATTR_NAME")
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":kgdb.bzl", "kgdb")
 
+def _trim_attrs_raw():
+    return {TRIM_NONLISTED_KMI_ATTR_NAME: attr.bool}
+
+def _trim_attrs():
+    return {key: value() for key, value in _trim_attrs_raw().items()}
+
+def _modules_prepare_config_settings():
+    return _trim_attrs()
+
 def _kernel_build_config_settings_raw():
     return dicts.add(
-        trim_nonlisted_kmi_utils.config_settings_raw(),
         force_add_vmlinux_utils.config_settings_raw(),
         base_kernel_utils.config_settings_raw(),
         kgdb.config_settings_raw(),
@@ -53,14 +61,13 @@ def _kernel_build_config_settings_raw():
     )
 
 def _kernel_build_config_settings():
-    return {
+    return _trim_attrs() | {
         attr_name: attr.label(default = label)
         for attr_name, label in _kernel_build_config_settings_raw().items()
     }
 
 def _kernel_config_config_settings_raw():
     return dicts.add(
-        trim_nonlisted_kmi_utils.config_settings_raw(),
         kgdb.config_settings_raw(),
         {
             "kasan": "//build/kernel/kleaf:kasan",
@@ -70,7 +77,7 @@ def _kernel_config_config_settings_raw():
     )
 
 def _kernel_config_config_settings():
-    return {
+    return _trim_attrs() | {
         attr_name: attr.label(default = label)
         for attr_name, label in _kernel_config_config_settings_raw().items()
     }
@@ -79,7 +86,6 @@ def _kernel_env_config_settings_raw():
     return dicts.add(
         _kernel_build_config_settings_raw(),
         _kernel_config_config_settings_raw(),
-        trim_nonlisted_kmi_utils.config_settings_raw(),
         force_add_vmlinux_utils.config_settings_raw(),
         kgdb.config_settings_raw(),
         compile_commands_utils.config_settings_raw(),
@@ -89,7 +95,7 @@ def _kernel_env_config_settings_raw():
     )
 
 def _kernel_env_config_settings():
-    return {
+    return _trim_attrs() | {
         attr_name: attr.label(default = label)
         for attr_name, label in _kernel_env_config_settings_raw().items()
     }
@@ -97,26 +103,49 @@ def _kernel_env_config_settings():
 def _kernel_env_get_config_tags(ctx):
     """Returns dict to compute `OUT_DIR_SUFFIX` for `kernel_env`."""
     attr_to_label = _kernel_env_config_settings_raw()
+    raw_attrs = _trim_attrs_raw()
 
     ret = {}
     for attr_name in attr_to_label:
         attr_target = getattr(ctx.attr, attr_name)
         attr_val = attr_target[BuildSettingInfo].value
         ret[str(attr_target.label)] = attr_val
+    for attr_name in raw_attrs:
+        attr_val = getattr(ctx.attr, attr_name)
+        ret[attr_name] = attr_val
     return ret
 
 # Map of config settings to shortened names
 _PROGRESS_MESSAGE_SETTINGS_MAP = {
     "force_add_vmlinux": "with_vmlinux",
     "force_ignore_base_kernel": "",  # already covered by with_vmlinux
-    "trim_nonlisted_kmi_setting": "trim",
     "kmi_symbol_list_strict_mode": "",  # Hide because not interesting
 }
 
-# List of settings that are always included in progress message
-_PROGRESS_MESSAGE_INTERESTING_SETTINGS = [
-    "trim_nonlisted_kmi_setting",
+_PROGRESS_MESSAGE_ATTRS_MAP = {
+    TRIM_NONLISTED_KMI_ATTR_NAME: "trim",
+}
+
+_PROGRESS_MESSAGE_INTERESTING_ATTRS = [
+    TRIM_NONLISTED_KMI_ATTR_NAME,
 ]
+
+def _create_progress_message_item(attr_key, attr_val, map, interesting_list):
+    print_attr_key = map.get(attr_key, attr_key)
+
+    # In _SETTINGS_MAP but value is set to empty to ignore it
+    if not print_attr_key:
+        return None
+
+    # Empty values that are not interesting enough are dropped
+    if not attr_val and attr_key not in interesting_list:
+        return None
+    if attr_val == True:
+        return print_attr_key
+    elif attr_val == False:
+        return "no{}".format(print_attr_key)
+    else:
+        return "{}={}".format(print_attr_key, attr_val)
 
 def _get_progress_message_note(ctx):
     """Returns a description text for progress message.
@@ -129,23 +158,29 @@ def _get_progress_message_note(ctx):
     for attr_name in attr_to_label:
         attr_target = getattr(ctx.attr, attr_name)
         attr_label_name = attr_target.label.name
-        print_attr_label_name = _PROGRESS_MESSAGE_SETTINGS_MAP.get(attr_label_name, attr_label_name)
-
-        # In _SETTINGS_MAP but value is set to empty to ignore it
-        if not print_attr_label_name:
-            continue
-
         attr_val = attr_target[BuildSettingInfo].value
-
-        # Empty values that are not interesting enough are dropped
-        if not attr_val and attr_label_name not in _PROGRESS_MESSAGE_INTERESTING_SETTINGS:
+        item = _create_progress_message_item(
+            attr_label_name,
+            attr_val,
+            _PROGRESS_MESSAGE_SETTINGS_MAP,
+            [],
+        )
+        if not item:
             continue
-        if attr_val == True:
-            ret.append(print_attr_label_name)
-        elif attr_val == False:
-            ret.append("no{}".format(print_attr_label_name))
-        else:
-            ret.append("{}={}".format(print_attr_label_name, attr_val))
+        ret.append(item)
+
+    for attr_name in _trim_attrs_raw():
+        attr_val = getattr(ctx.attr, attr_name)
+        item = _create_progress_message_item(
+            attr_name,
+            attr_val,
+            _PROGRESS_MESSAGE_ATTRS_MAP,
+            _PROGRESS_MESSAGE_INTERESTING_ATTRS,
+        )
+        if not item:
+            continue
+        ret.append(item)
+
     ret = sorted(sets.to_list(sets.make(ret)))
     ret = ";".join(ret)
     if ret:
@@ -156,6 +191,7 @@ kernel_config_settings = struct(
     of_kernel_build = _kernel_build_config_settings,
     of_kernel_config = _kernel_config_config_settings,
     of_kernel_env = _kernel_env_config_settings,
+    of_modules_prepare = _modules_prepare_config_settings,
     kernel_env_get_config_tags = _kernel_env_get_config_tags,
     get_progress_message_note = _get_progress_message_note,
 )

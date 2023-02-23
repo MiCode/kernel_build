@@ -468,7 +468,6 @@ def _get_config_script(ctx):
 def _kernel_config_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_config(),
-        trim_nonlisted_kmi_utils.non_config_attrs(),
     )
 
 kernel_config = rule(
