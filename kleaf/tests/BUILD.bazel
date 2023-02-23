@@ -25,6 +25,7 @@ test_suite(
         "//build/kernel/kleaf/tests/kernel_images_test",
         "//build/kernel/kleaf/tests/kernel_module_group_test",
         "//build/kernel/kleaf/tests/merged_kernel_uapi_headers_test",
+        "//build/kernel/kleaf/tests/trim_test",
     ],
 )
 
