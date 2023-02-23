@@ -27,7 +27,6 @@ load(
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
-load(":kernel_env_transition.bzl", "kernel_env_transition")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":kgdb.bzl", "kgdb")
@@ -301,7 +300,6 @@ def _kernel_env_additional_attrs():
 
 kernel_env = rule(
     implementation = _kernel_env_impl,
-    cfg = kernel_env_transition,
     doc = """Generates a rule that generates a source-able build environment.
 
           A build environment is defined by a single entry build config file
@@ -372,9 +370,5 @@ kernel_env = rule(
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
-        "_allowlist_function_transition": attr.label(
-            # Allow everything because kernel_config is indirectly called in device packages.
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
     } | _kernel_env_additional_attrs(),
 )
