@@ -42,6 +42,7 @@ SYSTEM_DLKM_OUTS = [
     "system_dlkm.img",
     "system_dlkm_staging_archive.tar.gz",
     "system_dlkm.modules.load",
+    "system_dlkm.modules.blocklist",
 ]
 
 MODULES_STAGING_ARCHIVE = "modules_staging_dir.tar.gz"

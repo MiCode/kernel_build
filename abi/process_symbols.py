@@ -22,10 +22,39 @@ import os
 import sys
 
 
+_TRACE_POINT = '__tracepoint_'
+_TRACE_ITER = '__traceiter_'
+
+
 class Status(enum.Enum):
   UNKNOWN = 0
   ALLOWED = 1
   FORBIDDEN = 2
+
+
+def _validate_symbols(symbol_list, symbols):
+  """Validates Tracepoints consistenty in a given symbol list."""
+  missing = []
+  for symbol in symbols:
+    if not symbol.startswith((_TRACE_POINT, _TRACE_ITER)):
+      continue
+    if symbol.startswith(_TRACE_POINT):
+      other = symbol.replace(_TRACE_POINT, _TRACE_ITER)
+      if other not in symbols:
+        missing.append(other)
+    if symbol.startswith(_TRACE_ITER):
+      other = symbol.replace(_TRACE_ITER, _TRACE_POINT)
+      if other not in symbols:
+        missing.append(other)
+  if missing:
+    print(
+        'ERROR: Missing symbols: ',
+        missing,
+        'in ',
+        os.path.basename(symbol_list),
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def _read_config(allow_file, deny_file):
@@ -57,14 +86,16 @@ def _read_config(allow_file, deny_file):
 
 def _read_symbol_lists(symbol_lists):
   """Reads libabigail symbol list files as a list of lines."""
-  lines = []
+  all_lines = []
   for symbol_list in symbol_lists:
     with open(symbol_list) as sl:
-      for line in sl:
-        lines.append(line)
+      lines = sl.read().splitlines(keepends=True)
+    all_lines.extend(lines)
     # Separate files or at least protect against missing final newlines.
-    lines.append('\n')
-  return lines
+    all_lines.append('\n')
+    # validate symbols by file
+    _validate_symbols(symbol_list, _get_symbols(lines))
+  return all_lines
 
 
 def _get_symbols(lines):

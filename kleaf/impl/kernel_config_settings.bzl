@@ -79,6 +79,7 @@ def _kernel_env_config_settings_raw():
     return dicts.add(
         _kernel_build_config_settings_raw(),
         _kernel_config_config_settings_raw(),
+        trim_nonlisted_kmi_utils.config_settings_raw(),
         force_add_vmlinux_utils.config_settings_raw(),
         kgdb.config_settings_raw(),
         compile_commands_utils.config_settings_raw(),
