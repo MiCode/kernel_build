@@ -70,7 +70,7 @@ def _create_kconfig_ext_step(ctx, kconfig_depset_file):
         mkdir -p {intermediates_dir}
 
         # Copy all Kconfig files to our new KCONFIG_EXT directory
-        rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
+        rsync --no-perms -L -r --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
 
         KCONFIG_EXT_PREFIX=$(realpath {intermediates_dir} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
 
@@ -171,8 +171,8 @@ def _create_main_action(
         {oldconfig_cmd}
 
         # Copy outputs
-        rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
-        rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
+        rsync --no-perms -L ${{OUT_DIR}}/.config {out_dir}/.config
+        rsync --no-perms -L -r ${{OUT_DIR}}/include/ {out_dir}/include/
     """.format(
         merge_config_cmd = merge_dot_config_step.cmd,
         kconfig_ext_cmd = kconfig_ext_step.cmd,
@@ -197,8 +197,8 @@ def _create_env_and_outputs_info(ctx, out_dir):
 
     # Overlay module-specific configs
     restore_outputs_cmd = """
-        rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
-        rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+        rsync --no-perms -L {out_dir}/.config ${{OUT_DIR}}/.config
+        rsync --no-perms -L -r --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
     """.format(
         out_dir = out_dir.path,
     )
