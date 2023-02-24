@@ -1490,7 +1490,6 @@ def _kernel_build_impl(ctx):
 def _kernel_build_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_build(),
-        trim_nonlisted_kmi_utils.non_config_attrs(),
         base_kernel_utils.non_config_attrs(),
     )
 
