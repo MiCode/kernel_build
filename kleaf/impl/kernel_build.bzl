@@ -55,6 +55,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
+load(":kernel_build_transition.bzl", "kernel_build_transition")
 load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
@@ -1559,7 +1560,11 @@ _kernel_build = rule(
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     } | _kernel_build_additional_attrs(),
+    cfg = kernel_build_transition,
 )
 
 def _kernel_build_check_toolchain(ctx):

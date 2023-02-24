@@ -16,6 +16,7 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_setting", "string_setting")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_SETTING_VALUES")
 
 bzl_library(
     name = "impl",
@@ -53,12 +54,14 @@ bzl_library(
         "image/vendor_dlkm_image.bzl",
         "kernel_build.bzl",
         "kernel_build_config.bzl",
+        "kernel_build_transition.bzl",
         "kernel_compile_commands.bzl",
         "kernel_config.bzl",
         "kernel_config_settings.bzl",
         "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
+        "kernel_env_transition.bzl",
         "kernel_filegroup.bzl",
         "kernel_headers.bzl",
         "kernel_kythe.bzl",
@@ -73,6 +76,7 @@ bzl_library(
         "kmi_symbol_list.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
+        "modules_prepare_transition.bzl",
         "out_headers_allowlist_archive.bzl",
         "raw_kmi_symbol_list.bzl",
         "scripts_config_arg_builder.bzl",
@@ -107,6 +111,25 @@ bool_setting(
 bool_setting(
     name = "build_compile_commands",
     build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# TODO(b/269674780): Delete unused trim_nonlisted_kmi_setting
+# Whether trimming is actually enabled.
+# * unknown: the value is unknown. Rules that depends on this setting
+#    must have a transition that sets this properly (possibly based on attrs)
+# * enabled: trimming is enabled
+# * disabled: trimming is disabled
+# Do not use directly. Use APIs in trim_nonlisted_kmi_utils.bzl instead.
+string_setting(
+    name = "trim_nonlisted_kmi_setting",
+    build_setting_default = TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
+    values = [
+        TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
+        TRIM_NONLISTED_KMI_SETTING_VALUES.enabled,
+        TRIM_NONLISTED_KMI_SETTING_VALUES.disabled,
+    ],
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
