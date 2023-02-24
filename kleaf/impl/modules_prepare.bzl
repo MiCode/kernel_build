@@ -23,7 +23,6 @@ load(
 load(":cache_dir.bzl", "cache_dir")
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
-load(":modules_prepare_transition.bzl", "modules_prepare_transition")
 load(":utils.bzl", "kernel_utils")
 
 def _modules_prepare_impl(ctx):
@@ -133,9 +132,5 @@ modules_prepare = rule(
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
     } | _modules_prepare_additional_attrs(),
-    cfg = modules_prepare_transition,
 )
