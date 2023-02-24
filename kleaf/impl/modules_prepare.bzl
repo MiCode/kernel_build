@@ -15,7 +15,6 @@
 """Runs `make modules_prepare` to prepare `$OUT_DIR` for modules."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAndOutputsInfo",
@@ -23,6 +22,7 @@ load(
 )
 load(":cache_dir.bzl", "cache_dir")
 load(":debug.bzl", "debug")
+load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":modules_prepare_transition.bzl", "modules_prepare_transition")
 load(":utils.bzl", "kernel_utils")
 
@@ -113,7 +113,7 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
 
 def _modules_prepare_additional_attrs():
     return dicts.add(
-        trim_nonlisted_kmi_utils.non_config_attrs(),
+        kernel_config_settings.of_modules_prepare(),
     )
 
 modules_prepare = rule(

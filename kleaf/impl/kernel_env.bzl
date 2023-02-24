@@ -297,7 +297,6 @@ def _get_tools(toolchain_version):
 def _kernel_env_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_env(),
-        trim_nonlisted_kmi_utils.non_config_attrs(),
     )
 
 kernel_env = rule(

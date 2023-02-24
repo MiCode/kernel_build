@@ -178,10 +178,22 @@ _kasan_transition = transition(
     outputs = [_KASAN_FLAG],
 )
 
+# Kasan requires LTO=none to run, otherwise it fails.
+def _no_lto_impl(settings, attr):
+    _ignore = (settings, attr)  # @unused
+    return {_LTO_FLAG: "default"}
+
+_force_no_lto_transition = transition(
+    implementation = _no_lto_impl,
+    inputs = [],
+    outputs = [_LTO_FLAG],
+)
+
 _kasan_test_data = rule(
     implementation = _get_transitioned_config_impl,
     doc = "Get `.config` for a kernel with the KASAN transition.",
     attrs = _get_config_attrs_common(_kasan_transition),
+    cfg = _force_no_lto_transition,
 )
 
 def _kasan_test(name, kernel_build):
