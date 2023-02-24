@@ -247,6 +247,9 @@ def _config_kasan(ctx):
     if lto != "none":
         fail("{}: --kasan requires --lto=none, but --lto is {}".format(ctx.label, lto))
 
+    if trim_nonlisted_kmi_utils.get_value(ctx):
+        fail("{}: --kasan requires trimming to be disabled".format(ctx.label))
+
     configs = [
         _config.enable("KASAN"),
         _config.enable("KASAN_INLINE"),

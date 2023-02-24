@@ -402,7 +402,15 @@ def _combined_option_test(name, kernels):
     tests = []
     for key, kernel_build in kernels.items():
         for test_name, combination in _combined_test_combinations(key).items():
+            test_name = name + "_" + test_name
             out_prefix = test_name
+
+            # key.trim is the value of trim_nonlisted_kmi declared in kernel_build macro.
+            # expected_trim is the expected value of CONFIG_TRIM_UNUSED_KSYMS, affected by kasan.
+            expected_trim = key.trim
+            if combination["kasan"]:
+                expected_trim = False
+
             _combined_test_expected(
                 name = test_name + "_expected",
                 out = out_prefix + "_config",
@@ -411,7 +419,7 @@ def _combined_option_test(name, kernels):
                        ["data/{}_config".format(_kgdb_str(kgdb, key.arch)) for kgdb in (True, False)] +
                        ["data/{}_config".format(_trim_str(trim)) for trim in (True, False)],
                 arch = key.arch,
-                trim = key.trim,
+                trim = expected_trim,
                 **combination
             )
 

@@ -151,6 +151,15 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "kasan_is_true",
+    flag_values = {
+        "//build/kernel/kleaf:kasan": "1",
+    },
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
 # Forcefully add vmlinux to outs (implicitly) and to MAKE_GOALS.
 bool_setting(
     name = "force_add_vmlinux",
