@@ -375,8 +375,6 @@ def kernel_build(
     if strip_modules == None:
         strip_modules = False
 
-    trim_nonlisted_kmi = trim_nonlisted_kmi_utils.selected_attr(trim_nonlisted_kmi)
-
     internal_kwargs = dict(kwargs)
     internal_kwargs.pop("visibility", None)
 
@@ -1490,6 +1488,7 @@ def _kernel_build_impl(ctx):
 def _kernel_build_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_build(),
+        trim_nonlisted_kmi_utils.non_config_attrs(),
         base_kernel_utils.non_config_attrs(),
     )
 
