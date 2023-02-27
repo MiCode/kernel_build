@@ -19,6 +19,7 @@ load(
     "DdkSubmoduleInfo",
     "ModuleSymversInfo",
 )
+load(":ddk/ddk_conditional_filegroup.bzl", "DdkConditionalFilegroupInfo")
 load(
     ":ddk/ddk_headers.bzl",
     "DdkHeadersInfo",
@@ -145,6 +146,30 @@ def _check_submodule_same_package(module_label, submodule_deps):
     if bad:
         fail("{}: submodules must be in the same package: {}".format(module_label, bad))
 
+def _handle_module_srcs(ctx):
+    srcs_json_list = []
+    for target in ctx.attr.module_srcs:
+        # TODO avoid depset expansion
+        files = target.files.to_list()
+        if DdkConditionalFilegroupInfo in target:
+            srcs_json_list.append(dict(
+                config = target[DdkConditionalFilegroupInfo].config,
+                value = target[DdkConditionalFilegroupInfo].value,
+                files = [file.path for file in files],
+            ))
+        else:
+            srcs_json_list.append(dict(
+                files = [file.path for file in files],
+            ))
+
+    srcs_json = ctx.actions.declare_file("{}/srcs.json".format(ctx.attr.name))
+    ctx.actions.write(
+        output = srcs_json,
+        content = json.encode_indent(srcs_json_list, indent = "  "),
+    )
+
+    return srcs_json
+
 def _makefiles_impl(ctx):
     module_label = Label(str(ctx.label).removesuffix("_makefiles"))
 
@@ -184,6 +209,8 @@ def _makefiles_impl(ctx):
         for target in module_symvers_deps
     ])
 
+    module_srcs_json = _handle_module_srcs(ctx)
+
     args = ctx.actions.args()
 
     # Though flag_per_line is designed for the absl flags library and
@@ -198,7 +225,7 @@ def _makefiles_impl(ctx):
     args.set_param_file_format("multiline")
     args.use_param_file("--flagfile=%s")
 
-    args.add_all("--kernel-module-srcs", ctx.files.module_srcs)
+    args.add("--kernel-module-srcs-json", module_srcs_json)
     if ctx.attr.module_out:
         args.add("--kernel-module-out", ctx.attr.module_out)
     args.add("--output-makefiles", output_makefiles.path)
@@ -223,7 +250,10 @@ def _makefiles_impl(ctx):
 
     ctx.actions.run(
         mnemonic = "DdkMakefiles",
-        inputs = depset([copt_file], transitive = [submodule_makefiles]),
+        inputs = depset([
+            copt_file,
+            module_srcs_json,
+        ], transitive = [submodule_makefiles]),
         outputs = [output_makefiles],
         executable = ctx.executable._gen_makefile,
         arguments = [args],
@@ -242,7 +272,7 @@ def _makefiles_impl(ctx):
     srcs_depset_transitive += [hdr[DdkHeadersInfo].files for hdr in hdr_deps]
 
     # Add all files from hdrs (use DdkHeadersInfo if available, otherwise use default files)
-    srcs_depset_transitive += [get_headers_depset(ctx.attr.module_hdrs)]
+    srcs_depset_transitive.append(get_headers_depset(ctx.attr.module_hdrs))
 
     ddk_headers_info = ddk_headers_common_impl(
         ctx.label,

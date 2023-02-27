@@ -22,10 +22,12 @@ load(":utils.bzl", "utils")
 def _gki_artifacts_impl(ctx):
     inputs = [
         ctx.file.mkbootimg,
-        ctx.file._build_utils_sh,
         ctx.file._testkey,
     ]
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    tools = [
+        ctx.file._build_utils_sh,
+    ]
 
     kernel_release = ctx.attr.kernel_build[KernelBuildInfo].kernel_release
     inputs.append(kernel_release)
@@ -103,6 +105,7 @@ def _gki_artifacts_impl(ctx):
         command = command,
         inputs = inputs,
         outputs = outs,
+        tools = tools,
         mnemonic = "GkiArtifacts",
         progress_message = "Building GKI artifacts {}".format(ctx.label),
     )
@@ -140,7 +143,8 @@ For example:
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel:build_utils.sh"),
+            default = Label("//build/kernel:build_utils"),
+            cfg = "exec",
         ),
         "_testkey": attr.label(default = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem", allow_single_file = True),
     },

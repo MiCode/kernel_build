@@ -16,6 +16,8 @@
 
 load(":kernel_module.bzl", "kernel_module")
 load(":ddk/makefiles.bzl", "makefiles")
+load(":ddk/ddk_conditional_filegroup.bzl", "ddk_conditional_filegroup")
+load(":utils.bzl", "utils")
 
 def ddk_module(
         name,
@@ -24,6 +26,7 @@ def ddk_module(
         deps = None,
         hdrs = None,
         includes = None,
+        conditional_srcs = None,
         linux_includes = None,
         out = None,
         local_defines = None,
@@ -213,6 +216,22 @@ def ddk_module(
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         linux_includes: See [`ddk_headers.linux_includes`](#ddk_headers-linux_includes)
         kernel_build: [`kernel_build`](#kernel_build)
+        conditional_srcs: A dictionary that specifies sources conditionally compiled based on configs.
+
+          Example:
+
+          ```
+          conditional_srcs = {
+              "CONFIG_FOO": {
+                  True: ["foo.c"],
+                  False: ["notfoo.c"]
+              }
+          }
+          ```
+
+          In the above example, if `CONFIG_FOO` is `y`, `foo.c` is compiled.
+          Otherwise, `notfoo.c` is compiled instead.
+
         out: The output module file. This should usually be `"{name}.ko"`.
 
           This is required if this target does not contain submodules.
@@ -336,9 +355,35 @@ def ddk_module(
     private_kwargs = dict(kwargs)
     private_kwargs["visibility"] = ["//visibility:private"]
 
+    flattened_conditional_srcs = []
+    if conditional_srcs:
+        for config, config_srcs_dict in conditional_srcs.items():
+            for config_value, config_srcs in config_srcs_dict.items():
+                if type(config_value) != "bool":
+                    fail("//{package}:{name}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
+                        package = native.package_name(),
+                        name = name,
+                        config_value = config_value,
+                        config = config,
+                        value_type = type(config_value),
+                    ))
+                config_value = "y" if config_value else ""
+                fg_name = "{name}_{config}_{value}_srcs".format(
+                    name = name,
+                    config = config,
+                    value = utils.normalize(config_value),
+                )
+                ddk_conditional_filegroup(
+                    name = fg_name,
+                    config = config,
+                    value = config_value,
+                    srcs = config_srcs,
+                )
+                flattened_conditional_srcs.append(fg_name)
+
     makefiles(
         name = name + "_makefiles",
-        module_srcs = srcs,
+        module_srcs = (srcs or []) + flattened_conditional_srcs,
         module_hdrs = hdrs,
         module_includes = includes,
         module_linux_includes = linux_includes,

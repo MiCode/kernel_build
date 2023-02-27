@@ -32,6 +32,7 @@ load(":btf.bzl", "btf")
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
     "KernelBuildInTreeModulesInfo",
@@ -40,9 +41,8 @@ load(
     "KernelBuildOriginalEnvInfo",
     "KernelBuildUapiInfo",
     "KernelCmdsInfo",
-    "KernelConfigEnvInfo",
+    "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
-    "KernelEnvInfo",
     "KernelImagesInfo",
     "KernelUnstrippedModulesInfo",
 )
@@ -99,6 +99,8 @@ def kernel_build(
         kbuild_symtypes = None,
         toolchain_version = None,
         strip_modules = None,
+        module_signing_key = None,
+        system_trusted_key = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -338,6 +340,12 @@ def kernel_build(
           If set to `True`, debug information for distributed modules is stripped.
 
           This corresponds to negated value of `DO_NOT_STRIP_MODULES` in `build.config`.
+        module_signing_key: A label referring to a module signing key.
+
+          This is to allow for dynamic setting of `CONFIG_MODULE_SIG_KEY` from Bazel.
+        system_trusted_key: A label referring to a trusted system key.
+
+          This is to allow for dynamic setting of `CONFIG_SYSTEM_TRUSTED_KEY` from Bazel.
         dtstree: Device tree support.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
@@ -381,6 +389,7 @@ def kernel_build(
         srcs = srcs,
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
         **internal_kwargs
     )
 
@@ -417,6 +426,8 @@ def kernel_build(
         srcs = srcs,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
+        module_signing_key = module_signing_key,
+        system_trusted_key = system_trusted_key,
         **internal_kwargs
     )
 
@@ -425,6 +436,7 @@ def kernel_build(
         config = config_target_name,
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
         **internal_kwargs
     )
 
@@ -448,6 +460,7 @@ def kernel_build(
         enable_interceptor = enable_interceptor,
         strip_modules = strip_modules,
         src_kmi_symbol_list = kmi_symbol_list,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
         **kwargs
     )
 
@@ -722,11 +735,11 @@ def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, rul
     tools = []
     grab_intree_modules_cmd = ""
     if has_any_modules:
-        tools.append(ctx.file._search_and_cp_output)
+        tools.append(ctx.executable._search_and_cp_output)
         grab_intree_modules_cmd = """
             {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/kernel --dstdir {ruledir} $(cat {all_module_names_file})
         """.format(
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
             ruledir = ruledir.path,
             all_module_names_file = all_module_names_file.path,
@@ -762,13 +775,13 @@ def _get_grab_unstripped_modules_step(ctx, has_any_modules, all_module_basenames
         outputs.append(unstripped_dir)
 
         if has_any_modules:
-            tools.append(ctx.file._search_and_cp_output)
+            tools.append(ctx.executable._search_and_cp_output)
             inputs.append(all_module_basenames_file)
             grab_unstripped_intree_modules_cmd = """
                 mkdir -p {unstripped_dir}
                 {search_and_cp_output} --srcdir ${{OUT_DIR}} --dstdir {unstripped_dir} $(cat {all_module_basenames_file})
             """.format(
-                search_and_cp_output = ctx.file._search_and_cp_output.path,
+                search_and_cp_output = ctx.executable._search_and_cp_output.path,
                 unstripped_dir = unstripped_dir.path,
                 all_module_basenames_file = all_module_basenames_file.path,
             )
@@ -819,7 +832,7 @@ def _get_check_remaining_modules_step(
            fi
     """.format(
         message_type = message_type,
-        check_declared_output_list = ctx.file._check_declared_output_list.path,
+        check_declared_output_list = ctx.executable._check_declared_output_list.path,
         all_module_names_file = all_module_names_file.path,
         base_kernel_all_module_names_file_path = _path_or_empty(base_kernel_all_module_names_file),
         modules_staging_dir = modules_staging_dir,
@@ -829,7 +842,7 @@ def _get_check_remaining_modules_step(
     inputs = [all_module_names_file]
     if base_kernel_all_module_names_file:
         inputs.append(base_kernel_all_module_names_file)
-    tools = [ctx.file._check_declared_output_list]
+    tools = [ctx.executable._check_declared_output_list]
 
     return struct(
         cmd = cmd,
@@ -870,23 +883,43 @@ def _get_grab_gcno_step(ctx):
     """Returns a step for grabbing the `*.gcno`files from `OUT_DIR`.
 
     Returns:
-      A struct with fields (inputs, tools, outputs, cmd)
+      A struct with fields (inputs, tools, outputs, cmd, gcno_mapping)
     """
     grab_gcno_cmd = ""
+    inputs = []
     outputs = []
+    tools = []
+    gcno_mapping = None
     if ctx.attr._gcov[BuildSettingInfo].value:
-        gcno_dir = ctx.actions.declare_directory("{name}/gcno".format(name = ctx.label.name))
-        outputs.append(gcno_dir)
+        gcno_dir = ctx.actions.declare_directory("{name}/{name}_gcno".format(name = ctx.label.name))
+        gcno_mapping = ctx.actions.declare_file("{name}/gcno_mapping.{name}.json".format(name = ctx.label.name))
+        outputs += [gcno_dir, gcno_mapping]
+        tools.append(ctx.executable._print_gcno_mapping)
+
+        extra_args = ""
+        base_kernel = base_kernel_utils.get_base_kernel(ctx)
+        if base_kernel and base_kernel[GcovInfo].gcno_mapping:
+            extra_args = "--base {}".format(base_kernel[GcovInfo].gcno_mapping.path)
+            inputs.append(base_kernel[GcovInfo].gcno_mapping)
+
+        # Note: Emitting ${OUT_DIR} is one source of ir-reproducible output for sandbox actions.
+        # However, note that these ir-reproducibility are tied to vmlinux, because these paths are already
+        # embedded in vmlinux. This file just makes such ir-reproducibility more explicit.
         grab_gcno_cmd = """
             rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
+            {print_gcno_mapping} {extra_args} ${{OUT_DIR}}:{gcno_dir} > {gcno_mapping}
         """.format(
             gcno_dir = gcno_dir.path,
+            gcno_mapping = gcno_mapping.path,
+            print_gcno_mapping = ctx.executable._print_gcno_mapping.path,
+            extra_args = extra_args,
         )
     return struct(
-        inputs = [],
-        tools = [],
+        inputs = inputs,
+        tools = tools,
         cmd = grab_gcno_cmd,
         outputs = outputs,
+        gcno_mapping = gcno_mapping,
     )
 
 def _get_grab_kbuild_output_step(ctx):
@@ -1031,9 +1064,10 @@ def _build_main_action(
         module_strip_flag += "1"
 
     # Build the command for the main action.
-    command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
-    command += cache_dir_step.cmd
-    command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
+    command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = cache_dir_step.cmd,
+    )
     command += """
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
@@ -1084,7 +1118,7 @@ def _build_main_action(
          """.format(
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
-        search_and_cp_output = ctx.file._search_and_cp_output.path,
+        search_and_cp_output = ctx.executable._search_and_cp_output.path,
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir.path,
@@ -1110,6 +1144,9 @@ def _build_main_action(
     # all inputs that |command| needs
     transitive_inputs = [target.files for target in ctx.attr.srcs]
     transitive_inputs += [target.files for target in ctx.attr.deps]
+    transitive_inputs.append(
+        ctx.attr.config[KernelEnvAndOutputsInfo].inputs,
+    )
     inputs = [] + check_toolchain_outs
     inputs += kbuild_mixed_tree_ret.outputs
     for step in steps:
@@ -1117,10 +1154,11 @@ def _build_main_action(
 
     # All tools that |command| needs
     tools = [
-        ctx.file._search_and_cp_output,
+        ctx.executable._search_and_cp_output,
     ]
-    tools += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
-    tools += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
+    transitive_tools = [
+        ctx.attr.config[KernelEnvAndOutputsInfo].tools,
+    ]
     for step in steps:
         tools += step.tools
 
@@ -1140,7 +1178,7 @@ def _build_main_action(
         mnemonic = "KernelBuild",
         inputs = depset(_uniq(inputs), transitive = transitive_inputs),
         outputs = command_outputs,
-        tools = _uniq(tools),
+        tools = depset(_uniq(tools), transitive = transitive_tools),
         progress_message = "Building kernel {}".format(_progress_message_suffix(ctx)),
         command = command,
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
@@ -1156,6 +1194,51 @@ def _build_main_action(
         cmd_dir = grab_cmd_step.cmd_dir,
         compile_commands_with_vars = compile_commands_step.compile_commands_with_vars,
         compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
+        gcno_outputs = grab_gcno_step.outputs,
+        gcno_mapping = grab_gcno_step.gcno_mapping,
+    )
+
+def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
+    """Setup script generator for `KernelEnvAndOutputsInfo`.
+
+    Args:
+        data: `data` from `KernelEnvAndOutputsInfo`
+        restore_out_dir_cmd: See `KernelEnvAndOutputsInfo`. Provided by user of the info.
+    Returns:
+        The setup script."""
+    pre_info = data.pre_info
+    restore_outputs_cmd = data.restore_outputs_cmd
+
+    script = pre_info.get_setup_script(
+        data = pre_info.data,
+        restore_out_dir_cmd = restore_out_dir_cmd,
+    )
+    script += restore_outputs_cmd
+
+    return script
+
+def _create_env_and_outputs_info(pre_info, restore_outputs_cmd_deps, restore_outputs_cmd):
+    """Creates an KernelEnvAndOutputsInfo.
+
+    Args:
+        pre_info: pre setup script and dependencies
+        restore_outputs_cmd_deps: list of outputs to restore
+        restore_outputs_cmd: command to restore these outputs
+
+    Returns:
+        A KernelEnvAndOutputsInfo that runs pre_info, then restore outputs given the list of
+        outputs and cmd."""
+    return KernelEnvAndOutputsInfo(
+        get_setup_script = _env_and_outputs_info_get_setup_script,
+        inputs = depset(
+            restore_outputs_cmd_deps,
+            transitive = [pre_info.inputs],
+        ),
+        tools = pre_info.tools,
+        data = struct(
+            pre_info = pre_info,
+            restore_outputs_cmd = restore_outputs_cmd,
+        ),
     )
 
 def _create_infos(
@@ -1165,7 +1248,8 @@ def _create_infos(
         main_action_ret,
         modules_staging_archive,
         toolchain_version_out,
-        kmi_strict_mode_out):
+        kmi_strict_mode_out,
+        kmi_symbol_list_violations_check_out):
     """Creates and returns a list of provided infos that the `kernel_build` target should return.
 
     Args:
@@ -1176,38 +1260,31 @@ def _create_infos(
         modules_staging_archive: from `_repack_modules_staging_archive`
         toolchain_version_out: from `_kernel_build_dump_toolchain_version`
         kmi_strict_mode_out: from `_kmi_symbol_list_strict_mode`
+        kmi_symbol_list_violations_check_out: from `_kmi_symbol_list_violations_check`
     """
 
     all_output_files = main_action_ret.all_output_files
 
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
     # which includes module_outs and implicit_outs too.
-    env_info_dependencies = []
-
-    env_info_dependencies += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
-    env_info_dependencies += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
+    env_and_outputs_info_dependencies = []
     for d in all_output_files.values():
-        env_info_dependencies += d.values()
-    env_info_dependencies += kbuild_mixed_tree_ret.outputs
+        env_and_outputs_info_dependencies += d.values()
+    env_and_outputs_info_dependencies += kbuild_mixed_tree_ret.outputs
 
-    # We don't have local actions that depends on this setup script yet. If
-    # we do in the future, this needs to be split into KernelConfigEnvInfo.
-    env_info_setup_pre = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
-    env_info_setup_pre += utils.get_check_sandbox_cmd()
-    env_info_setup_pre += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
-    env_info_setup_restore_outputs = """
+    env_and_outputs_info_setup_restore_outputs = """
          # Restore kernel build outputs
-           cp -R {ruledir}/* ${{OUT_DIR}}
+           rsync -aL --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
            """.format(ruledir = main_action_ret.ruledir.path)
-    env_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
-    env_info = KernelEnvInfo(
-        dependencies = env_info_dependencies,
-        setup = env_info_setup_pre + env_info_setup_restore_outputs,
+    env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
+
+    env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
+        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
     )
 
-    orig_env_info = KernelBuildOriginalEnvInfo(
-        env_info = ctx.attr.config[KernelConfigEnvInfo].env_info,
-    )
+    orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
 
     kernel_build_info = KernelBuildInfo(
         out_dir_kernel_headers_tar = main_action_ret.out_dir_kernel_headers_tar,
@@ -1221,22 +1298,48 @@ def _create_infos(
 
     module_srcs = kernel_utils.filter_module_srcs(ctx.files.srcs)
 
-    ext_mod_setup = env_info_setup_pre
-    ext_mod_setup += ctx.attr.modules_prepare[KernelEnvInfo].setup
-    ext_mod_setup += env_info_setup_restore_outputs
-    ext_mod_deps = []
-    ext_mod_deps += env_info_dependencies
-    ext_mod_deps += ctx.attr.modules_prepare[KernelEnvInfo].dependencies
-    ext_mod_env_info = KernelEnvInfo(
-        setup = ext_mod_setup,
-        dependencies = ext_mod_deps,
+    ext_mod_env_and_outputs_info_deps = all_output_files["internal_outs"].values()
+
+    # Create a fake System.map because `make modules` does not need it. For kernel_module(),
+    # make modules_install needs it, but we aren't running depmod in kernel_module, so a fake one
+    # is good enough.
+    ext_mod_env_and_outputs_info_setup_restore_outputs = """
+        # Fake System.map for kernel_module
+          touch ${OUT_DIR}/System.map
+    """
+    ext_mod_env_and_outputs_info_setup_restore_outputs += """
+        # Restore kernel build outputs necessary for building external modules
+    """
+    for dep in ext_mod_env_and_outputs_info_deps:
+        relpath = paths.relativize(dep.path, main_action_ret.ruledir.path)
+        ext_mod_env_and_outputs_info_setup_restore_outputs += """
+            mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
+            rsync -aL {dep} ${{OUT_DIR}}/{relpath}
+        """.format(
+            dep = dep.path,
+            relpath = relpath,
+        )
+
+    # For kernel_module()
+    ext_mod_env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = ext_mod_env_and_outputs_info_deps,
+        restore_outputs_cmd = ext_mod_env_and_outputs_info_setup_restore_outputs,
+    )
+
+    # For kernel_modules_install()
+    ext_modinst_env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
+        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
     )
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
-        env_info = ext_mod_env_info,
+        modules_env_and_outputs_info = ext_mod_env_and_outputs_info,
+        modules_install_env_and_outputs_info = ext_modinst_env_and_outputs_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )
@@ -1274,6 +1377,10 @@ def _create_infos(
 
     images_info = KernelImagesInfo(base_kernel = base_kernel_utils.get_base_kernel(ctx))
 
+    gcov_info = GcovInfo(
+        gcno_mapping = main_action_ret.gcno_mapping,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -1293,6 +1400,9 @@ def _create_infos(
     default_info_files.append(all_module_names_file)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
+    default_info_files.extend(main_action_ret.gcno_outputs)
+    if kmi_symbol_list_violations_check_out:
+        default_info_files.append(kmi_symbol_list_violations_check_out)
     default_info = DefaultInfo(
         files = depset(default_info_files),
         # For kernel_build_test
@@ -1301,7 +1411,7 @@ def _create_infos(
 
     return [
         cmds_info,
-        env_info,
+        env_and_outputs_info,
         orig_env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
@@ -1311,6 +1421,8 @@ def _create_infos(
         kernel_unstripped_modules_info,
         in_tree_modules_info,
         images_info,
+        gcov_info,
+        ctx.attr.config[KernelEnvAttrInfo],
         output_group_info,
         default_info,
     ]
@@ -1358,6 +1470,8 @@ def _kernel_build_impl(ctx):
         all_module_names_file,
     )
 
+    kmi_symbol_list_violations_check_out = _kmi_symbol_list_violations_check(ctx, modules_staging_archive)
+
     infos = _create_infos(
         ctx = ctx,
         kbuild_mixed_tree_ret = kbuild_mixed_tree_ret,
@@ -1366,6 +1480,7 @@ def _kernel_build_impl(ctx):
         modules_staging_archive = modules_staging_archive,
         toolchain_version_out = toolchain_version_out,
         kmi_strict_mode_out = kmi_strict_mode_out,
+        kmi_symbol_list_violations_check_out = kmi_symbol_list_violations_check_out,
     )
 
     return infos
@@ -1383,7 +1498,7 @@ _kernel_build = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelConfigEnvInfo, KernelEnvAttrInfo],
+            providers = [KernelEnvAndOutputsInfo, KernelEnvAttrInfo],
             aspects = [kernel_toolchain_aspect],
             doc = "the kernel_config target",
         ),
@@ -1394,13 +1509,20 @@ _kernel_build = rule(
         "module_implicit_outs": attr.string_list(doc = "Like `module_outs`, but not in dist"),
         "implicit_outs": attr.string_list(doc = "Like `outs`, but not in dist"),
         "_check_declared_output_list": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
+            default = Label("//build/kernel/kleaf:check_declared_output_list"),
+            cfg = "exec",
+            executable = True,
         ),
         "_search_and_cp_output": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
             doc = "label referring to the script to process outputs",
+        ),
+        "_print_gcno_mapping": attr.label(
+            default = Label("//build/kernel/kleaf/impl:print_gcno_mapping"),
+            cfg = "exec",
+            executable = True,
         ),
         "deps": attr.label_list(
             allow_files = True,
@@ -1412,7 +1534,16 @@ _kernel_build = rule(
         ),
         "collect_unstripped_modules": attr.bool(),
         "enable_interceptor": attr.bool(),
-        "_compare_to_symbol_list": attr.label(default = "//build/kernel:abi/compare_to_symbol_list", allow_single_file = True),
+        "_verify_ksymtab": attr.label(
+            default = "//build/kernel:abi_verify_ksymtab",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_check_symbol_protection": attr.label(
+            default = "//build/kernel:check_buildtime_symbol_protection",
+            executable = True,
+            cfg = "exec",
+        ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
@@ -1423,7 +1554,7 @@ _kernel_build = rule(
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
         # `_kernel_build` target.
-        "modules_prepare": attr.label(),
+        "modules_prepare": attr.label(providers = [KernelEnvAndOutputsInfo]),
         "kernel_uapi_headers": attr.label(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
@@ -1559,21 +1690,26 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         ctx.file.raw_kmi_symbol_list,
         all_module_names_file,
     ]
-    inputs += ctx.attr.config[KernelConfigEnvInfo].env_info.dependencies
-    inputs += ctx.attr.config[KernelConfigEnvInfo].post_env_info.dependencies
-    inputs += ctx.files._compare_to_symbol_list
+    transitive_inputs = [ctx.attr.config[KernelEnvAndOutputsInfo].inputs]
+    tools = [ctx.executable._verify_ksymtab]
+    transitive_tools = [ctx.attr.config[KernelEnvAndOutputsInfo].tools]
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
-    command = ctx.attr.config[KernelConfigEnvInfo].env_info.setup
-    command += utils.get_check_sandbox_cmd()
-    command += ctx.attr.config[KernelConfigEnvInfo].post_env_info.setup
+
+    command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
     command += """
-        KMI_STRICT_MODE_OBJECTS="{vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')" {compare_to_symbol_list} {module_symvers} {raw_kmi_symbol_list}
+        {verify_ksymtab} \\
+            --symvers-file {module_symvers} \\
+            --raw-kmi-symbol-list {raw_kmi_symbol_list} \\
+            --objects {vmlinux_base} $(cat {all_module_names_file} | sed 's/\\.ko$//')
         touch {out}
     """.format(
         vmlinux_base = vmlinux.basename,  # A fancy way of saying "vmlinux"
         all_module_names_file = all_module_names_file.path,
-        compare_to_symbol_list = ctx.file._compare_to_symbol_list.path,
+        verify_ksymtab = ctx.executable._verify_ksymtab.path,
         module_symvers = module_symvers.path,
         raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
         out = out.path,
@@ -1581,11 +1717,84 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
     debug.print_scripts(ctx, command, what = "kmi_symbol_list_strict_mode")
     ctx.actions.run_shell(
         mnemonic = "KernelBuildKmiSymbolListStrictMode",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
+        tools = depset(tools, transitive = transitive_tools),
         outputs = [out],
         command = command,
         progress_message = "Checking for kmi_symbol_list_strict_mode {}".format(_progress_message_suffix(ctx)),
     )
+    return out
+
+def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
+    """Checks GKI modules' symbol violations at build time.
+
+    Args:
+        ctx: ctx
+        modules_staging_archive: The `modules_staging_archive` from `make`
+            in `_build_main_action`.
+
+    Returns:
+        Marker file `kmi_symbol_list_violations_checked` indicating the check
+        has been performed.
+    """
+
+    if not ctx.file.raw_kmi_symbol_list:
+        return None
+
+    # Skip for --kasan build as they are not valid GKI releasae configurations.
+    # Downstreams are expect to build kernel+modules+vendor modules locally
+    # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
+    # if required.
+    if ctx.attr._kasan[BuildSettingInfo].value:
+        return None
+
+    inputs = [
+        ctx.file.raw_kmi_symbol_list,
+        modules_staging_archive,
+    ]
+
+    # llvm-nm is needed to extract symbols.
+    # Use kernel_env as _hermetic_tools is not enough.
+    inputs += ctx.attr.config[KernelBuildOriginalEnvInfo].env_info.dependencies
+
+    tools = [ctx.executable._check_symbol_protection]
+
+    out = ctx.actions.declare_file(
+        "{}_kmi_symbol_list_violations/{}_kmi_symbol_list_violations_checked".format(
+            ctx.attr.name,
+            ctx.attr.name,
+        ),
+    )
+    intermediates_dir = utils.intermediates_dir(ctx)
+
+    command = ctx.attr.config[KernelBuildOriginalEnvInfo].env_info.setup
+    command += """
+        mkdir -p {intermediates_dir}
+        tar xf {modules_staging_archive} -C {intermediates_dir}
+        {check_symbol_protection} \\
+            --abi-symbol-list {raw_kmi_symbol_list} \\
+            {intermediates_dir}
+        rm -rf {intermediates_dir}
+        touch {out}
+    """.format(
+        check_symbol_protection = ctx.executable._check_symbol_protection.path,
+        intermediates_dir = intermediates_dir,
+        modules_staging_archive = modules_staging_archive.path,
+        out = out.path,
+        raw_kmi_symbol_list = ctx.file.raw_kmi_symbol_list.path,
+    )
+
+    debug.print_scripts(ctx, command, what = "kmi_symbol_list_violations_check")
+
+    ctx.actions.run_shell(
+        mnemonic = "KernelBuildCheckSymbolViolations",
+        inputs = inputs,
+        tools = tools,
+        outputs = [out],
+        command = command,
+        progress_message = "Checking for kmi_symbol_list_violations {}".format(_progress_message_suffix(ctx)),
+    )
+
     return out
 
 def _repack_modules_staging_archive(

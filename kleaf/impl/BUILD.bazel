@@ -15,7 +15,8 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_setting")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_setting", "string_setting")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_SETTING_VALUES")
 
 bzl_library(
     name = "impl",
@@ -23,6 +24,7 @@ bzl_library(
         "abi/abi_diff.bzl",
         "abi/abi_dump.bzl",
         "abi/abi_prop.bzl",
+        "abi/abi_stgdiff.bzl",
         "abi/abi_transitions.bzl",
         "abi/base_kernel_utils.bzl",
         "abi/extracted_symbols.bzl",
@@ -36,6 +38,7 @@ bzl_library(
         "common_providers.bzl",
         "compile_commands_utils.bzl",
         "constants.bzl",
+        "ddk/ddk_conditional_filegroup.bzl",
         "ddk/ddk_headers.bzl",
         "ddk/ddk_module.bzl",
         "ddk/ddk_submodule.bzl",
@@ -58,6 +61,7 @@ bzl_library(
         "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
+        "kernel_env_transition.bzl",
         "kernel_filegroup.bzl",
         "kernel_headers.bzl",
         "kernel_kythe.bzl",
@@ -72,6 +76,7 @@ bzl_library(
         "kmi_symbol_list.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
+        "modules_prepare_transition.bzl",
         "out_headers_allowlist_archive.bzl",
         "raw_kmi_symbol_list.bzl",
         "scripts_config_arg_builder.bzl",
@@ -111,17 +116,19 @@ bool_setting(
 )
 
 # Whether trimming is actually enabled.
-bool_setting(
+# * unknown: the value is unknown. Rules that depends on this setting
+#    must have a transition that sets this properly (possibly based on attrs)
+# * enabled: trimming is enabled
+# * disabled: trimming is disabled
+# Do not use directly. Use APIs in trim_nonlisted_kmi_utils.bzl instead.
+string_setting(
     name = "trim_nonlisted_kmi_setting",
-    build_setting_default = False,
-    # All kernel_* from different packages can see this
-    visibility = ["//visibility:public"],
-)
-
-# Helper setting to forcefully disable trimming.
-bool_setting(
-    name = "force_disable_trim",
-    build_setting_default = False,
+    build_setting_default = TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
+    values = [
+        TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
+        TRIM_NONLISTED_KMI_SETTING_VALUES.enabled,
+        TRIM_NONLISTED_KMI_SETTING_VALUES.disabled,
+    ],
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
@@ -154,5 +161,11 @@ py_binary(
 py_binary(
     name = "kernel_kythe_reconstruct_out_dir",
     srcs = ["kernel_kythe_reconstruct_out_dir.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "print_gcno_mapping",
+    srcs = ["print_gcno_mapping.py"],
     visibility = ["//visibility:public"],
 )

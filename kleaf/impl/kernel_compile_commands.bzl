@@ -41,7 +41,7 @@ def _kernel_compile_commands_impl(ctx):
         echo "Written to ${{OUTPUT}}"
     """.format(
         compile_commands_with_vars = compile_commands_with_vars.short_path,
-        compile_commands_out_dir = compile_commands_out_dir.short_path,
+        compile_commands_out_dir = compile_commands_out_dir.path,
     )
     ctx.actions.write(script, script_content, is_executable = True)
 

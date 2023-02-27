@@ -19,6 +19,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
+load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
@@ -26,6 +27,7 @@ load(
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
+load(":kernel_env_transition.bzl", "kernel_env_transition")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":kgdb.bzl", "kgdb")
@@ -65,17 +67,19 @@ def _kernel_env_impl(ctx):
         dtstree_srcs = ctx.attr.dtstree[DtstreeInfo].srcs
 
     setup_env = ctx.file.setup_env
-    preserve_env = ctx.file.preserve_env
+    preserve_env = ctx.executable.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
     inputs = [
-        ctx.file._build_utils_sh,
         build_config,
-        setup_env,
-        preserve_env,
     ]
     inputs += srcs
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    tools = [
+        setup_env,
+        ctx.file._build_utils_sh,
+        preserve_env,
+    ]
 
     command = ""
     command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
@@ -113,9 +117,15 @@ def _kernel_env_impl(ctx):
             """
         if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
             command += """
-            # Similar to similar to --debug_annotate_scripts without additional traps.
+            # Similar to --debug_annotate_scripts without additional traps.
             set -x
             export MAKEFLAGS="${MAKEFLAGS} V=1"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "V":
+            command += """
+            # Similar to D but even more verbsose
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=2"
             """
 
     kbuild_symtypes = _get_kbuild_symtypes(ctx)
@@ -178,6 +188,7 @@ def _kernel_env_impl(ctx):
         mnemonic = "KernelEnv",
         inputs = inputs,
         outputs = [out_file],
+        tools = tools,
         progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),
         command = command,
     )
@@ -222,10 +233,10 @@ def _kernel_env_impl(ctx):
            {set_up_scmversion_cmd}
          # Set up KCONFIG_EXT
            if [ -n "${{KCONFIG_EXT}}" ]; then
-             export KCONFIG_EXT_PREFIX=$(rel_path $(realpath $(dirname ${{KCONFIG_EXT}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})/
+             export KCONFIG_EXT_PREFIX=$(realpath $(dirname ${{KCONFIG_EXT}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
            fi
            if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
-             export dtstree=$(rel_path $(realpath $(dirname ${{DTSTREE_MAKEFILE}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})
+             export dtstree=$(realpath $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
            fi
          # Set up KCPPFLAGS
          # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
@@ -277,7 +288,8 @@ def _get_tools(toolchain_version):
     return [
         Label(e)
         for e in (
-            "//build/kernel:kernel-build-scripts",
+            "//build/kernel:_setup_env",
+            "//build/kernel:build_utils",
             clang_binaries,
         )
     ]
@@ -285,10 +297,12 @@ def _get_tools(toolchain_version):
 def _kernel_env_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_env(),
+        trim_nonlisted_kmi_utils.non_config_attrs(),
     )
 
 kernel_env = rule(
     implementation = _kernel_env_impl,
+    cfg = kernel_env_transition,
     doc = """Generates a rule that generates a source-able build environment.
 
           A build environment is defined by a single entry build config file
@@ -317,13 +331,15 @@ kernel_env = rule(
         ),
         "setup_env": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel:_setup_env.sh"),
+            default = Label("//build/kernel:_setup_env"),
             doc = "label referring to _setup_env.sh",
+            cfg = "exec",
         ),
         "preserve_env": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:preserve_env.sh"),
+            default = Label("//build/kernel/kleaf:preserve_env"),
             doc = "label referring to the script capturing the environment",
+            cfg = "exec",
+            executable = True,
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
@@ -346,7 +362,8 @@ kernel_env = rule(
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel:build_utils.sh"),
+            default = Label("//build/kernel:build_utils"),
+            cfg = "exec",
         ),
         "_debug_annotate_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_annotate_scripts",
@@ -356,5 +373,9 @@ kernel_env = rule(
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
+        "_allowlist_function_transition": attr.label(
+            # Allow everything because kernel_config is indirectly called in device packages.
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     } | _kernel_env_additional_attrs(),
 )

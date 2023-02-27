@@ -336,26 +336,3 @@ This is a harmless warning message.
 
 [comment]: <> (Bug 194427140)
 
-## ERROR: Skipping '//common:kernel_aarch64_abi_update': no such target
-
-When updating ABI definition file for the first time or a branch has no
-existing symbol list file, this error will be generated when running the ABI
-symbol list update target. This happens because Bazel can not find a file to
-update. In that case the target is not generated.
-
-To work around this, first create an empty ABI definition file using:
-
-```shell
-touch common/android/abi_gki_aarch64.xml
-```
-
-Second, run ABI definition update with no diff as reference file will be an empty file using:
-
-```shell
-bazel run //common:kernel_aarch64_abi_nodiff_update
-```
-
-This will generate the base line ABI definition file and ABI definition update target
-`//common:kernel_aarch64_abi_update` will be available now onwards.
-
-For details, see [abi.md#update-abi](abi.md#update-abi)

@@ -83,6 +83,7 @@ def kernel_build_test(
         timeout = "short",
         deps = [
             "@io_abseil_py//absl/testing:absltest",
+            "@io_abseil_py//absl/testing:parameterized",
         ],
         **kwargs
     )
