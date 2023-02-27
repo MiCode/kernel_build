@@ -287,6 +287,15 @@ def _makefiles_local_defines_test(name):
     tests.append(name + "_number")
 
     _create_makefiles_artifact_test(
+        name = name + "_source_file_name_is_module_name",
+        srcs = [name + "_source_file_name_is_module_name.c"],
+        out = name + "_source_file_name_is_module_name.ko",
+        expected_lines = ["CFLAGS_{}_source_file_name_is_module_name.o += -DNUMBER=123".format(name)],
+        local_defines = ["NUMBER=123"],
+    )
+    tests.append(name + "_source_file_name_is_module_name")
+
+    _create_makefiles_artifact_test(
         name = name + "_bool",
         srcs = ["base.c"],
         out = name + "_base.ko",
@@ -348,6 +357,15 @@ def _makefiles_copts_test(name):
     tests.append(name + "_simple_copt")
 
     _create_makefiles_artifact_test(
+        name = name + "_source_file_name_is_module_name",
+        srcs = [name + "_source_file_name_is_module_name.c"],
+        out = name + "_source_file_name_is_module_name.ko",
+        expected_lines = ["CFLAGS_{}_source_file_name_is_module_name.o += -Wno-foo".format(name)],
+        copts = ["-Wno-foo"],
+    )
+    tests.append(name + "_source_file_name_is_module_name")
+
+    _create_makefiles_artifact_test(
         name = name + "_multiple_copt",
         srcs = ["base.c"],
         out = name + "_base.ko",
@@ -378,6 +396,29 @@ def _makefiles_copts_test(name):
         copts = ["-include", "$(location self.h)"],
     )
     tests.append(name + "_include_location")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
+def _makefiles_includes_test(name):
+    tests = []
+
+    prefix = "$(srctree)/$(src)/{}/{}".format(
+        paths.join(*([".."] * len(native.package_name().split("/")))),
+        native.package_name(),
+    )
+    _create_makefiles_artifact_test(
+        name = name + "_source_file_name_is_module_name",
+        srcs = [name + "_source_file_name_is_module_name.c"],
+        out = name + "_source_file_name_is_module_name.ko",
+        expected_lines = [
+            "CFLAGS_{}_source_file_name_is_module_name.o += '-I{}/local_include'".format(name, prefix),
+        ],
+        includes = ["local_include"],
+    )
+    tests.append(name + "_source_file_name_is_module_name")
 
     native.test_suite(
         name = name,
@@ -687,6 +728,9 @@ def makefiles_test_suite(name):
 
     _makefiles_copts_test(name = name + "_copts_test")
     tests.append(name + "_copts_test")
+
+    _makefiles_includes_test(name = name + "_includes_test")
+    tests.append(name + "_includes_test")
 
     _bad_test_make(
         name = name + "_bad_copt_location_not_one_token",
