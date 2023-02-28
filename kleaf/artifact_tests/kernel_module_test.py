@@ -33,8 +33,6 @@ arguments = None
 
 
 class ScmVersionTestCase(unittest.TestCase):
-    @unittest.skip(
-        "b/236871190: Re-enable once CONFIG_MODULE_SCMVERSION is re-enabled.")
     def test_contains_scmversion(self):
         """Test that all ko files have scmversion."""
         for module in arguments.modules:
