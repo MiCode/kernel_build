@@ -60,10 +60,16 @@ bool_flag(
     build_setting_default = False,
 )
 
-# If true, allow modules to be undeclared in kernel_build and kernel_module.
+# If true, allow modules to be undeclared in kernel_build.
 bool_flag(
     name = "allow_undeclared_modules",
     build_setting_default = False,
+)
+
+# If true, warnings / errors about undeclared modules in kernel_build are printed.
+bool_flag(
+    name = "warn_undeclared_modules",
+    build_setting_default = True,
 )
 
 # If true, everything inside OUT_DIR is collected unconditionally
