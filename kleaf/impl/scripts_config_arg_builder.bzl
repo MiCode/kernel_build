@@ -26,13 +26,19 @@ def _set_str(config, value):
 def _set_val(config, value):
     return "--set-val {} {}".format(config, value)
 
-def _enable_if(config, condition):
-    """Returns an argument to `scripts/config` that enables the config if the conditional config is enabled."""
+def _do_action_if(config, condition, action):
+    """Returns an argument to `scripts/config` that does `action` to the config if the conditional config is enabled."""
     return """$(
         if [[ "$(${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config --state {condition})" == "y" ]]; then
-            echo "--enable {config}"
+            echo "--{action} {config}"
         fi
-    )""".format(config = config, condition = condition)
+    )""".format(config = config, condition = condition, action = action)
+
+def _enable_if(config, condition):
+    return _do_action_if(config, condition, "enable")
+
+def _disable_if(config, condition):
+    return _do_action_if(config, condition, "disable")
 
 scripts_config_arg_builder = struct(
     disable = _disable,
@@ -40,4 +46,5 @@ scripts_config_arg_builder = struct(
     set_str = _set_str,
     set_val = _set_val,
     enable_if = _enable_if,
+    disable_if = _disable_if,
 )

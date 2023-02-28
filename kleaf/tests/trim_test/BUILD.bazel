@@ -1,4 +1,4 @@
-# Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2023 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Various configs to boost developer builds.
-# See build/kernel/kleaf/docs/fast.md.
+"""Tests configurations related to trimming."""
 
-# Let rules know what configs we are using now
-build:fast --//build/kernel/kleaf:config_fast
+load(":notrim_transition_test.bzl", "notrim_transition_test")
+load(":trim_attr_test.bzl", "trim_attr_test")
 
-# Also let the config decide what is best for LTO
-build:fast --lto=fast
+notrim_transition_test(name = "notrim_transition_test")
 
-# Inherit from local: reduce sandboxes.
-build:fast --config=local
+trim_attr_test(name = "trim_attr_test")
+
+test_suite(
+    name = "trim_test",
+    tests = None,  # all tests
+)

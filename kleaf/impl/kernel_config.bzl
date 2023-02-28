@@ -156,6 +156,15 @@ def _config_lto(ctx):
             _config.enable("LTO_CLANG_FULL"),
             _config.disable("THINLTO"),
         ]
+    elif lto_config_flag == "fast":
+        # Set lto=thin only if LTO full is enabled.
+        lto_configs += [
+            _config.enable_if("LTO_CLANG_FULL", "LTO_CLANG"),
+            _config.disable_if("LTO_CLANG_FULL", "LTO_NONE"),
+            _config.enable_if("LTO_CLANG_FULL", "LTO_CLANG_THIN"),
+            _config.enable_if("LTO_CLANG_FULL", "THINLTO"),
+            _config.disable_if("LTO_CLANG_FULL", "LTO_CLANG_FULL"),
+        ]
 
     return struct(configs = lto_configs, deps = [])
 
@@ -237,6 +246,9 @@ def _config_kasan(ctx):
 
     if lto != "none":
         fail("{}: --kasan requires --lto=none, but --lto is {}".format(ctx.label, lto))
+
+    if trim_nonlisted_kmi_utils.get_value(ctx):
+        fail("{}: --kasan requires trimming to be disabled".format(ctx.label))
 
     configs = [
         _config.enable("KASAN"),
@@ -468,7 +480,6 @@ def _get_config_script(ctx):
 def _kernel_config_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_config(),
-        trim_nonlisted_kmi_utils.non_config_attrs(),
     )
 
 kernel_config = rule(
