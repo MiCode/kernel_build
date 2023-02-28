@@ -329,7 +329,10 @@ class InnerMergedDeviceTree(DeviceTreeInfo):
 	def get_name(self):
 		ext = os.path.splitext(os.path.basename(self.base))[1]
 		base_parts = self.filename_to_parts(self.base)
-		return '-'.join(chain.from_iterable([base_parts] + [self.filename_to_parts(tp.filename, ignored_parts=base_parts) for tp in self.techpacks])) + ext
+		name_hash = hex(hash((self.plat_id, self.board_id, self.pmic_id)))
+		name = '-'.join(chain.from_iterable([base_parts] + [self.filename_to_parts(tp.filename, ignored_parts=base_parts) for tp in self.techpacks]))
+		final_name = '-'.join([name, name_hash]) + ext
+		return final_name
 
 	@staticmethod
 	def filename_to_parts(name, ignored_parts=[]):
