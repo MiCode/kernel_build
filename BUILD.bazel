@@ -152,6 +152,16 @@ py_binary(
 # Tools visible to all packages that uses kernel_abi.
 # Implementation detail of kernel_abi; do not use directly.
 py_binary(
+    name = "extract_protected_exports",
+    srcs = ["abi/extract_gki_protected_exports.py"],
+    main = "abi/extract_gki_protected_exports.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
     name = "filter_abi",
     srcs = ["abi/filter_abi.py"],
     main = "abi/filter_abi.py",

@@ -23,6 +23,9 @@ load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
+load(":abi/protected_exports.bzl", "protected_exports")
+load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list")
+load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_modules_list")
 load(":kernel_build.bzl", "kernel_build")
 load(":utils.bzl", "utils")
 
@@ -210,6 +213,8 @@ def kernel_abi(
     In addition, the following targets are defined if `define_abi_targets = True`:
     - `kernel_aarch64_abi_update_symbol_list`
       - Running this target updates `kmi_symbol_list`.
+    - `kernel_aarch64_abi_update_protected_exports`
+      - Running this target updates `protected_exports_list`.
     - `kernel_aarch64_abi_update`
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
@@ -390,12 +395,39 @@ def _define_abi_targets(
         dst = name + "_src_kmi_symbol_list",
         **private_kwargs
     )
+
+    # Protected Exports
+    get_src_protected_exports_list(
+        name = name + "_src_protected_exports_list",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+    get_src_protected_modules_list(
+        name = name + "_src_protected_modules_list",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+    protected_exports(
+        name = name + "_protected_exports",
+        kernel_build = kernel_build,
+        protected_modules_list_file = name + "_src_protected_modules_list",
+        **private_kwargs
+    )
+    update_source_file(
+        name = name + "_update_protected_exports",
+        src = name + "_protected_exports",
+        dst = name + "_src_protected_exports_list",
+        **private_kwargs
+    )
+
     default_outputs += _define_abi_definition_targets(
         name = name,
         abi_definition_stg = abi_definition_stg,
         abi_definition_xml = abi_definition_xml,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_src_kmi_symbol_list",
+        protected_exports_list = name + "_src_protected_exports_list",
+        protected_modules_list = name + "_src_protected_modules_list",
         **private_kwargs
     )
 
@@ -428,6 +460,8 @@ def _define_abi_definition_targets(
         abi_definition_xml,
         kmi_enforced,
         kmi_symbol_list,
+        protected_exports_list,
+        protected_modules_list,
         **kwargs):
     """Helper to `_define_abi_targets`.
 
