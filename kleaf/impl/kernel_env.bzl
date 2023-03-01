@@ -236,9 +236,12 @@ def _kernel_env_impl(ctx):
         dependencies.append(kconfig_ext)
     dependencies += dtstree_srcs
 
+    run_env = _get_run_env(ctx, srcs)
+
     env_info = KernelEnvInfo(
         dependencies = dependencies,
         setup = setup,
+        run_env = run_env,
     )
     return [
         env_info,
@@ -281,6 +284,43 @@ def _get_make_verbosity_command(ctx):
             """
 
     return command
+
+def _get_run_env(ctx, srcs):
+    """Returns setup script for execution phase.
+
+    Unlike the setup script for regular builds, this doesn't modify variables from build.config for
+    a proper build, e.g.:
+
+    - It doesn't respect `MAKE_JOBS`
+    - It doesn't set `KCONFIG_EXT_PREFIX` or `dtstree`
+    - It doesn't set `SOURCE_DATE_EPOCH` or scmversion properly
+    """
+    setup = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        setup += debug.trap()
+    setup += _get_make_verbosity_command(ctx)
+    setup += """
+        # create a build environment
+          source {build_utils_sh}
+          export BUILD_CONFIG={build_config}
+
+        # Silence "git: command not found" and "date: bad date @"
+          export SOURCE_DATE_EPOCH=0
+
+          source {setup_env}
+    """.format(
+        build_utils_sh = ctx.file._build_utils_sh.short_path,
+        build_config = ctx.file.build_config.short_path,
+        setup_env = ctx.file.setup_env.short_path,
+    )
+    dependencies = srcs + ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+        ctx.file._build_utils_sh,
+        ctx.file.build_config,
+    ]
+    return KernelEnvInfo(
+        setup = setup,
+        dependencies = dependencies,
+    )
 
 def _get_tools(toolchain_version):
     if toolchain_version.startswith("//build/kernel/kleaf/tests/"):

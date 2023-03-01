@@ -32,6 +32,12 @@ is in its own extension instead of `kernel_env.bzl`.
     fields = {
         "dependencies": "dependencies required to use this environment setup",
         "setup": "setup script to initialize the environment",
+        "run_env": """Optional `KernelEnvInfo` to initialize the environment in
+[execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model).
+
+For `kernel_env`, the script only provides a bare-minimum environment after `source build.config`,
+without actually modifying any variables suitable for a proper kernel build.
+""",
     },
 )
 
