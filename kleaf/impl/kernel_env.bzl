@@ -98,34 +98,7 @@ def _kernel_env_impl(ctx):
             dtstree = dtstree_makefile.short_path,
         )
 
-    command += """
-        # error on failures
-          set -e
-          set -o pipefail
-    """
-
-    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
-        command += """
-          export MAKEFLAGS="${MAKEFLAGS} V=1"
-        """
-    else:
-        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "E":
-            command += """
-            # Run Make in silence mode to suppress most of the info output
-            export MAKEFLAGS="${MAKEFLAGS} -s"
-            """
-        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
-            command += """
-            # Similar to --debug_annotate_scripts without additional traps.
-            set -x
-            export MAKEFLAGS="${MAKEFLAGS} V=1"
-            """
-        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "V":
-            command += """
-            # Similar to D but even more verbsose
-            set -x
-            export MAKEFLAGS="${MAKEFLAGS} V=2"
-            """
+    command += _get_make_verbosity_command(ctx)
 
     kbuild_symtypes = _get_kbuild_symtypes(ctx)
     command += """
@@ -276,6 +249,38 @@ def _kernel_env_impl(ctx):
         ),
         DefaultInfo(files = depset([out_file])),
     ]
+
+def _get_make_verbosity_command(ctx):
+    command = """
+        # error on failures
+          set -e
+          set -o pipefail
+    """
+
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        command += """
+          export MAKEFLAGS="${MAKEFLAGS} V=1"
+        """
+    else:
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "E":
+            command += """
+            # Run Make in silence mode to suppress most of the info output
+            export MAKEFLAGS="${MAKEFLAGS} -s"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
+            command += """
+            # Similar to --debug_annotate_scripts without additional traps.
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=1"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "V":
+            command += """
+            # Similar to D but even more verbsose
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=2"
+            """
+
+    return command
 
 def _get_tools(toolchain_version):
     if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
