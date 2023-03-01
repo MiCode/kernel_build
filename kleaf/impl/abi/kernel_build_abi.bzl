@@ -377,7 +377,7 @@ def _define_abi_targets(
     # extract_symbols ...
     extracted_symbols(
         name = name + "_extracted_symbols",
-        kernel_build_notrim = kernel_build,
+        kernel_build = kernel_build,
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
         src = name + "_src_kmi_symbol_list",
