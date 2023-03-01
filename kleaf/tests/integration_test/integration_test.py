@@ -296,6 +296,38 @@ class KleafIntegrationTest(unittest.TestCase):
             command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
         self.assertFalse(default_out.exists())
 
+    def test_config_uapi_header_test(self):
+        """Tests that CONFIG_UAPI_HEADER_TEST is not deleted.
+
+        USERCFLAGS needs to restore --sysroot properly for
+        CONFIG_UAPI_HEADER_TEST to stay.
+
+        See b/270996321 and b/190019968."""
+
+        gki_defconfig = f"{self._common()}/arch/arm64/configs/gki_defconfig"
+        with open(gki_defconfig) as f:
+            old_gki_defconfig_content = f.read()
+        def cleanup():
+            with open(gki_defconfig, "w") as new_file:
+                new_file.write(old_gki_defconfig_content)
+        self.addCleanup(cleanup)
+
+        self._check_call("run",
+                         [f"//{self._common()}:kernel_aarch64_config", "--", "olddefconfig"]
+                         + _FASTEST)
+
+        with open(gki_defconfig) as f:
+            new_gki_defconfig_content = f.read()
+        self.assertTrue("CONFIG_UAPI_HEADER_TEST=y" in new_gki_defconfig_content.splitlines(),
+                        f"gki_defconfig should still have CONFIG_UAPI_HEADER_TEST=y after "
+                        f"`bazel run //{self._common()}:kernel_aarch64_config -- olddefconfig`, "
+                        f"but got\n{new_gki_defconfig_content}")
+
+        # It should be fine to call the same command subsequently. This tests that the
+        # symlink in execroot is properly restored.
+        self._check_call("run",
+                         [f"//{self._common()}:kernel_aarch64_config", "--", "olddefconfig"]
+                         + _FASTEST)
 
 if __name__ == "__main__":
     arguments, unknown = load_arguments()
