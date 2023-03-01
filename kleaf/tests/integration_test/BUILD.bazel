@@ -15,10 +15,10 @@
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("//build/kernel/kleaf/tests/utils:write_flag.bzl", "write_flag")
 
-# bazel run //build/kernel/kleaf/test/integration_test
+# bazel run //build/kernel/kleaf/tests/integration_test
 #
 # For other examples, run
-#   bazel run //build/kernel/kleaf/test/integration_test -- --help
+#   bazel run //build/kernel/kleaf/tests/integration_test -- --help
 #
 # Note `bazel run` not `bazel test`. This is so because
 # - BUILD_WORKSPACE_DIRECTORY is needed and would be the CWD for execution
