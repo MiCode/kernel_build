@@ -227,7 +227,7 @@ class DeviceTree(DeviceTreeInfo):
 		super().__init__(msm_id, board_id, pmic_id)
 
 		if not self.has_any_properties():
-			print('WARNING! {} has no properties and may match with any other devicetree'.format(self.filename))
+			print('WARNING! {} has no properties and may match with any other devicetree'.format(os.path.basename(self.filename)))
 
 	def get_prop(self, node, property, prop_type='i', check_output=True):
 		r = subprocess.run(["fdtget", "-t", prop_type, self.filename, node, property],
@@ -252,7 +252,7 @@ class DeviceTree(DeviceTreeInfo):
 		return out
 
 	def __str__(self):
-		return "{} [{}]".format(super().__str__(), self.filename)
+		return "{} [{}]".format(super().__str__(), os.path.basename(self.filename))
 
 class InnerMergedDeviceTree(DeviceTreeInfo):
 	"""
@@ -332,7 +332,7 @@ class InnerMergedDeviceTree(DeviceTreeInfo):
 		return [part for part in parts if part not in ignored_parts]
 
 	def __str__(self):
-		return "{} [{} + {{{}}}]".format(super().__str__(), self.base, " ".join(t.filename for t in self.techpacks))
+		return "{} [{} + {{{}}}]".format(super().__str__(), os.path.basename(self.base), " ".join(os.path.basename(t.filename) for t in self.techpacks))
 
 class MergedDeviceTree(object):
 	def __init__(self, other):
