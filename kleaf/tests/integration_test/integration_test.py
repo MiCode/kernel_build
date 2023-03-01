@@ -299,8 +299,8 @@ class KleafIntegrationTest(unittest.TestCase):
     def test_config_uapi_header_test(self):
         """Tests that CONFIG_UAPI_HEADER_TEST is not deleted.
 
-        USERCFLAGS needs to restore --sysroot properly for
-        CONFIG_UAPI_HEADER_TEST to stay.
+        To keep CONFIG_UAPI_HEADER_TEST, USERCFLAGS needs to set --sysroot and
+        --target properly, and USERLDFLAGS needs to set --sysroot.
 
         See b/270996321 and b/190019968."""
 
