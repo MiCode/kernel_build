@@ -58,6 +58,9 @@
 
 `--notrim`: Disables `TRIM_NONLISTED_KMI` globally.
 
+Other flags for debugging and disabling integrity checks may be found in the
+[Debugging Kleaf](docs/debugging.md) page.
+
 ### References
 
 [References to Bazel rules and macros for the Android Kernel](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
