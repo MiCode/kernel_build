@@ -73,6 +73,7 @@ _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 * [`MODULES_OPTIONS`](#modules_options)
 * [`MODULES_ORDER`](#modules_order)
 * [`GKI_MODULES_LIST`](#gki_modules_list)
+* [`VENDOR_DLKM_ETC_FILES`](#vendor_dlkm_etc_files)
 * [`VENDOR_DLKM_FS_TYPE`](#vendor_dlkm_fs_type)
 * [`VENDOR_DLKM_MODULES_LIST`](#vendor_dlkm_modules_list)
 * [`VENDOR_DLKM_MODULES_BLOCKLIST`](#vendor_dlkm_modules_blocklist)
@@ -541,6 +542,14 @@ See [documentation for all rules].
 
 ```python
 kernel_images(vendor_dlkm_fs_type=[ext4, erofs])
+```
+
+See [documentation for all rules].
+
+## VENDOR\_DLKM\_ETC\_FILES
+
+```python
+kernel_images(vendor_dlkm_etc_files=[...])
 ```
 
 See [documentation for all rules].

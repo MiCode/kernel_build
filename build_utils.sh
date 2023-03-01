@@ -308,6 +308,15 @@ function build_vendor_dlkm() {
       exit 1
     fi
   fi
+
+  # Copy etc files to ${DIST_DIR} and ${VENDOR_DLKM_STAGING_DIR}/etc
+  if [[ -n "${VENDOR_DLKM_ETC_FILES}" ]]; then
+    local etc_files_dst_folder="${VENDOR_DLKM_STAGING_DIR}/etc"
+    mkdir -p "${etc_files_dst_folder}"
+    cp ${VENDOR_DLKM_ETC_FILES} "${etc_files_dst_folder}"
+    cp ${VENDOR_DLKM_ETC_FILES} "${DIST_DIR}"
+  fi
+
   build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" \
     "${DIST_DIR}/vendor_dlkm.img" /dev/null
 }
