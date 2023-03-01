@@ -15,15 +15,15 @@
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("//build/kernel/kleaf/tests/utils:write_flag.bzl", "write_flag")
 
-# bazel run //build/kernel/kleaf/tests/integration_test
+# tools/bazel run //build/kernel/kleaf/tests/integration_test
 #
 # For other examples, run
-#   bazel run //build/kernel/kleaf/tests/integration_test -- --help
+#   tools/bazel run //build/kernel/kleaf/tests/integration_test -- --help
 #
-# Note `bazel run` not `bazel test`. This is so because
+# Note `tools/bazel run` not `tools/bazel test`. This is so because
 # - BUILD_WORKSPACE_DIRECTORY is needed and would be the CWD for execution
-# - The test involves running `bazel clean` in between. If this were executed
-#   with `bazel test`, the directory structure in output_base would be broken
+# - The test involves running `tools/bazel clean` in between. If this were executed
+#   with `tools/bazel test`, the directory structure in output_base would be broken
 #   before results are reported back to bazel.
 py_binary(
     name = "integration_test",
@@ -45,7 +45,7 @@ write_flag(
     flag = ":raw_test_result_dir",
 )
 
-# Run the integration test and report to `bazel test` with this snippet.
+# Run the integration test and report to `tools/bazel test` with this snippet.
 # In practice, additional flags (e.g. --config=ants) may be added to the two
 # bazel commands accordingly.
 # buildifier: disable=no-effect
