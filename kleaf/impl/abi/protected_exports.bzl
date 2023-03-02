@@ -32,7 +32,7 @@ def _protected_exports_impl(ctx):
         ))
 
     if not ctx.file.protected_modules_list_file:
-        fail("{}: {} is not a file.".format(ctx.label, ctx.file.protected_modules_list_file))
+        fail("{}: {} does not produce any files.".format(ctx.label, ctx.file.protected_modules_list_file))
 
     out = ctx.actions.declare_file("{}/protected_exports".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
