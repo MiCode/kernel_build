@@ -33,11 +33,13 @@ def _stgdiff_impl(ctx):
     output_dir = ctx.actions.declare_directory("{}/abi_stgdiff".format(ctx.attr.name))
     error_msg_file = ctx.actions.declare_file("{}/error_msg_file.txt".format(ctx.attr.name))
     exit_code_file = ctx.actions.declare_file("{}/exit_code_file.txt".format(ctx.attr.name))
+    git_msg_file = ctx.actions.declare_file("{}/git_message.txt".format(ctx.attr.name))
 
-    default_outputs = [output_dir]
+    default_outputs = [output_dir] + [git_msg_file]
     command_outputs = default_outputs + [
         error_msg_file,
         exit_code_file,
+        git_msg_file,
     ]
     basename = "{output_dir}/abi.report".format(output_dir = output_dir.path)
     short_report = basename + ".short"
@@ -52,6 +54,22 @@ def _stgdiff_impl(ctx):
         rc=$?
         set -e
         echo $rc > {exit_code_file}
+
+        : > {git_msg_file}
+        if [[ -f {short_report} ]]; then
+          cat >> {git_msg_file} <<EOF
+ANDROID: <TODO subject line>
+
+<TODO commit message>
+
+$(cat {short_report})
+
+Bug: <TODO bug number>
+EOF
+        else
+            echo "WARNING: No short report found. Unable to infer the git commit message." >&2
+        fi
+
         if [[ $rc == 0 ]]; then
             echo "INFO: $(cat {error_msg_file})"
         elif [[ $rc == {change_code} ]]; then
@@ -71,6 +89,7 @@ def _stgdiff_impl(ctx):
         short_report = short_report,
         outputs = outputs,
         label = ctx.label,
+        git_msg_file = git_msg_file.path,
         change_code = STGDIFF_CHANGE_CODE,
     )
 
@@ -122,6 +141,7 @@ def _stgdiff_impl(ctx):
         ),
         OutputGroupInfo(
             executable = depset([script]),
+            git_message = depset([git_msg_file]),
         ),
     ]
 

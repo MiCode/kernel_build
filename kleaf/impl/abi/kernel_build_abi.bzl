@@ -24,8 +24,7 @@ load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
-load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list")
-load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_modules_list")
+load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
 load(":kernel_build.bzl", "kernel_build")
 load(":utils.bzl", "utils")
 
@@ -514,9 +513,9 @@ def _define_abi_definition_targets(
         )
 
         native.filegroup(
-            name = name + "_diff_git_message",
+            name = name + "_diff_git_message_xml",
             srcs = [name + "_diff_xml"],
-            output_group = "git_message",
+            output_group = "git_message_xml",
             **kwargs
         )
 
@@ -566,7 +565,7 @@ def _define_abi_definition_targets(
             name = name + "_update_xml",
             data = [
                 abi_definition_xml,
-                name + "_diff_git_message",
+                name + "_diff_git_message_xml",
                 name + "_diff_executable_xml",
                 name + "_nodiff_update_xml",
             ],
@@ -595,7 +594,7 @@ def _define_abi_definition_targets(
                 diff = name + "_diff_executable_xml",
                 nodiff_update = name + "_nodiff_update_xml",
                 abi_definition = abi_definition_xml,
-                git_message = name + "_diff_git_message",
+                git_message = name + "_diff_git_message_xml",
             ),
             **kwargs
         )
@@ -636,6 +635,13 @@ def _define_abi_definition_targets(
             name = name + "_diff_executable",
             srcs = [name + "_diff"],
             output_group = "executable",
+            **kwargs
+        )
+
+        native.filegroup(
+            name = name + "_diff_git_message",
+            srcs = [name + "_diff"],
+            output_group = "git_message",
             **kwargs
         )
 
@@ -688,15 +694,28 @@ def _define_abi_definition_targets(
                 abi_definition_stg,
                 name + "_diff_executable",
                 name + "_nodiff_update",
+                name + "_diff_git_message",
             ],
             script = """
                 # Update abi_definition
                 $(rootpath {nodiff_update})
+                # Create git commit if requested
+                if [[ $1 == "--commit" ]]; then
+                    real_abi_def="$(realpath $(rootpath {abi_definition}))"
+                    git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
+                    git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
+                fi
                 $(rootpath {diff})
+                if [[ $1 == "--commit" ]]; then
+                    echo
+                    echo "INFO: git commit created. Execute the following to edit the commit message:"
+                    echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
+                fi
                 """.format(
                 diff = name + "_diff_executable",
                 nodiff_update = name + "_nodiff_update",
                 abi_definition = abi_definition_stg,
+                git_message = name + "_diff_git_message",
             ),
             **kwargs
         )
