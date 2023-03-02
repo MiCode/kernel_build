@@ -427,7 +427,6 @@ def _define_abi_targets(
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_src_kmi_symbol_list",
         protected_exports_list = name + "_src_protected_exports_list",
-        protected_modules_list = name + "_src_protected_modules_list",
         **private_kwargs
     )
 
@@ -461,7 +460,6 @@ def _define_abi_definition_targets(
         kmi_enforced,
         kmi_symbol_list,
         protected_exports_list,
-        protected_modules_list,
         **kwargs):
     """Helper to `_define_abi_targets`.
 
