@@ -32,6 +32,12 @@ is in its own extension instead of `kernel_env.bzl`.
     fields = {
         "dependencies": "dependencies required to use this environment setup",
         "setup": "setup script to initialize the environment",
+        "run_env": """Optional `KernelEnvInfo` to initialize the environment in
+[execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model).
+
+For `kernel_env`, the script only provides a bare-minimum environment after `source build.config`,
+without actually modifying any variables suitable for a proper kernel build.
+""",
     },
 )
 
@@ -141,6 +147,8 @@ KernelBuildAbiInfo = provider(
         "base_modules_staging_archive": "Archive containing staging kernel modules of the base kernel",
         "src_kmi_symbol_list": """Source file for `kmi_symbol_list` that points to the symbol list
                                   to be updated by `--update_symbol_list`""",
+        "src_protected_exports_list": """Source file for protected symbols which are restricted from being exported by unsigned modules to be updated by `--update_protected_exports`""",
+        "src_protected_modules_list": """Source file with list of protected modules whose exports are being protected and needs to be updated by `--update_protected_exports`""",
     },
 )
 

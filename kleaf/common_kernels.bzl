@@ -96,6 +96,8 @@ _KERNEL_BUILD_VALID_KEYS = [
     "trim_nonlisted_kmi",
     "kmi_symbol_list_strict_mode",
     "module_implicit_outs",
+    "protected_exports_list",
+    "protected_modules_list",
 ]
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
@@ -129,6 +131,8 @@ def _default_target_configs():
         ["android/abi_gki_aarch64*"],
         exclude = ["**/*.xml", "**/*.stg", "android/abi_gki_aarch64"],
     )
+    aarch64_protected_exports_list = (native.glob(["android/abi_gki_protected_exports"]) or [None])[0]
+    aarch64_protected_modules_list = (native.glob(["android/gki_protected_modules"]) or [None])[0]
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
     aarch64_abi_definition_xml = native.glob(["android/abi_gki_aarch64.xml"])
     aarch64_abi_definition_xml = aarch64_abi_definition_xml[0] if aarch64_abi_definition_xml else None
@@ -141,6 +145,8 @@ def _default_target_configs():
         # for build.config.gki.aarch64
         "kmi_symbol_list": aarch64_kmi_symbol_list,
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+        "protected_exports_list": aarch64_protected_exports_list,
+        "protected_modules_list": aarch64_protected_modules_list,
         "abi_definition_xml": aarch64_abi_definition_xml,
         "abi_definition_stg": aarch64_abi_definition_stg,
         "kmi_enforced": bool(aarch64_abi_definition_stg) or bool(aarch64_abi_definition_xml),
@@ -442,11 +448,17 @@ def define_common_kernels(
             ["android/abi_gki_aarch64*"],
             exclude = ["**/*.xml", "android/abi_gki_aarch64"],
         )
+        aarch64_protected_exports_list = native.glob(["android/abi_gki_protected_exports"])
+        aarch64_protected_exports_list = aarch64_protected_exports_list[0] if aarch64_protected_exports_list else None
+        aarch64_protected_modules_list = native.glob(["android/gki_protected_modules"])
+        aarch64_protected_modules_list = aarch64_protected_modules_list[0] if aarch64_protected_modules_list else None
         aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
         default_target_configs = {
             "kernel_aarch64": {
                 "kmi_symbol_list": aarch64_kmi_symbol_list,
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+                "protected_exports_list": aarch64_protected_exports_list,
+                "protected_modules_list": aarch64_protected_modules_list,
                 "trim_nonlisted_kmi": aarch64_trim_and_check,
                 "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
             },

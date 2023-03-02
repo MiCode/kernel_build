@@ -90,6 +90,8 @@ def kernel_build(
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
+        protected_exports_list = None,
+        protected_modules_list = None,
         additional_kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
         kmi_symbol_list_strict_mode = None,
@@ -460,6 +462,8 @@ def kernel_build(
         combined_abi_symbollist = abi_symbollist_target_name if all_kmi_symbol_lists else None,
         enable_interceptor = enable_interceptor,
         strip_modules = strip_modules,
+        src_protected_exports_list = protected_exports_list,
+        src_protected_modules_list = protected_modules_list,
         src_kmi_symbol_list = kmi_symbol_list,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         **kwargs
@@ -810,6 +814,9 @@ def _get_check_remaining_modules_step(
       * tools
       * outputs
     """
+
+    if not ctx.attr._warn_undeclared_modules[BuildSettingInfo].value:
+        return struct(cmd = "", inputs = [], tools = [], outputs = [])
 
     message_type = "ERROR"
     epilog = "exit 1"
@@ -1359,6 +1366,8 @@ def _create_infos(
         module_outs_file = all_module_names_file,
         modules_staging_archive = modules_staging_archive,
         base_modules_staging_archive = base_kernel_utils.get_base_modules_staging_archive(ctx),
+        src_protected_exports_list = ctx.file.src_protected_exports_list,
+        src_protected_modules_list = ctx.file.src_protected_modules_list,
         src_kmi_symbol_list = ctx.file.src_kmi_symbol_list,
     )
 
@@ -1549,6 +1558,7 @@ _kernel_build = rule(
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_allow_undeclared_modules": attr.label(default = "//build/kernel/kleaf:allow_undeclared_modules"),
+        "_warn_undeclared_modules": attr.label(default = "//build/kernel/kleaf:warn_undeclared_modules"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
@@ -1558,6 +1568,8 @@ _kernel_build = rule(
         "kernel_uapi_headers": attr.label(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
+        "src_protected_exports_list": attr.label(allow_single_file = True),
+        "src_protected_modules_list": attr.label(allow_single_file = True),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
     } | _kernel_build_additional_attrs(),
 )

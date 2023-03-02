@@ -34,9 +34,35 @@ _SOURCE_SUFFIXES = (
 )
 
 
+class DieException(SystemExit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(1)
+        self.args = args
+        self.kwargs = kwargs
+
+    @property
+    def msg(self):
+        return self.args[0] % tuple(self.args[1:])
+
+    @staticmethod
+    def handle(die_exception: Optional["DieException"], msg: Optional[str]):
+        if msg:
+            if die_exception is None:
+                logging.error(f"Expect build failure %s, but there's no failure", msg)
+                sys.exit(1)
+            if die_exception.msg != msg:
+                logging.error(*die_exception.args, **die_exception.kwargs)
+                logging.error(f"Expect build failure %s, but got a different failure", msg)
+                sys.exit(1)
+            return
+
+        if die_exception is not None:
+            logging.error(*die_exception.args, **die_exception.kwargs)
+            sys.exit(1)
+
+
 def die(*args, **kwargs):
-    logging.error(*args, **kwargs)
-    sys.exit(1)
+    raise DieException(*args, **kwargs)
 
 
 def _gen_makefile(
@@ -88,10 +114,11 @@ def _merge_directories(output_makefiles: pathlib.Path, submodule_makefile_dir: p
             dst_path = output_makefiles / file_rel
             dst_path.parent.mkdir(parents=True, exist_ok=True)
             with open(dst_path, "a") as dst, \
-                 open(submodule_file, "r") as src:
+                    open(submodule_file, "r") as src:
                 dst.write(f"# {submodule_file}\n")
                 dst.write(src.read())
                 dst.write("\n")
+
 
 def gen_ddk_makefile(
         output_makefiles: pathlib.Path,
@@ -112,13 +139,14 @@ def gen_ddk_makefile(
     if kernel_module_out:
         _gen_ddk_makefile_for_module(
             output_makefiles=output_makefiles,
-            package = package,
-            kernel_module_out = kernel_module_out,
+            package=package,
+            kernel_module_out=kernel_module_out,
             **kwargs
         )
 
     for submodule_makefile_dir in submodule_makefiles:
         _merge_directories(output_makefiles, submodule_makefile_dir)
+
 
 def _gen_ddk_makefile_for_module(
         output_makefiles: pathlib.Path,
@@ -129,6 +157,7 @@ def _gen_ddk_makefile_for_module(
         linux_include_dirs: list[pathlib.Path],
         local_defines: list[str],
         copt_file: Optional[TextIO],
+        **unused_kwargs
 ):
     kernel_module_srcs_json_content = json.load(kernel_module_srcs_json)
     rel_srcs = []
@@ -237,6 +266,7 @@ def _handle_src(
 
     out_file.write("\n")
 
+
 def _handle_linux_includes(out_file: TextIO,
                            linux_include_dirs: list[pathlib.Path],
                            rel_root: pathlib.Path):
@@ -319,5 +349,14 @@ if __name__ == "__main__":
     parser.add_argument("--copt-file", type=argparse.FileType("r"))
     parser.add_argument("--produce-top-level-makefile", action="store_true")
     parser.add_argument("--submodule-makefiles", type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--internal-target-fail-message", default=None)
 
-    gen_ddk_makefile(**vars(parser.parse_args()))
+    args = parser.parse_args()
+
+    die_exception = None
+    try:
+        gen_ddk_makefile(**vars(args))
+    except DieException as exc:
+        die_exception = exc
+    finally:
+        DieException.handle(die_exception, args.internal_target_fail_message)

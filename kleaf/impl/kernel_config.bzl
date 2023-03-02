@@ -397,7 +397,7 @@ def _kernel_config_impl(ctx):
         ),
     )
 
-    config_script_ret = _get_config_script(ctx)
+    config_script_ret = _get_config_script(ctx, inputs)
 
     return [
         env_and_outputs_info,
@@ -430,14 +430,11 @@ def _env_and_outputs_get_setup_script(data, restore_out_dir_cmd):
         post_setup = data.post_setup,
     )
 
-def _get_config_script(ctx):
+def _get_config_script(ctx, inputs):
     """Handles config.sh."""
     executable = ctx.actions.declare_file("{}/config.sh".format(ctx.attr.name))
 
-    script = """
-          cd ${BUILD_WORKSPACE_DIRECTORY}
-    """
-    script += ctx.attr.env[KernelEnvInfo].setup
+    script = ctx.attr.env[KernelEnvInfo].run_env.setup
 
     # TODO(b/254348147): Support ncurses for hermetic tools
     script += """
@@ -452,16 +449,31 @@ def _get_config_script(ctx):
             exit 1
           fi
 
-          # Pre-defconfig commands
-            eval ${PRE_DEFCONFIG_CMDS}
-          # Actual defconfig
-            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+          # The script is executed under <execroot>/, where defconfig is a
+          # symlink to the source file. However, `make savedefconfig` overwrites the
+          # symlink with the new defconfig. Restore the symlink on exit so that
+          # the next `bazel run X_config` can infer the source file properly.
 
-          # Show UI
-            menuconfig ${menucommand}
+          DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK})
+          trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
 
-          # Post-defconfig commands
-            eval ${POST_DEFCONFIG_CMDS}
+          # This needs to be in a sub-shell, otherwise trap doesn't work.
+          (
+              # Pre-defconfig commands
+                eval ${PRE_DEFCONFIG_CMDS}
+              # Actual defconfig
+                make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+
+              # Show UI
+                menuconfig ${menucommand}
+
+              # Post-defconfig commands
+                eval ${POST_DEFCONFIG_CMDS}
+
+              mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
+              echo "Updated ${DEFCONFIG_REAL}"
+          )
     """
 
     ctx.actions.write(
@@ -470,7 +482,7 @@ def _get_config_script(ctx):
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].dependencies)
+    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].run_env.dependencies + inputs)
 
     return struct(
         executable = executable,
