@@ -27,7 +27,7 @@ def update_gki_protected_exports(directory, gki_protected_modules_list,
   """Updates the protected_exports_list with exports from modules in gki_protected_modules_list file"""
 
   with open(gki_protected_modules_list) as f:
-    protected_module_names = [line.strip() for line in f]
+    protected_module_names = [line.strip() for line in f if line.strip()]
 
   protected_gki_modules = []
   for protected_module in protected_module_names:
