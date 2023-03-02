@@ -33,10 +33,10 @@ $ tools/bazel build //common:kernel_aarch64_abi_dump
 
 ### Update the ABI definition {#update-abi}
 
-**Note**: You must [update the symbol list](#update-symbol-list) before
-updating the ABI definition. The
-Bazel command below does not also update the source symbol list, unlike
-the `build_abi.sh` command.
+**Note**: You must [update the symbol list](#update-symbol-list) and
+[update the protected exports list](#update-protected-exports) before
+updating the ABI definition. The Bazel command below does not also update
+the source symbol list, unlike the `build_abi.sh` command.
 
 If ABI definition doesn't exists i.e. if this is the first time it is being
 generated then first and empty symbol file needs to be created and the symbol
