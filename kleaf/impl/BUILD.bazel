@@ -15,7 +15,7 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_setting", "string_setting")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting")
 
 bzl_library(
     name = "impl",
@@ -114,7 +114,7 @@ bool_setting(
 )
 
 # Helper setting to forcefully disable trimming.
-bool_setting(
+bool_flag(
     name = "force_disable_trim",
     build_setting_default = False,
     # All kernel_* from different packages can see this
