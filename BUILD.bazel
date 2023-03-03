@@ -15,6 +15,18 @@
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 
+filegroup(
+    name = "sysroot",
+    srcs = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ),
+    visibility = [
+        ":__subpackages__",
+        "//prebuilts/clang/host/linux-x86/kleaf:__subpackages__",
+    ],
+)
+
 hermetic_tools(
     name = "hermetic-tools",
     srcs = glob(
@@ -40,10 +52,8 @@ hermetic_tools(
         "--numeric-owner",
     ],
     visibility = ["//visibility:public"],
-    deps = glob(
-        ["build-tools/sysroot/**"],
-        allow_empty = False,
-    ) + [
+    deps = [
+        ":sysroot",
         "//prebuilts/build-tools:linux-x86",
         "//prebuilts/kernel-build-tools:linux-x86",
         "@prebuilt_ndk//:sysroot",
