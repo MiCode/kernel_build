@@ -988,7 +988,8 @@ def get_grab_cmd_step(ctx, src_dir):
         cmd_dir = ctx.actions.declare_directory("{name}/cmds".format(name = ctx.label.name))
         outputs.append(cmd_dir)
         cmd = """
-            rsync -a --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+            rsync -a --chmod=F+w --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+            find {cmd_dir}/ -name '*.cmd' -exec sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {{}} \\+
         """.format(
             src_dir = src_dir,
             cmd_dir = cmd_dir.path,
