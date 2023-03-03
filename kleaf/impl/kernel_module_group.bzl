@@ -75,11 +75,11 @@ def _kernel_module_group_impl(ctx):
 
     ddk_headers_info = ddk_headers_common_impl(ctx.label, targets, [], [])
 
+    cmds_info_srcs = [target[KernelCmdsInfo].srcs for target in targets]
+    cmds_info_directories = [target[KernelCmdsInfo].directories for target in targets]
     cmds_info = KernelCmdsInfo(
-        directories = depset(transitive = [
-            target[KernelCmdsInfo].directories
-            for target in targets
-        ]),
+        srcs = depset(transitive = cmds_info_srcs),
+        directories = depset(transitive = cmds_info_directories),
     )
 
     # Sync list of infos with kernel_module / ddk_module.

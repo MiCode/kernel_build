@@ -272,11 +272,14 @@ def _kernel_module_impl(ctx):
     for kernel_module_dep in kernel_module_deps:
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
-    transitive_inputs = [target.files for target in ctx.attr.srcs]
+    module_srcs = [target.files for target in ctx.attr.srcs]
+    if not ctx.attr.internal_exclude_kernel_build_module_srcs:
+        module_srcs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
+    module_srcs = depset(transitive = module_srcs)
+
+    transitive_inputs = [module_srcs]
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.inputs)
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
-    if not ctx.attr.internal_exclude_kernel_build_module_srcs:
-        transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
 
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
@@ -590,7 +593,10 @@ def _kernel_module_impl(ctx):
             restore_paths = depset([paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name)]),
         ),
         ddk_headers_info,
-        KernelCmdsInfo(directories = depset([grab_cmd_step.cmd_dir])),
+        KernelCmdsInfo(
+            srcs = module_srcs,
+            directories = depset([grab_cmd_step.cmd_dir]),
+        ),
     ]
 
 _kernel_module = rule(

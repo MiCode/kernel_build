@@ -1418,7 +1418,10 @@ def _create_infos(
         files = depset(kbuild_mixed_tree_files),
     )
 
-    cmds_info = KernelCmdsInfo(directories = depset([main_action_ret.cmd_dir]))
+    cmds_info = KernelCmdsInfo(
+        srcs = depset([target.files for target in ctx.attr.srcs]),
+        directories = depset([main_action_ret.cmd_dir]),
+    )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(all_module_names_file)
