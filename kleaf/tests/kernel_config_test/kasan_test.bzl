@@ -52,12 +52,10 @@ _kasan_true_default_test = _kasan_tests[True, "default"]  # @unused
 _kasan_true_thin_test = _kasan_tests[True, "thin"]  # @unused
 _kasan_true_full_test = _kasan_tests[True, "full"]  # @unused
 _kasan_true_none_test = _kasan_tests[True, "none"]  # @unused
-_kasan_true_fast_test = _kasan_tests[True, "fast"]  # @unused
 _kasan_false_default_test = _kasan_tests[False, "default"]  # @unused
 _kasan_false_thin_test = _kasan_tests[False, "thin"]  # @unused
 _kasan_false_full_test = _kasan_tests[False, "full"]  # @unused
 _kasan_false_none_test = _kasan_tests[False, "none"]  # @unused
-_kasan_false_fast_test = _kasan_tests[False, "fast"]  # @unused
 
 def kasan_test(name):
     """Define tests for `--kasan`.
