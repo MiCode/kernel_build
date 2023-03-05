@@ -156,15 +156,6 @@ def _config_lto(ctx):
             _config.enable("LTO_CLANG_FULL"),
             _config.disable("THINLTO"),
         ]
-    elif lto_config_flag == "fast":
-        # Set lto=thin only if LTO full is enabled.
-        lto_configs += [
-            _config.enable_if("LTO_CLANG_FULL", "LTO_CLANG"),
-            _config.disable_if("LTO_CLANG_FULL", "LTO_NONE"),
-            _config.enable_if("LTO_CLANG_FULL", "LTO_CLANG_THIN"),
-            _config.enable_if("LTO_CLANG_FULL", "THINLTO"),
-            _config.disable_if("LTO_CLANG_FULL", "LTO_CLANG_FULL"),
-        ]
 
     return struct(configs = lto_configs, deps = [])
 

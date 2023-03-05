@@ -115,7 +115,7 @@ EOF
         ),
         OutputGroupInfo(
             executable = depset([script]),
-            git_message = depset([git_msg_file]),
+            git_message_xml = depset([git_msg_file]),
         ),
     ]
 
