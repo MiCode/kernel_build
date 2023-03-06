@@ -98,6 +98,8 @@ def _create_one_device_modules_test(
         module_outs = None):
     # Cross compiler name is not always the same as the linux arch
     # ARCH is not always the same as the architecture dir (b/254348147)
+    # "Fake" GKIs may use additional merged gki_defconfig fragments (b/271451453)
+    fragments = ["gki_defconfig"]
     linux_arch_dir = None
     if arch == "arm64":
         arch = "aarch64"
@@ -105,6 +107,7 @@ def _create_one_device_modules_test(
     elif arch == "x86_64":
         linux_arch_dir = "x86"
     elif arch == "riscv64":
+        fragments += ["64-bit.config", "gki.config"]
         linux_arch_dir = "riscv"
 
     # A minimal device's kernel_build build_config.
@@ -117,9 +120,10 @@ def _create_one_device_modules_test(
 
                 MAKE_GOALS="modules"
                 DEFCONFIG="device_modules_test_gki_defconfig"
-                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/{linux_arch_dir}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/{linux_arch_dir}/configs/gki_defconfig && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/{linux_arch_dir}/configs/${{DEFCONFIG}};"
+                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/{linux_arch_dir}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/{linux_arch_dir}/configs/{fragments} && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/{linux_arch_dir}/configs/${{DEFCONFIG}};"
                 POST_DEFCONFIG_CMDS=""
                 """.format(
+        fragments = fragments[0] if len(fragments) == 1 else "{" + ",".join(fragments) + "}",
         arch = arch,
         common_package = base_kernel_label.package,
         linux_arch_dir = linux_arch_dir,
