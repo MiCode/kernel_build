@@ -1573,6 +1573,7 @@ _kernel_build = rule(
         "_allow_undeclared_modules": attr.label(default = "//build/kernel/kleaf:allow_undeclared_modules"),
         "_warn_undeclared_modules": attr.label(default = "//build/kernel/kleaf:warn_undeclared_modules"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
+        "_kmi_symbol_list_violations_check": attr.label(default = "//build/kernel/kleaf:kmi_symbol_list_violations_check"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
@@ -1758,6 +1759,9 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
         Marker file `kmi_symbol_list_violations_checked` indicating the check
         has been performed.
     """
+
+    if not ctx.attr._kmi_symbol_list_violations_check[BuildSettingInfo].value:
+        return None
 
     if not ctx.file.raw_kmi_symbol_list:
         return None

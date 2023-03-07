@@ -91,6 +91,12 @@ bool_flag(
     build_setting_default = True,
 )
 
+# If false, kmi_symbol_list_violations_check is disabled.
+bool_flag(
+    name = "kmi_symbol_list_violations_check",
+    build_setting_default = True,
+)
+
 # Debug options
 
 bool_flag(

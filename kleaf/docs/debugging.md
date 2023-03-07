@@ -38,6 +38,7 @@ development cycle. Usually, these flags should not be set on a release build.
   `kernel_build.module_outs` and `kernel_build.module_implicit_outs`.
   No warnings are generated.
 * `--nokmi_symbol_list_strict_mode`: Disable KMI symbol list check.
+* `--nokmi_symbol_list_violations_check`: Disable KMI symbol list violations check.
 
 ## Debugging incremental build issues
 
