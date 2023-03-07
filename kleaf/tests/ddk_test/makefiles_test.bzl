@@ -270,6 +270,9 @@ def _makefiles_subdir_test(name):
     _makefile_subdir_module_uses_top_source_test(name = name + "_subdir_module_uses_top_source")
     tests.append(name + "_subdir_module_uses_top_source")
 
+    _makefile_source_as_module_name_and_other_sources_test(name = name + "_source_as_module_name_and_other_sources_test")
+    tests.append(name + "_source_as_module_name_and_other_sources_test")
+
     native.test_suite(
         name = name,
         tests = tests,
@@ -409,6 +412,27 @@ def _makefile_subdir_module_uses_top_source_test(name):
         module_srcs = ["foo.c"],
         internal_target_fail_message =
             "foo.c is not a valid source because it is not under subdir",
+        tags = ["manual"],
+    )
+    build_test(
+        name = name,
+        targets = [name + "_module_makefiles"],
+    )
+
+def _makefile_source_as_module_name_and_other_sources_test(name):
+    """Tests that, to build foo.ko, if foo.c exists, it must be the only source file.
+
+    Args:
+        name: name of the test
+    """
+
+    makefiles(
+        name = name + "_module_makefiles",
+        module_out = "foo.ko",
+        module_srcs = ["foo.c", "bar.c"],
+        internal_target_fail_message =
+            "Source files ['foo.c'] are not allowed to build foo.ko when multiple " +
+            "source files exist. Please change the name of the output file.",
         tags = ["manual"],
     )
     build_test(
