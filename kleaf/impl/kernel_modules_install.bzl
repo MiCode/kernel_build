@@ -164,7 +164,9 @@ def _kernel_modules_install_impl(ctx):
         progress_message = "Running depmod {}".format(ctx.label),
     )
 
-    cmds_info_targets = [kernel_build] + ctx.attr.kernel_modules
+    # Only analyze headers on external modules.
+    # To analyze headers on in-tree modules, just run analyze_inputs on the kernel_build directly.
+    cmds_info_targets = ctx.attr.kernel_modules
     cmds_info_transitive = [target[KernelCmdsInfo].directories for target in cmds_info_targets]
     cmds_info = KernelCmdsInfo(
         directories = depset(transitive = cmds_info_transitive),

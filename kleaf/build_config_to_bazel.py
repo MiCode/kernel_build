@@ -375,6 +375,7 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
                     "SYSTEM_DLKM_MODULES_LIST",
                     "SYSTEM_DLKM_MODULES_BLOCKLIST",
                     "SYSTEM_DLKM_PROPS",
+                    "VENDOR_DLKM_ETC_FILES",
                     "VENDOR_DLKM_FS_TYPE",
                     "VENDOR_DLKM_MODULES_LIST",
                     "VENDOR_DLKM_MODULES_BLOCKLIST",

@@ -31,6 +31,9 @@ import %workspace%/build/kernel/kleaf/bazelrc/rbe.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/stamp.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/release.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/flags.bazelrc
+# Toolchains and platforms
+import %workspace%/build/kernel/kleaf/bazelrc/hermetic_cc.bazelrc
+
 
 # By default, do not embed scmversion.
 build --workspace_status_command=build/kernel/kleaf/workspace_status_common.sh
