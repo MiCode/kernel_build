@@ -28,6 +28,10 @@ enable_kprobe		kprobe should not be touched by any driver
 # drivers should not care about memory pages
 PageMovable	Drivers should not care about memory pages
 
+# symbol lookup will circumvent all ABI checking and easily break over time
+__symbol_get	No kernel symbols can be looked up
+__symbol_put	No kernel symbols can be looked up
+
 # Building ext4 or f2fs as a module is not supported; they are already built-in.
 # This implies that the fscrypt and fsverity symbols should never be exported.
 # As this file does not support wildcard patterns, just list a few key symbols.

@@ -1,4 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//build/kernel/kleaf/impl:android_filegroup.bzl", "android_filegroup")
 
 _LINUX_X86_64 = [
     "@platforms//os:linux",
@@ -92,5 +93,103 @@ build_test(
     name = "linux_x86_64_tests",
     targets = [
         ":linux_x86_64_tests_genrule",
+    ],
+)
+
+# Android arm64
+
+cc_binary(
+    name = "hello_world_android",
+    srcs = ["hello_world.c"],
+    target_compatible_with = ["@platforms//os:android"],
+)
+
+cc_library(
+    name = "mylib_android",
+    srcs = [
+        "lib.c",
+        "lib.h",
+    ],
+    target_compatible_with = ["@platforms//os:android"],
+)
+
+cc_binary(
+    name = "mybin_full_static_android",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    features = ["full_static_link"],
+    linkstatic = True,
+    target_compatible_with = ["@platforms//os:android"],
+    deps = [":mylib_android"],
+)
+
+cc_binary(
+    name = "mybin_static_android",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    linkstatic = True,
+    target_compatible_with = ["@platforms//os:android"],
+    deps = [":mylib_android"],
+)
+
+cc_binary(
+    name = "mybin_dynamic_android",
+    srcs = [
+        "bin.c",
+        "lib.h",
+    ],
+    linkstatic = False,
+    target_compatible_with = ["@platforms//os:android"],
+    deps = [":mylib_android"],
+)
+
+# Build with --config=hermetic_cc
+android_filegroup(
+    name = "android_tests_arm64",
+    srcs = [
+        ":hello_world_android",
+        ":mybin_dynamic_android",
+        ":mybin_full_static_android",
+        ":mybin_static_android",
+        ":mylib_android",
+    ],
+    cpu = "arm64",
+)
+
+# Build with --config=hermetic_cc
+android_filegroup(
+    name = "android_tests_x86_64",
+    srcs = [
+        ":hello_world_android",
+        ":mybin_dynamic_android",
+        ":mybin_full_static_android",
+        ":mybin_static_android",
+        ":mylib_android",
+    ],
+    cpu = "x86_64",
+)
+
+# TODO(b/228238975): Add tests for riscv
+
+# Build with --config=hermetic_cc
+build_test(
+    name = "android_tests",
+    targets = [
+        ":android_tests_arm64",
+        ":android_tests_x86_64",
+    ],
+)
+
+# Build with --config=hermetic_cc
+build_test(
+    name = "cc_testing",
+    targets = [
+        ":linux_x86_64_tests_genrule",
+        ":android_tests_arm64",
+        ":android_tests_x86_64",
     ],
 )

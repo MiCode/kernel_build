@@ -34,6 +34,7 @@ bzl_library(
         "abi/kernel_build_abi_dist.bzl",
         "abi/protected_exports.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
+        "android_filegroup.bzl",
         "btf.bzl",
         "cache_dir.bzl",
         "common_providers.bzl",
@@ -182,5 +183,29 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_arm64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+platform(
+    name = "android_x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_riscv64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:riscv64",
     ],
 )
