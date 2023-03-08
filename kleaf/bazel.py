@@ -15,8 +15,10 @@
 import argparse
 import os
 import pathlib
+import shlex
 import shutil
 import sys
+import textwrap
 from typing import Tuple, Optional
 
 _BAZEL_REL_PATH = "prebuilts/bazel/linux-x86_64/bazel"
@@ -64,7 +66,6 @@ class BazelWrapper(object):
         self.env = env.copy()
 
         self.bazel_path = f"{self.root_dir}/{_BAZEL_REL_PATH}"
-        self.absolute_out_dir = f"{self.root_dir}/out"
 
         command_idx = None
         for idx, arg in enumerate(bazel_args):
@@ -100,11 +101,19 @@ class BazelWrapper(object):
         """
 
         parser = argparse.ArgumentParser(add_help=False)
-        parser.add_argument("--output_user_root",
+        parser.add_argument("--output_root",
                             type=_require_absolute_path,
-                            default=_require_absolute_path(f"{self.absolute_out_dir}/bazel/output_user_root"))
-        known_startup_options, self.transformed_startup_options = parser.parse_known_args(self.startup_options)
-        self.absolute_user_root = known_startup_options.output_user_root
+                            default=_require_absolute_path(f"{self.root_dir}/out"))
+        parser.add_argument("--output_user_root",
+                            type=_require_absolute_path)
+        known_startup_options, user_startup_options = parser.parse_known_args(self.startup_options)
+        self.absolute_out_dir = known_startup_options.output_root
+        self.absolute_user_root = known_startup_options.output_user_root or \
+                                  f"{self.absolute_out_dir}/bazel/output_user_root"
+        self.transformed_startup_options = [
+            f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
+        ]
+        self.transformed_startup_options += user_startup_options
         self.transformed_startup_options.append(f"--output_user_root={self.absolute_user_root}")
 
     def _parse_command_args(self):
@@ -159,9 +168,13 @@ class BazelWrapper(object):
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
 
-        if self.command not in ("query", "version"):
-            self.transformed_command_args.append(
-                f"--//build/kernel/kleaf:cache_dir={self.known_args.cache_dir}")
+        cache_dir_bazel_rc = f"{self.absolute_out_dir}/bazel/cache_dir.bazelrc"
+        os.makedirs(os.path.dirname(cache_dir_bazel_rc), exist_ok=True)
+        with open(cache_dir_bazel_rc, "w") as f:
+            f.write(textwrap.dedent(f"""\
+                build --//build/kernel/kleaf:cache_dir={shlex.quote(str(self.known_args.cache_dir))}
+            """))
+        self.transformed_startup_options.append(f"--bazelrc={cache_dir_bazel_rc}")
 
     def _build_final_args(self) -> list[str]:
         """Builds the final arguments for the subprocess."""
@@ -171,7 +184,6 @@ class BazelWrapper(object):
         bazel_jdk_path = f"{self.root_dir}/{_BAZEL_JDK_REL_PATH}"
         final_args = [self.bazel_path] + self.transformed_startup_options + [
             f"--server_javabase={bazel_jdk_path}",
-            f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
             f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
         ]
         if self.command is not None:

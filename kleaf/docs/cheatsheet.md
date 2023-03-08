@@ -25,7 +25,7 @@ $ tools/bazel build --config=local //common:kernel_aarch64
 ### Building all artifacts
 
 ```shell
-$ tools/bazel run //common:kernel_aarch64_abi
+$ tools/bazel run //common:kernel_aarch64_abi_dist
 ```
 
 ### Update symbol list

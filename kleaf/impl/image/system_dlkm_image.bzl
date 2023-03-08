@@ -30,6 +30,7 @@ def _system_dlkm_image_impl(ctx):
     system_dlkm_img = ctx.actions.declare_file("{}/system_dlkm.img".format(ctx.label.name))
     system_dlkm_modules_load = ctx.actions.declare_file("{}/system_dlkm.modules.load".format(ctx.label.name))
     system_dlkm_staging_archive = ctx.actions.declare_file("{}/{}".format(ctx.label.name, _STAGING_ARCHIVE_NAME))
+    system_dlkm_modules_blocklist = ctx.actions.declare_file("{}/system_dlkm.modules.blocklist".format(ctx.label.name))
 
     modules_staging_dir = system_dlkm_img.dirname + "/staging"
     system_dlkm_staging_dir = modules_staging_dir + "/system_dlkm_staging"
@@ -98,6 +99,11 @@ def _system_dlkm_image_impl(ctx):
                mv "${{DIST_DIR}}/system_dlkm.img" {system_dlkm_img}
                mv "${{DIST_DIR}}/system_dlkm.modules.load" {system_dlkm_modules_load}
                mv "${{DIST_DIR}}/system_dlkm_staging_archive.tar.gz" {system_dlkm_staging_archive}
+               if [ -f "${{DIST_DIR}}/system_dlkm.modules.blocklist" ]; then
+                 mv "${{DIST_DIR}}/system_dlkm.modules.blocklist" {system_dlkm_modules_blocklist}
+               else
+                 : > {system_dlkm_modules_blocklist}
+               fi
 
              # Remove staging directories
                rm -rf {system_dlkm_staging_dir}
@@ -110,6 +116,7 @@ def _system_dlkm_image_impl(ctx):
         system_dlkm_img = system_dlkm_img.path,
         system_dlkm_modules_load = system_dlkm_modules_load.path,
         system_dlkm_staging_archive = system_dlkm_staging_archive.path,
+        system_dlkm_modules_blocklist = system_dlkm_modules_blocklist.path,
     )
 
     default_info = image_utils.build_modules_image_impl_common(
@@ -119,6 +126,7 @@ def _system_dlkm_image_impl(ctx):
             system_dlkm_img,
             system_dlkm_modules_load,
             system_dlkm_staging_archive,
+            system_dlkm_modules_blocklist,
         ],
         additional_inputs = additional_inputs,
         restore_modules_install = restore_modules_install,

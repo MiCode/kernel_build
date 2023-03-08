@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvInfo")
+"""Build dtbo."""
+
+load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
 load(":debug.bzl", "debug")
-load(":image/image_utils.bzl", "image_utils")
+load(":utils.bzl", "utils")
 
 def _dtbo_impl(ctx):
     output = ctx.actions.declare_file("{}/dtbo.img".format(ctx.label.name))
-    inputs = []
-    inputs += ctx.attr.kernel_build[KernelEnvInfo].dependencies
     transitive_inputs = [target.files for target in ctx.attr.srcs]
-    command = ""
-    command += ctx.attr.kernel_build[KernelEnvInfo].setup
+    transitive_inputs.append(ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs)
+    tools = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools
+    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+    )
 
     command += """
              # make dtbo
@@ -35,8 +39,9 @@ def _dtbo_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "Dtbo",
-        inputs = depset(inputs, transitive = transitive_inputs),
+        inputs = depset(transitive = transitive_inputs),
         outputs = [output],
+        tools = tools,
         progress_message = "Building dtbo {}".format(ctx.label),
         command = command,
     )
@@ -48,7 +53,7 @@ dtbo = rule(
     attrs = {
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo, KernelBuildInfo],
+            providers = [KernelEnvAndOutputsInfo, KernelBuildInfo],
         ),
         "srcs": attr.label_list(
             allow_files = True,

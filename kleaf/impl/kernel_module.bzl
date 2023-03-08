@@ -18,17 +18,20 @@ Makefile and Kbuild files are required.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_module_test",
 )
+load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
+    "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
     "KernelUnstrippedModulesInfo",
@@ -264,23 +267,25 @@ def _kernel_module_impl(ctx):
         fail("{}: must not define `makefile` for `ddk_module`")
 
     inputs = []
-    inputs += ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_info.dependencies
     inputs += ctx.files.makefile
     inputs += ctx.files.internal_ddk_makefiles_dir
-    inputs += [
-        ctx.file._search_and_cp_output,
-        ctx.file._check_declared_output_list,
-    ]
     for kernel_module_dep in kernel_module_deps:
         inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.inputs)
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
     if not ctx.attr.internal_exclude_kernel_build_module_srcs:
         transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_hdrs)
 
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
+
+    tools = [
+        ctx.executable._check_declared_output_list,
+        ctx.executable._search_and_cp_output,
+    ]
+    transitive_tools = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.tools]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -331,7 +336,19 @@ def _kernel_module_impl(ctx):
     if unstripped_dir:
         command_outputs.append(unstripped_dir)
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].env_info.setup
+    cache_dir_step = cache_dir.get_step(
+        ctx = ctx,
+        common_config_tags = ctx.attr.kernel_build[KernelEnvAttrInfo].common_config_tags,
+        symlink_name = "module_{}".format(ctx.attr.name),
+    )
+    inputs += cache_dir_step.inputs
+    command_outputs += cache_dir_step.outputs
+    tools += cache_dir_step.tools
+
+    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.get_setup_script(
+        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.data,
+        restore_out_dir_cmd = cache_dir_step.cmd,
+    )
     command += """
              # create dirs for modules
                mkdir -p {kernel_uapi_headers_dir}/usr
@@ -347,7 +364,7 @@ def _kernel_module_impl(ctx):
             mkdir -p {unstripped_dir}
             {search_and_cp_output} --srcdir ${{OUT_DIR}}/${{ext_mod_rel}} --dstdir {unstripped_dir} {outs}
         """.format(
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
             unstripped_dir = unstripped_dir.path,
             # Use basenames to flatten the unstripped directory, even though outs may contain items with slash.
             outs = " ".join(original_outs_base),
@@ -390,7 +407,7 @@ def _kernel_module_impl(ctx):
 
     command += """
              # Set variables
-               ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
+               ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
 
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {make_redirect}
@@ -424,7 +441,7 @@ def _kernel_module_impl(ctx):
              # Grab *.cmd
                {grab_cmd_cmd}
              # Move Module.symvers
-               mv ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
+               rsync -aL ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
 
                {drop_modules_order_cmd}
                """.format(
@@ -436,7 +453,7 @@ def _kernel_module_impl(ctx):
         outdir = outdir,
         kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
         module_strip_flag = module_strip_flag,
-        check_declared_output_list = ctx.file._check_declared_output_list.path,
+        check_declared_output_list = ctx.executable._check_declared_output_list.path,
         all_module_names_file = all_module_names_file.path,
         grab_unstripped_cmd = grab_unstripped_cmd,
         check_no_remaining = check_no_remaining.path,
@@ -447,13 +464,31 @@ def _kernel_module_impl(ctx):
     command += dws.record(modules_staging_dws)
     command += dws.record(kernel_uapi_headers_dws)
 
+    # Unlike other rules (e.g. KernelBuild / ModulesPrepare), a DDK module must be executed
+    # in a sandbox so that restoring the makefiles does not mutate the source tree. However,
+    # we can't use linux-sandbox because --cache_dir is mounted as readonly. Hence, use
+    # the weaker form processwrapper-sandbox instead.
+    # See https://bazel.build/docs/sandboxing#sandboxing-strategies
+    strategy = ""
+    execution_requirements = None
+    if ctx.attr._config_is_local[BuildSettingInfo].value:
+        if ctx.file.internal_ddk_makefiles_dir:
+            strategy = "ProcessWrapperSandbox"
+        else:
+            execution_requirements = kernel_utils.local_exec_requirements(ctx)
+
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
-        mnemonic = "KernelModule",
+        mnemonic = "KernelModule" + strategy,
         inputs = depset(inputs, transitive = transitive_inputs),
+        tools = depset(tools, transitive = transitive_tools),
         outputs = command_outputs,
         command = command,
-        progress_message = "Building external kernel module {}".format(ctx.label),
+        progress_message = "Building external kernel module {}{}".format(
+            ctx.attr.kernel_build[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
+        execution_requirements = execution_requirements,
     )
 
     # Additional outputs because of the value in outs. This is
@@ -473,7 +508,7 @@ def _kernel_module_impl(ctx):
              # Copy files into place
                {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
         """.format(
-            search_and_cp_output = ctx.file._search_and_cp_output.path,
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dws.directory.path,
             ext_mod = ext_mod,
             outdir = outdir,
@@ -485,7 +520,9 @@ def _kernel_module_impl(ctx):
             inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
                 # We don't need structure_file here because we only care about files in the directory.
                 modules_staging_dws.directory,
-                ctx.file._search_and_cp_output,
+            ],
+            tools = [
+                ctx.executable._search_and_cp_output,
             ],
             outputs = cp_cmd_outputs,
             command = command,
@@ -496,13 +533,13 @@ def _kernel_module_impl(ctx):
              # Use a new shell to avoid polluting variables
                (
              # Set variables
-               # rel_path requires the existence of ${{ROOT_DIR}}/{ext_mod}, which may not be the case for
+               # realpath requires the existence of ${{ROOT_DIR}}/{ext_mod}, which may not be the case for
                # _kernel_modules_install. Make that.
                mkdir -p ${{ROOT_DIR}}/{ext_mod}
-               ext_mod_rel=$(rel_path ${{ROOT_DIR}}/{ext_mod} ${{KERNEL_DIR}})
+               ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
              # Restore Modules.symvers
                mkdir -p $(dirname ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name})
-               cp {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name}
+               rsync -aL {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name}
              # New shell ends
                )
     """.format(
@@ -584,16 +621,20 @@ _kernel_module = rule(
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
+        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_search_and_cp_output": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:search_and_cp_output.py"),
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
             doc = "Label referring to the script to process outputs",
         ),
         "_check_declared_output_list": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:check_declared_output_list.py"),
+            default = Label("//build/kernel/kleaf:check_declared_output_list"),
+            cfg = "exec",
+            executable = True,
         ),
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),

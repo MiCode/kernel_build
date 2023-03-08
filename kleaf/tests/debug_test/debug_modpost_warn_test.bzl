@@ -15,6 +15,7 @@
 """Tests --debug_modpost_warn."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
@@ -22,8 +23,11 @@ load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 def _modpost_warn_module_test_impl(ctx):
     env = analysistest.begin(ctx)
-
-    action = test_utils.find_action(env, "KernelModule")
+    mnemonic = "KernelModule"
+    if ctx.attr.is_ddk_test:
+        if ctx.attr._config_is_local[BuildSettingInfo].value:
+            mnemonic += "ProcessWrapperSandbox"
+    action = test_utils.find_action(env, mnemonic)
     script = test_utils.get_shell_script(env, action)
 
     asserts.true(
@@ -44,6 +48,7 @@ _modpost_warn_module_test = analysistest.make(
         "_config_is_local": attr.label(
             default = "//build/kernel/kleaf:config_local",
         ),
+        "is_ddk_test": attr.bool(),
     },
     config_settings = {
         "@//build/kernel/kleaf:debug_modpost_warn": True,
@@ -91,6 +96,7 @@ def debug_modpost_warn_test(name):
     _modpost_warn_module_test(
         name = name + "_ddk_module_modpost_warn_test",
         target_under_test = name + "_ddk_module",
+        is_ddk_test = True,
     )
     tests.append(name + "_ddk_module_modpost_warn_test")
 

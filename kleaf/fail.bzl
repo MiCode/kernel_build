@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+A rule that fails.
+"""
 
 def _impl(ctx):
     fail(ctx.attr.message if ctx.attr.message else "unknown error")
