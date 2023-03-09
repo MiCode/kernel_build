@@ -279,11 +279,11 @@ def _reconfig(ctx):
         configs += pair.configs
         deps += pair.deps
 
-    if not configs:
-        return struct(cmd = "", deps = deps)
-
     return struct(cmd = """
         configs_to_apply=$(echo {configs})
+        # There could be reconfigurations based on configs which can lead to
+        #  an empty `configs_to_apply` even when `configs` is not empty,
+        #  for that reason it is better to check it is not empty before using it.
         if [ -n "${{configs_to_apply}}" ]; then
             ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config ${{configs_to_apply}}
             make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
