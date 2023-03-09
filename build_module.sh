@@ -250,8 +250,36 @@ for EXT_MOD in ${EXT_MODULES}; do
   else
     mkdir -p ${OUT_DIR}/${EXT_MOD_REL}
   fi
-  make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
-                      O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
+
+  module_path="$(echo "$EXT_MOD" | sed -e 's/^[\.\/]*//')"
+  top_dir="$(echo "$module_path" | cut -d '/' -f 1)"
+
+  # Create a link to the module's tree within kernel_platform
+  (cd "$ROOT_DIR" && ln -fs "../${top_dir}")
+
+  # Search within the module dir and one level up for a BUILD.bazel file
+  if [ -f "${module_path}/BUILD.bazel" ]; then
+    bazel_pkg="//${module_path}"
+  elif [ -f "${module_path}/../BUILD.bazel" ]; then
+    bazel_pkg="//$(dirname "$module_path")"
+  fi
+
+  # Query for a target that matches the pattern for module distribution
+  if [ "$ENABLE_DDK_BUILD" = "true" ] \
+     && [ -n "$bazel_pkg" ] \
+     && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
+          "filter('${TARGET_PRODUCT/_/-}_${VARIANT/_/-}_.*_dist$', ${bazel_pkg}/...)") \
+     && [ -n "$build_target" ]
+  then
+    # Run the dist command passing in the output directory from Android build system
+    ./tools/bazel run --lto="${LTO:-full}" "$build_target" -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}"
+  else
+    # Fall back on legacy make if Bazel build is not present
+    echo "warning - building kernel modules with legacy make. Please migrate to DDK."
+    make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
+                        O=${OUT_DIR} "${TOOL_ARGS[@]}" ${MAKE_ARGS}
+  fi
+
   if [ -n "${INSTALL_MODULE_HEADERS}" ]; then
     echo "========================================================"
     echo " Installing UAPI module headers:"
