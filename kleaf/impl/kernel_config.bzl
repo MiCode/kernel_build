@@ -156,6 +156,15 @@ def _config_lto(ctx):
             _config.enable("LTO_CLANG_FULL"),
             _config.disable("THINLTO"),
         ]
+    elif lto_config_flag == "fast":
+        # Set lto=thin only if LTO full is enabled.
+        lto_configs += [
+            _config.enable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG"),
+            _config.disable_if(condition = "LTO_CLANG_FULL", config = "LTO_NONE"),
+            _config.enable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG_THIN"),
+            _config.enable_if(condition = "LTO_CLANG_FULL", config = "THINLTO"),
+            _config.disable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG_FULL"),
+        ]
 
     return struct(configs = lto_configs, deps = [])
 
@@ -270,12 +279,15 @@ def _reconfig(ctx):
         configs += pair.configs
         deps += pair.deps
 
-    if not configs:
-        return struct(cmd = "", deps = deps)
-
     return struct(cmd = """
-        ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config {configs}
-        make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+        configs_to_apply=$(echo {configs})
+        # There could be reconfigurations based on configs which can lead to
+        #  an empty `configs_to_apply` even when `configs` is not empty,
+        #  for that reason it is better to check it is not empty before using it.
+        if [ -n "${{configs_to_apply}}" ]; then
+            ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config ${{configs_to_apply}}
+            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+        fi
     """.format(configs = " ".join(configs)), deps = deps)
 
 def _kernel_config_impl(ctx):
@@ -388,7 +400,7 @@ def _kernel_config_impl(ctx):
         ),
     )
 
-    config_script_ret = _get_config_script(ctx, inputs)
+    config_script_ret = _get_config_script(ctx)
 
     return [
         env_and_outputs_info,
@@ -421,11 +433,14 @@ def _env_and_outputs_get_setup_script(data, restore_out_dir_cmd):
         post_setup = data.post_setup,
     )
 
-def _get_config_script(ctx, inputs):
+def _get_config_script(ctx):
     """Handles config.sh."""
     executable = ctx.actions.declare_file("{}/config.sh".format(ctx.attr.name))
 
-    script = ctx.attr.env[KernelEnvInfo].run_env.setup
+    script = """
+          cd ${BUILD_WORKSPACE_DIRECTORY}
+    """
+    script += ctx.attr.env[KernelEnvInfo].setup
 
     # TODO(b/254348147): Support ncurses for hermetic tools
     script += """
@@ -440,31 +455,16 @@ def _get_config_script(ctx, inputs):
             exit 1
           fi
 
-          # The script is executed under <execroot>/, where defconfig is a
-          # symlink to the source file. However, `make savedefconfig` overwrites the
-          # symlink with the new defconfig. Restore the symlink on exit so that
-          # the next `bazel run X_config` can infer the source file properly.
+          # Pre-defconfig commands
+            eval ${PRE_DEFCONFIG_CMDS}
+          # Actual defconfig
+            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
 
-          DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
-          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK})
-          trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
+          # Show UI
+            menuconfig ${menucommand}
 
-          # This needs to be in a sub-shell, otherwise trap doesn't work.
-          (
-              # Pre-defconfig commands
-                eval ${PRE_DEFCONFIG_CMDS}
-              # Actual defconfig
-                make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
-
-              # Show UI
-                menuconfig ${menucommand}
-
-              # Post-defconfig commands
-                eval ${POST_DEFCONFIG_CMDS}
-
-              mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
-              echo "Updated ${DEFCONFIG_REAL}"
-          )
+          # Post-defconfig commands
+            eval ${POST_DEFCONFIG_CMDS}
     """
 
     ctx.actions.write(
@@ -473,7 +473,7 @@ def _get_config_script(ctx, inputs):
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].run_env.dependencies + inputs)
+    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].dependencies)
 
     return struct(
         executable = executable,

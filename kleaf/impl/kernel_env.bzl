@@ -19,7 +19,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
-load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
@@ -314,6 +313,7 @@ def _get_run_env(ctx, srcs):
         setup_env = ctx.file.setup_env.short_path,
     )
     dependencies = srcs + ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+        ctx.file.setup_env,
         ctx.file._build_utils_sh,
         ctx.file.build_config,
     ]
@@ -329,14 +329,7 @@ def _get_tools(toolchain_version):
     else:
         clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
 
-    return [
-        Label(e)
-        for e in (
-            "//build/kernel:_setup_env",
-            "//build/kernel:build_utils",
-            clang_binaries,
-        )
-    ]
+    return [Label(clang_binaries)]
 
 def _kernel_env_additional_attrs():
     return dicts.add(

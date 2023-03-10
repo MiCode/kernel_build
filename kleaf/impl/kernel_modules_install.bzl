@@ -167,9 +167,11 @@ def _kernel_modules_install_impl(ctx):
     # Only analyze headers on external modules.
     # To analyze headers on in-tree modules, just run analyze_inputs on the kernel_build directly.
     cmds_info_targets = ctx.attr.kernel_modules
-    cmds_info_transitive = [target[KernelCmdsInfo].directories for target in cmds_info_targets]
+    cmds_info_srcs = [target[KernelCmdsInfo].srcs for target in cmds_info_targets]
+    cmds_info_directories = [target[KernelCmdsInfo].directories for target in cmds_info_targets]
     cmds_info = KernelCmdsInfo(
-        directories = depset(transitive = cmds_info_transitive),
+        srcs = depset(transitive = cmds_info_srcs),
+        directories = depset(transitive = cmds_info_directories),
     )
 
     return [
