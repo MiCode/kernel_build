@@ -298,10 +298,43 @@ def _split_kernel_module_deps(deps, this_label):
         module_symvers_deps = module_symvers_deps,
     )
 
+# Cross compiler name is not always the same as the linux arch
+# ARCH is not always the same as the architecture dir (b/254348147)
+def _set_src_arch_cmd():
+    """Returns a script that sets SRCARCH based on ARCH.
+
+    This is where we find DEFCONFIG.
+
+    The logic should be synced with common/Makefile.
+    """
+
+    return """
+        SRCARCH=${ARCH}
+        # Additional ARCH settings for x86
+        if [[ ${ARCH} == "i386" ]]; then
+                SRCARCH=x86
+        fi
+        if [[ ${ARCH} == "x86_64" ]]; then
+                SRCARCH=x86
+        fi
+        # Additional ARCH settings for sparc
+        if [[ ${ARCH} == "sparc32" ]]; then
+               SRCARCH=sparc
+        fi
+        if [[ ${ARCH} == "sparc64" ]]; then
+               SRCARCH=sparc
+        fi
+        # Additional ARCH settings for parisc
+        if [[ ${ARCH} == "parisc64" ]]; then
+               SRCARCH=parisc
+        fi
+    """
+
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
     check_kernel_build = _check_kernel_build,
     local_exec_requirements = _local_exec_requirements,
     split_kernel_module_deps = _split_kernel_module_deps,
+    set_src_arch_cmd = _set_src_arch_cmd,
 )
