@@ -29,6 +29,15 @@ string_flag(
     values = LTO_VALUES,
 )
 
+# If true, kernel_images sets EXT_MODULES before creating the staging directory.
+# Note: This is a temporary flag to mitigate issues on migrating away from
+# setting EXT_MODULES in build.config. If you need to disable this flag, please
+# file a bug.
+bool_flag(
+    name = "set_ext_modules",
+    build_setting_default = True,
+)
+
 string_flag(
     name = "cache_dir",
     build_setting_default = "",

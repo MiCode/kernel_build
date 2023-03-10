@@ -27,6 +27,7 @@ build --flag_alias=kasan=//build/kernel/kleaf:kasan
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=notrim=//build/kernel/kleaf/impl:force_disable_trim
 build --flag_alias=btf_debug_info=//build/kernel/kleaf:btf_debug_info
+build --flag_alias=noset_ext_modules=no//build/kernel/kleaf:set_ext_modules
 
 # flags that control the distribution
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes

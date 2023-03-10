@@ -211,6 +211,13 @@ KernelModuleInfo = provider(
         "kernel_uapi_headers_dws_depset": """A [depset](https://bazel.build/extending/depsets) of
             `directory_with_structure` containing UAPI headers to use the module.""",
         "files": "A [depset](https://bazel.build/extending/depsets) of output `*.ko` files.",
+        "packages": """For `kernel_module` / `ddk_module`s, a
+            [depset](https://bazel.build/extending/depsets) containing package name of
+            the target. This corresponds to `EXT_MOD` in `build.sh`.
+
+            For other rules that contains multiple `kernel_module`s, a [depset] containing package
+            names of all external modules in an unspecified order. This corresponds to `EXT_MODULES`
+            in `build.sh`.""",
     },
 )
 

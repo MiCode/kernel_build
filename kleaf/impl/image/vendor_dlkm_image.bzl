@@ -79,6 +79,7 @@ def _vendor_dlkm_image_impl(ctx):
         outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist],
         build_command = command,
         modules_staging_dir = modules_staging_dir,
+        set_ext_modules = True,
         additional_inputs = additional_inputs,
         mnemonic = "VendorDlkmImage",
     )
