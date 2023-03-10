@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
-load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
 
 filegroup(
     name = "sysroot",
@@ -38,8 +38,14 @@ hermetic_tools(
         #   build.sh goes away.
         exclude = ["**/python*"],
     ) + [
-        "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(CLANG_VERSION),
-    ],
+        "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(VARS["CLANG_VERSION"]),
+    ] + (
+        [
+            "//prebuilts/rust/linux-x86/{}:bin/rustc".format(VARS.get("RUSTC_VERSION", "")),
+            "//prebuilts/clang-tools:linux-x86/bin/bindgen",
+            "//prebuilts/rust/linux-x86/{}:bin/cargo".format(VARS.get("RUSTC_VERSION", "")),
+        ] if "RUSTC_VERSION" in VARS else []
+    ),
     host_tools = [
         "bash",
         "install",
