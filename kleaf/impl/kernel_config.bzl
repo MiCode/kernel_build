@@ -307,7 +307,8 @@ def _kernel_config_impl(ctx):
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
 
-    scmversion_command = stamp.scmversion_config_cmd(ctx)
+    scmversion_step = stamp.scmversion_config_step(ctx)
+    inputs += scmversion_step.deps
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
@@ -331,7 +332,7 @@ def _kernel_config_impl(ctx):
         # Post-defconfig commands
           eval ${{POST_DEFCONFIG_CMDS}}
         # SCM version configuration
-          {scmversion_command}
+          {scmversion_cmd}
         # Re-config
           {reconfig_cmd}
         # HACK: run syncconfig to avoid re-triggerring kernel_build
@@ -352,7 +353,7 @@ def _kernel_config_impl(ctx):
         out_dir = out_dir.path,
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
-        scmversion_command = scmversion_command,
+        scmversion_cmd = scmversion_step.cmd,
         reconfig_cmd = reconfig.cmd,
     )
 
