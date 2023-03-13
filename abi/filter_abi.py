@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2021 The Android Open Source Project
+# Copyright (C) 2021-2023 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,34 +16,24 @@
 #
 
 import argparse
-import subprocess
 import sys
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--symbol-list', '--kmi-symbol-list', required=True,
-                        help='KMI symbol list to filter for')
-    parser.add_argument('--in-file', default=None,
-                        help='where to read the ABI dump from')
-    parser.add_argument('--out-file', default=None,
-                        help='where to write the ABI dump to')
+    parser.add_argument('--symbol-list', '--kmi-symbol-list', required=True)
+    parser.add_argument('--in-file', default=None)
+    parser.add_argument('--out-file', default=None)
     args = parser.parse_args()
-    command = [
-        "abitidy",
-        # remove unlisted symbols
-        "--symbols", args.symbol_list,
-        # prune XML elements now unreachable from symbols
-        "--prune-unreachable",
-        # inhibit warnings about symbols without types
-        "--no-report-untyped",
-        # drop XML elements now empty
-        "--drop-empty",
-    ]
-    if args.in_file is not None:
-        command.extend(["--input", args.in_file])
-    if args.out_file is not None:
-        command.extend(["--output", args.out_file])
-    subprocess.check_call(command)
+
+    in_file = args.in_file or "/dev/stdin"
+    out_file = args.out_file or "/dev/stdout"
+    with open(in_file) as input:
+        with open(out_file, "w") as output:
+            text = input.read()
+            output.write("<!-- filter_abi is no longer functional, use stg instead -->\n")
+            output.write(text)
+    return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

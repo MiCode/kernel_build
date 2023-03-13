@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2022 The Android Open Source Project
+# Copyright (C) 2019-2023 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,34 +19,22 @@ import argparse
 import os
 import sys
 
-from abitool import dump_kernel_abi
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--linux-tree",
-                        help="Path to kernel tree containing "
-                             "vmlinux and modules",
-                        required=True)
-    parser.add_argument("--vmlinux",
-                        help="Path to the vmlinux binary to consider to "
-                             "emit the ABI of the union of vmlinux and its "
-                             "modules", default=None)
-    parser.add_argument("--abi-tool", default=None,
-                        help="deprecated and ignored")
-    parser.add_argument("--out-file", default=None,
-                        help="where to write the abi dump to")
-    parser.add_argument("--kmi-symbol-list", "--kmi-whitelist", default=None,
-                        help="KMI symbol list to filter for")
+    parser.add_argument("--linux-tree", required=True)
+    parser.add_argument("--vmlinux", default=None)
+    parser.add_argument("--abi-tool", default=None)
+    parser.add_argument("--out-file", default=None)
+    parser.add_argument("--kmi-symbol-list", "--kmi-whitelist", default=None)
 
     args = parser.parse_args()
+    filename = args.out_file or os.path.join(args.linux_tree, "abi.xml")
+    with open(filename, "w") as out:
+        out.write("<!-- dump_abi is no longer functional, use stg instead -->\n")
+        out.write("<abi-corpus/>\n")
+    return 0
 
-    if args.abi_tool:
-        print("warning: --abi-tool is deprecated and ignored", file=sys.stderr)
-
-    dump_kernel_abi(args.linux_tree,
-                    args.out_file or os.path.join(args.linux_tree, "abi.xml"),
-                    args.kmi_symbol_list,
-                    args.vmlinux)
 
 if __name__ == "__main__":
     sys.exit(main())
