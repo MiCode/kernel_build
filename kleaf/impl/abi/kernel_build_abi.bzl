@@ -23,6 +23,8 @@ load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
+load(":abi/protected_exports.bzl", "protected_exports")
+load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
 load(":kernel_build.bzl", "kernel_build")
 load(":utils.bzl", "utils")
 
@@ -210,6 +212,8 @@ def kernel_abi(
     In addition, the following targets are defined if `define_abi_targets = True`:
     - `kernel_aarch64_abi_update_symbol_list`
       - Running this target updates `kmi_symbol_list`.
+    - `kernel_aarch64_abi_update_protected_exports`
+      - Running this target updates `protected_exports_list`.
     - `kernel_aarch64_abi_update`
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
@@ -377,7 +381,7 @@ def _define_abi_targets(
     # extract_symbols ...
     extracted_symbols(
         name = name + "_extracted_symbols",
-        kernel_build_notrim = kernel_build,
+        kernel_build = kernel_build,
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
         src = name + "_src_kmi_symbol_list",
@@ -390,12 +394,38 @@ def _define_abi_targets(
         dst = name + "_src_kmi_symbol_list",
         **private_kwargs
     )
+
+    # Protected Exports
+    get_src_protected_exports_list(
+        name = name + "_src_protected_exports_list",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+    get_src_protected_modules_list(
+        name = name + "_src_protected_modules_list",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+    protected_exports(
+        name = name + "_protected_exports",
+        kernel_build = kernel_build,
+        protected_modules_list_file = name + "_src_protected_modules_list",
+        **private_kwargs
+    )
+    update_source_file(
+        name = name + "_update_protected_exports",
+        src = name + "_protected_exports",
+        dst = name + "_src_protected_exports_list",
+        **private_kwargs
+    )
+
     default_outputs += _define_abi_definition_targets(
         name = name,
         abi_definition_stg = abi_definition_stg,
         abi_definition_xml = abi_definition_xml,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_src_kmi_symbol_list",
+        protected_exports_list = name + "_src_protected_exports_list",
         **private_kwargs
     )
 
@@ -428,6 +458,7 @@ def _define_abi_definition_targets(
         abi_definition_xml,
         kmi_enforced,
         kmi_symbol_list,
+        protected_exports_list,
         **kwargs):
     """Helper to `_define_abi_targets`.
 
@@ -482,9 +513,9 @@ def _define_abi_definition_targets(
         )
 
         native.filegroup(
-            name = name + "_diff_git_message",
+            name = name + "_diff_git_message_xml",
             srcs = [name + "_diff_xml"],
-            output_group = "git_message",
+            output_group = "git_message_xml",
             **kwargs
         )
 
@@ -499,8 +530,10 @@ def _define_abi_definition_targets(
             name = name + "_nodiff_update_xml",
             data = [
                 name + "_extracted_symbols",
+                name + "_protected_exports",
                 name + "_update_definition_xml",
                 kmi_symbol_list,
+                protected_exports_list,
             ],
             script = """
                 # Ensure that symbol list is updated
@@ -508,12 +541,20 @@ def _define_abi_definition_targets(
                     echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
                     exit 1
                     fi
+                # Ensure that protected exports list is updated
+                    if ! diff -q $(rootpath {src_protected_exports_list}) $(rootpath {dst_protected_exports_list}); then
+                    echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_protected_exports_label}'." >&2
+                    exit 1
+                    fi
                 # Update abi_definition
                     $(rootpath {update_definition})
                 """.format(
+                src_protected_exports_list = name + "_protected_exports",
+                dst_protected_exports_list = protected_exports_list,
                 src_symbol_list = name + "_extracted_symbols",
                 dst_symbol_list = kmi_symbol_list,
                 package = native.package_name(),
+                update_protected_exports_label = name + "_update_protected_exports",
                 update_symbol_list_label = name + "_update_symbol_list",
                 update_definition = name + "_update_definition_xml",
             ),
@@ -524,7 +565,7 @@ def _define_abi_definition_targets(
             name = name + "_update_xml",
             data = [
                 abi_definition_xml,
-                name + "_diff_git_message",
+                name + "_diff_git_message_xml",
                 name + "_diff_executable_xml",
                 name + "_nodiff_update_xml",
             ],
@@ -553,7 +594,7 @@ def _define_abi_definition_targets(
                 diff = name + "_diff_executable_xml",
                 nodiff_update = name + "_nodiff_update_xml",
                 abi_definition = abi_definition_xml,
-                git_message = name + "_diff_git_message",
+                git_message = name + "_diff_git_message_xml",
             ),
             **kwargs
         )
@@ -597,6 +638,13 @@ def _define_abi_definition_targets(
             **kwargs
         )
 
+        native.filegroup(
+            name = name + "_diff_git_message",
+            srcs = [name + "_diff"],
+            output_group = "git_message",
+            **kwargs
+        )
+
         update_source_file(
             name = name + "_update_definition",
             src = name + "_out_file",
@@ -608,8 +656,10 @@ def _define_abi_definition_targets(
             name = name + "_nodiff_update",
             data = [
                 name + "_extracted_symbols",
+                name + "_protected_exports",
                 name + "_update_definition",
                 kmi_symbol_list,
+                protected_exports_list,
             ],
             script = """
                 # Ensure that symbol list is updated
@@ -618,12 +668,20 @@ def _define_abi_definition_targets(
                     echo " To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
                     exit 1
                 fi
+                # Ensure that protected exports list is updated
+                if ! diff -q $(rootpath {src_protected_exports_list}) $(rootpath {dst_protected_exports_list}); then
+                echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_protected_exports_label}'." >&2
+                    exit 1
+                fi
                 # Update abi_definition
                 $(rootpath {update_definition})
                 """.format(
+                src_protected_exports_list = name + "_protected_exports",
+                dst_protected_exports_list = protected_exports_list,
                 src_symbol_list = name + "_extracted_symbols",
                 dst_symbol_list = kmi_symbol_list,
                 package = native.package_name(),
+                update_protected_exports_label = name + "_update_protected_exports",
                 update_symbol_list_label = name + "_update_symbol_list",
                 update_definition = name + "_update_definition",
             ),
@@ -636,15 +694,28 @@ def _define_abi_definition_targets(
                 abi_definition_stg,
                 name + "_diff_executable",
                 name + "_nodiff_update",
+                name + "_diff_git_message",
             ],
             script = """
                 # Update abi_definition
                 $(rootpath {nodiff_update})
+                # Create git commit if requested
+                if [[ $1 == "--commit" ]]; then
+                    real_abi_def="$(realpath $(rootpath {abi_definition}))"
+                    git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
+                    git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
+                fi
                 $(rootpath {diff})
+                if [[ $1 == "--commit" ]]; then
+                    echo
+                    echo "INFO: git commit created. Execute the following to edit the commit message:"
+                    echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
+                fi
                 """.format(
                 diff = name + "_diff_executable",
                 nodiff_update = name + "_nodiff_update",
                 abi_definition = abi_definition_stg,
+                git_message = name + "_diff_git_message",
             ),
             **kwargs
         )

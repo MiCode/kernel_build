@@ -16,66 +16,23 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-TRIM_NONLISTED_KMI_SETTING_VALUES = struct(
-    enabled = "enabled",
-    disabled = "disabled",
-    unknown = "unknown",
-)
+FORCE_DISABLE_TRIM = "//build/kernel/kleaf/impl:force_disable_trim"
+_FORCE_DISABLE_TRIM_IS_TRUE = "//build/kernel/kleaf/impl:force_disable_trim_is_true"
+_KASAN_IS_TRUE = "//build/kernel/kleaf/impl:kasan_is_true"
+TRIM_NONLISTED_KMI_ATTR_NAME = "trim_nonlisted_kmi"
 
-TRIM_NONLISTED_KMI_SETTING = "//build/kernel/kleaf/impl:trim_nonlisted_kmi_setting"
-
-def _trim_nonlisted_kmi_transition_impl(settings, attr):
-    """Common transition implementation for `trim_nonlisted_kmi`."""
-
-    setting = settings[TRIM_NONLISTED_KMI_SETTING]
-    attr_val = attr.trim_nonlisted_kmi
-
-    if setting == TRIM_NONLISTED_KMI_SETTING_VALUES.unknown:
-        if attr_val:
-            setting = TRIM_NONLISTED_KMI_SETTING_VALUES.enabled
-        else:
-            setting = TRIM_NONLISTED_KMI_SETTING_VALUES.disabled
-
-    # Otherwise the setting is overridden, ignore the attribute value.
-
-    return {TRIM_NONLISTED_KMI_SETTING: setting}
-
-def _trim_nonlisted_kmi_transition_inputs():
-    """Inputs for transition for `trim_nonlisted_kmi`."""
-    return [
-        TRIM_NONLISTED_KMI_SETTING,
-    ]
-
-def _trim_nonlisted_kmi_transition_outputs():
-    """Outputs for transition for `trim_nonlisted_kmi`."""
-    return [
-        TRIM_NONLISTED_KMI_SETTING,
-    ]
-
-def _trim_nonlisted_kmi_config_settings_raw():
-    return {"_trim_nonlisted_kmi_setting": TRIM_NONLISTED_KMI_SETTING}
-
-def _trim_nonlisted_kmi_non_config_attrs():
-    """Attributes of rules that supports configuring `trim_nonlisted_kmi`."""
-    return {
-        "trim_nonlisted_kmi": attr.bool(),
-    }
+def _selected_attr(attr_val):
+    return select({
+        _FORCE_DISABLE_TRIM_IS_TRUE: False,
+        _KASAN_IS_TRUE: False,
+        "//conditions:default": attr_val,
+    })
 
 def _trim_nonlisted_kmi_get_value(ctx):
     """Returns the value of the real `trim_nonlisted_kmi` configuration."""
-    setting = ctx.attr._trim_nonlisted_kmi_setting[BuildSettingInfo].value
-    if setting == "unknown":
-        fail("\nFATAL: {label}: did not set {setting_label} properly! Please report a bug.".format(
-            label = ctx.label,
-            setting_label = ctx.attr._trim_nonlisted_kmi_setting.label,
-        ))
-    return setting == TRIM_NONLISTED_KMI_SETTING_VALUES.enabled
+    return getattr(ctx.attr, TRIM_NONLISTED_KMI_ATTR_NAME)
 
 trim_nonlisted_kmi_utils = struct(
-    transition_impl = _trim_nonlisted_kmi_transition_impl,
-    transition_inputs = _trim_nonlisted_kmi_transition_inputs,
-    transition_outputs = _trim_nonlisted_kmi_transition_outputs,
-    config_settings_raw = _trim_nonlisted_kmi_config_settings_raw,
-    non_config_attrs = _trim_nonlisted_kmi_non_config_attrs,
     get_value = _trim_nonlisted_kmi_get_value,
+    selected_attr = _selected_attr,
 )

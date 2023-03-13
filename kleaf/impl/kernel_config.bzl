@@ -156,6 +156,15 @@ def _config_lto(ctx):
             _config.enable("LTO_CLANG_FULL"),
             _config.disable("THINLTO"),
         ]
+    elif lto_config_flag == "fast":
+        # Set lto=thin only if LTO full is enabled.
+        lto_configs += [
+            _config.enable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG"),
+            _config.disable_if(condition = "LTO_CLANG_FULL", config = "LTO_NONE"),
+            _config.enable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG_THIN"),
+            _config.enable_if(condition = "LTO_CLANG_FULL", config = "THINLTO"),
+            _config.disable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG_FULL"),
+        ]
 
     return struct(configs = lto_configs, deps = [])
 
@@ -238,6 +247,9 @@ def _config_kasan(ctx):
     if lto != "none":
         fail("{}: --kasan requires --lto=none, but --lto is {}".format(ctx.label, lto))
 
+    if trim_nonlisted_kmi_utils.get_value(ctx):
+        fail("{}: --kasan requires trimming to be disabled".format(ctx.label))
+
     configs = [
         _config.enable("KASAN"),
         _config.enable("KASAN_INLINE"),
@@ -267,12 +279,15 @@ def _reconfig(ctx):
         configs += pair.configs
         deps += pair.deps
 
-    if not configs:
-        return struct(cmd = "", deps = deps)
-
     return struct(cmd = """
-        ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config {configs}
-        make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+        configs_to_apply=$(echo {configs})
+        # There could be reconfigurations based on configs which can lead to
+        #  an empty `configs_to_apply` even when `configs` is not empty,
+        #  for that reason it is better to check it is not empty before using it.
+        if [ -n "${{configs_to_apply}}" ]; then
+            ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config ${{configs_to_apply}}
+            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+        fi
     """.format(configs = " ".join(configs)), deps = deps)
 
 def _kernel_config_impl(ctx):
@@ -292,7 +307,8 @@ def _kernel_config_impl(ctx):
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
 
-    scmversion_command = stamp.scmversion_config_cmd(ctx)
+    scmversion_step = stamp.scmversion_config_step(ctx)
+    inputs += scmversion_step.deps
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
@@ -316,7 +332,7 @@ def _kernel_config_impl(ctx):
         # Post-defconfig commands
           eval ${{POST_DEFCONFIG_CMDS}}
         # SCM version configuration
-          {scmversion_command}
+          {scmversion_cmd}
         # Re-config
           {reconfig_cmd}
         # HACK: run syncconfig to avoid re-triggerring kernel_build
@@ -337,7 +353,7 @@ def _kernel_config_impl(ctx):
         out_dir = out_dir.path,
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
-        scmversion_command = scmversion_command,
+        scmversion_cmd = scmversion_step.cmd,
         reconfig_cmd = reconfig.cmd,
     )
 
@@ -468,7 +484,6 @@ def _get_config_script(ctx):
 def _kernel_config_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_config(),
-        trim_nonlisted_kmi_utils.non_config_attrs(),
     )
 
 kernel_config = rule(

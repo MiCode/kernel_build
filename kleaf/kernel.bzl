@@ -25,6 +25,7 @@ load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", _kernel_abi = "kernel
 # TODO(b/242072873): kernel_build_abi_dist is deprecated
 # buildifier: disable=deprecated-function
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist", _kernel_build_abi_dist = "kernel_build_abi_dist")
+load("//build/kernel/kleaf/impl:android_filegroup.bzl", _android_filegroup = "android_filegroup")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_submodule.bzl", _ddk_submodule = "ddk_submodule")
@@ -43,6 +44,7 @@ load("//build/kernel/kleaf/impl:kernel_unstripped_modules_archive.bzl", _kernel_
 load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_uapi_headers = "merged_kernel_uapi_headers")
 
 # Re-exports. This is the list of public rules and macros.
+android_filegroup = _android_filegroup
 ddk_headers = _ddk_headers
 ddk_module = _ddk_module
 ddk_submodule = _ddk_submodule

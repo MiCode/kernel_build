@@ -22,6 +22,24 @@ This is a non exhaustive list of options to help debugging compilation issues:
   * `--jobs`: This option, which takes an integer argument, specifies a limit on the number of jobs that should be executed concurrently during the execution phase of the build.
   * For a complete list see https://bazel.build/docs/user-manual
 
+## Disabling checks
+
+This is a list of options to disable checks in Kleaf due to various reasons. For
+example, some checks may be disabled during device bring-up for a quick
+development cycle. Usually, these flags should not be set on a release build.
+
+* `--allow_ddk_unsafe_headers`: Allow DDK modules to also use the unsafe header
+  list in the common package.
+* `--allow_undeclared_modules`: Allow modules to be undeclared in
+  `kernel_build.module_outs` and `kernel_build.module_implicit_outs`. If modules
+  are built but not declared in these lists, Kleaf emits a warning unless
+  `--nowarn_undeclared_modules` is set.
+* `--nowarn_undeclared_modules`: Allow modules to be undeclared in
+  `kernel_build.module_outs` and `kernel_build.module_implicit_outs`.
+  No warnings are generated.
+* `--nokmi_symbol_list_strict_mode`: Disable KMI symbol list check.
+* `--nokmi_symbol_list_violations_check`: Disable KMI symbol list violations check.
+
 ## Debugging incremental build issues
 
 Incremental build issues refers to issues where actions are executed in an

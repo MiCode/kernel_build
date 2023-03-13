@@ -254,22 +254,166 @@ def _create_makefiles_artifact_test(
         ],
     )
 
-def _makefiles_build_test(name):
+def _makefiles_subdir_test(name):
     """Define build tests for `makefiles`"""
+    tests = []
+
+    _makefile_top_module_uses_subdir_source_test(name = name + "_top_module_uses_subdir_source")
+    tests.append(name + "_top_module_uses_subdir_source")
+
+    _makefile_subdir_source_same_name_test(name = name + "_subdir_sources_same_name")
+    tests.append(name + "_subdir_sources_same_name")
+
+    _makefile_subdir_source_different_name_test(name = name + "_subdir_sources_different_name")
+    tests.append(name + "_subdir_sources_different_name")
+
+    _makefile_subdir_module_uses_top_source_test(name = name + "_subdir_module_uses_top_source")
+    tests.append(name + "_subdir_module_uses_top_source")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
+def _makefile_top_module_uses_subdir_source_test(name):
+    """Tests makefiles when bar.ko is from subdir/foo.c.
+
+    Args:
+        name: name of the test.
+    """
+    _create_makefiles_artifact_test(
+        name = name,
+        out = "bar.ko",
+        srcs = ["subdir/foo.c"],
+        expected_lines = ["bar-y += subdir/foo.o"],
+    )
+
+def _makefile_subdir_source_same_name_test(name):
+    """Tests makefiles when subdir/foo.ko is from subdir/foo.c.
+
+    Args:
+        name: name of the test.
+    """
+
+    tests = []
+
     makefiles(
-        name = name + "_subdir_sources_makefiles",
-        module_out = name + "_subdir_sources.ko",
-        module_srcs = [
-            "subdir/foo.c",
-        ],
+        name = name + "_module_makefiles",
+        module_out = "subdir/foo.ko",
+        module_srcs = ["subdir/foo.c"],
         tags = ["manual"],
     )
 
+    get_top_level_file(
+        name = name + "_subdir_kbuild",
+        filename = "subdir/Kbuild",
+        target = name + "_module_makefiles",
+    )
+    write_file(
+        name = name + "_expected_subdir_kbuild",
+        out = name + "_exepcted/subdir/Kbuild",
+        content = ["# The module subdir/foo.ko has a source file subdir/foo.c"],
+    )
+    contain_lines_test(
+        name = name + "_subdir_kbuild_test",
+        expected = name + "_expected_subdir_kbuild",
+        actual = name + "_subdir_kbuild",
+    )
+    tests.append(name + "_subdir_kbuild_test")
+
+    get_top_level_file(
+        name = name + "_kbuild",
+        filename = "Kbuild",
+        target = name + "_module_makefiles",
+    )
+    write_file(
+        name = name + "_expected_kbuild",
+        out = name + "_expected/Kbuild",
+        content = ["obj-y += subdir/"],
+    )
+    contain_lines_test(
+        name = name + "_kbuild_test",
+        expected = name + "_expected_kbuild",
+        actual = name + "_kbuild",
+    )
+    tests.append(name + "_kbuild_test")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
+def _makefile_subdir_source_different_name_test(name):
+    """Tests makefiles when subdir/bar.ko is from subdir/foo.c.
+
+    Args:
+        name: name of the test.
+    """
+    tests = []
+
+    makefiles(
+        name = name + "_module_makefiles",
+        module_out = "subdir/bar.ko",
+        module_srcs = ["subdir/foo.c"],
+        tags = ["manual"],
+    )
+
+    get_top_level_file(
+        name = name + "_subdir_kbuild",
+        filename = "subdir/Kbuild",
+        target = name + "_module_makefiles",
+    )
+    write_file(
+        name = name + "_expected_subdir_kbuild",
+        out = name + "_exepcted/subdir/Kbuild",
+        content = ["bar-y += foo.o"],
+    )
+    contain_lines_test(
+        name = name + "_subdir_kbuild_test",
+        expected = name + "_expected_subdir_kbuild",
+        actual = name + "_subdir_kbuild",
+    )
+    tests.append(name + "_subdir_kbuild_test")
+
+    get_top_level_file(
+        name = name + "_kbuild",
+        filename = "Kbuild",
+        target = name + "_module_makefiles",
+    )
+    write_file(
+        name = name + "_expected_kbuild",
+        out = name + "_expected/Kbuild",
+        content = ["obj-y += subdir/"],
+    )
+    contain_lines_test(
+        name = name + "_kbuild_test",
+        expected = name + "_expected_kbuild",
+        actual = name + "_kbuild",
+    )
+    tests.append(name + "_kbuild_test")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
+def _makefile_subdir_module_uses_top_source_test(name):
+    """Tests makefiles when subdir/bar.ko uses foo.c. This should fail.
+
+    Args:
+        name: name of the test.
+    """
+    makefiles(
+        name = name + "_module_makefiles",
+        module_out = "subdir/bar.ko",
+        module_srcs = ["foo.c"],
+        internal_target_fail_message =
+            "foo.c is not a valid source because it is not under subdir",
+        tags = ["manual"],
+    )
     build_test(
         name = name,
-        targets = [
-            name + "_subdir_sources_makefiles",
-        ],
+        targets = [name + "_module_makefiles"],
     )
 
 def _makefiles_local_defines_test(name):
@@ -285,6 +429,15 @@ def _makefiles_local_defines_test(name):
         local_defines = ["NUMBER=123"],
     )
     tests.append(name + "_number")
+
+    _create_makefiles_artifact_test(
+        name = name + "_source_file_name_is_module_name",
+        srcs = [name + "_source_file_name_is_module_name.c"],
+        out = name + "_source_file_name_is_module_name.ko",
+        expected_lines = ["CFLAGS_{}_source_file_name_is_module_name.o += -DNUMBER=123".format(name)],
+        local_defines = ["NUMBER=123"],
+    )
+    tests.append(name + "_source_file_name_is_module_name")
 
     _create_makefiles_artifact_test(
         name = name + "_bool",
@@ -348,6 +501,15 @@ def _makefiles_copts_test(name):
     tests.append(name + "_simple_copt")
 
     _create_makefiles_artifact_test(
+        name = name + "_source_file_name_is_module_name",
+        srcs = [name + "_source_file_name_is_module_name.c"],
+        out = name + "_source_file_name_is_module_name.ko",
+        expected_lines = ["CFLAGS_{}_source_file_name_is_module_name.o += -Wno-foo".format(name)],
+        copts = ["-Wno-foo"],
+    )
+    tests.append(name + "_source_file_name_is_module_name")
+
+    _create_makefiles_artifact_test(
         name = name + "_multiple_copt",
         srcs = ["base.c"],
         out = name + "_base.ko",
@@ -378,6 +540,29 @@ def _makefiles_copts_test(name):
         copts = ["-include", "$(location self.h)"],
     )
     tests.append(name + "_include_location")
+
+    native.test_suite(
+        name = name,
+        tests = tests,
+    )
+
+def _makefiles_includes_test(name):
+    tests = []
+
+    prefix = "$(srctree)/$(src)/{}/{}".format(
+        paths.join(*([".."] * len(native.package_name().split("/")))),
+        native.package_name(),
+    )
+    _create_makefiles_artifact_test(
+        name = name + "_source_file_name_is_module_name",
+        srcs = [name + "_source_file_name_is_module_name.c"],
+        out = name + "_source_file_name_is_module_name.ko",
+        expected_lines = [
+            "CFLAGS_{}_source_file_name_is_module_name.o += '-I{}/local_include'".format(name, prefix),
+        ],
+        includes = ["local_include"],
+    )
+    tests.append(name + "_source_file_name_is_module_name")
 
     native.test_suite(
         name = name,
@@ -679,14 +864,17 @@ def makefiles_test_suite(name):
     )
     tests.append(name + "_export_local_headers")
 
-    _makefiles_build_test(name = name + "_build_test")
-    tests.append(name + "_build_test")
+    _makefiles_subdir_test(name = name + "_subdir_test")
+    tests.append(name + "_subdir_test")
 
     _makefiles_local_defines_test(name = name + "_local_defines_test")
     tests.append(name + "_local_defines_test")
 
     _makefiles_copts_test(name = name + "_copts_test")
     tests.append(name + "_copts_test")
+
+    _makefiles_includes_test(name = name + "_includes_test")
+    tests.append(name + "_includes_test")
 
     _bad_test_make(
         name = name + "_bad_copt_location_not_one_token",

@@ -55,7 +55,6 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
-load(":kernel_build_transition.bzl", "kernel_build_transition")
 load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
@@ -91,6 +90,8 @@ def kernel_build(
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
+        protected_exports_list = None,
+        protected_modules_list = None,
         additional_kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
         kmi_symbol_list_strict_mode = None,
@@ -297,6 +298,19 @@ def kernel_build(
           kmi_symbol_list = "android/abi_gki_aarch64",
           additional_kmi_symbol_lists = glob(["android/abi_gki_aarch64*"], exclude = ["android/abi_gki_aarch64"]),
           ```
+
+        protected_exports_list: A file containing list of protected exports.
+          For example:
+          ```
+          protected_exports_list = "//common:android/abi_gki_protected_exports"
+          ```
+
+        protected_modules_list: A file containing list of protected modules,
+          For example:
+          ```
+          protected_modules_list = "//common:android/gki_protected_modules"
+          ```
+
         trim_nonlisted_kmi: If `True`, trim symbols not listed in
           `kmi_symbol_list` and `additional_kmi_symbol_lists`.
           This is the Bazel equivalent of `TRIM_NONLISTED_KMI`.
@@ -374,6 +388,8 @@ def kernel_build(
 
     if strip_modules == None:
         strip_modules = False
+
+    trim_nonlisted_kmi = trim_nonlisted_kmi_utils.selected_attr(trim_nonlisted_kmi)
 
     internal_kwargs = dict(kwargs)
     internal_kwargs.pop("visibility", None)
@@ -459,6 +475,8 @@ def kernel_build(
         combined_abi_symbollist = abi_symbollist_target_name if all_kmi_symbol_lists else None,
         enable_interceptor = enable_interceptor,
         strip_modules = strip_modules,
+        src_protected_exports_list = protected_exports_list,
+        src_protected_modules_list = protected_modules_list,
         src_kmi_symbol_list = kmi_symbol_list,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         **kwargs
@@ -810,6 +828,9 @@ def _get_check_remaining_modules_step(
       * outputs
     """
 
+    if not ctx.attr._warn_undeclared_modules[BuildSettingInfo].value:
+        return struct(cmd = "", inputs = [], tools = [], outputs = [])
+
     message_type = "ERROR"
     epilog = "exit 1"
     if ctx.attr._allow_undeclared_modules[BuildSettingInfo].value:
@@ -967,7 +988,8 @@ def get_grab_cmd_step(ctx, src_dir):
         cmd_dir = ctx.actions.declare_directory("{name}/cmds".format(name = ctx.label.name))
         outputs.append(cmd_dir)
         cmd = """
-            rsync -a --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+            rsync -a --chmod=F+w --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+            find {cmd_dir}/ -name '*.cmd' -exec sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {{}} \\+
         """.format(
             src_dir = src_dir,
             cmd_dir = cmd_dir.path,
@@ -1358,6 +1380,8 @@ def _create_infos(
         module_outs_file = all_module_names_file,
         modules_staging_archive = modules_staging_archive,
         base_modules_staging_archive = base_kernel_utils.get_base_modules_staging_archive(ctx),
+        src_protected_exports_list = ctx.file.src_protected_exports_list,
+        src_protected_modules_list = ctx.file.src_protected_modules_list,
         src_kmi_symbol_list = ctx.file.src_kmi_symbol_list,
     )
 
@@ -1394,7 +1418,10 @@ def _create_infos(
         files = depset(kbuild_mixed_tree_files),
     )
 
-    cmds_info = KernelCmdsInfo(directories = depset([main_action_ret.cmd_dir]))
+    cmds_info = KernelCmdsInfo(
+        srcs = depset([target.files for target in ctx.attr.srcs]),
+        directories = depset([main_action_ret.cmd_dir]),
+    )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
     default_info_files.append(all_module_names_file)
@@ -1488,7 +1515,6 @@ def _kernel_build_impl(ctx):
 def _kernel_build_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_build(),
-        trim_nonlisted_kmi_utils.non_config_attrs(),
         base_kernel_utils.non_config_attrs(),
     )
 
@@ -1549,7 +1575,9 @@ _kernel_build = rule(
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_allow_undeclared_modules": attr.label(default = "//build/kernel/kleaf:allow_undeclared_modules"),
+        "_warn_undeclared_modules": attr.label(default = "//build/kernel/kleaf:warn_undeclared_modules"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
+        "_kmi_symbol_list_violations_check": attr.label(default = "//build/kernel/kleaf:kmi_symbol_list_violations_check"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
@@ -1558,12 +1586,10 @@ _kernel_build = rule(
         "kernel_uapi_headers": attr.label(),
         "combined_abi_symbollist": attr.label(allow_single_file = True, doc = "The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and `additional_kmi_symbol_lists`."),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
+        "src_protected_exports_list": attr.label(allow_single_file = True),
+        "src_protected_modules_list": attr.label(allow_single_file = True),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
     } | _kernel_build_additional_attrs(),
-    cfg = kernel_build_transition,
 )
 
 def _kernel_build_check_toolchain(ctx):
@@ -1737,6 +1763,9 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
         Marker file `kmi_symbol_list_violations_checked` indicating the check
         has been performed.
     """
+
+    if not ctx.attr._kmi_symbol_list_violations_check[BuildSettingInfo].value:
+        return None
 
     if not ctx.file.raw_kmi_symbol_list:
         return None

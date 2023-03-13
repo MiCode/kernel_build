@@ -60,10 +60,16 @@ bool_flag(
     build_setting_default = False,
 )
 
-# If true, allow modules to be undeclared in kernel_build and kernel_module.
+# If true, allow modules to be undeclared in kernel_build.
 bool_flag(
     name = "allow_undeclared_modules",
     build_setting_default = False,
+)
+
+# If true, warnings / errors about undeclared modules in kernel_build are printed.
+bool_flag(
+    name = "warn_undeclared_modules",
+    build_setting_default = True,
 )
 
 # If true, everything inside OUT_DIR is collected unconditionally
@@ -82,6 +88,12 @@ config_setting(
 # If true, kmi_symbol_list_strict_mode attribute in kernel_build is respected.
 bool_flag(
     name = "kmi_symbol_list_strict_mode",
+    build_setting_default = True,
+)
+
+# If false, kmi_symbol_list_violations_check is disabled.
+bool_flag(
+    name = "kmi_symbol_list_violations_check",
     build_setting_default = True,
 )
 
@@ -132,6 +144,7 @@ bool_flag(
 _config_values = (
     "local",
     "fast",
+    "hermetic_cc",
     "stamp",
     "release",
     "remote",

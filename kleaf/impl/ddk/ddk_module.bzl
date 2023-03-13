@@ -100,14 +100,14 @@ def ddk_module(
     (`-I` options):
 
     1. Traverse depedencies for `linux_includes`:
-      1. All `linux_includes` of this target, in the specified order
-      2. All `linux_includes` of `deps`, in the specified order (recursively apply #1.3 on each target)
-      3. All `linux_includes` of `hdrs`, in the specified order (recursively apply #1.3 on each target)
+        1. All `linux_includes` of this target, in the specified order
+        2. All `linux_includes` of `deps`, in the specified order (recursively apply #1.3 on each target)
+        3. All `linux_includes` of `hdrs`, in the specified order (recursively apply #1.3 on each target)
     2. `LINUXINCLUDE` (See `${KERNEL_DIR}/Makefile`)
     3. Traverse depedencies for `includes`:
-      1. All `includes` of this target, in the specified order
-      2. All `includes` of `deps`, in the specified order (recursively apply #3.1 and #3.3 on each target)
-      3. All `includes` of `hdrs`, in the specified order (recursively apply #3.1 and #3.3 on each target)
+        1. All `includes` of this target, in the specified order
+        2. All `includes` of `deps`, in the specified order (recursively apply #3.1 and #3.3 on each target)
+        3. All `includes` of `hdrs`, in the specified order (recursively apply #3.1 and #3.3 on each target)
 
     In other words, #1 and #3 uses the `preorder` of
     [depset](https://bazel.build/rules/lib/depset).

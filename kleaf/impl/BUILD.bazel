@@ -15,8 +15,7 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_setting", "string_setting")
-load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_SETTING_VALUES")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting")
 
 bzl_library(
     name = "impl",
@@ -30,9 +29,12 @@ bzl_library(
         "abi/extracted_symbols.bzl",
         "abi/force_add_vmlinux_utils.bzl",
         "abi/get_src_kmi_symbol_list.bzl",
+        "abi/get_src_protected_exports_files.bzl",
         "abi/kernel_build_abi.bzl",
         "abi/kernel_build_abi_dist.bzl",
+        "abi/protected_exports.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
+        "android_filegroup.bzl",
         "btf.bzl",
         "cache_dir.bzl",
         "common_providers.bzl",
@@ -54,14 +56,12 @@ bzl_library(
         "image/vendor_dlkm_image.bzl",
         "kernel_build.bzl",
         "kernel_build_config.bzl",
-        "kernel_build_transition.bzl",
         "kernel_compile_commands.bzl",
         "kernel_config.bzl",
         "kernel_config_settings.bzl",
         "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
-        "kernel_env_transition.bzl",
         "kernel_filegroup.bzl",
         "kernel_headers.bzl",
         "kernel_kythe.bzl",
@@ -76,7 +76,6 @@ bzl_library(
         "kmi_symbol_list.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
-        "modules_prepare_transition.bzl",
         "out_headers_allowlist_archive.bzl",
         "raw_kmi_symbol_list.bzl",
         "scripts_config_arg_builder.bzl",
@@ -115,20 +114,28 @@ bool_setting(
     visibility = ["//visibility:public"],
 )
 
-# Whether trimming is actually enabled.
-# * unknown: the value is unknown. Rules that depends on this setting
-#    must have a transition that sets this properly (possibly based on attrs)
-# * enabled: trimming is enabled
-# * disabled: trimming is disabled
-# Do not use directly. Use APIs in trim_nonlisted_kmi_utils.bzl instead.
-string_setting(
-    name = "trim_nonlisted_kmi_setting",
-    build_setting_default = TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
-    values = [
-        TRIM_NONLISTED_KMI_SETTING_VALUES.unknown,
-        TRIM_NONLISTED_KMI_SETTING_VALUES.enabled,
-        TRIM_NONLISTED_KMI_SETTING_VALUES.disabled,
-    ],
+# Helper setting to forcefully disable trimming.
+bool_flag(
+    name = "force_disable_trim",
+    build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "force_disable_trim_is_true",
+    flag_values = {
+        ":force_disable_trim": "1",
+    },
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_is_true",
+    flag_values = {
+        "//build/kernel/kleaf:kasan": "1",
+    },
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
@@ -168,4 +175,37 @@ py_binary(
     name = "print_gcno_mapping",
     srcs = ["print_gcno_mapping.py"],
     visibility = ["//visibility:public"],
+)
+
+# Local build platforms
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_arm64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+platform(
+    name = "android_x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_riscv64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:riscv64",
+    ],
 )

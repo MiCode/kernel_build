@@ -12,7 +12,7 @@ This compares the current ABI (`abi_definition_stg` of `//common:kernel_aarch64`
 which is `common/android/abi_gki_aarch64.stg`) and the freshly-generated ABI
 from the built kernel image and modules, and generates a diff report. This also
 builds all ABI-related artifacts for distribution, and copies them to
-`out/dist` (or `out/{BRANCH}/dist` if `--dist_dir` is not specified).
+`out/dist` (or `out_abi/kernel_aarch64/dist` if `--dist_dir` is not specified).
 The exit code reflects whether an ABI change is detected in the
 comparison, just like `build_abi.sh`.
 
@@ -33,10 +33,10 @@ $ tools/bazel build //common:kernel_aarch64_abi_dump
 
 ### Update the ABI definition {#update-abi}
 
-**Note**: You must [update the symbol list](#update-symbol-list) before
-updating the ABI definition. The
-Bazel command below does not also update the source symbol list, unlike
-the `build_abi.sh` command.
+**Note**: You must [update the symbol list](#update-symbol-list) and
+[update the protected exports list](#update-protected-exports) before
+updating the ABI definition. The Bazel command below does not also update
+the source symbol list, unlike the `build_abi.sh` command.
 
 If ABI definition doesn't exists i.e. if this is the first time it is being
 generated then first and empty symbol file needs to be created and the symbol
@@ -59,6 +59,17 @@ of `//common:kernel_aarch64`, which is `common/android/abi_gki_aarch64.stg`. The
 exit code reflects whether an ABI change is detected in the comparison, just
 like `build_abi.sh --update`.
 
+Running the script with `--commit` creates a git commit with
+pre-filled message. For example:
+
+```shell
+# -- is needed before --commit to pass the argument to the script.
+$ tools/bazel run //common:kernel_aarch64_abi_update -- --commit
+```
+
+The command brings up your pre-configured text editor for git to edit the
+commit message. You may edit the subject line, add additional message, and add
+a bug number.
 
 If you do not wish to compare the ABIs before the update, you may execute the
 following instead:

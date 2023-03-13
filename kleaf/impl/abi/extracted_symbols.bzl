@@ -25,10 +25,10 @@ load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
 def _extracted_symbols_impl(ctx):
-    if ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].trim_nonlisted_kmi:
+    if ctx.attr.kernel_build[KernelBuildAbiInfo].trim_nonlisted_kmi:
         fail("{}: Requires `kernel_build` {} to have `trim_nonlisted_kmi = False`.".format(
             ctx.label,
-            ctx.attr.kernel_build_notrim.label,
+            ctx.attr.kernel_build.label,
         ))
 
     if ctx.attr.kmi_symbol_list_add_only and not ctx.file.src:
@@ -37,8 +37,8 @@ def _extracted_symbols_impl(ctx):
     out = ctx.actions.declare_file("{}/extracted_symbols".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
 
-    vmlinux = utils.find_file(name = "vmlinux", files = ctx.files.kernel_build_notrim, what = "{}: kernel_build_notrim".format(ctx.attr.name), required = True)
-    in_tree_modules = utils.find_files(suffix = ".ko", files = ctx.files.kernel_build_notrim)
+    vmlinux = utils.find_file(name = "vmlinux", files = ctx.files.kernel_build, what = "{}: kernel_build".format(ctx.attr.name), required = True)
+    in_tree_modules = utils.find_files(suffix = ".ko", files = ctx.files.kernel_build)
     srcs = [
         vmlinux,
     ]
@@ -51,9 +51,9 @@ def _extracted_symbols_impl(ctx):
     ]).to_list()
 
     inputs = [] + srcs
-    transitive_inputs = [ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].inputs]
+    transitive_inputs = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs]
     tools = [ctx.executable._extract_symbols]
-    transitive_tools = [ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].tools]
+    transitive_tools = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools]
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
@@ -71,13 +71,13 @@ def _extracted_symbols_impl(ctx):
         )
 
     # Get the signed and stripped module archive for the GKI modules
-    base_modules_archive = ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].base_modules_staging_archive
+    base_modules_archive = ctx.attr.kernel_build[KernelBuildAbiInfo].base_modules_staging_archive
     if not base_modules_archive:
-        base_modules_archive = ctx.attr.kernel_build_notrim[KernelBuildAbiInfo].modules_staging_archive
+        base_modules_archive = ctx.attr.kernel_build[KernelBuildAbiInfo].modules_staging_archive
     inputs.append(base_modules_archive)
 
-    command = ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.kernel_build_notrim[KernelEnvAndOutputsInfo].data,
+    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
+        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """
@@ -121,7 +121,7 @@ extracted_symbols = rule(
         # - extract_symbols depends on the clang toolchain, which requires us to
         #   know the toolchain_version ahead of time.
         # - We also don't have the necessity to extract symbols from prebuilts.
-        "kernel_build_notrim": attr.label(providers = [KernelEnvAndOutputsInfo, KernelBuildAbiInfo]),
+        "kernel_build": attr.label(providers = [KernelEnvAndOutputsInfo, KernelBuildAbiInfo]),
         "kernel_modules": attr.label_list(providers = [KernelModuleInfo]),
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
