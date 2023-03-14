@@ -365,9 +365,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
     def _setup_mainline(self):
         with open(self.build_config_common_path, "a") as f:
             f.write("BRANCH=android-mainline\n")
-
-        with open(self.gki_defconfig_path, "a") as f:
-            f.write('CONFIG_LOCALVERSION="-mainline"\n')
+            f.write("unset KMI_GENERATION\n")
 
         # Writing to defconfig directly requires us to disable check_defconfig,
         # because the ordering is not correct.

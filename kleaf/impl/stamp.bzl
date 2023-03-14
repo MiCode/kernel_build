@@ -69,9 +69,13 @@ def _write_localversion_step(ctx, out_path):
             # Extract the Android release version. If there is no match, then return 255
             # and clear the variable $android_release
             set +e
-            android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
-            if [[ $? -ne 0 ]]; then
-                android_release=
+            if [[ "$BRANCH" == "android-mainline" ]]; then
+                android_release="mainline"
+            else
+                android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
+                if [[ $? -ne 0 ]]; then
+                    android_release=
+                fi
             fi
             set -e
             if [[ -n "$KMI_GENERATION" ]] && [[ $(expr $KMI_GENERATION : '^[0-9]\\+$') -eq 0 ]]; then
