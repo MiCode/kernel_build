@@ -124,6 +124,8 @@ def _kernel_env_impl(ctx):
     command += set_source_date_epoch_ret.cmd
     inputs += set_source_date_epoch_ret.deps
 
+    command += stamp.set_localversion_cmd(ctx)
+
     additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
     additional_make_goals += kgdb.additional_make_goals(ctx)
     additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
@@ -132,7 +134,6 @@ def _kernel_env_impl(ctx):
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
-          {set_localversion_cmd}
           source {setup_env}
         # Add to MAKE_GOALS if necessary
           export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
@@ -144,7 +145,6 @@ def _kernel_env_impl(ctx):
         """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
-        set_localversion_cmd = stamp.set_localversion_cmd(ctx),
         setup_env = setup_env.path,
         additional_make_goals = " ".join(additional_make_goals),
         preserve_env = preserve_env.path,
@@ -183,6 +183,10 @@ def _kernel_env_impl(ctx):
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
     )
 
+    dependencies = []
+    set_up_scmversion_ret = stamp.set_up_scmversion(ctx)
+    dependencies += set_up_scmversion_ret.deps
+
     setup += """
          # error on failures
            set -e
@@ -197,6 +201,7 @@ def _kernel_env_impl(ctx):
            {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
+           {set_up_scmversion_cmd}
          # Set up KCONFIG_EXT
            if [ -n "${{KCONFIG_EXT}}" ]; then
              export KCONFIG_EXT_PREFIX=$(realpath $(dirname ${{KCONFIG_EXT}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
@@ -216,10 +221,10 @@ def _kernel_env_impl(ctx):
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
+        set_up_scmversion_cmd = set_up_scmversion_ret.cmd,
         set_up_jobs_cmd = set_up_jobs_cmd,
     )
 
-    dependencies = []
     dependencies += ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
