@@ -50,7 +50,7 @@ def _stgdiff_impl(ctx):
 
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         set +e
-        {stgdiff}  --stg {baseline} {new} {outputs} > {error_msg_file}
+        {stgdiff}  --stg {baseline} {new} {outputs} > {error_msg_file} 2>&1
         rc=$?
         set -e
         echo $rc > {exit_code_file}
