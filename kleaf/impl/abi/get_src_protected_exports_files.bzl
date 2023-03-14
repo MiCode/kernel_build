@@ -22,8 +22,13 @@ load(
 )
 
 def _get_src_protected_exports_list_impl(ctx):
+    src_protected_exports_list = ctx.attr.kernel_build[KernelBuildAbiInfo].src_protected_exports_list
+    if not src_protected_exports_list:
+        fail("{} does not set src_protected_exports_list correctly.".format(
+            ctx.attr.kernel_build.label,
+        ))
     return DefaultInfo(files = depset([
-        ctx.attr.kernel_build[KernelBuildAbiInfo].src_protected_exports_list,
+        src_protected_exports_list,
     ]))
 
 get_src_protected_exports_list = rule(
@@ -35,8 +40,13 @@ get_src_protected_exports_list = rule(
 )
 
 def _get_src_protected_modules_list_impl(ctx):
+    src_protected_modules_list = ctx.attr.kernel_build[KernelBuildAbiInfo].src_protected_modules_list
+    if not src_protected_modules_list:
+        fail("{} does not set src_protected_modules_list correctly.".format(
+            ctx.attr.kernel_build.label,
+        ))
     return DefaultInfo(files = depset([
-        ctx.attr.kernel_build[KernelBuildAbiInfo].src_protected_modules_list,
+        src_protected_modules_list,
     ]))
 
 get_src_protected_modules_list = rule(
