@@ -83,6 +83,7 @@ py_binary(
     srcs = ["abi/verify_ksymtab.py"],
     main = "abi/verify_ksymtab.py",
     visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
 )
 
 # Tools visible to all packages that uses kernel_build.
