@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""This test checks that device targets contains proper modules."""
+
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelModuleInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
+load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 
 def _get_module_staging_dir_impl(ctx):
     modules_staging_dws_list = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws_depset.to_list()
@@ -97,18 +100,12 @@ def _create_one_device_modules_test(
         expect_signature,
         module_outs = None):
     # Cross compiler name is not always the same as the linux arch
-    # ARCH is not always the same as the architecture dir (b/254348147)
     # "Fake" GKIs may use additional merged gki_defconfig fragments (b/271451453)
     fragments = ["gki_defconfig"]
-    linux_arch_dir = None
     if arch == "arm64":
         arch = "aarch64"
-        linux_arch_dir = "arm64"
-    elif arch == "x86_64":
-        linux_arch_dir = "x86"
     elif arch == "riscv64":
         fragments += ["64-bit.config", "gki.config"]
-        linux_arch_dir = "riscv"
 
     # A minimal device's kernel_build build_config.
     build_config_content = """
@@ -118,15 +115,16 @@ def _create_one_device_modules_test(
                 . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.gki
                 . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.{arch}
 
+                {set_src_arch_cmd}
                 MAKE_GOALS="modules"
                 DEFCONFIG="device_modules_test_gki_defconfig"
-                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/{linux_arch_dir}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/{linux_arch_dir}/configs/{fragments} && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/{linux_arch_dir}/configs/${{DEFCONFIG}};"
+                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{SRCARCH}}/configs/{fragments} && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}};"
                 POST_DEFCONFIG_CMDS=""
                 """.format(
         fragments = fragments[0] if len(fragments) == 1 else "{" + ",".join(fragments) + "}",
         arch = arch,
         common_package = base_kernel_label.package,
-        linux_arch_dir = linux_arch_dir,
+        set_src_arch_cmd = kernel_utils.set_src_arch_cmd(),
     )
 
     write_file(
