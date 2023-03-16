@@ -397,6 +397,15 @@ def kernel_build(
     kwargs_with_manual = dict(kwargs)
     kwargs_with_manual["tags"] = ["manual"]
 
+    lto = select({
+        "//build/kernel/kleaf:lto_is_none": "none",
+        "//build/kernel/kleaf:lto_is_thin": "thin",
+        "//build/kernel/kleaf:lto_is_full": "full",
+        "//build/kernel/kleaf:lto_is_fast": "fast",
+        # TODO(b/229662633): Allow kernel_build() macro to set this value.
+        "//conditions:default": "default",
+    })
+
     kernel_env(
         name = env_target_name,
         build_config = build_config,
@@ -406,6 +415,7 @@ def kernel_build(
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
+        lto = lto,
         **internal_kwargs
     )
 
@@ -444,6 +454,7 @@ def kernel_build(
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
         module_signing_key = module_signing_key,
         system_trusted_key = system_trusted_key,
+        lto = lto,
         **internal_kwargs
     )
 

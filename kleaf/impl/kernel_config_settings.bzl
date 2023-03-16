@@ -21,16 +21,19 @@ affects the following:
 This is important for non-sandboxed actions because they may cause clashing in the out/cache
 directory.
 
-Only *_flag / *_settings that affects the content of the cached $OUT_DIR should be mentioned here.
-In particular:
+Only *_flag / *_settings / attributes that affects the content of the cached $OUT_DIR should be
+mentioned here. In particular:
 - --config=stamp is not in these lists because it is mutually exclusive with --config=local.
 - --allow_undeclared_modules is not listed because it only affects artifact collection.
 - --preserve_cmd is not listed because it only affects artifact collection.
+- lto is in these lists because incremental builds with LTO changing causes incremental build
+  breakages; see (b/257288175)
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//build/kernel/kleaf:constants.bzl", "LTO_VALUES")
 load(":abi/base_kernel_utils.bzl", "base_kernel_utils")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_ATTR_NAME")
@@ -38,10 +41,19 @@ load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":kgdb.bzl", "kgdb")
 
 def _trim_attrs_raw():
-    return {TRIM_NONLISTED_KMI_ATTR_NAME: attr.bool}
+    return [TRIM_NONLISTED_KMI_ATTR_NAME]
 
 def _trim_attrs():
-    return {key: value() for key, value in _trim_attrs_raw().items()}
+    return {TRIM_NONLISTED_KMI_ATTR_NAME: attr.bool()}
+
+def _lto_attrs_raw():
+    return ["lto"]
+
+def _lto_attrs():
+    # TODO(b/229662633): Default should be "full" to ignore values in
+    #   gki_defconfig. Instead of in gki_defconfig, default value of LTO
+    #   should be set in kernel_build() macro instead.
+    return {"lto": attr.string(values = LTO_VALUES, default = "default")}
 
 def _modules_prepare_config_settings():
     return _trim_attrs()
@@ -71,14 +83,13 @@ def _kernel_config_config_settings_raw():
         kgdb.config_settings_raw(),
         {
             "kasan": "//build/kernel/kleaf:kasan",
-            "lto": "//build/kernel/kleaf:lto",
             "gcov": "//build/kernel/kleaf:gcov",
             "btf_debug_info": "//build/kernel/kleaf:btf_debug_info",
         },
     )
 
 def _kernel_config_config_settings():
-    return _trim_attrs() | {
+    return _trim_attrs() | _lto_attrs() | {
         attr_name: attr.label(default = label)
         for attr_name, label in _kernel_config_config_settings_raw().items()
     }
@@ -96,7 +107,7 @@ def _kernel_env_config_settings_raw():
     )
 
 def _kernel_env_config_settings():
-    return _trim_attrs() | {
+    return _trim_attrs() | _lto_attrs() | {
         attr_name: attr.label(default = label)
         for attr_name, label in _kernel_env_config_settings_raw().items()
     }
@@ -104,7 +115,7 @@ def _kernel_env_config_settings():
 def _kernel_env_get_config_tags(ctx):
     """Returns dict to compute `OUT_DIR_SUFFIX` for `kernel_env`."""
     attr_to_label = _kernel_env_config_settings_raw()
-    raw_attrs = _trim_attrs_raw()
+    raw_attrs = _trim_attrs_raw() + _lto_attrs_raw()
 
     ret = {}
     for attr_name in attr_to_label:
@@ -170,7 +181,7 @@ def _get_progress_message_note(ctx):
             continue
         ret.append(item)
 
-    for attr_name in _trim_attrs_raw():
+    for attr_name in _trim_attrs_raw() + _lto_attrs_raw():
         attr_val = getattr(ctx.attr, attr_name)
         item = _create_progress_message_item(
             attr_name,

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
@@ -27,6 +28,35 @@ string_flag(
     name = "lto",
     build_setting_default = "default",
     values = LTO_VALUES,
+)
+
+config_setting(
+    name = "lto_is_default",
+    flag_values = {"//build/kernel/kleaf:lto": "default"},
+)
+
+# If --lto=none, or if --kasan, LTO should be set to none.
+selects.config_setting_group(
+    name = "lto_is_none",
+    match_any = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_none",
+        "//build/kernel/kleaf/impl:lto_is_default_and_kasan_is_true",
+    ],
+)
+
+config_setting(
+    name = "lto_is_thin",
+    flag_values = {":lto": "thin"},
+)
+
+config_setting(
+    name = "lto_is_full",
+    flag_values = {":lto": "full"},
+)
+
+config_setting(
+    name = "lto_is_fast",
+    flag_values = {":lto": "fast"},
 )
 
 # If true, kernel_images sets EXT_MODULES before creating the staging directory.
@@ -55,6 +85,11 @@ bool_flag(
 bool_flag(
     name = "kasan",
     build_setting_default = False,
+)
+
+config_setting(
+    name = "kasan_is_true",
+    flag_values = {":kasan": "1"},
 )
 
 # If true, //{common}:all_headers also includes //{common}:all_headers_unsafe.
