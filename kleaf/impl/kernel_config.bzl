@@ -262,6 +262,28 @@ def _config_kasan(ctx):
     ]
     return struct(configs = configs, deps = [])
 
+def _config_btf_debug_info(ctx):
+    """Return configs for DEBUG_INFO_BTF.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+    btf_debug_info = ctx.attr.btf_debug_info[BuildSettingInfo].value
+
+    if btf_debug_info == "default":
+        configs = []
+    elif btf_debug_info == "enable":
+        configs = [_config.enable("DEBUG_INFO_BTF")]
+    elif btf_debug_info == "disable":
+        configs = [_config.disable("DEBUG_INFO_BTF")]
+    else:
+        fail("{}: unexpected value for --btf_debug_info: {}".format(ctx.label, btf_debug_info))
+
+    return struct(configs = configs, deps = [])
+
 def _reconfig(ctx):
     """Return a command and extra inputs to re-configure `.config` file."""
     configs = []
@@ -273,6 +295,7 @@ def _reconfig(ctx):
         _config_kasan,
         _config_gcov,
         _config_keys,
+        _config_btf_debug_info,
         kgdb.get_scripts_config_args,
     ):
         pair = fn(ctx)
@@ -306,8 +329,10 @@ def _kernel_config_impl(ctx):
 
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
+    localversion_file_path = out_dir.path + "/localversion"
 
-    scmversion_command = stamp.scmversion_config_cmd(ctx)
+    write_localversion_step = stamp.write_localversion_step(ctx, localversion_file_path)
+    inputs += write_localversion_step.deps
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
@@ -330,8 +355,6 @@ def _kernel_config_impl(ctx):
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
         # Post-defconfig commands
           eval ${{POST_DEFCONFIG_CMDS}}
-        # SCM version configuration
-          {scmversion_command}
         # Re-config
           {reconfig_cmd}
         # HACK: run syncconfig to avoid re-triggerring kernel_build
@@ -347,13 +370,16 @@ def _kernel_config_impl(ctx):
         # re-built. See b/263415662
           echo "include/config/auto.conf: FORCE" >> {out_dir}/include/config/auto.conf.cmd
 
+        # Infer localversion.
+          {write_localversion_cmd}
+
           {cache_dir_post_cmd}
         """.format(
         out_dir = out_dir.path,
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
-        scmversion_command = scmversion_command,
         reconfig_cmd = reconfig.cmd,
+        write_localversion_cmd = write_localversion_step.cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -377,6 +403,7 @@ def _kernel_config_impl(ctx):
            mkdir -p ${{OUT_DIR}}/include/
            rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+           rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd

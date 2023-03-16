@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Utility functions to handle scmversion.
+"""Utility functions to handle scmversion."""
 
 load(":status.bzl", "status")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -44,34 +44,38 @@ def _get_scmversion_cmd(srctree, scmversion):
         scmversion = scmversion,
     )
 
-def _set_up_scmversion(ctx):
+def _write_localversion_step(ctx, out_path):
     """Return command and inputs to set up scmversion.
 
     Args:
         ctx: [ctx](https://bazel.build/rules/lib/ctx)
+        out_path: output path of localversion file
     """
-
-    # For non-stamp builds, CONFIG_LOCALVERSION_AUTO is disabled. There's no
-    # need to set up scmversion.
-    if not ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        return struct(deps = [], cmd = "")
 
     # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
     # STABLE_SCMVERSION because their values aren't known at that point.
-    # Hence, mimic the logic in setlocalversion to prepend them.
-    stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+    # Emulate the logic in setlocalversion to prepend them.
+
+    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
+        deps = [ctx.info_file]
+        stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+    else:
+        deps = []
+        stable_scmversion_cmd = "echo '-maybe-dirty'"
 
     # TODO(b/227520025): Remove the following logic in setlocalversion.
-    # Right now, we need this logic for sandboxed builds. Local builds do not have
-    # CONFIG_LOCALVERSION_AUTO, so the following logic in setlocalversion is not necessary.
-    return struct(deps = [ctx.info_file], cmd = """
+    cmd = """
         (
             # Extract the Android release version. If there is no match, then return 255
             # and clear the variable $android_release
             set +e
-            android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
-            if [[ $? -ne 0 ]]; then
-                android_release=
+            if [[ "$BRANCH" == "android-mainline" ]]; then
+                android_release="mainline"
+            else
+                android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
+                if [[ $? -ne 0 ]]; then
+                    android_release=
+                fi
             fi
             set -e
             if [[ -n "$KMI_GENERATION" ]] && [[ $(expr $KMI_GENERATION : '^[0-9]\\+$') -eq 0 ]]; then
@@ -89,28 +93,13 @@ def _set_up_scmversion(ctx):
                 fi
                 scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
             fi
-            {setup_cmd}
-        )
+            echo $scmversion
+        ) > {out_path}
     """.format(
         stable_scmversion_cmd = stable_scmversion_cmd,
-        setup_cmd = _get_scmversion_cmd(
-            srctree = "${ROOT_DIR}/${KERNEL_DIR}",
-            scmversion = "${scmversion}",
-        ),
-    ))
-
-def _scmversion_config_cmd(ctx):
-    """Return a command for `kernel_config` to set `CONFIG_LOCALVERSION_AUTO` properly.
-
-    Args:
-        ctx: [ctx](https://bazel.build/rules/lib/ctx)
-    """
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        return ""
-    return """
-        ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config -d LOCALVERSION_AUTO
-        make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} olddefconfig
-    """
+        out_path = out_path,
+    )
+    return struct(deps = deps, cmd = cmd)
 
 def _get_ext_mod_scmversion(ctx, ext_mod):
     """Return command and inputs to get the SCM version for an external module.
@@ -152,23 +141,22 @@ def _set_source_date_epoch(ctx):
               export SOURCE_DATE_EPOCH=0
         """)
 
-def _set_localversion_cmd(ctx):
+def _set_localversion_cmd(_ctx):
     """Return command that sets `LOCALVERSION` for `--config=stamp`, otherwise empty.
 
     After setting `LOCALVERSION`, `setlocalversion` script reduces code paths
     that executes `git`.
     """
-    if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        return ""
 
+    # Suppress the behavior of setlocalversion looking into .git directory to decide whether
+    # to append a plus sign or not.
     return """
-        export LOCALVERSION="-maybe-dirty"
+        export LOCALVERSION=""
     """
 
 stamp = struct(
-    scmversion_config_cmd = _scmversion_config_cmd,
+    write_localversion_step = _write_localversion_step,
     get_ext_mod_scmversion = _get_ext_mod_scmversion,
     set_source_date_epoch = _set_source_date_epoch,
-    set_up_scmversion = _set_up_scmversion,
     set_localversion_cmd = _set_localversion_cmd,
 )

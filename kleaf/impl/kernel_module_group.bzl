@@ -57,6 +57,7 @@ def _kernel_module_group_impl(ctx):
             target[KernelModuleInfo].files
             for target in targets
         ]),
+        packages = depset(transitive = [target[KernelModuleInfo].packages for target in targets]),
     )
 
     unstripped_modules_info = KernelUnstrippedModulesInfo(
