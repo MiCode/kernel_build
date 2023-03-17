@@ -132,7 +132,7 @@ def _kernel_env_get_config_tags(ctx):
 # Map of config settings to shortened names
 _PROGRESS_MESSAGE_SETTINGS_MAP = {
     "force_add_vmlinux": "with_vmlinux",
-    "force_ignore_base_kernel": "",  # already covered by with_vmlinux
+    "force_ignore_base_kernel": "",  # already covered by with_vmlinux or build_compile_commands
     "kmi_symbol_list_strict_mode": "",  # Hide because not interesting
 }
 
