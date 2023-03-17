@@ -17,18 +17,21 @@ Build system_dlkm image for GKI modules.
 
 load("//build/kernel/kleaf/impl:constants.bzl", "SYSTEM_DLKM_OUTS")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
-load(":image/image_utils.bzl", "image_utils")
+load(
+    ":image/image_utils.bzl",
+    "image_utils",
+    _MODULES_LOAD_NAME = "SYSTEM_DLKM_MODULES_LOAD_NAME",
+    _STAGING_ARCHIVE_NAME = "SYSTEM_DLKM_STAGING_ARCHIVE_NAME",
+)
 load(
     ":common_providers.bzl",
     "KernelImagesInfo",
     "KernelModuleInfo",
 )
 
-_STAGING_ARCHIVE_NAME = "system_dlkm_staging_archive.tar.gz"
-
 def _system_dlkm_image_impl(ctx):
     system_dlkm_img = ctx.actions.declare_file("{}/system_dlkm.img".format(ctx.label.name))
-    system_dlkm_modules_load = ctx.actions.declare_file("{}/system_dlkm.modules.load".format(ctx.label.name))
+    system_dlkm_modules_load = ctx.actions.declare_file("{}/{}".format(ctx.label.name, _MODULES_LOAD_NAME))
     system_dlkm_staging_archive = ctx.actions.declare_file("{}/{}".format(ctx.label.name, _STAGING_ARCHIVE_NAME))
     system_dlkm_modules_blocklist = ctx.actions.declare_file("{}/system_dlkm.modules.blocklist".format(ctx.label.name))
 
