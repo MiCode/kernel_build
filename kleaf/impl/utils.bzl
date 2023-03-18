@@ -209,16 +209,19 @@ def _filter_module_srcs(files):
     """Filters and categorizes sources for building `kernel_module`."""
     hdrs = []
     scripts = []
+    kconfig = []
     for file in files:
         if file.path.endswith(".h"):
             hdrs.append(file)
-        elif "Makefile" in file.path or "scripts/" in file.path:
+        if ("Makefile" in file.path or "scripts/" in file.path or
+            file.basename == "module.lds.S"):
             scripts.append(file)
-        elif file.basename == "module.lds.S":
-            scripts.append(file)
+        if "Kconfig" in file.basename:
+            kconfig.append(file)
     return struct(
         module_scripts = depset(scripts),
         module_hdrs = depset(hdrs),
+        module_kconfig = depset(kconfig),
     )
 
 def _transform_kernel_build_outs(name, what, outs):

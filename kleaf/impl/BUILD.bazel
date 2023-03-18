@@ -40,6 +40,7 @@ bzl_library(
         "compile_commands_utils.bzl",
         "constants.bzl",
         "ddk/ddk_conditional_filegroup.bzl",
+        "ddk/ddk_config.bzl",
         "ddk/ddk_headers.bzl",
         "ddk/ddk_module.bzl",
         "ddk/ddk_submodule.bzl",
