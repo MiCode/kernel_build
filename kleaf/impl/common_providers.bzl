@@ -119,6 +119,8 @@ KernelBuildExtModuleInfo = provider(
                                    "Does not contain the lib/modules/* suffix.",
         "module_hdrs": "A [depset](https://bazel.build/extending/depsets) containing headers for this `kernel_build` for building external modules",
         "module_scripts": "A [depset](https://bazel.build/extending/depsets) containing scripts for this `kernel_build` for building external modules",
+        "module_kconfig": "A [depset](https://bazel.build/extending/depsets) containing `Kconfig` for this `kernel_build` for configuring external modules",
+        "config_env_and_outputs_info": "`KernelEnvAndOutputsInfo` for configuring external modules.",
         "modules_env_and_outputs_info": "`KernelEnvAndOutputsInfo` for building external modules.",
         "modules_install_env_and_outputs_info": "`KernelEnvAndOutputsInfo` for running modules_install.",
         "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
@@ -253,5 +255,15 @@ DdkSubmoduleInfo = provider(
         "kernel_module_deps": """A [depset](https://bazel.build/extending/depsets) of dependent
             [Target](https://bazel.build/rules/lib/Target)s of this submodules that are
             kernel_module's.""",
+    },
+)
+
+DdkConfigInfo = provider(
+    doc = "A provider that describes information of a `_ddk_config` target to dependent `_ddk_config` targets.",
+    fields = {
+        "kconfig": """A [depset](https://bazel.build/extending/depsets) containing the Kconfig file
+            of this and its dependencies. Uses `postorder` ordering (dependencies first).""",
+        "defconfig": """A [depset](https://bazel.build/extending/depsets) containing the Kconfig
+            file of this and its dependencies. Uses `postorder` ordering (dependencies first).""",
     },
 )
