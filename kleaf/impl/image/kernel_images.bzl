@@ -58,6 +58,7 @@ def kernel_images(
         avb_boot_key = None,
         avb_boot_algorithm = None,
         avb_boot_partition_name = None,
+        dedup_dlkm_modules = None,
         **kwargs):
     """Build multiple kernel images.
 
@@ -164,9 +165,11 @@ def kernel_images(
           )
           ```
         base_kernel_images: The `kernel_images()` corresponding to the `base_kernel` of the
-          `kernel_build`. This is necessary for building a device-specific `system_dlkm` image.
+          `kernel_build`. This is required for building a device-specific `system_dlkm` image.
           For example, if `base_kernel` of `kernel_build()` is `//common:kernel_aarch64`,
           then `base_kernel_images` is `//common:kernel_aarch64_images`.
+
+          This is also required if `dedup_dlkm_modules and not build_system_dlkm`.
         modules_list: A file containing list of modules to use for `vendor_boot.modules.load`.
 
           This corresponds to `MODULES_LIST` in `build.config` for `build.sh`.
@@ -261,6 +264,21 @@ def kernel_images(
           Used when `avb_sign_boot_img` is True.
         avb_boot_partition_name: = Name of the boot partition.
           Used when `avb_sign_boot_img` is True.
+        dedup_dlkm_modules: If set, modules already in `system_dlkm` is
+          excluded in `vendor_dlkm.modules.load`. Modules in `vendor_dlkm`
+          is allowed to link to modules in `system_dlkm`.
+
+          The `system_dlkm` image is defined by the following:
+
+          - If `build_system_dlkm` is set, the `system_dlkm` image built by
+            this rule.
+          - If `build_system_dlkm` is not set, the `system_dlkm` image in
+            `base_kernel_images`. If `base_kernel_images` is not set, build
+            fails.
+
+          If set, **additional changes in the userspace is required** so that
+          `system_dlkm` modules are loaded before `vendor_dlkm` modules.
+
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -368,6 +386,9 @@ def kernel_images(
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
             vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist,
             vendor_dlkm_props = vendor_dlkm_props,
+            dedup_dlkm_modules = dedup_dlkm_modules,
+            system_dlkm_image = "{}_system_dlkm_image".format(name) if build_system_dlkm else None,
+            base_kernel_images = base_kernel_images,
             **kwargs
         )
         all_rules.append(":{}_vendor_dlkm_image".format(name))

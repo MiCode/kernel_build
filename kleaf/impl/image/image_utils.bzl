@@ -27,6 +27,9 @@ load(
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
+SYSTEM_DLKM_STAGING_ARCHIVE_NAME = "system_dlkm_staging_archive.tar.gz"
+SYSTEM_DLKM_MODULES_LOAD_NAME = "system_dlkm.modules.load"
+
 def _build_modules_image_impl_common(
         ctx,
         what,

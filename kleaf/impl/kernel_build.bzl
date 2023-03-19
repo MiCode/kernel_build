@@ -1699,6 +1699,13 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         ))
         return None
 
+    # Skip for the --kasan targets as they are not valid GKI release targets
+    if ctx.attr._kasan[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --kasan is set!".format(this_label = ctx.label))
+        return None
+
     if not ctx.attr.kmi_symbol_list_strict_mode:
         return None
     if not ctx.file.raw_kmi_symbol_list:
