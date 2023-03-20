@@ -178,10 +178,22 @@ _kasan_transition = transition(
     outputs = [_KASAN_FLAG],
 )
 
+# Kasan requires LTO=none to run, otherwise it fails.
+def _no_lto_impl(settings, attr):
+    _ignore = (settings, attr)  # @unused
+    return {_LTO_FLAG: "default"}
+
+_force_no_lto_transition = transition(
+    implementation = _no_lto_impl,
+    inputs = [],
+    outputs = [_LTO_FLAG],
+)
+
 _kasan_test_data = rule(
     implementation = _get_transitioned_config_impl,
     doc = "Get `.config` for a kernel with the KASAN transition.",
     attrs = _get_config_attrs_common(_kasan_transition),
+    cfg = _force_no_lto_transition,
 )
 
 def _kasan_test(name, kernel_build):
@@ -266,7 +278,7 @@ def _trim_test(name, kernels):
 
 ## Tests on all combinations.
 
-def _combined_transition_impl(_settings, attr):
+def _combined_test_combinations(key):
     ret = {}
     for lto in LTO_VALUES:
         for kasan in (True, False):
@@ -274,57 +286,104 @@ def _combined_transition_impl(_settings, attr):
                 if kasan and lto not in ("default", "none"):
                     continue
 
-                key = {
+                test_name = "_".join([
+                    key.arch,
+                    _trim_str(key.trim),
+                    lto,
+                    _kasan_str(kasan),
+                    _kgdb_str(kgdb, key.arch),
+                ])
+                ret_key = {
                     "lto": lto,
                     "kasan": kasan,
                     "kgdb": kgdb,
-                    "arch": attr.arch,
                 }
-                key_str = json.encode(key)
-                ret[key_str] = {
-                    _LTO_FLAG: lto,
-                    _KASAN_FLAG: kasan,
-                    _KGDB_FLAG: kgdb,
-                }
+                ret[test_name] = ret_key
     return ret
 
-_combined_transition = transition(
-    implementation = _combined_transition_impl,
+def _combined_test_expected_impl(ctx):
+    expected_file_names = [
+        ctx.attr.lto + "_config",
+        _kasan_str(ctx.attr.kasan) + "_config",
+        _kgdb_str(ctx.attr.kgdb, ctx.attr.arch) + "_config",
+        _trim_str(ctx.attr.trim) + "_config",
+    ]
+    files = []
+    for f in ctx.files.srcs:
+        if f.basename in expected_file_names:
+            files.append(f)
+    if not len(files) == len(expected_file_names):
+        fail("{}: Can't find all expected files: {}, but expected {}".format(
+            ctx.label,
+            files,
+            expected_file_names,
+        ))
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    for input_file in files:
+        command += """
+            cat {input} >> {out}.tmp
+        """.format(
+            input = input_file.path,
+            out = ctx.outputs.out.path,
+        )
+    command += """
+        cat {out}.tmp | sort | uniq > {out}
+        rm {out}.tmp
+    """.format(out = ctx.outputs.out.path)
+    ctx.actions.run_shell(
+        inputs = files,
+        outputs = [ctx.outputs.out],
+        tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        command = command,
+        progress_message = "Creating expected config for {}".format(ctx.label),
+    )
+    return DefaultInfo(
+        files = depset([ctx.outputs.out]),
+        runfiles = ctx.runfiles(files = [ctx.outputs.out]),
+    )
+
+_combined_test_expected = rule(
+    implementation = _combined_test_expected_impl,
+    doc = "Test on a given combination of flags and attributes on `kernel_config`",
+    attrs = {
+        "trim": attr.bool(),
+        "lto": attr.string(values = LTO_VALUES),
+        "kasan": attr.bool(),
+        "kgdb": attr.bool(),
+        "arch": attr.string(),
+        "srcs": attr.label_list(allow_files = True),
+        "out": attr.output(),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
+    },
+)
+
+def _combined_test_actual_transition_impl(_settings, attr):
+    return {
+        _LTO_FLAG: attr.lto,
+        _KASAN_FLAG: attr.kasan,
+        _KGDB_FLAG: attr.kgdb,
+    }
+
+_combined_test_actual_transition = transition(
+    implementation = _combined_test_actual_transition_impl,
     inputs = [],
     outputs = [_KASAN_FLAG, _KGDB_FLAG, _LTO_FLAG],
 )
 
 def _combined_test_actual_impl(ctx):
-    files = []
-    for key_str, kernel_build in ctx.split_attr.kernel_build.items():
-        key = json.decode(key_str)
-
-        # Directory to store symlinks for that specific flag combination
-        flag_dir = paths.join(
-            key["lto"],
-            _kasan_str(key["kasan"]),
-            _kgdb_str(key["kgdb"], key["arch"]),
-        )
-
-        files += [
-            # Test LTO setting
-            _get_config_file(ctx, kernel_build, paths.join(flag_dir, key["lto"] + "_config")),
-            # Test kasan setting
-            _get_config_file(ctx, kernel_build, paths.join(flag_dir, _kasan_str(key["kasan"]) + "_config")),
-            # Test kgdb setting
-            _get_config_file(ctx, kernel_build, paths.join(flag_dir, _kgdb_str(key["kgdb"], key["arch"]) + "_config")),
-            # Test trim setting
-            _get_config_file(ctx, kernel_build, paths.join(flag_dir, ctx.attr.trim_str + "_config")),
-        ]
-
-    return DefaultInfo(files = depset(files), runfiles = ctx.runfiles(files = files))
+    if len(ctx.attr.kernel_build) != 1:
+        fail("FATAL: Expected 1:1 transition on ctx.attr.kernel_build")
+    symlink = _get_config_file(ctx, ctx.attr.kernel_build[0], ctx.attr.prefix + "_config")
+    return DefaultInfo(files = depset([symlink]), runfiles = ctx.runfiles(files = [symlink]))
 
 _combined_test_actual = rule(
     implementation = _combined_test_actual_impl,
-    doc = "Test on all combinations of flags and attributes on `kernel_config`",
-    attrs = dicts.add(_get_config_attrs_common(_combined_transition), {
-        "trim_str": attr.string(),
-        "arch": attr.string(),
+    doc = "Test on a given combination of flags and attributes on `kernel_config`",
+    attrs = dicts.add(_get_config_attrs_common(_combined_test_actual_transition), {
+        "lto": attr.string(values = LTO_VALUES),
+        "kasan": attr.bool(),
+        "kgdb": attr.bool(),
+        "prefix": attr.string(),
     }),
 )
 
@@ -342,29 +401,41 @@ def _combined_option_test(name, kernels):
     """
     tests = []
     for key, kernel_build in kernels.items():
-        trim_str = _trim_str(key.trim)
-        prefix = key.arch + "_" + trim_str
-        test_name = "{name}_{prefix}".format(name = name, prefix = prefix)
+        for test_name, combination in _combined_test_combinations(key).items():
+            test_name = name + "_" + test_name
+            out_prefix = test_name
 
-        _combined_test_actual(
-            name = test_name + "_actual",
-            trim_str = trim_str,
-            arch = key.arch,
-            kernel_build = kernel_build,
-        )
-        native.filegroup(
-            name = test_name + "_expected",
-            srcs = ["data/{}_config".format(lto) for lto in LTO_VALUES] +
-                   ["data/{}_config".format(_kasan_str(kasan)) for kasan in (True, False)] +
-                   ["data/{}_config".format(_kgdb_str(kgdb, key.arch)) for kgdb in (True, False)] +
-                   ["data/{}_config".format(trim_str)],
-        )
-        contain_lines_test(
-            name = test_name,
-            actual = test_name + "_actual",
-            expected = test_name + "_expected",
-        )
-        tests.append(test_name)
+            # key.trim is the value of trim_nonlisted_kmi declared in kernel_build macro.
+            # expected_trim is the expected value of CONFIG_TRIM_UNUSED_KSYMS, affected by kasan.
+            expected_trim = key.trim
+            if combination["kasan"]:
+                expected_trim = False
+
+            _combined_test_expected(
+                name = test_name + "_expected",
+                out = out_prefix + "_config",
+                srcs = ["data/{}_config".format(lto) for lto in LTO_VALUES] +
+                       ["data/{}_config".format(_kasan_str(kasan)) for kasan in (True, False)] +
+                       ["data/{}_config".format(_kgdb_str(kgdb, key.arch)) for kgdb in (True, False)] +
+                       ["data/{}_config".format(_trim_str(trim)) for trim in (True, False)],
+                arch = key.arch,
+                trim = expected_trim,
+                **combination
+            )
+
+            _combined_test_actual(
+                name = test_name + "_actual",
+                prefix = out_prefix,
+                kernel_build = kernel_build,
+                **combination
+            )
+
+            contain_lines_test(
+                name = test_name,
+                actual = test_name + "_actual",
+                expected = test_name + "_expected",
+            )
+            tests.append(test_name)
 
     native.test_suite(
         name = name,

@@ -8,11 +8,11 @@
 $ tools/bazel run //common:kernel_aarch64_abi_dist -- --dist_dir=out/dist
 ```
 
-This compares the current ABI (`abi_definition` of `//common:kernel_aarch64`,
-which is `common/android/abi_gki_aarch64.xml`) and the freshly-generated ABI
+This compares the current ABI (`abi_definition_stg` of `//common:kernel_aarch64`,
+which is `common/android/abi_gki_aarch64.stg`) and the freshly-generated ABI
 from the built kernel image and modules, and generates a diff report. This also
 builds all ABI-related artifacts for distribution, and copies them to
-`out/dist` (or `out/{BRANCH}/dist` if `--dist_dir` is not specified).
+`out/dist` (or `out_abi/kernel_aarch64/dist` if `--dist_dir` is not specified).
 The exit code reflects whether an ABI change is detected in the
 comparison, just like `build_abi.sh`.
 
@@ -31,25 +31,20 @@ This updates `kmi_symbol_list` of `//common:kernel_aarch64`, which is
 $ tools/bazel build //common:kernel_aarch64_abi_dump
 ```
 
-This command extracts the ABI, but does not compare it. This is similar to
-`ABI_OUT_TAG=generated build/build_abi.sh --nodiff`.
-
-Note: Unlike `build_abi.sh`, the `ABI_OUT_TAG` is always set to `generated`.
-
 ### Update the ABI definition {#update-abi}
 
-**Note**: You must [update the symbol list](#update-symbol-list) before
-updating the ABI definition. The
-Bazel command below does not also update the source symbol list, unlike
-the `build_abi.sh` command.
+**Note**: You must [update the symbol list](#update-symbol-list) and
+[update the protected exports list](#update-protected-exports) before
+updating the ABI definition. The Bazel command below does not also update
+the source symbol list, unlike the `build_abi.sh` command.
 
 If ABI definition doesn't exists i.e. if this is the first time it is being
 generated then first and empty symbol file needs to be created and the symbol
 list needs to be generated using the `nodiff_update` target as below:
 
 ```shell
-touch common/android/abi_gki_aarch64.xml
-bazel run //common:kernel_aarch64_abi_nodiff_update
+touch common/android/abi_gki_aarch64.stg
+$ tools/bazel run //common:kernel_aarch64_abi_nodiff_update
 ```
 
 Second time onwards you can use the `//common:kernel_aarch64_abi_update` target
@@ -60,7 +55,7 @@ $ tools/bazel run //common:kernel_aarch64_abi_update
 ```
 
 This compares the ABIs, then updates the `abi_definition`
-of `//common:kernel_aarch64`, which is `common/android/abi_gki_aarch64.xml`. The
+of `//common:kernel_aarch64`, which is `common/android/abi_gki_aarch64.stg`. The
 exit code reflects whether an ABI change is detected in the comparison, just
 like `build_abi.sh --update`.
 
@@ -69,7 +64,7 @@ pre-filled message. For example:
 
 ```shell
 # -- is needed before --commit to pass the argument to the script.
-$ bazel run //common:kernel_aarch64_abi_update -- --commit
+$ tools/bazel run //common:kernel_aarch64_abi_update -- --commit
 ```
 
 The command brings up your pre-configured text editor for git to edit the

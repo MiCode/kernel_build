@@ -40,7 +40,7 @@ rm -rf $3
 mkdir $3
 
 set -x
-$ROOT_DIR/build/android/merge_dtbs.py $1 $2 $3
+$ROOT_DIR/build/android/merge_dtbs.py --base $1 --techpack $2 --out $3
 set +x
 
 [[ -n "$(find ${3} -type f -name '*.dtb')" ]] && cat ${3}/*.dtb > ${3}/dtb.img

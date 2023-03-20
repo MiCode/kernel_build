@@ -17,6 +17,9 @@
 # Let rules know what configs we are using now
 build:local --//build/kernel/kleaf:config_local
 
-# Strategy is configured on a per-action basis. Check out all callers
+# See kernel_module() for details.
+build --strategy=KernelModuleProcessWrapperSandbox=processwrapper-sandbox
+
+# Other strategies are configured on a per-action basis. Check out all callers
 # to kernel_utils.local_exec_requirements to see the full list of
 # actions that respects --config=local.

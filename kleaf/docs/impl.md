@@ -229,16 +229,6 @@ copy_to_dist_dir(
 )
 ```
 
-... or if you want to be strictly consistent with the behavior of `build.sh`:
-
-```text
-load("@kernel_toolchain_info//:dict.bzl", "BRANCH")
-copy_to_dist_dir(
-   # ...
-   dist_dir = "out/{branch}/dist".format(branch = BRANCH)
-)
-```
-
 Add the following to the `data` attribute of the `copy_to_dist_dir` target so
 that the outputs are analogous to those produced by `build/build.sh`:
 

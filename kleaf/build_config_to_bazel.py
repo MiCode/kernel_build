@@ -204,6 +204,7 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
         self.dist_name = f"{target_name}_dist"
         self.unstripped_modules_name = f"{target_name}_unstripped_modules_archive"
         self.images_name = f"{target_name}_images"
+        self.abi_name = f"{target_name}_abi"
         self.dts_name = f"{target_name}_dts"
         self.modules_install_name = f"{target_name}_modules_install"
 
@@ -232,6 +233,7 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
 
         images = None
         need_unstripped_modules = False
+        abi = None
         modules = []
 
         target_comment = []
@@ -307,16 +309,20 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
                 if value == "1":
                     need_unstripped_modules = True
             elif key == "ABI_DEFINITION":
-                self._set_kind(target, "kernel_build_abi")
-                self._set_attr(target, "abi_definition", f"//{common}:{value}", quote=True)
+                abi = self._new("kernel_abi", self.abi_name)
+                self._add_comment(abi, "abi_definition",
+                                  f"Usually not set in Kleaf. See "
+                                  f"build/kernel/kleaf/docs/abi_device.md. Original value: "
+                                  f"//{common}:{value}",
+                                  lambda attr_val: attr_val.is_missing_or_none())
             elif key in ("KMI_ENFORCED", "KMI_SYMBOL_LIST_ADD_ONLY"):
-                self._set_kind(target, "kernel_build_abi")
+                abi = self._new("kernel_abi", self.abi_name)
                 if value == "1":
-                    self._set_attr(target, key.lower(), True)
+                    self._set_attr(abi, key.lower(), True)
             elif key == "KMI_SYMBOL_LIST_MODULE_GROUPING":
-                self._set_kind(target, "kernel_build_abi")
+                abi = self._new("kernel_abi", self.abi_name)
                 if value == "1":
-                    self._set_attr(target, "module_grouping", True)
+                    self._set_attr(abi, "module_grouping", True)
             elif key == "KMI_SYMBOL_LIST":
                 self._set_attr(target, "kmi_symbol_list", f"//{common}:{value}", quote=True)
             elif key == "ADDITIONAL_KMI_SYMBOL_LISTS":
@@ -369,6 +375,7 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
                     "SYSTEM_DLKM_MODULES_LIST",
                     "SYSTEM_DLKM_MODULES_BLOCKLIST",
                     "SYSTEM_DLKM_PROPS",
+                    "VENDOR_DLKM_ETC_FILES",
                     "VENDOR_DLKM_FS_TYPE",
                     "VENDOR_DLKM_MODULES_LIST",
                     "VENDOR_DLKM_MODULES_BLOCKLIST",
@@ -412,10 +419,8 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
         for dist_target in self.dist_targets:
             self._add_attr(dist, "data", dist_target, quote=True)
 
-        is_abi = self._lookup_existing_target(target).kind == "kernel_build_abi"
-
         unstripped_modules = None
-        if need_unstripped_modules or is_abi:
+        if need_unstripped_modules or abi:
             unstripped_modules = self._new("kernel_unstripped_modules_archive",
                                            self.unstripped_modules_name)
             self._set_attr(unstripped_modules, "kernel_build", target, quote=True)
@@ -430,10 +435,11 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
             for module in modules:
                 self._add_attr(modules_install, "kernel_modules", module, quote=True)
 
-        if is_abi:
+        if abi:
             for module in modules:
-                self._add_attr(target, "kernel_modules", module, quote=True)
-            self._set_attr(target, "unstripped_modules_archive", unstripped_modules, quote=True)
+                self._add_attr(abi, "kernel_modules", module, quote=True)
+            self._set_attr(abi, "unstripped_modules_archive", unstripped_modules, quote=True)
+            self._set_attr(abi, "kernel_build", target, quote=True)
 
         if images:
             self._set_attr(images, "kernel_build", target, quote=True)

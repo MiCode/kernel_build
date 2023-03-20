@@ -65,17 +65,19 @@ def _kernel_env_impl(ctx):
         dtstree_srcs = ctx.attr.dtstree[DtstreeInfo].srcs
 
     setup_env = ctx.file.setup_env
-    preserve_env = ctx.file.preserve_env
+    preserve_env = ctx.executable.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
     inputs = [
-        ctx.file._build_utils_sh,
         build_config,
-        setup_env,
-        preserve_env,
     ]
     inputs += srcs
     inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    tools = [
+        setup_env,
+        ctx.file._build_utils_sh,
+        preserve_env,
+    ]
 
     command = ""
     command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
@@ -95,28 +97,7 @@ def _kernel_env_impl(ctx):
             dtstree = dtstree_makefile.short_path,
         )
 
-    command += """
-        # error on failures
-          set -e
-          set -o pipefail
-    """
-
-    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
-        command += """
-          export MAKEFLAGS="${MAKEFLAGS} V=1"
-        """
-    else:
-        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "E":
-            command += """
-            # Run Make in silence mode to suppress most of the info output
-            export MAKEFLAGS="${MAKEFLAGS} -s"
-            """
-        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
-            command += """
-            # Similar to similar to --debug_annotate_scripts without additional traps.
-            set -x
-            export MAKEFLAGS="${MAKEFLAGS} V=1"
-            """
+    command += _get_make_verbosity_command(ctx)
 
     kbuild_symtypes = _get_kbuild_symtypes(ctx)
     command += """
@@ -143,8 +124,6 @@ def _kernel_env_impl(ctx):
     command += set_source_date_epoch_ret.cmd
     inputs += set_source_date_epoch_ret.deps
 
-    command += stamp.set_localversion_cmd(ctx)
-
     additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
     additional_make_goals += kgdb.additional_make_goals(ctx)
     additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
@@ -153,6 +132,7 @@ def _kernel_env_impl(ctx):
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
+          {set_localversion_cmd}
           source {setup_env}
         # Add to MAKE_GOALS if necessary
           export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
@@ -164,6 +144,7 @@ def _kernel_env_impl(ctx):
         """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
+        set_localversion_cmd = stamp.set_localversion_cmd(ctx),
         setup_env = setup_env.path,
         additional_make_goals = " ".join(additional_make_goals),
         preserve_env = preserve_env.path,
@@ -178,6 +159,7 @@ def _kernel_env_impl(ctx):
         mnemonic = "KernelEnv",
         inputs = inputs,
         outputs = [out_file],
+        tools = tools,
         progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),
         command = command,
     )
@@ -201,10 +183,6 @@ def _kernel_env_impl(ctx):
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
     )
 
-    dependencies = []
-    set_up_scmversion_ret = stamp.set_up_scmversion(ctx)
-    dependencies += set_up_scmversion_ret.deps
-
     setup += """
          # error on failures
            set -e
@@ -219,13 +197,12 @@ def _kernel_env_impl(ctx):
            {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
-           {set_up_scmversion_cmd}
          # Set up KCONFIG_EXT
            if [ -n "${{KCONFIG_EXT}}" ]; then
-             export KCONFIG_EXT_PREFIX=$(rel_path $(realpath $(dirname ${{KCONFIG_EXT}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})/
+             export KCONFIG_EXT_PREFIX=$(realpath $(dirname ${{KCONFIG_EXT}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
            fi
            if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
-             export dtstree=$(rel_path $(realpath $(dirname ${{DTSTREE_MAKEFILE}})) ${{ROOT_DIR}}/${{KERNEL_DIR}})
+             export dtstree=$(realpath $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
            fi
          # Set up KCPPFLAGS
          # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
@@ -239,10 +216,10 @@ def _kernel_env_impl(ctx):
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
-        set_up_scmversion_cmd = set_up_scmversion_ret.cmd,
         set_up_jobs_cmd = set_up_jobs_cmd,
     )
 
+    dependencies = []
     dependencies += ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
@@ -253,9 +230,12 @@ def _kernel_env_impl(ctx):
         dependencies.append(kconfig_ext)
     dependencies += dtstree_srcs
 
+    run_env = _get_run_env(ctx, srcs)
+
     env_info = KernelEnvInfo(
         dependencies = dependencies,
         setup = setup,
+        run_env = run_env,
     )
     return [
         env_info,
@@ -267,6 +247,76 @@ def _kernel_env_impl(ctx):
         DefaultInfo(files = depset([out_file])),
     ]
 
+def _get_make_verbosity_command(ctx):
+    command = """
+        # error on failures
+          set -e
+          set -o pipefail
+    """
+
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        command += """
+          export MAKEFLAGS="${MAKEFLAGS} V=1"
+        """
+    else:
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "E":
+            command += """
+            # Run Make in silence mode to suppress most of the info output
+            export MAKEFLAGS="${MAKEFLAGS} -s"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "D":
+            command += """
+            # Similar to --debug_annotate_scripts without additional traps.
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=1"
+            """
+        if ctx.attr._debug_make_verbosity[BuildSettingInfo].value == "V":
+            command += """
+            # Similar to D but even more verbsose
+            set -x
+            export MAKEFLAGS="${MAKEFLAGS} V=2"
+            """
+
+    return command
+
+def _get_run_env(ctx, srcs):
+    """Returns setup script for execution phase.
+
+    Unlike the setup script for regular builds, this doesn't modify variables from build.config for
+    a proper build, e.g.:
+
+    - It doesn't respect `MAKE_JOBS`
+    - It doesn't set `KCONFIG_EXT_PREFIX` or `dtstree`
+    - It doesn't set `SOURCE_DATE_EPOCH` or scmversion properly
+    """
+    setup = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        setup += debug.trap()
+    setup += _get_make_verbosity_command(ctx)
+    setup += """
+        # create a build environment
+          source {build_utils_sh}
+          export BUILD_CONFIG={build_config}
+
+        # Silence "git: command not found" and "date: bad date @"
+          export SOURCE_DATE_EPOCH=0
+
+          source {setup_env}
+    """.format(
+        build_utils_sh = ctx.file._build_utils_sh.short_path,
+        build_config = ctx.file.build_config.short_path,
+        setup_env = ctx.file.setup_env.short_path,
+    )
+    dependencies = srcs + ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+        ctx.file.setup_env,
+        ctx.file._build_utils_sh,
+        ctx.file.build_config,
+    ]
+    return KernelEnvInfo(
+        setup = setup,
+        dependencies = dependencies,
+    )
+
 def _get_tools(toolchain_version):
     if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
         # Using a test toolchain
@@ -274,13 +324,7 @@ def _get_tools(toolchain_version):
     else:
         clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
 
-    return [
-        Label(e)
-        for e in (
-            "//build/kernel:kernel-build-scripts",
-            clang_binaries,
-        )
-    ]
+    return [Label(clang_binaries)]
 
 def _kernel_env_additional_attrs():
     return dicts.add(
@@ -317,13 +361,15 @@ kernel_env = rule(
         ),
         "setup_env": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel:_setup_env.sh"),
+            default = Label("//build/kernel:_setup_env"),
             doc = "label referring to _setup_env.sh",
+            cfg = "exec",
         ),
         "preserve_env": attr.label(
-            allow_single_file = True,
-            default = Label("//build/kernel/kleaf:preserve_env.sh"),
+            default = Label("//build/kernel/kleaf:preserve_env"),
             doc = "label referring to the script capturing the environment",
+            cfg = "exec",
+            executable = True,
         ),
         "toolchain_version": attr.string(
             doc = "the toolchain to use for this environment",
@@ -346,7 +392,8 @@ kernel_env = rule(
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
-            default = Label("//build/kernel:build_utils.sh"),
+            default = Label("//build/kernel:build_utils"),
+            cfg = "exec",
         ),
         "_debug_annotate_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_annotate_scripts",

@@ -48,7 +48,7 @@ load(
     "X86_64_OUTS",
 )
 load(":print_debug.bzl", "print_debug")
-load("@kernel_toolchain_info//:dict.bzl", "BRANCH", "common_kernel_package")
+load("@kernel_toolchain_info//:dict.bzl", "common_kernel_package")
 
 _ARCH_CONFIGS = {
     "kernel_aarch64": {
@@ -96,11 +96,14 @@ _KERNEL_BUILD_VALID_KEYS = [
     "trim_nonlisted_kmi",
     "kmi_symbol_list_strict_mode",
     "module_implicit_outs",
+    "protected_exports_list",
+    "protected_modules_list",
 ]
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
 _KERNEL_ABI_VALID_KEYS = [
-    "abi_definition",
+    "abi_definition_stg",
+    "abi_definition_xml",
     "kmi_enforced",
 ]
 
@@ -126,11 +129,15 @@ def _default_target_configs():
     aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
     aarch64_additional_kmi_symbol_lists = native.glob(
         ["android/abi_gki_aarch64*"],
-        exclude = ["**/*.xml", "android/abi_gki_aarch64"],
+        exclude = ["**/*.xml", "**/*.stg", "android/abi_gki_aarch64"],
     )
+    aarch64_protected_exports_list = (native.glob(["android/abi_gki_protected_exports"]) or [None])[0]
+    aarch64_protected_modules_list = (native.glob(["android/gki_protected_modules"]) or [None])[0]
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
-    aarch64_abi_definition = native.glob(["android/abi_gki_aarch64.xml"])
-    aarch64_abi_definition = aarch64_abi_definition[0] if aarch64_abi_definition else None
+    aarch64_abi_definition_xml = native.glob(["android/abi_gki_aarch64.xml"])
+    aarch64_abi_definition_xml = aarch64_abi_definition_xml[0] if aarch64_abi_definition_xml else None
+    aarch64_abi_definition_stg = native.glob(["android/abi_gki_aarch64.stg"])
+    aarch64_abi_definition_stg = aarch64_abi_definition_stg[0] if aarch64_abi_definition_stg else None
 
     # Common configs for aarch64 and aarch64_debug
     aarch64_common = {
@@ -138,8 +145,11 @@ def _default_target_configs():
         # for build.config.gki.aarch64
         "kmi_symbol_list": aarch64_kmi_symbol_list,
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-        "abi_definition": aarch64_abi_definition,
-        "kmi_enforced": bool(aarch64_abi_definition),
+        "protected_exports_list": aarch64_protected_exports_list,
+        "protected_modules_list": aarch64_protected_modules_list,
+        "abi_definition_xml": aarch64_abi_definition_xml,
+        "abi_definition_stg": aarch64_abi_definition_stg,
+        "kmi_enforced": bool(aarch64_abi_definition_stg) or bool(aarch64_abi_definition_xml),
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {
@@ -328,12 +338,19 @@ def define_common_kernels(
     This is equivalent to specifying `--use_prebuilt_gki=8077484` for all Bazel commands.
 
     Args:
-      branch: The value of `BRANCH` in `build.config`. If not set, it is loaded
-        from `common/build.config.constants` **in `//{common_kernel_packgae}`**
-        where `common_kernel_package` is supplied to `define_kleaf_workspace()`
+      branch: **Deprecated**. This attribute is ignored.
+
+        This used to be used to calculate the default `--dist_dir`, which was
+        `out/{branch}/dist`. This was expected to be
+        the value of `BRANCH` in `build.config`. If not set, it was loaded
+        from `common/build.config.constants` **in `//{common_kernel_package}`**
+        where `common_kernel_package` was supplied to `define_kleaf_workspace()`
         in the `WORKSPACE` file. Usually, `common_kernel_package = "common"`.
-        Hence, if `define_common_kernels()` is called in a different package, it
-        must be supplied.
+        Hence, if `define_common_kernels()` was called in a different package, it
+        was required to be supplied.
+
+        Now, the default value of `--dist_dir` is `out/{name}/dist`, so the value
+        of `branch` has no effect. Hence, the attribute is ignored.
       target_configs: A dictionary, where keys are target names, and
         values are a dictionary of configurations to override the default
         configuration for this target.
@@ -431,11 +448,17 @@ def define_common_kernels(
             ["android/abi_gki_aarch64*"],
             exclude = ["**/*.xml", "android/abi_gki_aarch64"],
         )
+        aarch64_protected_exports_list = native.glob(["android/abi_gki_protected_exports"])
+        aarch64_protected_exports_list = aarch64_protected_exports_list[0] if aarch64_protected_exports_list else None
+        aarch64_protected_modules_list = native.glob(["android/gki_protected_modules"])
+        aarch64_protected_modules_list = aarch64_protected_modules_list[0] if aarch64_protected_modules_list else None
         aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
         default_target_configs = {
             "kernel_aarch64": {
                 "kmi_symbol_list": aarch64_kmi_symbol_list,
                 "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+                "protected_exports_list": aarch64_protected_exports_list,
+                "protected_modules_list": aarch64_protected_modules_list,
                 "trim_nonlisted_kmi": aarch64_trim_and_check,
                 "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
             },
@@ -497,12 +520,12 @@ def define_common_kernels(
         See [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
     """
 
-    if branch == None and native.package_name() == common_kernel_package:
-        branch = BRANCH
-    if branch == None:
-        fail("//{package}: define_common_kernels() must have branch argument because @kernel_toolchain_info reads value from //{common_kernel_package}".format(
-            package = native.package_name(),
-            common_kernel_package = common_kernel_package,
+    if branch != None:
+        # buildifier: disable=print
+        print(("\nWARNING: {package}: define_common_kernels() no longer uses the branch " +
+               "attribute. Default value of --dist_dir has been changed to out/{{name}}/dist. " +
+               "Please remove the branch attribute from define_common_kernels().").format(
+            package = native.package(),
         ))
 
     if visibility == None:
@@ -723,16 +746,17 @@ def define_common_kernels(
             name = name + "_dist",
             data = dist_targets,
             flat = True,
-            dist_dir = "out/{branch}/dist".format(branch = BRANCH),
+            dist_dir = "out/{name}/dist".format(name = name),
             log = "info",
         )
 
         kernel_abi_dist(
             name = name + "_abi_dist",
             kernel_abi = name + "_abi",
+            kernel_build_add_vmlinux = True,
             data = dist_targets,
             flat = True,
-            dist_dir = "out_abi/{branch}/dist".format(branch = BRANCH),
+            dist_dir = "out_abi/{name}/dist".format(name = name),
             log = "info",
         )
 
@@ -981,7 +1005,7 @@ def define_db845c(
         unstripped_modules_archive: See [kernel_abi.unstripped_modules_archive](#kernel_abi-unstripped_modules_archive).
         gki_modules_list: List of gki modules to be copied to the dist directory.
           If `None`, all gki kernel modules will be copied.
-        dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{BRANCH}/dist"`.
+        dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{name}/dist"`.
     """
 
     if build_config == None:
@@ -997,7 +1021,7 @@ def define_db845c(
         gki_modules_list = [":kernel_aarch64_modules"]
 
     if dist_dir == None:
-        dist_dir = "out/{branch}/dist".format(branch = BRANCH)
+        dist_dir = "out/{name}/dist".format(name = name)
 
     # Also refer to the list of ext modules for ABI monitoring targets
     _kernel_modules = []
@@ -1013,6 +1037,7 @@ def define_db845c(
         base_kernel = ":kernel_aarch64",
         kmi_symbol_list = kmi_symbol_list,
         collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+        strip_modules = True,
     )
 
     # enable ABI Monitoring

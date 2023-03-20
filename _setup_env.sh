@@ -135,6 +135,8 @@ else
 fi
 export USERCFLAGS USERLDFLAGS
 
+unset LD_LIBRARY_PATH
+
 if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   HOST_TOOLS=${OUT_DIR}/host_tools
   [ ! -e "${HOST_TOOLS}" ] && mkdir -p ${HOST_TOOLS}
@@ -163,12 +165,13 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
 
   # add openssl and further prebuilt libraries into the lookup path
-  ldflags+="-Wl,-rpath,${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
   ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
   ldflags+=${LLD_COMPILER_RT}
+  export LD_LIBRARY_PATH="${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64"
 
   export HOSTCFLAGS="$sysroot_flags $cflags"
   export HOSTLDFLAGS="$sysroot_flags $ldflags"
+
 fi
 
 for prebuilt_bin in "${prebuilts_paths[@]}"; do
@@ -181,7 +184,7 @@ for prebuilt_bin in "${prebuilts_paths[@]}"; do
     fi
 done
 PATH=${COMMON_OUT_DIR}/host/bin:${PATH}
-LD_LIBRARY_PATH=${COMMON_OUT_DIR}/host/lib
+LD_LIBRARY_PATH=${COMMON_OUT_DIR}/host/lib:${LD_LIBRARY_PATH}
 
 export PATH
 export LD_LIBRARY_PATH

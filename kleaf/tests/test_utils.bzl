@@ -27,18 +27,19 @@ def _find_action(env, mnemonic, actions = None):
     if actions == None:
         actions = analysistest.target_actions(env)
 
+    mnemonics = []
     for action in actions:
         if action.mnemonic == mnemonic:
             return action
+        mnemonics.append(action.mnemonic)
 
-    asserts.true(env, False, "No matching action with mnemonic {} found".format(mnemonic))
+    asserts.true(env, False, "No matching action with mnemonic {} found in {}".format(mnemonic, mnemonics))
     return None
 
 def _find_output(action, basename):
     """Finds the output with the given basename from the given action.
 
     Args:
-        env: env
         action: The action that expects to produce the output
         basename: The expected basename of the output
 

@@ -15,7 +15,17 @@
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
 load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 
-package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "sysroot",
+    srcs = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ),
+    visibility = [
+        ":__subpackages__",
+        "//prebuilts/clang/host/linux-x86/kleaf:__subpackages__",
+    ],
+)
 
 hermetic_tools(
     name = "hermetic-tools",
@@ -35,50 +45,137 @@ hermetic_tools(
         "sh",
         "tar",
     ],
-    deps = glob(
-        ["build-tools/sysroot/**"],
-        allow_empty = False,
-    ) + [
+    tar_args = [
+        "--mtime=@0",
+        "--owner=0",
+        "--group=0",
+        "--numeric-owner",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sysroot",
         "//prebuilts/build-tools:linux-x86",
         "//prebuilts/kernel-build-tools:linux-x86",
         "@prebuilt_ndk//:sysroot",
     ],
 )
 
-filegroup(
-    name = "kernel-build-scripts",
-    srcs = [
-        "_setup_env.sh",
-        "build.sh",
-        "build_utils.sh",
-    ],
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "_setup_env",
+    srcs = ["_setup_env.sh"],
+    visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "kernel-abi-scripts",
-    srcs = [
-        "abi/compare_to_symbol_list",
-        "abi/flatten_symbol_list",
-        "abi/process_symbols",
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "build_utils",
+    srcs = ["build_utils.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_verify_ksymtab",
+    srcs = ["abi/verify_ksymtab.py"],
+    main = "abi/verify_ksymtab.py",
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_flatten_symbol_list",
+    srcs = ["abi/flatten_symbol_list.py"],
+    main = "abi/flatten_symbol_list.py",
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_process_symbols",
+    srcs = ["abi/process_symbols.py"],
+    data = [
         "abi/symbols.allow",
         "abi/symbols.deny",
     ],
+    main = "abi/process_symbols.py",
+    visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "dump-abi-scripts",
-    srcs = [
-        "abi/abitool.py",
-        "abi/dump_abi",
-    ],
+py_library(
+    name = "abitool",
+    srcs = ["abi/abitool.py"],
+    visibility = ["//visibility:private"],
 )
 
-filegroup(
-    name = "diff-abi-scripts",
-    srcs = [
-        "abi/abitool.py",
-        "abi/diff_abi",
-    ],
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "dump_abi",
+    srcs = ["abi/dump_abi.py"],
+    main = "abi/dump_abi.py",
+    visibility = ["//visibility:public"],
+    deps = [":abitool"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "diff_abi",
+    srcs = ["abi/diff_abi.py"],
+    main = "abi/diff_abi.py",
+    visibility = ["//visibility:public"],
+    deps = [":abitool"],
+)
+
+py_library(
+    name = "symbol_extraction",
+    srcs = ["abi/symbol_extraction.py"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_abi
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "check_buildtime_symbol_protection",
+    srcs = ["abi/check_buildtime_symbol_protection.py"],
+    main = "abi/check_buildtime_symbol_protection.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "extract_symbols",
+    srcs = ["abi/extract_symbols.py"],
+    main = "abi/extract_symbols.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "extract_protected_exports",
+    srcs = ["abi/extract_gki_protected_exports.py"],
+    main = "abi/extract_gki_protected_exports.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "filter_abi",
+    srcs = ["abi/filter_abi.py"],
+    main = "abi/filter_abi.py",
+    visibility = ["//visibility:public"],
 )
 
 _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
@@ -92,26 +189,21 @@ genrule(
     name = "gki_certification_tools",
     srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
     outs = ["gki_certification_tools.tar.gz"],
-    # Clear PATH to ensure hermeticity.
+    # Set PATH to ensure hermeticity.
     cmd = """
-        PATH=
-        $(location :hermetic-tools/tar) -c \\
-            -C $$($(location :hermetic-tools/dirname) $$($(location :hermetic-tools/dirname) $(location {prefix}{first}))) \\
-            {files} | \\
-          $(location :hermetic-tools/gzip) > $@
+        PATH=$$($(location :hermetic-tools/readlink) -m $$($(location :hermetic-tools/dirname) $(location :hermetic-tools/dirname)))
+        tar -czf $@ \\
+            -C $$(dirname $$(dirname $(location {prefix}{first}))) \\
+            {files}
     """.format(
         files = " ".join(["bin/" + tool for tool in _GKI_CERTIFICATION_BINARIES]),
         first = _GKI_CERTIFICATION_BINARIES[0],
         prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
     ),
     tools = [
+        ":hermetic-tools",
         ":hermetic-tools/dirname",
-        ":hermetic-tools/gzip",
-        ":hermetic-tools/tar",
+        ":hermetic-tools/readlink",
     ],
+    visibility = ["//visibility:public"],
 )
-
-exports_files([
-    "abi/extract_symbols",
-    "abi/filter_abi",
-])

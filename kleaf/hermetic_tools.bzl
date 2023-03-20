@@ -15,6 +15,7 @@
 Provide tools for a hermetic build.
 """
 
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 HermeticToolsInfo = provider(
@@ -64,6 +65,23 @@ def _hermetic_tools_impl(ctx):
         host_outs = " ".join([f.path for f in host_outs]),
         hermetic_base = hermetic_outs[0].dirname,
     )
+
+    if ctx.attr.tar_args:
+        command += """
+        (
+            real_tar=$({hermetic_base}/readlink -e {hermetic_base}/tar)
+            rm {hermetic_base}/tar
+            cat > {hermetic_base}/tar << EOF
+#!/bin/sh
+
+$real_tar "\\$@" {tar_args}
+EOF
+        )
+        """.format(
+            hermetic_base = hermetic_outs[0].dirname,
+            tar_args = " ".join([shell.quote(arg) for arg in ctx.attr.tar_args]),
+        )
+
     ctx.actions.run_shell(
         inputs = deps,
         outputs = host_outs,
@@ -112,6 +130,7 @@ _hermetic_tools = rule(
         "outs": attr.output_list(),
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
+        "tar_args": attr.string_list(),
     },
 )
 
@@ -119,7 +138,9 @@ def hermetic_tools(
         name,
         srcs,
         host_tools = None,
-        deps = None):
+        deps = None,
+        tar_args = None,
+        **kwargs):
     """Provide tools for a hermetic build.
 
     Args:
@@ -131,6 +152,11 @@ def hermetic_tools(
 
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
+        tar_args: List of fixed arguments provided to `tar` commands.
+        **kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common
     """
 
     if host_tools:
@@ -146,4 +172,6 @@ def hermetic_tools(
         outs = outs,
         host_tools = host_tools,
         deps = deps,
+        tar_args = tar_args,
+        **kwargs
     )

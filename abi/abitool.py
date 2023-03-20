@@ -225,6 +225,10 @@ def _shorten_abidiff(diff_report, short_report):
 STGDIFF_ERROR      = (1<<0)
 STGDIFF_ABI_CHANGE = (1<<1)
 STGDIFF_FORMATS    = ["plain", "flat", "small", "short", "viz"]
+STGDIFF_IGNORE_OPTIONS = [
+    "symbol_type_presence",
+    "type_declaration_status",
+]
 
 
 def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
@@ -246,11 +250,9 @@ def _run_stgdiff(old_dump, new_dump, basename, symbol_list=None):
                     ["abitidy", "-S", symbol_list, "-i", raw, "-o", cooked])
                 dumps[ix] = cooked
 
-        command = [
-            "stgdiff",
-            "--compare-options", "all",
-            "--abi", dumps[0], dumps[1]
-        ]
+        command = ["stgdiff", "--abi", dumps[0], dumps[1]]
+        for i in STGDIFF_IGNORE_OPTIONS:
+            command.extend(["--ignore", i])
         for f in STGDIFF_FORMATS:
             command.extend(["--format", f, "--output", f"{basename}.{f}"])
 

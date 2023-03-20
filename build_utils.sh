@@ -14,40 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO (b/231473697): rel_path and rel_path2 should use realpath --relative-to
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
-  local to=$1
-  local from=$2
-  local path=
-  local stem=
-  local prevstem=
-  [ -n "$to" ] || return 1
-  [ -n "$from" ] || return 1
-  to=$(readlink -e "$to")
-  from=$(readlink -e "$from")
-  [ -n "$to" ] || return 1
-  [ -n "$from" ] || return 1
-  stem=${from}/
-  while [ "${to#$stem}" == "${to}" -a "${stem}" != "${prevstem}" ]; do
-    prevstem=$stem
-    stem=$(readlink -e "${stem}/..")
-    [ "${stem%/}" == "${stem}" ] && stem=${stem}/
-    path=${path}../
-  done
-  echo ${path}${to#$stem}
+  ${ROOT_DIR}/build/kernel/build-tools/path/linux-x86/realpath "$1" --relative-to="$2"
 }
 
-# TODO (b/231473697): rel_path and rel_path2 should use realpath --relative-to
+# TODO(b/266980402): remove it
 # rel_path2 <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
-# This is slower than rel_path, but returns a simpler path when <from>
-# is directly under <to>.
 function rel_path2() {
-  local to=$1
-  local from=$2
-  python3 -c 'import os,sys;print(os.path.relpath(*(sys.argv[1:])))' "$to" "$from"
+  rel_path "$@"
 }
 
 # $1 directory of kernel modules ($1/lib/modules/x.y)
@@ -224,6 +201,10 @@ function build_system_dlkm() {
   cp ${system_dlkm_root_dir}/modules.load ${DIST_DIR}/system_dlkm.modules.load
   local system_dlkm_props_file
 
+  if [ -f "${system_dlkm_root_dir}/modules.blocklist" ]; then
+    cp "${system_dlkm_root_dir}/modules.blocklist" "${DIST_DIR}/system_dlkm.modules.blocklist"
+  fi
+
   local system_dlkm_default_fs_type="ext4"
   if [[ "${SYSTEM_DLKM_FS_TYPE}" != "ext4" && "${SYSTEM_DLKM_FS_TYPE}" != "erofs" ]]; then
     echo "WARNING: Invalid SYSTEM_DLKM_FS_TYPE = ${SYSTEM_DLKM_FS_TYPE}"
@@ -333,6 +314,15 @@ function build_vendor_dlkm() {
       exit 1
     fi
   fi
+
+  # Copy etc files to ${DIST_DIR} and ${VENDOR_DLKM_STAGING_DIR}/etc
+  if [[ -n "${VENDOR_DLKM_ETC_FILES}" ]]; then
+    local etc_files_dst_folder="${VENDOR_DLKM_STAGING_DIR}/etc"
+    mkdir -p "${etc_files_dst_folder}"
+    cp ${VENDOR_DLKM_ETC_FILES} "${etc_files_dst_folder}"
+    cp ${VENDOR_DLKM_ETC_FILES} "${DIST_DIR}"
+  fi
+
   build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" \
     "${DIST_DIR}/vendor_dlkm.img" /dev/null
 }

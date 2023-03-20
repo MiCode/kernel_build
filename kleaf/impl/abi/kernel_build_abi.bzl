@@ -16,11 +16,15 @@
 
 load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
+load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(":abi/abi_diff.bzl", "abi_diff")
+load(":abi/abi_stgdiff.bzl", "stgdiff")
 load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
+load(":abi/protected_exports.bzl", "protected_exports")
+load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
 load(":kernel_build.bzl", "kernel_build")
 load(":utils.bzl", "utils")
 
@@ -74,7 +78,7 @@ def kernel_build_abi(
       define_abi_targets: See [`kernel_abi.define_abi_targets`](#kernel_abi-define_abi_targets)
       kernel_modules: See [`kernel_abi.kernel_modules`](#kernel_abi-kernel_modules)
       module_grouping: See [`kernel_abi.module_grouping`](#kernel_abi-module_grouping)
-      abi_definition: See [`kernel_abi.abi_definition`](#kernel_abi-abi_definition)
+      abi_definition: See [`kernel_abi.abi_definition_xml`](#kernel_abi-abi_definition_xml)
       kmi_enforced: See [`kernel_abi.kmi_enforced`](#kernel_abi-kmi_enforced)
       unstripped_modules_archive: See [`kernel_abi.unstripped_modules_archive`](#kernel_abi-unstripped_modules_archive)
       kmi_symbol_list_add_only: See [`kernel_abi.kmi_symbol_list_add_only`](#kernel_abi-kmi_symbol_list_add_only)
@@ -139,7 +143,7 @@ kernel_abi(
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        abi_definition = abi_definition,
+        abi_definition_xml = abi_definition,
         kmi_enforced = kmi_enforced,
         unstripped_modules_archive = unstripped_modules_archive,
         # common attributes
@@ -165,7 +169,8 @@ def kernel_abi(
         define_abi_targets = None,
         kernel_modules = None,
         module_grouping = None,
-        abi_definition = None,
+        abi_definition_stg = None,
+        abi_definition_xml = None,
         kmi_enforced = None,
         unstripped_modules_archive = None,
         kmi_symbol_list_add_only = None,
@@ -207,6 +212,8 @@ def kernel_abi(
     In addition, the following targets are defined if `define_abi_targets = True`:
     - `kernel_aarch64_abi_update_symbol_list`
       - Running this target updates `kmi_symbol_list`.
+    - `kernel_aarch64_abi_update_protected_exports`
+      - Running this target updates `protected_exports_list`.
     - `kernel_aarch64_abi_update`
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
@@ -238,7 +245,8 @@ def kernel_abi(
         on the kernel modules that reference the symbol. Otherwise the symbol
         list will simply be a sorted list of symbols used by all the kernel
         modules.
-      abi_definition: Location of the ABI definition.
+      abi_definition_stg: Location of the ABI definition in STG format.
+      abi_definition_xml: Location of the ABI definition in XML format.
       kmi_enforced: This is an indicative option to signal that KMI is enforced.
         If set to `True`, KMI checking tools respects it and
         reacts to it by failing if KMI differences are detected.
@@ -285,7 +293,8 @@ def kernel_abi(
             kernel_modules = kernel_modules,
             module_grouping = module_grouping,
             kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-            abi_definition = abi_definition,
+            abi_definition_stg = abi_definition_stg,
+            abi_definition_xml = abi_definition_xml,
             kmi_enforced = kmi_enforced,
             unstripped_modules_archive = unstripped_modules_archive,
             abi_dump_target = name + "_dump",
@@ -322,6 +331,19 @@ def _not_define_abi_targets(
         script = "",
         **private_kwargs
     )
+    exec(
+        name = name + "_diff_executable_xml",
+        script = "",
+        **private_kwargs
+    )
+
+    fail_rule(
+        name = name + "_update",
+        message = "{} and other ABI targets do not exist.\n".format(
+                      name + "_update",
+                  ) +
+                  "See kleaf/docs/abi.md for more information.",
+    )
 
 def _define_abi_targets(
         name,
@@ -329,7 +351,8 @@ def _define_abi_targets(
         kernel_modules,
         module_grouping,
         kmi_symbol_list_add_only,
-        abi_definition,
+        abi_definition_stg,
+        abi_definition_xml,
         kmi_enforced,
         unstripped_modules_archive,
         abi_dump_target,
@@ -358,7 +381,7 @@ def _define_abi_targets(
     # extract_symbols ...
     extracted_symbols(
         name = name + "_extracted_symbols",
-        kernel_build_notrim = kernel_build,
+        kernel_build = kernel_build,
         kernel_modules = kernel_modules,
         module_grouping = module_grouping,
         src = name + "_src_kmi_symbol_list",
@@ -372,17 +395,50 @@ def _define_abi_targets(
         **private_kwargs
     )
 
-    default_outputs += _define_abi_definition_targets(
-        name = name,
-        abi_definition = abi_definition,
-        kmi_enforced = kmi_enforced,
-        kmi_symbol_list = name + "_src_kmi_symbol_list",
+    # Protected Exports
+    get_src_protected_exports_list(
+        name = name + "_src_protected_exports_list",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+    get_src_protected_modules_list(
+        name = name + "_src_protected_modules_list",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+    protected_exports(
+        name = name + "_protected_exports",
+        kernel_build = kernel_build,
+        protected_modules_list_file = name + "_src_protected_modules_list",
+        **private_kwargs
+    )
+    update_source_file(
+        name = name + "_update_protected_exports",
+        src = name + "_protected_exports",
+        dst = name + "_src_protected_exports_list",
         **private_kwargs
     )
 
+    default_outputs += _define_abi_definition_targets(
+        name = name,
+        abi_definition_stg = abi_definition_stg,
+        abi_definition_xml = abi_definition_xml,
+        kmi_enforced = kmi_enforced,
+        kmi_symbol_list = name + "_src_kmi_symbol_list",
+        protected_exports_list = name + "_src_protected_exports_list",
+        **private_kwargs
+    )
+
+    out_file = None
+    if abi_definition_xml:
+        out_file = name + "_out_file_xml"
+
+    # Ok to override as STG takes preference.
+    if abi_definition_stg:
+        out_file = name + "_out_file"
     abi_prop(
         name = name + "_prop",
-        kmi_definition = name + "_out_file" if abi_definition else None,
+        kmi_definition = out_file,
         kmi_enforced = kmi_enforced,
         kernel_build = kernel_build,
         modules_archive = unstripped_modules_archive,
@@ -398,9 +454,11 @@ def _define_abi_targets(
 
 def _define_abi_definition_targets(
         name,
-        abi_definition,
+        abi_definition_stg,
+        abi_definition_xml,
         kmi_enforced,
         kmi_symbol_list,
+        protected_exports_list,
         **kwargs):
     """Helper to `_define_abi_targets`.
 
@@ -408,118 +466,258 @@ def _define_abi_definition_targets(
 
     Defines `{name}_diff_executable`.
     """
-    if not abi_definition:
+
+    default_outputs = []
+
+    if not abi_definition_xml:
+        # For kernel_abi_dist to use when abi_definition_xml is empty.
+        exec(
+            name = name + "_diff_executable_xml",
+            script = "",
+            **kwargs
+        )
+        default_outputs.append(name + "_diff_executable_xml")
+
+        fail_rule(
+            name = name + "_update_xml",
+            message = "{} target does not exist.\n".format(
+                          name + "_update",
+                      ) +
+                      "See kleaf/docs/abi.md for more information.",
+        )
+    else:
+        native.filegroup(
+            name = name + "_out_file_xml",
+            srcs = [name + "_dump"],
+            output_group = "abi_out_file_xml",
+            **kwargs
+        )
+
+        abi_diff(
+            name = name + "_diff_xml",
+            baseline = abi_definition_xml,
+            new = name + "_out_file_xml",
+            kmi_enforced = kmi_enforced,
+            **kwargs
+        )
+        default_outputs.append(name + "_diff_xml")
+
+        # The default outputs of _diff does not contain the executable,
+        # but the reports. Use this filegroup to select the executable
+        # so rootpath in _update works.
+        native.filegroup(
+            name = name + "_diff_executable_xml",
+            srcs = [name + "_diff_xml"],
+            output_group = "executable",
+            **kwargs
+        )
+
+        native.filegroup(
+            name = name + "_diff_git_message_xml",
+            srcs = [name + "_diff_xml"],
+            output_group = "git_message_xml",
+            **kwargs
+        )
+
+        update_source_file(
+            name = name + "_update_definition_xml",
+            src = name + "_out_file_xml",
+            dst = abi_definition_xml,
+            **kwargs
+        )
+
+        exec(
+            name = name + "_nodiff_update_xml",
+            data = [
+                name + "_extracted_symbols",
+                name + "_protected_exports",
+                name + "_update_definition_xml",
+                kmi_symbol_list,
+                protected_exports_list,
+            ],
+            script = """
+                # Ensure that symbol list is updated
+                    if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
+                    echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                    exit 1
+                    fi
+                # Ensure that protected exports list is updated
+                    if ! diff -q $(rootpath {src_protected_exports_list}) $(rootpath {dst_protected_exports_list}); then
+                    echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_protected_exports_label}'." >&2
+                    exit 1
+                    fi
+                # Update abi_definition
+                    $(rootpath {update_definition})
+                """.format(
+                src_protected_exports_list = name + "_protected_exports",
+                dst_protected_exports_list = protected_exports_list,
+                src_symbol_list = name + "_extracted_symbols",
+                dst_symbol_list = kmi_symbol_list,
+                package = native.package_name(),
+                update_protected_exports_label = name + "_update_protected_exports",
+                update_symbol_list_label = name + "_update_symbol_list",
+                update_definition = name + "_update_definition_xml",
+            ),
+            **kwargs
+        )
+
+        exec(
+            name = name + "_update_xml",
+            data = [
+                abi_definition_xml,
+                name + "_diff_git_message_xml",
+                name + "_diff_executable_xml",
+                name + "_nodiff_update_xml",
+            ],
+            script = """
+                # Update abi_definition
+                    $(rootpath {nodiff_update})
+                # Create git commit if requested
+                    if [[ $1 == "--commit" ]]; then
+                        real_abi_def="$(realpath $(rootpath {abi_definition}))"
+                        git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
+                        git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
+                    fi
+                # Check return code of diff_abi and kmi_enforced
+                    set +e
+                    $(rootpath {diff})
+                    rc=$?
+                    set -e
+                # Prompt for editing the commit message
+                    if [[ $1 == "--commit" ]]; then
+                        echo
+                        echo "INFO: git commit created. Execute the following to edit the commit message:"
+                        echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
+                    fi
+                    exit $rc
+                """.format(
+                diff = name + "_diff_executable_xml",
+                nodiff_update = name + "_nodiff_update_xml",
+                abi_definition = abi_definition_xml,
+                git_message = name + "_diff_git_message_xml",
+            ),
+            **kwargs
+        )
+
+    if not abi_definition_stg:
         # For kernel_abi_dist to use when abi_definition is empty.
         exec(
             name = name + "_diff_executable",
             script = "",
             **kwargs
         )
-        return []
+        default_outputs.append(name + "_diff_executable")
 
-    default_outputs = []
+        fail_rule(
+            name = name + "_update",
+            message = "{} target does not exist.\n".format(
+                          name + "_update",
+                      ) +
+                      "See kleaf/docs/abi.md for more information.",
+        )
+    else:
+        native.filegroup(
+            name = name + "_out_file",
+            srcs = [name + "_dump"],
+            output_group = "abi_out_file",
+            **kwargs
+        )
+        stgdiff(
+            name = name + "_diff",
+            baseline = abi_definition_stg,
+            new = name + "_out_file",
+            kmi_enforced = kmi_enforced,
+        )
+        default_outputs.append(name + "_diff")
 
-    native.filegroup(
-        name = name + "_out_file",
-        srcs = [name + "_dump"],
-        output_group = "abi_out_file",
-        **kwargs
-    )
+        # Use this filegroup to select the executable.
+        native.filegroup(
+            name = name + "_diff_executable",
+            srcs = [name + "_diff"],
+            output_group = "executable",
+            **kwargs
+        )
 
-    abi_diff(
-        name = name + "_diff",
-        baseline = abi_definition,
-        new = name + "_out_file",
-        kmi_enforced = kmi_enforced,
-        **kwargs
-    )
-    default_outputs.append(name + "_diff")
+        native.filegroup(
+            name = name + "_diff_git_message",
+            srcs = [name + "_diff"],
+            output_group = "git_message",
+            **kwargs
+        )
 
-    # The default outputs of _diff does not contain the executable,
-    # but the reports. Use this filegroup to select the executable
-    # so rootpath in _update works.
-    native.filegroup(
-        name = name + "_diff_executable",
-        srcs = [name + "_diff"],
-        output_group = "executable",
-        **kwargs
-    )
+        update_source_file(
+            name = name + "_update_definition",
+            src = name + "_out_file",
+            dst = abi_definition_stg,
+            **kwargs
+        )
 
-    native.filegroup(
-        name = name + "_diff_git_message",
-        srcs = [name + "_diff"],
-        output_group = "git_message",
-        **kwargs
-    )
-
-    update_source_file(
-        name = name + "_update_definition",
-        src = name + "_out_file",
-        dst = abi_definition,
-        **kwargs
-    )
-
-    exec(
-        name = name + "_nodiff_update",
-        data = [
-            name + "_extracted_symbols",
-            name + "_update_definition",
-            kmi_symbol_list,
-        ],
-        script = """
-              # Ensure that symbol list is updated
+        exec(
+            name = name + "_nodiff_update",
+            data = [
+                name + "_extracted_symbols",
+                name + "_protected_exports",
+                name + "_update_definition",
+                kmi_symbol_list,
+                protected_exports_list,
+            ],
+            script = """
+                # Ensure that symbol list is updated
                 if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
-                  echo "ERROR: symbol list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
-                  exit 1
+                    echo "ERROR: symbol list must be updated before updating ABI definition."
+                    echo " To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                    exit 1
                 fi
-              # Update abi_definition
+                # Ensure that protected exports list is updated
+                if ! diff -q $(rootpath {src_protected_exports_list}) $(rootpath {dst_protected_exports_list}); then
+                echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_protected_exports_label}'." >&2
+                    exit 1
+                fi
+                # Update abi_definition
                 $(rootpath {update_definition})
-            """.format(
-            src_symbol_list = name + "_extracted_symbols",
-            dst_symbol_list = kmi_symbol_list,
-            package = native.package_name(),
-            update_symbol_list_label = name + "_update_symbol_list",
-            update_definition = name + "_update_definition",
-        ),
-        **kwargs
-    )
+                """.format(
+                src_protected_exports_list = name + "_protected_exports",
+                dst_protected_exports_list = protected_exports_list,
+                src_symbol_list = name + "_extracted_symbols",
+                dst_symbol_list = kmi_symbol_list,
+                package = native.package_name(),
+                update_protected_exports_label = name + "_update_protected_exports",
+                update_symbol_list_label = name + "_update_symbol_list",
+                update_definition = name + "_update_definition",
+            ),
+            **kwargs
+        )
 
-    exec(
-        name = name + "_update",
-        data = [
-            abi_definition,
-            name + "_diff_git_message",
-            name + "_diff_executable",
-            name + "_nodiff_update",
-        ],
-        script = """
-              # Update abi_definition
+        exec(
+            name = name + "_update",
+            data = [
+                abi_definition_stg,
+                name + "_diff_executable",
+                name + "_nodiff_update",
+                name + "_diff_git_message",
+            ],
+            script = """
+                # Update abi_definition
                 $(rootpath {nodiff_update})
-              # Create git commit if requested
+                # Create git commit if requested
                 if [[ $1 == "--commit" ]]; then
                     real_abi_def="$(realpath $(rootpath {abi_definition}))"
                     git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
                     git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
                 fi
-              # Check return code of diff_abi and kmi_enforced
-                set +e
                 $(rootpath {diff})
-                rc=$?
-                set -e
-              # Prompt for editing the commit message
                 if [[ $1 == "--commit" ]]; then
                     echo
                     echo "INFO: git commit created. Execute the following to edit the commit message:"
                     echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
                 fi
-                exit $rc
-            """.format(
-            diff = name + "_diff_executable",
-            nodiff_update = name + "_nodiff_update",
-            abi_definition = abi_definition,
-            git_message = name + "_diff_git_message",
-        ),
-        **kwargs
-    )
+                """.format(
+                diff = name + "_diff_executable",
+                nodiff_update = name + "_nodiff_update",
+                abi_definition = abi_definition_stg,
+                git_message = name + "_diff_git_message",
+            ),
+            **kwargs
+        )
 
     return default_outputs

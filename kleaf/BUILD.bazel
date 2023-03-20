@@ -60,10 +60,16 @@ bool_flag(
     build_setting_default = False,
 )
 
-# If true, allow modules to be undeclared in kernel_build and kernel_module.
+# If true, allow modules to be undeclared in kernel_build.
 bool_flag(
     name = "allow_undeclared_modules",
     build_setting_default = False,
+)
+
+# If true, warnings / errors about undeclared modules in kernel_build are printed.
+bool_flag(
+    name = "warn_undeclared_modules",
+    build_setting_default = True,
 )
 
 # If true, everything inside OUT_DIR is collected unconditionally
@@ -82,6 +88,12 @@ config_setting(
 # If true, kmi_symbol_list_strict_mode attribute in kernel_build is respected.
 bool_flag(
     name = "kmi_symbol_list_strict_mode",
+    build_setting_default = True,
+)
+
+# If false, kmi_symbol_list_violations_check is disabled.
+bool_flag(
+    name = "kmi_symbol_list_violations_check",
     build_setting_default = True,
 )
 
@@ -105,13 +117,15 @@ bool_flag(
 )
 
 # Debug flag to control make verbosity
-# E (default) = Error
+# E (default) = Error (-s)
 # I = Info
-# D = Debug
+# D = Debug (V=1)
+# V = Verbose (V=2)
 string_flag(
     name = "debug_make_verbosity",
     build_setting_default = "E",
     values = [
+        "V",
         "D",
         "E",
         "I",
@@ -130,6 +144,7 @@ bool_flag(
 _config_values = (
     "local",
     "fast",
+    "hermetic_cc",
     "stamp",
     "release",
     "remote",
@@ -149,12 +164,37 @@ print_flags(
     ] + [":config_" + value for value in _config_values],
 )
 
-exports_files([
-    "preserve_env.sh",
-    "search_and_cp_output.py",
-    "check_declared_output_list.py",
-    "check_duplicated_files_in_archives.py",
-])
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_binary(
+    name = "preserve_env",
+    srcs = ["preserve_env.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build etc.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "check_declared_output_list",
+    srcs = ["check_declared_output_list.py"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_modules_install.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "check_duplicated_files_in_archives",
+    srcs = ["check_duplicated_files_in_archives.py"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses various Kleaf build rules.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "search_and_cp_output",
+    srcs = ["search_and_cp_output.py"],
+    visibility = ["//visibility:public"],
+)
 
 bzl_library(
     name = "directory_with_structure_def",
@@ -243,6 +283,7 @@ py_test(
     srcs = ["check_declared_output_list_test.py"],
     python_version = "PY3",
     deps = [
+        ":check_declared_output_list",
         "@io_abseil_py//absl/testing:absltest",
     ],
 )

@@ -25,7 +25,7 @@ $ tools/bazel build --config=local //common:kernel_aarch64
 ### Building all artifacts
 
 ```shell
-$ tools/bazel run //common:kernel_aarch64_abi
+$ tools/bazel run //common:kernel_aarch64_abi_dist
 ```
 
 ### Update symbol list
@@ -65,8 +65,8 @@ $           BUILD_CONFIG=common/build.config.gki.aarch64 build/build_abi.sh --up
 #   =>
 $ tools/bazel run      //common:[........]kernel_aarch64[..........]_abi[...]_update_symbol_list
 
-# The following two Bazel commands require updating the symbol list before
-# executing the command.
+# The following two Bazel commands require updating the symbol list and
+# protected exports list before executing the command.
 
 $           BUILD_CONFIG=common/build.config.gki.aarch64 build/build_abi.sh --nodiff --update
 #   =>

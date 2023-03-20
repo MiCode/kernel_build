@@ -17,6 +17,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 test_suite(
     name = "tests",
     tests = [
+        "//build/kernel/kleaf/tests/cc_testing",
         "//build/kernel/kleaf/tests/ddk_test",
         "//build/kernel/kleaf/tests/debug_test",
         "//build/kernel/kleaf/tests/kernel_build_config_test",
@@ -25,6 +26,7 @@ test_suite(
         "//build/kernel/kleaf/tests/kernel_images_test",
         "//build/kernel/kleaf/tests/kernel_module_group_test",
         "//build/kernel/kleaf/tests/merged_kernel_uapi_headers_test",
+        "//build/kernel/kleaf/tests/trim_test",
     ],
 )
 

@@ -15,7 +15,7 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_setting")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting")
 
 bzl_library(
     name = "impl",
@@ -23,19 +23,24 @@ bzl_library(
         "abi/abi_diff.bzl",
         "abi/abi_dump.bzl",
         "abi/abi_prop.bzl",
+        "abi/abi_stgdiff.bzl",
         "abi/abi_transitions.bzl",
         "abi/base_kernel_utils.bzl",
         "abi/extracted_symbols.bzl",
         "abi/force_add_vmlinux_utils.bzl",
         "abi/get_src_kmi_symbol_list.bzl",
+        "abi/get_src_protected_exports_files.bzl",
         "abi/kernel_build_abi.bzl",
         "abi/kernel_build_abi_dist.bzl",
+        "abi/protected_exports.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
+        "android_filegroup.bzl",
         "btf.bzl",
         "cache_dir.bzl",
         "common_providers.bzl",
         "compile_commands_utils.bzl",
         "constants.bzl",
+        "ddk/ddk_conditional_filegroup.bzl",
         "ddk/ddk_headers.bzl",
         "ddk/ddk_module.bzl",
         "ddk/ddk_submodule.bzl",
@@ -51,7 +56,6 @@ bzl_library(
         "image/vendor_dlkm_image.bzl",
         "kernel_build.bzl",
         "kernel_build_config.bzl",
-        "kernel_build_transition.bzl",
         "kernel_compile_commands.bzl",
         "kernel_config.bzl",
         "kernel_config_settings.bzl",
@@ -110,18 +114,28 @@ bool_setting(
     visibility = ["//visibility:public"],
 )
 
-# Whether trimming is actually enabled.
-bool_setting(
-    name = "trim_nonlisted_kmi_setting",
+# Helper setting to forcefully disable trimming.
+bool_flag(
+    name = "force_disable_trim",
     build_setting_default = False,
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
 
-# Helper setting to forcefully disable trimming.
-bool_setting(
-    name = "force_disable_trim",
-    build_setting_default = False,
+config_setting(
+    name = "force_disable_trim_is_true",
+    flag_values = {
+        ":force_disable_trim": "1",
+    },
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_is_true",
+    flag_values = {
+        "//build/kernel/kleaf:kasan": "1",
+    },
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
@@ -155,4 +169,43 @@ py_binary(
     name = "kernel_kythe_reconstruct_out_dir",
     srcs = ["kernel_kythe_reconstruct_out_dir.py"],
     visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "print_gcno_mapping",
+    srcs = ["print_gcno_mapping.py"],
+    visibility = ["//visibility:public"],
+)
+
+# Local build platforms
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_arm64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+platform(
+    name = "android_x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "android_riscv64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:riscv64",
+    ],
 )

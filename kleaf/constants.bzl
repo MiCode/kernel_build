@@ -121,4 +121,5 @@ LTO_VALUES = (
     "none",
     "thin",
     "full",
+    "fast",
 )

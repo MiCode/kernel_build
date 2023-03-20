@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Flattens KMI symbol list."""
+
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
 def _raw_kmi_symbol_list_impl(ctx):
     if not ctx.file.src:
-        return
+        return []
 
     inputs = [ctx.file.src]
-    inputs += ctx.files._kernel_abi_scripts
     inputs += ctx.attr.env[KernelEnvInfo].dependencies
 
     out_file = ctx.actions.declare_file("{}/abi_symbollist.raw".format(ctx.attr.name))
@@ -30,7 +31,7 @@ def _raw_kmi_symbol_list_impl(ctx):
         cat {src} | {flatten_symbol_list} > {out_file}
     """.format(
         out_dir = out_file.dirname,
-        flatten_symbol_list = ctx.file._flatten_symbol_list.path,
+        flatten_symbol_list = ctx.executable._flatten_symbol_list.path,
         out_file = out_file.path,
         src = ctx.file.src.path,
     )
@@ -40,11 +41,12 @@ def _raw_kmi_symbol_list_impl(ctx):
         mnemonic = "RawKmiSymbolList",
         inputs = inputs,
         outputs = [out_file],
+        tools = [ctx.executable._flatten_symbol_list],
         progress_message = "Creating abi_symbollist.raw {}".format(ctx.label),
         command = command,
     )
 
-    return DefaultInfo(files = depset([out_file]))
+    return [DefaultInfo(files = depset([out_file]))]
 
 raw_kmi_symbol_list = rule(
     implementation = _raw_kmi_symbol_list_impl,
@@ -59,8 +61,11 @@ raw_kmi_symbol_list = rule(
             doc = "Label to `abi_symbollist`",
             allow_single_file = True,
         ),
-        "_kernel_abi_scripts": attr.label(default = "//build/kernel:kernel-abi-scripts"),
-        "_flatten_symbol_list": attr.label(default = "//build/kernel:abi/flatten_symbol_list", allow_single_file = True),
+        "_flatten_symbol_list": attr.label(
+            default = "//build/kernel:abi_flatten_symbol_list",
+            cfg = "exec",
+            executable = True,
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )

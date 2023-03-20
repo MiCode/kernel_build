@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Aspect that passes toolchain information from `kernel_env` back to `_kernel_build`."""
+
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":utils.bzl", "utils")
 
-KernelToolchainInfo = provider(fields = {
-    "toolchain_version": "The toolchain version",
-    "toolchain_version_file": "A file containing the toolchain version",
-})
+KernelToolchainInfo = provider(
+    "Provides the toolchain version.",
+    fields = {
+        "toolchain_version": "The toolchain version",
+        "toolchain_version_file": "A file containing the toolchain version",
+    },
+)
 
-def _kernel_toolchain_aspect_impl(target, ctx):
+def _kernel_toolchain_aspect_impl(_target, ctx):
     if ctx.rule.kind == "_kernel_build":
         return ctx.rule.attr.config[KernelToolchainInfo]
     if ctx.rule.kind == "kernel_config":

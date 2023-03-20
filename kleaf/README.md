@@ -18,8 +18,6 @@
 
 [Resolving common errors](docs/errors.md)
 
-[References to Bazel rules and macros for the Android Kernel](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
-
 [Kleaf testing](docs/testing.md)
 
 [Building against downloaded prebuilts](docs/download_prebuilt.md)
@@ -29,6 +27,12 @@
 [Cheatsheet](docs/cheatsheet.md)
 
 [Kleaf Development](docs/kleaf_development.md)
+
+[Driver Development Kit (DDK)](docs/ddk/main.md)
+
+[Debugging Kleaf](docs/debugging.md)
+
+[Building `compile_commands.json`](docs/compile_commands.md)
 
 ### Configurations
 
@@ -40,6 +44,8 @@
 
 `--config=stamp`: [Handling SCM version](docs/scmversion.md)
 
+### Flags
+
 `--gcov`: [Keep GCOV files](docs/gcov.md)
 
 `--kasan`: [kasan](docs/kasan.md)
@@ -49,3 +55,12 @@
 `--kgdb`: [GDB scripts](docs/kgdb.md)
 
 `--lto`: [Configure LTO during development](docs/lto.md)
+
+`--notrim`: Disables `TRIM_NONLISTED_KMI` globally.
+
+Other flags for debugging and disabling integrity checks may be found in the
+[Debugging Kleaf](docs/debugging.md) page.
+
+### References
+
+[References to Bazel rules and macros for the Android Kernel](https://ci.android.com/builds/latest/branches/aosp_kernel-common-android-mainline/targets/kleaf_docs/view/index.html)
