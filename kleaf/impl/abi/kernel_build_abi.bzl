@@ -20,7 +20,6 @@ load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(":abi/abi_diff.bzl", "abi_diff")
 load(":abi/abi_stgdiff.bzl", "stgdiff")
 load(":abi/abi_dump.bzl", "abi_dump")
-load(":abi/abi_prop.bzl", "abi_prop")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
@@ -251,7 +250,7 @@ def kernel_abi(
         If set to `True`, KMI checking tools respects it and
         reacts to it by failing if KMI differences are detected.
       unstripped_modules_archive: A [`kernel_unstripped_modules_archive`](#kernel_unstripped_modules_archive)
-        which name is specified in `abi.prop`.
+        which name is specified in `abi.prop`. DEPRECATED.
       kmi_symbol_list_add_only: If unspecified or `None`, it is `False` by
         default. If `True`,
         then any symbols in the symbol list that would have been
@@ -268,6 +267,12 @@ def kernel_abi(
 
     if define_abi_targets == None:
         define_abi_targets = True
+
+    if unstripped_modules_archive != None:
+        # buildifier: disable=print
+        print("WARNING: unstripped_modules_archive is DEPRECATED, and" +
+              " will be REMOVED in the future, consider removing it" +
+              " from {}".format(name))
 
     private_kwargs = kwargs | {
         "visibility": ["//visibility:private"],
@@ -296,7 +301,6 @@ def kernel_abi(
             abi_definition_stg = abi_definition_stg,
             abi_definition_xml = abi_definition_xml,
             kmi_enforced = kmi_enforced,
-            unstripped_modules_archive = unstripped_modules_archive,
             abi_dump_target = name + "_dump",
             **kwargs
         )
@@ -354,7 +358,6 @@ def _define_abi_targets(
         abi_definition_stg,
         abi_definition_xml,
         kmi_enforced,
-        unstripped_modules_archive,
         abi_dump_target,
         **kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = True.`
@@ -428,23 +431,6 @@ def _define_abi_targets(
         protected_exports_list = name + "_src_protected_exports_list",
         **private_kwargs
     )
-
-    out_file = None
-    if abi_definition_xml:
-        out_file = name + "_out_file_xml"
-
-    # Ok to override as STG takes preference.
-    if abi_definition_stg:
-        out_file = name + "_out_file"
-    abi_prop(
-        name = name + "_prop",
-        kmi_definition = out_file,
-        kmi_enforced = kmi_enforced,
-        kernel_build = kernel_build,
-        modules_archive = unstripped_modules_archive,
-        **private_kwargs
-    )
-    default_outputs.append(name + "_prop")
 
     native.filegroup(
         name = name,

@@ -23,7 +23,6 @@ bzl_library(
     srcs = [
         "abi/abi_diff.bzl",
         "abi/abi_dump.bzl",
-        "abi/abi_prop.bzl",
         "abi/abi_stgdiff.bzl",
         "abi/abi_transitions.bzl",
         "abi/base_kernel_utils.bzl",
