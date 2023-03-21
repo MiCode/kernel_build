@@ -309,11 +309,6 @@ for f in "$abi_out_file" "$full_abi_out_file"; do
   sed -i -e "s#${effective_kernel_dir}/##g"   \
          -e "s#${ROOT_DIR}/${KERNEL_DIR}/##g" \
          -e "s#${ROOT_DIR}/##g" "$DIST_DIR/$f"
-  # Append debug information to abi file
-  echo "
-<!--
-     libabigail: $(abidw --version)
--->" >> ${DIST_DIR}/$f
 done
 
 ln -sf ${abi_out_file} ${DIST_DIR}/abi.xml
