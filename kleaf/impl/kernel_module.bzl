@@ -581,6 +581,7 @@ def _kernel_module_impl(ctx):
             modules_staging_dws_depset = depset([modules_staging_dws]),
             kernel_uapi_headers_dws_depset = depset([kernel_uapi_headers_dws]),
             files = depset(output_files),
+            packages = depset([ext_mod]),
         ),
         KernelUnstrippedModulesInfo(
             directories = depset([unstripped_dir], order = "postorder"),

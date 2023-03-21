@@ -58,6 +58,8 @@
 
 `--notrim`: Disables `TRIM_NONLISTED_KMI` globally.
 
+`--btf_debug_info`: [Enable/disable BTF debug information](docs/btf.md)
+
 Other flags for debugging and disabling integrity checks may be found in the
 [Debugging Kleaf](docs/debugging.md) page.
 

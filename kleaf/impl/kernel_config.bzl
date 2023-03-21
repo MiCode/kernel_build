@@ -262,6 +262,28 @@ def _config_kasan(ctx):
     ]
     return struct(configs = configs, deps = [])
 
+def _config_btf_debug_info(ctx):
+    """Return configs for DEBUG_INFO_BTF.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+    btf_debug_info = ctx.attr.btf_debug_info[BuildSettingInfo].value
+
+    if btf_debug_info == "default":
+        configs = []
+    elif btf_debug_info == "enable":
+        configs = [_config.enable("DEBUG_INFO_BTF")]
+    elif btf_debug_info == "disable":
+        configs = [_config.disable("DEBUG_INFO_BTF")]
+    else:
+        fail("{}: unexpected value for --btf_debug_info: {}".format(ctx.label, btf_debug_info))
+
+    return struct(configs = configs, deps = [])
+
 def _reconfig(ctx):
     """Return a command and extra inputs to re-configure `.config` file."""
     configs = []
@@ -273,6 +295,7 @@ def _reconfig(ctx):
         _config_kasan,
         _config_gcov,
         _config_keys,
+        _config_btf_debug_info,
         kgdb.get_scripts_config_args,
     ):
         pair = fn(ctx)
@@ -306,9 +329,10 @@ def _kernel_config_impl(ctx):
 
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
+    localversion_file_path = out_dir.path + "/localversion"
 
-    scmversion_step = stamp.scmversion_config_step(ctx)
-    inputs += scmversion_step.deps
+    write_localversion_step = stamp.write_localversion_step(ctx, localversion_file_path)
+    inputs += write_localversion_step.deps
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
@@ -331,8 +355,6 @@ def _kernel_config_impl(ctx):
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
         # Post-defconfig commands
           eval ${{POST_DEFCONFIG_CMDS}}
-        # SCM version configuration
-          {scmversion_cmd}
         # Re-config
           {reconfig_cmd}
         # HACK: run syncconfig to avoid re-triggerring kernel_build
@@ -348,13 +370,16 @@ def _kernel_config_impl(ctx):
         # re-built. See b/263415662
           echo "include/config/auto.conf: FORCE" >> {out_dir}/include/config/auto.conf.cmd
 
+        # Infer localversion.
+          {write_localversion_cmd}
+
           {cache_dir_post_cmd}
         """.format(
         out_dir = out_dir.path,
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
-        scmversion_cmd = scmversion_step.cmd,
         reconfig_cmd = reconfig.cmd,
+        write_localversion_cmd = write_localversion_step.cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -378,6 +403,7 @@ def _kernel_config_impl(ctx):
            mkdir -p ${{OUT_DIR}}/include/
            rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+           rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
@@ -401,7 +427,7 @@ def _kernel_config_impl(ctx):
         ),
     )
 
-    config_script_ret = _get_config_script(ctx)
+    config_script_ret = _get_config_script(ctx, inputs)
 
     return [
         env_and_outputs_info,
@@ -434,20 +460,19 @@ def _env_and_outputs_get_setup_script(data, restore_out_dir_cmd):
         post_setup = data.post_setup,
     )
 
-def _get_config_script(ctx):
+def _get_config_script(ctx, inputs):
     """Handles config.sh."""
     executable = ctx.actions.declare_file("{}/config.sh".format(ctx.attr.name))
 
-    script = """
-          cd ${BUILD_WORKSPACE_DIRECTORY}
-    """
-    script += ctx.attr.env[KernelEnvInfo].setup
+    script = ctx.attr.env[KernelEnvInfo].run_env.setup
 
     # TODO(b/254348147): Support ncurses for hermetic tools
     script += """
           export HOSTCFLAGS="${HOSTCFLAGS} --sysroot="
           export HOSTLDFLAGS="${HOSTLDFLAGS} --sysroot="
     """
+
+    script += kernel_utils.set_src_arch_cmd()
 
     script += """
           menucommand="${1:-savedefconfig}"
@@ -456,16 +481,31 @@ def _get_config_script(ctx):
             exit 1
           fi
 
-          # Pre-defconfig commands
-            eval ${PRE_DEFCONFIG_CMDS}
-          # Actual defconfig
-            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+          # The script is executed under <execroot>/, where defconfig is a
+          # symlink to the source file. However, `make savedefconfig` overwrites the
+          # symlink with the new defconfig. Restore the symlink on exit so that
+          # the next `bazel run X_config` can infer the source file properly.
 
-          # Show UI
-            menuconfig ${menucommand}
+          DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${SRCARCH}/configs/${DEFCONFIG}
+          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK})
+          trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
 
-          # Post-defconfig commands
-            eval ${POST_DEFCONFIG_CMDS}
+          # This needs to be in a sub-shell, otherwise trap doesn't work.
+          (
+              # Pre-defconfig commands
+                eval ${PRE_DEFCONFIG_CMDS}
+              # Actual defconfig
+                make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+
+              # Show UI
+                menuconfig ${menucommand}
+
+              # Post-defconfig commands
+                eval ${POST_DEFCONFIG_CMDS}
+
+              mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
+              echo "Updated ${DEFCONFIG_REAL}"
+          )
     """
 
     ctx.actions.write(
@@ -474,7 +514,7 @@ def _get_config_script(ctx):
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].dependencies)
+    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].run_env.dependencies + inputs)
 
     return struct(
         executable = executable,

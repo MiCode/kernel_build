@@ -103,6 +103,7 @@ def _initramfs_impl(ctx):
         outputs = outputs,
         build_command = command,
         modules_staging_dir = modules_staging_dir,
+        set_ext_modules = True,
         implicit_outputs = [
             initramfs_staging_archive,
         ],
