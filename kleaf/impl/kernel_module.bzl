@@ -31,6 +31,7 @@ load(
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
+    "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
@@ -278,7 +279,6 @@ def _kernel_module_impl(ctx):
     module_srcs = depset(transitive = module_srcs)
 
     transitive_inputs = [module_srcs]
-    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.inputs)
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
 
     if ctx.attr.internal_ddk_makefiles_dir:
@@ -288,7 +288,7 @@ def _kernel_module_impl(ctx):
         ctx.executable._check_declared_output_list,
         ctx.executable._search_and_cp_output,
     ]
-    transitive_tools = [ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.tools]
+    transitive_tools = []
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
     kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
@@ -348,10 +348,18 @@ def _kernel_module_impl(ctx):
     command_outputs += cache_dir_step.outputs
     tools += cache_dir_step.tools
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.get_setup_script(
-        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info.data,
+    # Determine the proper script to set up environment
+    if ctx.attr.internal_ddk_config:
+        setup_info = ctx.attr.internal_ddk_config[KernelEnvAndOutputsInfo]
+    else:
+        setup_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info
+    transitive_inputs.append(setup_info.inputs)
+    transitive_tools.append(setup_info.tools)
+    command = setup_info.get_setup_script(
+        data = setup_info.data,
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
+
     command += """
              # create dirs for modules
                mkdir -p {kernel_uapi_headers_dir}/usr
@@ -620,6 +628,7 @@ _kernel_module = rule(
         "internal_module_symvers_name": attr.string(default = "Module.symvers"),
         "internal_drop_modules_order": attr.bool(),
         "internal_exclude_kernel_build_module_srcs": attr.bool(),
+        "internal_ddk_config": attr.label(providers = [KernelEnvAndOutputsInfo]),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [KernelBuildExtModuleInfo],
