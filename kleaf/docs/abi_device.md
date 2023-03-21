@@ -62,24 +62,6 @@ $ tools/bazel run //common-modules/virtual-device:virtual_device_aarch64_abi_upd
 
 This updates `common/android/abi_gki_aarch64_virtual_device` file.
 
-## Update the protected exports list {#update-protected-exports}
-
-Similar to [updating the KMI symbol list for GKI](abi.md#update-symbol-list),
-you may update the `protected_exports_list` defined previously with the
-following.
-
-```shell
-$ tools/bazel run //path/to/package:{name}_abi_update_protected_exports
-```
-
-In the above example for kernel\_aarch64, the command is
-
-```shell
-$ tools/bazel run //common:kernel_aarch64_abi_update_protected_exports
-```
-
-This updates `common/android/abi_gki_protected_exports`.
-
 ## Update the ABI definition
 
 After the [KMI symbol list updated](#update-symbol-list) and
