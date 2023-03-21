@@ -15,6 +15,7 @@
 # Implementation details. These aren't part of the public API.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting")
 
 bzl_library(
@@ -59,7 +60,6 @@ bzl_library(
         "kernel_compile_commands.bzl",
         "kernel_config.bzl",
         "kernel_config_settings.bzl",
-        "kernel_config_transition.bzl",
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
         "kernel_filegroup.bzl",
@@ -152,6 +152,23 @@ bool_setting(
 bool_setting(
     name = "force_ignore_base_kernel",
     build_setting_default = False,
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "lto_is_set_to_none",
+    flag_values = {"//build/kernel/kleaf:lto": "none"},
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "lto_is_default_and_kasan_is_true",
+    match_all = [
+        "//build/kernel/kleaf:lto_is_default",
+        "//build/kernel/kleaf:kasan_is_true",
+    ],
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )

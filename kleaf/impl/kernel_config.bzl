@@ -28,7 +28,6 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
-load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":kgdb.bzl", "kgdb")
 load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
 load(":stamp.bzl", "stamp")
@@ -128,7 +127,7 @@ def _config_lto(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
+    lto_config_flag = ctx.attr.lto
 
     lto_configs = []
     if lto_config_flag == "none":
@@ -238,7 +237,7 @@ def _config_kasan(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto = ctx.attr.lto[BuildSettingInfo].value
+    lto = ctx.attr.lto
     kasan = ctx.attr.kasan[BuildSettingInfo].value
 
     if not kasan:
@@ -533,7 +532,6 @@ kernel_config = rule(
 - When `bazel build <target>`, this target runs `make defconfig` etc. during the build.
 - When `bazel run <target> -- Xconfig`, this target runs `make Xconfig`.
 """,
-    cfg = kernel_config_transition,
     attrs = {
         "env": attr.label(
             mandatory = True,
@@ -558,10 +556,6 @@ kernel_config = rule(
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-        "_allowlist_function_transition": attr.label(
-            # Allow everything because kernel_config is indirectly called in device packages.
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
     } | _kernel_config_additional_attrs(),
     executable = True,
 )

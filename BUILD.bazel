@@ -108,12 +108,6 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
-py_library(
-    name = "abitool",
-    srcs = ["abi/abitool.py"],
-    visibility = ["//visibility:private"],
-)
-
 # Tools visible to all packages that uses kernel_abi.
 # Implementation detail of kernel_abi; do not use directly.
 py_binary(
@@ -121,7 +115,6 @@ py_binary(
     srcs = ["abi/dump_abi.py"],
     main = "abi/dump_abi.py",
     visibility = ["//visibility:public"],
-    deps = [":abitool"],
 )
 
 # Tools visible to all packages that uses kernel_abi.
@@ -131,7 +124,6 @@ py_binary(
     srcs = ["abi/diff_abi.py"],
     main = "abi/diff_abi.py",
     visibility = ["//visibility:public"],
-    deps = [":abitool"],
 )
 
 py_library(
