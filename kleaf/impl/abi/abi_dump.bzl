@@ -46,18 +46,6 @@ def _abi_dump_impl(ctx):
         ),
     ]
 
-def _abi_dump_epilog_cmd(path, append_version):
-    ret = ""
-    if append_version:
-        ret += """
-             # Append debug information to abi file
-               echo "
-<!--
-     libabigail: $(abidw --version)
--->" >> {path}
-""".format(path = path)
-    return ret
-
 def _unstripped_dirs(ctx):
     unstripped_dirs = []
 
@@ -99,7 +87,6 @@ def _abi_dump_full(ctx):
         find {unstripped_dirs} -name '*.ko' -exec cp -pl -t {abi_linux_tree} {{}} +
         cp -pl {vmlinux} {abi_linux_tree}
         {dump_abi} --linux-tree {abi_linux_tree} --out-file {full_abi_out_file}
-        {epilog}
         rm -rf {abi_linux_tree}
     """.format(
         abi_linux_tree = abi_linux_tree,
@@ -107,7 +94,6 @@ def _abi_dump_full(ctx):
         dump_abi = ctx.executable._dump_abi.path,
         vmlinux = vmlinux.path,
         full_abi_out_file = full_abi_out_file.path,
-        epilog = _abi_dump_epilog_cmd(full_abi_out_file.path, True),
     )
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
@@ -168,13 +154,11 @@ def _abi_dump_filtered(ctx, full_abi_out_file):
 
         command += """
             {filter_abi} --in-file {full_abi_out_file} --out-file {abi_out_file} --kmi-symbol-list {abi_symbollist}
-            {epilog}
         """.format(
             abi_out_file = abi_out_file.path,
             full_abi_out_file = full_abi_out_file.path,
             filter_abi = ctx.executable._filter_abi.path,
             abi_symbollist = combined_abi_symbollist.path,
-            epilog = _abi_dump_epilog_cmd(abi_out_file.path, False),
         )
     else:
         command += """

@@ -17,33 +17,6 @@
 load(":status.bzl", "status")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
-def _get_scmversion_cmd(srctree, scmversion):
-    """Return a shell script that sets up .scmversion file in the source tree conditionally.
-
-    Args:
-      srctree: Path to the source tree where `setlocalversion` were supposed to run with.
-      scmversion: The result of executing `setlocalversion` if it were executed on `srctree`.
-    """
-    return """
-         # Set up scm version
-           (
-              # Save scmversion to .scmversion if .scmversion does not already exist.
-              # If it does exist, then it is part of "srcs", so respect its value.
-              # If .git exists, we are not in sandbox. _kernel_config disables
-              # CONFIG_LOCALVERSION_AUTO in this case.
-              if [[ ! -d {srctree}/.git ]] && [[ ! -f {srctree}/.scmversion ]]; then
-                scmversion={scmversion}
-                if [[ -n "${{scmversion}}" ]]; then
-                    mkdir -p {srctree}
-                    echo $scmversion > {srctree}/.scmversion
-                fi
-              fi
-           )
-""".format(
-        srctree = srctree,
-        scmversion = scmversion,
-    )
-
 def _write_localversion_step(ctx, out_path):
     """Return command and inputs to set up scmversion.
 
@@ -121,10 +94,11 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
     # a certain directory. Hence, be lenient about failures.
     scmversion_cmd += " || true"
 
-    return struct(deps = [ctx.info_file], cmd = _get_scmversion_cmd(
-        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ext_mod),
-        scmversion = "$({})".format(scmversion_cmd),
-    ))
+    cmd = """
+        ( {scmversion_cmd} ) > ${{OUT_DIR}}/localversion
+    """.format(scmversion_cmd = scmversion_cmd)
+
+    return struct(deps = [ctx.info_file], cmd = cmd)
 
 def _set_source_date_epoch(ctx):
     """Return command and inputs to set the value of `SOURCE_DATE_EPOCH`.
