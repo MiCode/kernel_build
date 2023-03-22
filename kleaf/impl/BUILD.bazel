@@ -21,7 +21,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting")
 bzl_library(
     name = "impl",
     srcs = [
-        "abi/abi_diff.bzl",
         "abi/abi_dump.bzl",
         "abi/abi_stgdiff.bzl",
         "abi/abi_transitions.bzl",
