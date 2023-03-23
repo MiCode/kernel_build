@@ -23,7 +23,9 @@ directory.
 
 Only *_flag / *_settings / attributes that affects the content of the cached $OUT_DIR should be
 mentioned here. In particular:
-- --config=stamp is not in these lists because it is mutually exclusive with --config=local.
+- --config=stamp is not in these lists because we don't have two parallel builds
+  with and without --config=stamp, and we should reuse the same cache for stamped / un-stamped
+  builds.
 - --allow_undeclared_modules is not listed because it only affects artifact collection.
 - --preserve_cmd is not listed because it only affects artifact collection.
 - lto is in these lists because incremental builds with LTO changing causes incremental build
