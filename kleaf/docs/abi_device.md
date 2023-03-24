@@ -64,8 +64,7 @@ This updates `common/android/abi_gki_aarch64_virtual_device` file.
 
 ## Update the ABI definition
 
-After the [KMI symbol list updated](#update-symbol-list) and
-[the protected exports list updated](#update-protected-exports), you may
+After the [KMI symbol list updated](#update-symbol-list) you may
 update the ABI definition at `common/android/abi_gki_aarch64.stg` with the
 following command:
 
