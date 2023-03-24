@@ -44,12 +44,11 @@ def _get_scmversion_cmd(srctree, scmversion):
         scmversion = scmversion,
     )
 
-def _write_localversion_step(ctx, out_path):
+def _get_localversion(ctx):
     """Return command and inputs to set up scmversion.
 
     Args:
         ctx: [ctx](https://bazel.build/rules/lib/ctx)
-        out_path: output path of localversion file
     """
 
     # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
@@ -64,8 +63,15 @@ def _write_localversion_step(ctx, out_path):
         stable_scmversion_cmd = "echo '-maybe-dirty'"
 
     # TODO(b/227520025): Remove the following logic in setlocalversion.
-    cmd = """
-        (
+    cmd = """$(
+            # On mainline, CONFIG_LOCALVERSION is set to "-mainline". Use that.
+            existing_localversion=$(${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config -s LOCALVERSION)
+            if [[ -n ${{existing_localversion}} ]] && \
+               [[ ${{existing_localversion}} != "n" ]] && \
+               [[ ${{existing_localversion}} != "undef" ]]; then
+               echo -n ${{existing_localversion}}
+            fi
+
             # Extract the Android release version. If there is no match, then return 255
             # and clear the variable $android_release
             set +e
@@ -94,12 +100,43 @@ def _write_localversion_step(ctx, out_path):
                 scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
             fi
             echo $scmversion
-        ) > {out_path}
+        )
     """.format(
         stable_scmversion_cmd = stable_scmversion_cmd,
-        out_path = out_path,
+        setup_cmd = _get_scmversion_cmd(
+            srctree = "${ROOT_DIR}/${KERNEL_DIR}",
+            scmversion = "${scmversion}",
+        ),
     )
     return struct(deps = deps, cmd = cmd)
+
+def _scmversion_config_step(ctx):
+    """Return a command for `kernel_config` to set `CONFIG_LOCALVERSION_AUTO` and `CONFIG_LOCALVERSION` properly.
+
+    Args:
+        ctx: [ctx](https://bazel.build/rules/lib/ctx)
+    """
+
+    localversion_ret = _get_localversion(ctx)
+
+    # Disable CONFIG_LOCALVERSION_AUTO to prevent the setlocalversion script looking into .git. Then
+    # set CONFIG_LOCALVERSION to the full value.
+    cmd = """
+        (
+            localversion={localversion_cmd}
+            ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config \
+                -d LOCALVERSION_AUTO \
+                --set-str LOCALVERSION ${{localversion}}
+        )
+
+        make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+    """.format(
+        localversion_cmd = localversion_ret.cmd,
+    )
+    return struct(
+        cmd = cmd,
+        deps = localversion_ret.deps,
+    )
 
 def _get_ext_mod_scmversion(ctx, ext_mod):
     """Return command and inputs to get the SCM version for an external module.
@@ -155,7 +192,7 @@ def _set_localversion_cmd(_ctx):
     """
 
 stamp = struct(
-    write_localversion_step = _write_localversion_step,
+    scmversion_config_step = _scmversion_config_step,
     get_ext_mod_scmversion = _get_ext_mod_scmversion,
     set_source_date_epoch = _set_source_date_epoch,
     set_localversion_cmd = _set_localversion_cmd,
