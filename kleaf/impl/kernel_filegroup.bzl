@@ -117,6 +117,7 @@ def _kernel_filegroup_impl(ctx):
         )
 
     abi_info = KernelBuildAbiInfo(
+        src_protected_modules_list = ctx.file.protected_modules_list,
         module_outs_file = ctx.file.module_outs_file,
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
     )
@@ -243,6 +244,7 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             allow_files = True,
             doc = """A label providing files similar to a [`kernel_images`](#kernel_images) target.""",
         ),
+        "protected_modules_list": attr.label(allow_single_file = True),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     } | _kernel_filegroup_additional_attrs(),
