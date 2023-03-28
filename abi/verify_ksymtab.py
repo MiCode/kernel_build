@@ -33,6 +33,8 @@ import argparse
 import os
 import sys
 
+import symbol_extraction
+
 
 def main():
   parser = argparse.ArgumentParser()
@@ -66,8 +68,7 @@ def main():
         ksymtab_symbols.append(symbol)
 
   # List of symbols defined in the raw_kmi_symbol_list
-  with open(args.raw_kmi_symbol_list) as raw_kmi_symbol_list_file:
-    kmi_symbols = raw_kmi_symbol_list_file.read().splitlines()
+  kmi_symbols = symbol_extraction.read_symbol_list(args.raw_kmi_symbol_list)
 
   # Set difference to get elements in symbol list but not in ksymtab
   missing_ksymtab_symbols = set(kmi_symbols) - set(ksymtab_symbols)

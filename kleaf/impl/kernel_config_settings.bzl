@@ -73,6 +73,7 @@ def _kernel_config_config_settings_raw():
             "kasan": "//build/kernel/kleaf:kasan",
             "lto": "//build/kernel/kleaf:lto",
             "gcov": "//build/kernel/kleaf:gcov",
+            "btf_debug_info": "//build/kernel/kleaf:btf_debug_info",
         },
     )
 

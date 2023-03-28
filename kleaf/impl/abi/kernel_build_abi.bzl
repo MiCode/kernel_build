@@ -177,8 +177,8 @@ def kernel_abi(
         **kwargs):
     """Declare multiple targets to support ABI monitoring.
 
-    This macro is meant to be used in place of the [`kernel_build`](#kernel_build)
-    marco. All arguments in `kwargs` are passed to `kernel_build` directly.
+    This macro is meant to be used alongside [`kernel_build`](#kernel_build)
+    macro.
 
     For example, you may have the following declaration. (For actual definition
     of `kernel_aarch64`, see
@@ -339,7 +339,7 @@ def _not_define_abi_targets(
 
     fail_rule(
         name = name + "_update",
-        message = "{} and other ABI targets do not exist.\n".format(
+        message = "{} and other ABI targets are not setup.\n".format(
                       name + "_update",
                   ) +
                   "See kleaf/docs/abi.md for more information.",
@@ -610,8 +610,8 @@ def _define_abi_definition_targets(
 
         fail_rule(
             name = name + "_update",
-            message = "{} target does not exist.\n".format(
-                          name + "_update",
+            message = "In {} `define_abi_targets` is True but `abi_definition_stg` was not provided.\n".format(
+                          name,
                       ) +
                       "See kleaf/docs/abi.md for more information.",
         )

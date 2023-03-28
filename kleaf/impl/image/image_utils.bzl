@@ -15,6 +15,8 @@
 Common utilities for working with kernel images.
 """
 
+load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load(
     ":common_providers.bzl",
@@ -25,6 +27,9 @@ load(
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
+SYSTEM_DLKM_STAGING_ARCHIVE_NAME = "system_dlkm_staging_archive.tar.gz"
+SYSTEM_DLKM_MODULES_LOAD_NAME = "system_dlkm.modules.load"
+
 def _build_modules_image_impl_common(
         ctx,
         what,
@@ -32,6 +37,7 @@ def _build_modules_image_impl_common(
         build_command,
         modules_staging_dir,
         restore_modules_install = None,
+        set_ext_modules = None,
         implicit_outputs = None,
         additional_inputs = None,
         mnemonic = None):
@@ -45,6 +51,8 @@ def _build_modules_image_impl_common(
         modules_staging_dir: a staging directory for module installation.
         restore_modules_install: If `True`, restore `ctx.attr.kernel_modules_install`.
          Default is `True`.
+        set_ext_modules: If `True`, set variable `EXT_MODULES` before invoking script
+          in `build_utils.sh`
         implicit_outputs: like `outputs`, but not installed to `DIST_DIR` (not
          returned in `DefaultInfo`).
         additional_inputs: Additional files to be included.
@@ -140,6 +148,18 @@ def _build_modules_image_impl_common(
             options = "-al --chmod=F+w --include=source --include=build --exclude='*'",
         )
 
+    if set_ext_modules and ctx.attr._set_ext_modules[BuildSettingInfo].value:
+        ext_modules = ctx.attr.kernel_modules_install[KernelModuleInfo].packages.to_list()
+        command += """EXT_MODULES={quoted_ext_modules}""".format(
+            quoted_ext_modules = shell.quote(" ".join(ext_modules)),
+        )
+
+    if not ctx.attr._set_ext_modules[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("""\nWARNING: This is a temporary flag to mitigate issues on migrating away from
+setting EXT_MODULES in build.config. If you need --noset_ext_modules, please
+file a bug.""")
+
     command += """
              # Restore System.map to DIST_DIR for run_depmod in create_modules_staging
                mkdir -p ${{DIST_DIR}}
@@ -174,6 +194,9 @@ def _build_modules_image_attrs_common(additional = None):
         ),
         "_debug_print_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_print_scripts",
+        ),
+        "_set_ext_modules": attr.label(
+            default = "//build/kernel/kleaf:set_ext_modules",
         ),
     }
     if additional != None:
