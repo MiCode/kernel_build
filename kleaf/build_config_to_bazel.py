@@ -191,7 +191,7 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
 
         self.new_env = order_dict_by_key(json.loads(subprocess.check_output(
             "source build/kernel/_setup_env.sh > /dev/null && build/kernel/kleaf/dump_env.py",
-            shell=True, stderr=self.stderr, env=self.environ)))
+            shell=True, stderr=self.stderr, env=self.environ, executable="/bin/bash")))
         logging.info("Captured env: %s", json.dumps(self.new_env, indent=2))
 
         build_config = find_build_config(self.new_env)

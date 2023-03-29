@@ -53,12 +53,18 @@ Bazel's official documentation on `--strategy`
 
 ## SCM version
 
-When `--config=local`, some actions run in the sandbox and some
-does not. To ensure that both kinds of actions get consistent values,
-SCM versions and `SOURCE_DATE_EPOCH` should be set to empty or
-0 values; i.e. `--config=stamp` should not be set.
-If you specify `--config=local` and `--config=stamp` simultaneously,
-you'll get a build error.
+If you do not care about stamping local builds during development, it is
+advised that you do not specify `--config=stamp`. In this case, any change to
+the SCM version alone (e.g. edit commit message, rebase commits, etc.) does not
+trigger a rebuild at all during incremental builds. Rebuilding a `kernel_build`
+or `kernel_module` target usually finishes within seconds.
+
+If you do care about stamping local builds, you may `--config=stamp`. In
+that case, a change in the SCM version (e.g. edit commit message, rebase
+commits, etc.) invalidates caches at the Bazel level, causing `kernel_build`
+or `kernel_module`s to rebuild if you execute `tools/bazel build` in
+incremental builds. You may combine the flag with `--config=local` to cache
+the `$OUT_DIR` and shorten incremental build times.
 
 See [scmversion.md](scmversion.md).
 

@@ -401,7 +401,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def test_mainline_no_stamp(self):
         self._setup_mainline()
-        self._check_call("build", _LTO_NONE + [
+        self._check_call("build", _FASTEST + [
             f"//{self._common()}:kernel_aarch64",
         ])
         for scmversion in self._get_vmlinux_scmversion():
@@ -409,7 +409,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def test_mainline_stamp(self):
         self._setup_mainline()
-        self._check_call("build", _LTO_NONE + [
+        self._check_call("build", _FASTEST + [
             "--config=stamp",
             f"//{self._common()}:kernel_aarch64",
         ])
@@ -419,7 +419,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def test_mainline_ab(self):
         self._setup_mainline()
-        self._check_call("build", _LTO_NONE + [
+        self._check_call("build", _FASTEST + [
             "--config=stamp",
             f"//{self._common()}:kernel_aarch64",
         ], env=os.environ | {
@@ -431,7 +431,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def test_release_branch_no_stamp(self):
         self._setup_release_branch()
-        self._check_call("build", _LTO_NONE + [
+        self._check_call("build", _FASTEST + [
             f"//{self._common()}:kernel_aarch64",
         ])
         for scmversion in self._get_vmlinux_scmversion():
@@ -439,7 +439,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def test_release_branch_stamp(self):
         self._setup_release_branch()
-        self._check_call("build", _LTO_NONE + [
+        self._check_call("build", _FASTEST + [
             "--config=stamp",
             f"//{self._common()}:kernel_aarch64",
         ])
@@ -449,7 +449,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def test_release_branch_ab(self):
         self._setup_release_branch()
-        self._check_call("build", _LTO_NONE + [
+        self._check_call("build", _FASTEST + [
             "--config=stamp",
             f"//{self._common()}:kernel_aarch64",
         ], env=os.environ | {

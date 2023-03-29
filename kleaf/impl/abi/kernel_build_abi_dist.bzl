@@ -159,18 +159,14 @@ def kernel_abi_dist(
         data = [
             name + "_copy_to_dist_dir",
             kernel_abi + "_diff_executable",
-            kernel_abi + "_diff_executable_xml",
         ],
         script = """
           # Copy to dist dir
             $(rootpath {copy_to_dist_dir}) $@
           # Check return code of diff_abi and kmi_enforced
             $(rootpath {diff_stg})
-          # Same for XML ABI
-            $(rootpath {diff_xml})
         """.format(
             copy_to_dist_dir = name + "_copy_to_dist_dir",
             diff_stg = kernel_abi + "_diff_executable",
-            diff_xml = kernel_abi + "_diff_executable_xml",
         ),
     )
