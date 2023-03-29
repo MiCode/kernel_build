@@ -51,15 +51,27 @@ def _modules_prepare_impl(ctx):
         data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
+
+    force_gen_headers_cmd = ""
+    if ctx.attr.force_generate_headers:
+        force_gen_headers_cmd += """
+        # Workaround to force the creation of these missing files.
+           mkdir -p ${OUT_DIR}/security/selinux/
+           ${OUT_DIR}/scripts/selinux/genheaders/genheaders ${OUT_DIR}/security/selinux/flask.h ${OUT_DIR}/security/selinux/av_permissions.h
+        """
+
     command += """
          # Prepare for the module build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
+         # Additional steps
+           {force_gen_headers_cmd}
          # Package files
          # TODO(b/243737262): Use tar czf
            mkdir -p $(dirname {outdir_tar_gz})
            tar c -C ${{OUT_DIR}} . | gzip - > {outdir_tar_gz}
            {cache_dir_post_cmd}
     """.format(
+        force_gen_headers_cmd = force_gen_headers_cmd,
         outdir_tar_gz = ctx.outputs.outdir_tar_gz.path,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
     )
@@ -128,6 +140,9 @@ modules_prepare = rule(
         "outdir_tar_gz": attr.output(
             mandatory = True,
             doc = "the packaged ${OUT_DIR} files",
+        ),
+        "force_generate_headers": attr.bool(
+            doc = "If True it forces generation of additional headers after make modules_prepare",
         ),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),

@@ -102,6 +102,7 @@ def kernel_build(
         strip_modules = None,
         module_signing_key = None,
         system_trusted_key = None,
+        modules_prepare_force_generate_headers = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -361,6 +362,8 @@ def kernel_build(
 
           This is to allow for dynamic setting of `CONFIG_SYSTEM_TRUSTED_KEY` from Bazel.
         dtstree: Device tree support.
+        modules_prepare_force_generate_headers: If `True` it forces generation of
+          additional headers as part of modules_prepare.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -464,6 +467,7 @@ def kernel_build(
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
+        force_generate_headers = modules_prepare_force_generate_headers,
         **internal_kwargs
     )
 
