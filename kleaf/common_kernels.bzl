@@ -525,7 +525,7 @@ def define_common_kernels(
         print(("\nWARNING: {package}: define_common_kernels() no longer uses the branch " +
                "attribute. Default value of --dist_dir has been changed to out/{{name}}/dist. " +
                "Please remove the branch attribute from define_common_kernels().").format(
-            package = native.package(),
+            package = common_kernel_package,
         ))
 
     if visibility == None:
