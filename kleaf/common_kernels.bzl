@@ -103,7 +103,6 @@ _KERNEL_BUILD_VALID_KEYS = [
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
 _KERNEL_ABI_VALID_KEYS = [
     "abi_definition_stg",
-    "abi_definition_xml",
     "kmi_enforced",
 ]
 
@@ -134,8 +133,6 @@ def _default_target_configs():
     aarch64_protected_exports_list = (native.glob(["android/abi_gki_protected_exports"]) or [None])[0]
     aarch64_protected_modules_list = (native.glob(["android/gki_protected_modules"]) or [None])[0]
     aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
-    aarch64_abi_definition_xml = native.glob(["android/abi_gki_aarch64.xml"])
-    aarch64_abi_definition_xml = aarch64_abi_definition_xml[0] if aarch64_abi_definition_xml else None
     aarch64_abi_definition_stg = native.glob(["android/abi_gki_aarch64.stg"])
     aarch64_abi_definition_stg = aarch64_abi_definition_stg[0] if aarch64_abi_definition_stg else None
 
@@ -147,9 +144,8 @@ def _default_target_configs():
         "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
         "protected_exports_list": aarch64_protected_exports_list,
         "protected_modules_list": aarch64_protected_modules_list,
-        "abi_definition_xml": aarch64_abi_definition_xml,
         "abi_definition_stg": aarch64_abi_definition_stg,
-        "kmi_enforced": bool(aarch64_abi_definition_stg) or bool(aarch64_abi_definition_xml),
+        "kmi_enforced": bool(aarch64_abi_definition_stg),
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {
@@ -446,7 +442,7 @@ def define_common_kernels(
         aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
         aarch64_additional_kmi_symbol_lists = glob(
             ["android/abi_gki_aarch64*"],
-            exclude = ["**/*.xml", "android/abi_gki_aarch64"],
+            exclude = ["**/*.stg", "android/abi_gki_aarch64"],
         )
         aarch64_protected_exports_list = native.glob(["android/abi_gki_protected_exports"])
         aarch64_protected_exports_list = aarch64_protected_exports_list[0] if aarch64_protected_exports_list else None
@@ -525,7 +521,7 @@ def define_common_kernels(
         print(("\nWARNING: {package}: define_common_kernels() no longer uses the branch " +
                "attribute. Default value of --dist_dir has been changed to out/{{name}}/dist. " +
                "Please remove the branch attribute from define_common_kernels().").format(
-            package = native.package(),
+            package = common_kernel_package,
         ))
 
     if visibility == None:
