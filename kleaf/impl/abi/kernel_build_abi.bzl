@@ -24,141 +24,25 @@ load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
 load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
 load(":kernel_build.bzl", "kernel_build")
-load(":utils.bzl", "utils")
 
 # TODO(b/242072873): Delete once all use cases migrate to kernel_abi.
 def kernel_build_abi(
         name,
-        define_abi_targets = None,
-        # for kernel_abi
-        kernel_modules = None,
-        module_grouping = None,
-        abi_definition = None,
-        kmi_enforced = None,
-        unstripped_modules_archive = None,
-        kmi_symbol_list_add_only = None,
-        # A subset of common attributes accepted by kernel_build_abi.
-        # https://bazel.build/reference/be/common-definitions#common-attributes
-        tags = None,
-        features = None,
-        testonly = None,
-        visibility = None,
-        # for kernel_build
         **kwargs):
     """**Deprecated**. Use [`kernel_build`](#kernel_build) (with `collect_unstripped_modules = True`) and [`kernel_abi`](#kernel_abi) directly.
 
-    Declare multiple targets to support ABI monitoring.
-
-    This macro is meant to be used in place of the [`kernel_build`](#kernel_build)
-    marco. All arguments in `kwargs` are passed to `kernel_build` directly.
-
-    For example, you may have the following declaration. (For actual definition
-    of `kernel_aarch64`, see
-    [`define_common_kernels()`](#define_common_kernels).
-
-    ```
-    kernel_build_abi(name = "kernel_aarch64", ...)
-    ```
-
-    The `kernel_build_abi` invocation is equivalent to the following:
-
-    ```
-    kernel_build(
-        name = "kernel_aarch64",
-        collect_unstripped_modules = True,
-        ...
-    )
-    kernel_abi(name = "kernel_aarch64_abi", ...)
-    ```
-
     Args:
-      name: Name of the main `kernel_build`.
-      define_abi_targets: See [`kernel_abi.define_abi_targets`](#kernel_abi-define_abi_targets)
-      kernel_modules: See [`kernel_abi.kernel_modules`](#kernel_abi-kernel_modules)
-      module_grouping: See [`kernel_abi.module_grouping`](#kernel_abi-module_grouping)
-      abi_definition: See [`kernel_abi.abi_definition_xml`](#kernel_abi-abi_definition_xml)
-      kmi_enforced: See [`kernel_abi.kmi_enforced`](#kernel_abi-kmi_enforced)
-      unstripped_modules_archive: See [`kernel_abi.unstripped_modules_archive`](#kernel_abi-unstripped_modules_archive)
-      kmi_symbol_list_add_only: See [`kernel_abi.kmi_symbol_list_add_only`](#kernel_abi-kmi_symbol_list_add_only)
-      tags: [tags](https://bazel.build/reference/be/common-definitions#common.tags)
-      visibility: [visibility](https://bazel.build/reference/be/common-definitions#common.visibility)
-      features: [features](https://bazel.build/reference/be/common-definitions#common.features)
-      testonly: [testonly](https://bazel.build/reference/be/common-definitions#common.testonly)
-      **kwargs: Passed directly to [`kernel_build`](#kernel_build).
+      name: name
+      **kwargs: kwargs
 
     Deprecated:
       Use [`kernel_build`](#kernel_build) (with `collect_unstripped_modules = True`) and
       [`kernel_abi`](#kernel_abi) directly.
     """
+    fail("""//{}:{}: kernel_build_abi is deprecated. Split into kernel_build and kernel_abi.
 
-    kwargs = dict(kwargs)
-    if kwargs.get("collect_unstripped_modules") == None:
-        kwargs["collect_unstripped_modules"] = True
-
-    # buildifier: disable=print
-    print("""
-WARNING: kernel_build_abi is deprecated. Split into kernel_build and kernel_abi.
-
-You may try copy-pasting the following definition to BUILD.bazel
-(note: this is not necessarily accurate and likely unformatted):
-
-kernel_build(
-    {kwargs},
-)
-
-kernel_abi(
-    {abi_kwargs},
-)
-""".format(
-        kwargs = utils.kwargs_to_def(
-            name = name,
-            tags = tags,
-            visibility = visibility,
-            features = features,
-            testonly = testonly,
-            **kwargs
-        ),
-        abi_kwargs = utils.kwargs_to_def(
-            name = name + "_abi",
-            define_abi_targets = define_abi_targets,
-            kernel_modules = kernel_modules,
-            module_grouping = module_grouping,
-            abi_definition = abi_definition,
-            kmi_enforced = kmi_enforced,
-            unstripped_modules_archive = unstripped_modules_archive,
-            kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-            tags = tags,
-            visibility = visibility,
-            features = features,
-            testonly = testonly,
-        ),
-    ))
-
-    kernel_abi(
-        name = name + "_abi",
-        kernel_build = name,
-        define_abi_targets = define_abi_targets,
-        kernel_modules = kernel_modules,
-        module_grouping = module_grouping,
-        kmi_symbol_list_add_only = kmi_symbol_list_add_only,
-        kmi_enforced = kmi_enforced,
-        unstripped_modules_archive = unstripped_modules_archive,
-        # common attributes
-        tags = tags,
-        visibility = visibility,
-        features = features,
-        testonly = testonly,
-    )
-
-    kernel_build(
-        name = name,
-        # common attributes
-        tags = tags,
-        visibility = visibility,
-        features = features,
-        testonly = testonly,
-        **kwargs
-    )
+See build/kernel/kleaf/docs/abi_device.md for details.
+""".format(native.package_name(), name))
 
 def kernel_abi(
         name,

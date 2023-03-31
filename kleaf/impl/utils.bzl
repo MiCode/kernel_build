@@ -144,17 +144,6 @@ def _normalize(s):
     """Returns a normalized string by replacing non-letters / non-numbers as underscores."""
     return "".join([c if c.isalnum() else "_" for c in s.elems()])
 
-def _kwargs_to_def(**kwargs):
-    """Turns d into text that can be copied to BUILD files. May be inaccurate."""
-    for key, value in list(kwargs.items()):
-        if value == None:
-            kwargs.pop(key)
-
-    return ",\n    ".join(sorted(["{key} = {value_repr}".format(
-        key = key,
-        value_repr = repr(value),
-    ) for key, value in kwargs.items()]))
-
 def _hash_hex(x):
     """Returns `hash(x)` in hex format."""
     ret = "%x" % hash(x)
@@ -185,7 +174,6 @@ utils = struct(
     compare_file_names = _compare_file_names,
     sanitize_label_as_filename = _sanitize_label_as_filename,
     normalize = _normalize,
-    kwargs_to_def = _kwargs_to_def,
     hash_hex = _hash_hex,
     get_check_sandbox_cmd = _get_check_sandbox_cmd,
 )
