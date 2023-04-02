@@ -102,6 +102,7 @@ def kernel_build(
         strip_modules = None,
         module_signing_key = None,
         system_trusted_key = None,
+        modules_prepare_force_generate_headers = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -361,6 +362,8 @@ def kernel_build(
 
           This is to allow for dynamic setting of `CONFIG_SYSTEM_TRUSTED_KEY` from Bazel.
         dtstree: Device tree support.
+        modules_prepare_force_generate_headers: If `True` it forces generation of
+          additional headers as part of modules_prepare.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -464,6 +467,7 @@ def kernel_build(
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
+        force_generate_headers = modules_prepare_force_generate_headers,
         **internal_kwargs
     )
 
@@ -1108,7 +1112,7 @@ def _build_main_action(
          # Set variables and create dirs for modules
            mkdir -p {modules_staging_dir}
          # Install modules
-           if grep -q "CONFIG_MODULES=y" ${{OUT_DIR}}/.config ; then
+           if grep -q "\\bmodules\\b" <<< ${{MAKE_GOALS}} ; then
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
            else
                # Workaround as this file is required, hence just produce a placeholder.
@@ -1142,8 +1146,10 @@ def _build_main_action(
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
            {grab_unstripped_intree_modules_cmd}
-         # Check if there are remaining *.ko files
-           {check_remaining_modules_cmd}
+           if grep -q "\\bmodules\\b" <<< ${{MAKE_GOALS}} ; then
+             # Check if there are remaining *.ko files
+               {check_remaining_modules_cmd}
+           fi
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          # Create last_build symlink in cache_dir
