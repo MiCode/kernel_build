@@ -22,8 +22,3 @@ build:android_ci --config=stamp
 
 # Upload test results
 test:android_ci --config=ants
-
-# Enable hermetic cc_* rules
-# TODO(b/228238975): This should be the default everywhere. Right now, we
-#   only enable this on build bots.
-build:android_ci --config=hermetic_cc

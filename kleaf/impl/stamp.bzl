@@ -158,10 +158,11 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
     # a certain directory. Hence, be lenient about failures.
     scmversion_cmd += " || true"
 
-    return struct(deps = [ctx.info_file], cmd = _get_scmversion_cmd(
-        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ext_mod),
-        scmversion = "$({})".format(scmversion_cmd),
-    ))
+    cmd = """
+        ( {scmversion_cmd} ) > ${{OUT_DIR}}/localversion
+    """.format(scmversion_cmd = scmversion_cmd)
+
+    return struct(deps = [ctx.info_file], cmd = cmd)
 
 def _set_source_date_epoch(ctx):
     """Return command and inputs to set the value of `SOURCE_DATE_EPOCH`.

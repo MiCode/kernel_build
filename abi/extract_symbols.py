@@ -136,7 +136,7 @@ def add_dependent_symbols(module_symbols, exported):
 def create_symbol_list(symbol_list, undefined_symbols, exported,
                        emit_module_symbol_lists, module_grouping,
                        additions_only):
-  """Creates a symbol symbol list for libabigail."""
+  """Creates a libabigail format symbol list."""
   precious_symbols = set()
   if additions_only:
     precious_symbols.update(symbol_extraction.read_symbol_list(symbol_list))
