@@ -48,7 +48,6 @@ load(
     "X86_64_OUTS",
 )
 load(":print_debug.bzl", "print_debug")
-load("@kernel_toolchain_info//:dict.bzl", "common_kernel_package")
 
 _ARCH_CONFIGS = {
     "kernel_aarch64": {
@@ -521,7 +520,7 @@ def define_common_kernels(
         print(("\nWARNING: {package}: define_common_kernels() no longer uses the branch " +
                "attribute. Default value of --dist_dir has been changed to out/{{name}}/dist. " +
                "Please remove the branch attribute from define_common_kernels().").format(
-            package = common_kernel_package,
+            package = native.package_name(),
         ))
 
     if visibility == None:

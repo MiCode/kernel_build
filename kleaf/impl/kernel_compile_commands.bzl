@@ -16,17 +16,27 @@
 
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
+    ":abi/abi_transitions.bzl",
+    "FORCE_IGNORE_BASE_KERNEL_SETTING",
+)
+load(
     ":common_providers.bzl",
     "KernelBuildInfo",
 )
 
 def _kernel_compile_commands_transition_impl(_settings, _attr):
-    return {"//build/kernel/kleaf/impl:build_compile_commands": True}
+    return {
+        FORCE_IGNORE_BASE_KERNEL_SETTING: True,
+        "//build/kernel/kleaf/impl:build_compile_commands": True,
+    }
 
 _kernel_compile_commands_transition = transition(
     implementation = _kernel_compile_commands_transition_impl,
     inputs = [],
-    outputs = ["//build/kernel/kleaf/impl:build_compile_commands"],
+    outputs = [
+        FORCE_IGNORE_BASE_KERNEL_SETTING,
+        "//build/kernel/kleaf/impl:build_compile_commands",
+    ],
 )
 
 def _kernel_compile_commands_impl(ctx):
