@@ -81,9 +81,7 @@ def _initramfs_impl(ctx):
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
                {ramdisk_compress} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
              # Archive initramfs_staging_dir
-             # TODO(b/243737262): Use tar czf
-               mkdir -p $(dirname {initramfs_staging_archive})
-               tar c -C {initramfs_staging_dir} . | gzip - > {initramfs_staging_archive}
+               tar czf {initramfs_staging_archive} -C {initramfs_staging_dir} .
              # Remove staging directories
                rm -rf {initramfs_staging_dir}
     """.format(
