@@ -61,10 +61,7 @@ def _handle_python(ctx, py_outs, runtime):
         info_deps = runtime.files.to_list(),
     )
 
-def _hermetic_tools_impl(ctx):
-    deps = [] + ctx.files.srcs + ctx.files.deps
-    all_outputs = []
-
+def _handle_hermetic_tools(ctx):
     hermetic_outs_dict = {out.basename: out for out in ctx.outputs.outs}
     for src in ctx.files.srcs:
         out = hermetic_outs_dict[src.basename]
@@ -74,6 +71,55 @@ def _hermetic_tools_impl(ctx):
             is_executable = True,
             progress_message = "Creating symlinks to in-tree tools",
         )
+    return hermetic_outs_dict
+
+def _handle_host_tools(ctx, hermetic_base, deps):
+    host_outs = ctx.outputs.host_tools
+    command = """
+            set -e
+          # export PATH so which can work
+            export PATH
+            for i in {host_outs}; do
+                {hermetic_base}/ln -s $({hermetic_base}/which $({hermetic_base}/basename $i)) $i
+            done
+        """.format(
+        host_outs = " ".join([f.path for f in host_outs]),
+        hermetic_base = hermetic_base,
+    )
+
+    if ctx.attr.tar_args:
+        command += """
+        (
+            real_tar=$({hermetic_base}/readlink -e {hermetic_base}/tar)
+            rm {hermetic_base}/tar
+            cat > {hermetic_base}/tar << EOF
+#!/bin/sh
+
+$real_tar "\\$@" {tar_args}
+EOF
+        )
+        """.format(
+            hermetic_base = hermetic_base,
+            tar_args = " ".join([shell.quote(arg) for arg in ctx.attr.tar_args]),
+        )
+
+    ctx.actions.run_shell(
+        inputs = deps,
+        outputs = host_outs,
+        command = command,
+        progress_message = "Creating symlinks to {}".format(ctx.label),
+        mnemonic = "HermeticTools",
+        execution_requirements = {
+            "no-remote": "1",
+        },
+    )
+    return host_outs
+
+def _hermetic_tools_impl(ctx):
+    deps = [] + ctx.files.srcs + ctx.files.deps
+    all_outputs = []
+
+    hermetic_outs_dict = _handle_hermetic_tools(ctx)
 
     py2 = _handle_python(
         ctx = ctx,
@@ -93,45 +139,12 @@ def _hermetic_tools_impl(ctx):
     all_outputs += hermetic_outs
     deps += hermetic_outs
 
-    host_outs = ctx.outputs.host_tools
-    command = """
-            set -e
-          # export PATH so which can work
-            export PATH
-            for i in {host_outs}; do
-                {hermetic_base}/ln -s $({hermetic_base}/which $({hermetic_base}/basename $i)) $i
-            done
-        """.format(
-        host_outs = " ".join([f.path for f in host_outs]),
+    host_outs = _handle_host_tools(
+        ctx = ctx,
         hermetic_base = hermetic_outs[0].dirname,
+        deps = deps,
     )
 
-    if ctx.attr.tar_args:
-        command += """
-        (
-            real_tar=$({hermetic_base}/readlink -e {hermetic_base}/tar)
-            rm {hermetic_base}/tar
-            cat > {hermetic_base}/tar << EOF
-#!/bin/sh
-
-$real_tar "\\$@" {tar_args}
-EOF
-        )
-        """.format(
-            hermetic_base = hermetic_outs[0].dirname,
-            tar_args = " ".join([shell.quote(arg) for arg in ctx.attr.tar_args]),
-        )
-
-    ctx.actions.run_shell(
-        inputs = deps,
-        outputs = host_outs,
-        command = command,
-        progress_message = "Creating symlinks to {}".format(ctx.label),
-        mnemonic = "HermeticTools",
-        execution_requirements = {
-            "no-remote": "1",
-        },
-    )
     all_outputs += host_outs
 
     info_deps = deps + ctx.outputs.host_tools
