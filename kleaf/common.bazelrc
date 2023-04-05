@@ -21,10 +21,6 @@ build --experimental_ui_max_stdouterr_bytes=-1
 # Show the full set of flags for observability and debuggability.
 # common --announce_rc
 
-# TODO(b/276288846): _kernel_build creates outputs where one is a prefix of the
-# other. This is going to be disallowed in upstream Bazel.
-build --noexperimental_strict_conflict_checks
-
 # Make output directories writable so `rm -rf out/` works.
 build --experimental_writable_outputs
 
