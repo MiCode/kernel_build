@@ -365,6 +365,7 @@ def ddk_module(
         defconfig = defconfig,
         kconfig = kconfig,
         kernel_build = kernel_build,
+        module_deps = deps,
     )
 
     kernel_module(

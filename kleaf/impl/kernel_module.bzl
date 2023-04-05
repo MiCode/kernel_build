@@ -28,6 +28,7 @@ load(
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "DdkConfigInfo",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
@@ -568,6 +569,11 @@ def _kernel_module_impl(ctx):
             linux_includes = depset(),
         )
 
+    if ctx.attr.internal_ddk_config:
+        ddk_config_info = ctx.attr.internal_ddk_config[DdkConfigInfo]
+    else:
+        ddk_config_info = DdkConfigInfo(kconfig = depset(), defconfig = depset())
+
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
     # Also add check_no_remaining in the list of default outputs so that, when
@@ -602,6 +608,7 @@ def _kernel_module_impl(ctx):
             restore_paths = depset([paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name)]),
         ),
         ddk_headers_info,
+        ddk_config_info,
         KernelCmdsInfo(
             srcs = module_srcs,
             directories = depset([grab_cmd_step.cmd_dir]),
