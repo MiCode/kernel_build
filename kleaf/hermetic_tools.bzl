@@ -126,7 +126,7 @@ EOF
         inputs = deps,
         outputs = host_outs,
         command = command,
-        progress_message = "Creating symlinks to {}".format(attr),
+        progress_message = "Creating symlinks to {}".format(ctx.label),
         mnemonic = "HermeticTools",
         execution_requirements = {
             "no-remote": "1",
