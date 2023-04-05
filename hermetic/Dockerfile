@@ -14,7 +14,6 @@ RUN mkdir -p /l/bin
 RUN ln -s $(which perl) /l/bin/
 RUN ln -s $(which rsync) /l/bin/
 RUN ln -s $(which sh) /l/bin/
-RUN ln -s $(which tar) /l/bin/       # b/164013907
 
 # Allow git usage during the build (e.g. to determine timestamps)
 RUN ln -s $(which git) /l/bin/
