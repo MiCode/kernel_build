@@ -66,9 +66,7 @@ def _modules_prepare_impl(ctx):
          # Additional steps
            {force_gen_headers_cmd}
          # Package files
-         # TODO(b/243737262): Use tar czf
-           mkdir -p $(dirname {outdir_tar_gz})
-           tar c -C ${{OUT_DIR}} . | gzip - > {outdir_tar_gz}
+           tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
            {cache_dir_post_cmd}
     """.format(
         force_gen_headers_cmd = force_gen_headers_cmd,
