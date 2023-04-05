@@ -21,6 +21,7 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
+    "DdkConfigInfo",
     "DdkSubmoduleInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
@@ -293,6 +294,7 @@ def _split_kernel_module_deps(deps, this_label):
     hdr_deps = []
     submodule_deps = []
     module_symvers_deps = []
+    ddk_config_deps = []
     for dep in deps:
         is_valid_dep = False
         if DdkHeadersInfo in dep:
@@ -307,6 +309,9 @@ def _split_kernel_module_deps(deps, this_label):
         if ModuleSymversInfo in dep:
             module_symvers_deps.append(dep)
             is_valid_dep = True
+        if DdkConfigInfo in dep:
+            ddk_config_deps.append(dep)
+            is_valid_dep = True
         if not is_valid_dep:
             fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers, ddk_submodule are accepted.".format(this_label, dep.label))
     return struct(
@@ -314,6 +319,7 @@ def _split_kernel_module_deps(deps, this_label):
         hdrs = hdr_deps,
         submodules = submodule_deps,
         module_symvers_deps = module_symvers_deps,
+        ddk_configs = ddk_config_deps,
     )
 
 # Cross compiler name is not always the same as the linux arch

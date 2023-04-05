@@ -41,6 +41,7 @@ def _ddk_config_impl(ctx):
     return [
         DefaultInfo(files = depset([out_dir])),
         env_and_outputs_info,
+        ddk_config_info,
     ]
 
 def _create_merge_dot_config_step(defconfig_depset_file):
@@ -229,12 +230,20 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
     return script
 
 def _create_ddk_config_info(ctx):
+    module_label = Label(str(ctx.label).removesuffix("_config"))
+    split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.module_deps, module_label)
+    ddk_config_deps = split_deps.ddk_configs
+
     return DdkConfigInfo(
         kconfig = depset(
             ctx.files.kconfig,
+            transitive = [dep[DdkConfigInfo].kconfig for dep in ddk_config_deps],
+            order = "postorder",
         ),
         defconfig = depset(
             ctx.files.defconfig,
+            transitive = [dep[DdkConfigInfo].defconfig for dep in ddk_config_deps],
+            order = "postorder",
         ),
     )
 
@@ -267,6 +276,7 @@ for its format.
             executable = True,
             cfg = "exec",
         ),
+        "module_deps": attr.label_list(),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
