@@ -774,7 +774,7 @@ def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, rul
         """.format(
             search_and_cp_output = ctx.executable._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
-            ruledir = ruledir.path,
+            ruledir = ruledir,
             all_module_names_file = all_module_names_file.path,
         )
     return struct(
@@ -1039,7 +1039,12 @@ def _build_main_action(
     all_output_files = _declare_all_output_files(ctx)
 
     ## Declare implicit outputs of the command
-    ruledir = ctx.actions.declare_directory(ctx.label.name)
+    ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.
+    ruledir = paths.join(
+        ctx.genfiles_dir.path,
+        paths.dirname(ctx.build_file_path),
+        ctx.label.name,
+    )
 
     if base_kernel_utils.get_base_kernel(ctx):
         # We will re-package MODULES_STAGING_ARCHIVE in _repack_module_staging_archive,
@@ -1167,7 +1172,7 @@ def _build_main_action(
         search_and_cp_output = ctx.executable._search_and_cp_output.path,
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
-        ruledir = ruledir.path,
+        ruledir = ruledir,
         internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         all_output_names_minus_modules = " ".join(all_output_names.non_modules),
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
@@ -1210,7 +1215,6 @@ def _build_main_action(
 
     # all outputs that |command| generates
     command_outputs = [
-        ruledir,
         modules_staging_archive_self,
         out_dir_kernel_headers_tar,
     ]
@@ -1321,7 +1325,7 @@ def _create_infos(
     env_and_outputs_info_setup_restore_outputs = """
          # Restore kernel build outputs
            rsync -aL --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
-           """.format(ruledir = main_action_ret.ruledir.path)
+           """.format(ruledir = main_action_ret.ruledir)
     env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
 
     env_and_outputs_info = _create_env_and_outputs_info(
@@ -1357,7 +1361,7 @@ def _create_infos(
         # Restore kernel build outputs necessary for building external modules
     """
     for dep in ext_mod_env_and_outputs_info_deps:
-        relpath = paths.relativize(dep.path, main_action_ret.ruledir.path)
+        relpath = paths.relativize(dep.path, main_action_ret.ruledir)
         ext_mod_env_and_outputs_info_setup_restore_outputs += """
             mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
             rsync -aL {dep} ${{OUT_DIR}}/{relpath}
