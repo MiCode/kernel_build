@@ -163,6 +163,32 @@ def _get_check_sandbox_cmd():
            fi
     """
 
+def _write_depset(ctx, d, out):
+    """Writes a depset to a file.
+
+    Requires `_write_depset` in attrs.
+
+    Args:
+        ctx: ctx
+        d: the depset
+        out: name of the output file
+    Returns:
+        the declared output file.
+    """
+    out_file = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, out))
+
+    args = ctx.actions.args()
+    args.add(out_file)
+    args.add_all(d)
+    ctx.actions.run(
+        executable = ctx.executable._write_depset,
+        arguments = [args],
+        outputs = [out_file],
+        mnemonic = "WriteDepset",
+        progress_message = "Dumping depset to {}: {}".format(out, ctx.label),
+    )
+    return out_file
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -176,6 +202,7 @@ utils = struct(
     normalize = _normalize,
     hash_hex = _hash_hex,
     get_check_sandbox_cmd = _get_check_sandbox_cmd,
+    write_depset = _write_depset,
 )
 
 def _filter_module_srcs(files):

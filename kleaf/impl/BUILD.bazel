@@ -192,6 +192,13 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+sh_binary(
+    name = "write_depset",
+    srcs = ["write_depset.sh"],
+    # All kernel_* / ddk_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
 # Local build platforms
 platform(
     name = "linux_x86_64",
