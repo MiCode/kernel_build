@@ -196,10 +196,15 @@ def _gen_ddk_makefile_for_module(
         for src_item in rel_srcs:
             config = src_item.get("config")
             value = src_item.get("value")
+            obj_suffix = "y"
 
             if config is not None:
-                conditional = f"ifeq ($({config}),{value})"
-                out_file.write(f"{conditional}\n")
+                if value == True:
+                    # The special value True means y or m.
+                    obj_suffix = f"$({config})"
+                else:
+                    conditional = f"ifeq ($({config}),{value})"
+                    out_file.write(f"{conditional}\n")
 
             for src in src_item["files"]:
                 _handle_src(
@@ -211,9 +216,10 @@ def _gen_ddk_makefile_for_module(
                     include_dirs=include_dirs,
                     rel_root=rel_root,
                     copts=copts,
+                    obj_suffix = obj_suffix,
                 )
 
-            if config is not None:
+            if config is not None and value != True:
                 out_file.write(textwrap.dedent(f"""\
                     endif # {conditional}
                 """))
@@ -262,6 +268,7 @@ def _handle_src(
         include_dirs: list[pathlib.Path],
         rel_root: pathlib.Path,
         copts: Optional[list[dict[str, str | bool]]],
+        obj_suffix: str,
 ):
     # Ignore non-exported headers specified in srcs
     if src.suffix.lower() in (".h",):
@@ -281,7 +288,7 @@ def _handle_src(
     else:
         out_file.write(textwrap.dedent(f"""\
                         # Source: {package / src}
-                        {kernel_module_out.with_suffix('').name}-y += {out}
+                        {kernel_module_out.with_suffix('').name}-{obj_suffix} += {out}
                     """))
 
         out_file.write("\n")

@@ -134,9 +134,7 @@ def _conditional_srcs_test(
         name = name + "_expected",
         out = name + "_expected/Kbuild",
         content = [
-            "ifeq ($(CONFIG_A),y)",
-            "{}_module-y += cond_srcs/a_y.o".format(name),
-            "endif # ifeq ($(CONFIG_A),y)",
+            "{}_module-$(CONFIG_A) += cond_srcs/a_y.o".format(name),
             "ifeq ($(CONFIG_A),)",
             "{}_module-y += cond_srcs/a_n.o".format(name),
             "endif # ifeq ($(CONFIG_A),)",
