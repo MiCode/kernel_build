@@ -58,6 +58,10 @@
 #     Only one EXT_MODULES may be specified. A symlink is created from the
 #     output Kbuild will use to MODULE_OUT.
 #
+#   INPLACE_COMPILE
+#     Conditional flag to achivement in-place compilation. When this option
+#     is specified, store module output files to module source directory.
+#
 # Environment variables to influence the stages of the kernel build.
 #
 #   SKIP_MRPROPER
@@ -258,7 +262,9 @@ for EXT_MOD in ${EXT_MODULES}; do
   # The output directory must exist before we invoke make. Otherwise, the
   # build system behaves horribly wrong.
   set -x
-  if [ -n "${MODULE_OUT}" ]; then
+  if [ -n "${INPLACE_COMPILE}" ]; then
+    EXT_MOD_REL=${ROOT_DIR}/${EXT_MOD}
+  elif [ -n "${MODULE_OUT}" ]; then
     mkdir -p $(dirname ${OUT_DIR}/${EXT_MOD_REL})
     mkdir -p ${MODULE_OUT}
     rm -rf ${OUT_DIR}/${EXT_MOD_REL}
@@ -272,6 +278,8 @@ for EXT_MOD in ${EXT_MODULES}; do
     echo "========================================================"
     echo " Installing UAPI module headers:"
     mkdir -p "${KERNEL_UAPI_HEADERS_DIR}/usr"
+
+    EXT_MOD_REL=$(rel_path ${ROOT_DIR}/${EXT_MOD} ${KERNEL_DIR})
     make -C ${EXT_MOD} M=${EXT_MOD_REL} KERNEL_SRC=${ROOT_DIR}/${KERNEL_DIR}  \
                       O=${OUT_DIR} "${TOOL_ARGS[@]}"                         \
                       INSTALL_HDR_PATH="${KERNEL_UAPI_HEADERS_DIR}/usr"      \
