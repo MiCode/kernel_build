@@ -48,7 +48,6 @@ hermetic_tools(
     ),
     host_tools = [
         "bash",
-        "install",
         "perl",
         "rsync",
         "sh",
