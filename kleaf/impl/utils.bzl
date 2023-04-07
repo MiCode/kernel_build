@@ -21,6 +21,7 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
+    "DdkConfigInfo",
     "DdkSubmoduleInfo",
     "KernelEnvInfo",
     "KernelModuleInfo",
@@ -163,6 +164,32 @@ def _get_check_sandbox_cmd():
            fi
     """
 
+def _write_depset(ctx, d, out):
+    """Writes a depset to a file.
+
+    Requires `_write_depset` in attrs.
+
+    Args:
+        ctx: ctx
+        d: the depset
+        out: name of the output file
+    Returns:
+        the declared output file.
+    """
+    out_file = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, out))
+
+    args = ctx.actions.args()
+    args.add(out_file)
+    args.add_all(d)
+    ctx.actions.run(
+        executable = ctx.executable._write_depset,
+        arguments = [args],
+        outputs = [out_file],
+        mnemonic = "WriteDepset",
+        progress_message = "Dumping depset to {}: {}".format(out, ctx.label),
+    )
+    return out_file
+
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
@@ -176,22 +203,26 @@ utils = struct(
     normalize = _normalize,
     hash_hex = _hash_hex,
     get_check_sandbox_cmd = _get_check_sandbox_cmd,
+    write_depset = _write_depset,
 )
 
 def _filter_module_srcs(files):
     """Filters and categorizes sources for building `kernel_module`."""
     hdrs = []
     scripts = []
+    kconfig = []
     for file in files:
         if file.path.endswith(".h"):
             hdrs.append(file)
-        elif "Makefile" in file.path or "scripts/" in file.path:
+        if ("Makefile" in file.path or "scripts/" in file.path or
+            file.basename == "module.lds.S"):
             scripts.append(file)
-        elif file.basename == "module.lds.S":
-            scripts.append(file)
+        if "Kconfig" in file.basename:
+            kconfig.append(file)
     return struct(
         module_scripts = depset(scripts),
         module_hdrs = depset(hdrs),
+        module_kconfig = depset(kconfig),
     )
 
 def _transform_kernel_build_outs(name, what, outs):
@@ -263,6 +294,7 @@ def _split_kernel_module_deps(deps, this_label):
     hdr_deps = []
     submodule_deps = []
     module_symvers_deps = []
+    ddk_config_deps = []
     for dep in deps:
         is_valid_dep = False
         if DdkHeadersInfo in dep:
@@ -277,6 +309,9 @@ def _split_kernel_module_deps(deps, this_label):
         if ModuleSymversInfo in dep:
             module_symvers_deps.append(dep)
             is_valid_dep = True
+        if DdkConfigInfo in dep:
+            ddk_config_deps.append(dep)
+            is_valid_dep = True
         if not is_valid_dep:
             fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers, ddk_submodule are accepted.".format(this_label, dep.label))
     return struct(
@@ -284,6 +319,7 @@ def _split_kernel_module_deps(deps, this_label):
         hdrs = hdr_deps,
         submodules = submodule_deps,
         module_symvers_deps = module_symvers_deps,
+        ddk_configs = ddk_config_deps,
     )
 
 # Cross compiler name is not always the same as the linux arch

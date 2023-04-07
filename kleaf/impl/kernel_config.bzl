@@ -486,13 +486,19 @@ def _get_config_script(ctx, inputs):
           # the next `bazel run X_config` can infer the source file properly.
 
           DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${SRCARCH}/configs/${DEFCONFIG}
-          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK})
-          trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
+          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK} || true)
+          if [[ -n ${DEFCONFIG_REAL} ]]; then
+              trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
+          else
+              DEFCONFIG_REAL=${DEFCONFIG_SYMLINK}
+          fi
 
           # This needs to be in a sub-shell, otherwise trap doesn't work.
           (
               # Pre-defconfig commands
+                set -x
                 eval ${PRE_DEFCONFIG_CMDS}
+                set +x
               # Actual defconfig
                 make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
 
@@ -500,10 +506,18 @@ def _get_config_script(ctx, inputs):
                 menuconfig ${menucommand}
 
               # Post-defconfig commands
+                set -x
                 eval ${POST_DEFCONFIG_CMDS}
+                set +x
 
-              mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
-              echo "Updated ${DEFCONFIG_REAL}"
+              if [[ ${DEFCONFIG_REAL} != ${DEFCONFIG_SYMLINK} ]]; then
+                  mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
+                  echo "Updated $(realpath ${DEFCONFIG_REAL})"
+              elif [[ -f ${DEFCONFIG_REAL} ]]; then
+                  echo "Updated $(realpath ${DEFCONFIG_REAL})"
+              else
+                  echo "INFO: Can't find ${DEFCONFIG_REAL}. It may already be moved by POST_DEFCONFIG_CMDS."
+              fi
           )
     """
 
