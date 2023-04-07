@@ -15,6 +15,7 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -122,6 +123,17 @@ def _kernel_env_impl(ctx):
     additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
     additional_make_goals += kgdb.additional_make_goals(ctx)
     additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
+
+    if ctx.attr._rust_tools:
+        rustc = utils.find_file("rustc", ctx.files._rust_tools, "rust tools", required = True)
+        bindgen = utils.find_file("bindgen", ctx.files._rust_tools, "rust tools", required = True)
+        command += """
+            RUST_PREBUILT_BIN={quoted_rust_bin}
+            CLANGTOOLS_PREBUILT_BIN={quoted_clangtools_bin}
+        """.format(
+            quoted_rust_bin = shell.quote(rustc.dirname),
+            quoted_clangtools_bin = shell.quote(bindgen.dirname),
+        )
 
     command += """
         # create a build environment
@@ -334,7 +346,9 @@ def _get_rust_tools(rust_toolchain_version):
     else:
         rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
 
-    return [Label(rust_binaries)]
+    bindgen = "//prebuilts/clang-tools:linux-x86/bin/bindgen"
+
+    return [Label(rust_binaries), Label(bindgen)]
 
 def _kernel_env_additional_attrs():
     return dicts.add(
@@ -403,7 +417,7 @@ kernel_env = rule(
             values = ["true", "false", "auto"],
         ),
         "_tools": attr.label_list(default = _get_tools),
-        "_rust_tools": attr.label_list(default = _get_rust_tools),
+        "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
