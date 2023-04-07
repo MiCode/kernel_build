@@ -39,6 +39,15 @@ class PathPopen(PathCollectible):
         return collect(self.popen)
 
 
+@dataclasses.dataclass
+class PresetResult(PathCollectible):
+    """Consists of a path and a pre-defined result."""
+    result: str
+
+    def collect(self):
+        return self.result
+
+
 def call_setlocalversion(bin, srctree, *args) \
         -> Optional[subprocess.Popen[str]]:
     """Call setlocalversion.
@@ -91,15 +100,15 @@ class Stamp(object):
     def main(self) -> int:
         scmversion_map = self.call_setlocalversion_all()
 
-        source_date_epoch, source_date_epoch_obj = \
-            self.async_get_source_date_epoch_kernel_dir()
+        source_date_epoch_map = self.async_get_source_date_epoch_all()
 
         scmversion_result_map = self.collect_map(scmversion_map)
 
+        source_date_epoch_result_map = self.collect_map(source_date_epoch_map)
+
         self.print_result(
             scmversion_result_map=scmversion_result_map,
-            source_date_epoch=source_date_epoch,
-            source_date_epoch_obj=source_date_epoch_obj,
+            source_date_epoch_result_map=source_date_epoch_result_map,
         )
         return 0
 
@@ -149,18 +158,30 @@ class Stamp(object):
                 "code=%d, stderr=%s", e.returncode, e.stderr.strip())
         return []
 
-    def async_get_source_date_epoch_kernel_dir(self):
-        stable_source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH")
-        stable_source_date_epoch_obj = None
-        if not stable_source_date_epoch and self.kernel_dir and \
-                shutil.which("git"):
-            stable_source_date_epoch_obj = subprocess.Popen(
-                ["git", "-C", self.kernel_dir, "log", "-1", "--pretty=%ct"],
-                text=True,
-                stdout=subprocess.PIPE)
-        else:
-            stable_source_date_epoch = 0
-        return stable_source_date_epoch, stable_source_date_epoch_obj
+    def async_get_source_date_epoch_all(self) \
+            -> dict[str, PathCollectible]:
+
+        all_projects = set()
+        if self.kernel_dir:
+            all_projects.add(self.kernel_rel)
+
+        return {
+            proj: self.async_get_source_date_epoch(proj)
+            for proj in all_projects
+        }
+
+    def async_get_source_date_epoch(self, rel_path) -> PathCollectible:
+        env_val = os.environ.get("SOURCE_DATE_EPOCH")
+        if env_val:
+            return PresetResult(rel_path, env_val)
+        if shutil.which("git"):
+            args = [
+                "git", "-C",
+                os.path.realpath(rel_path), "log", "-1", "--pretty=%ct"
+            ]
+            popen = subprocess.Popen(args, text=True, stdout=subprocess.PIPE)
+            return PathPopen(rel_path, popen)
+        return PresetResult(rel_path, "0")
 
     def collect_map(
         self,
@@ -174,12 +195,12 @@ class Stamp(object):
     def print_result(
         self,
         scmversion_result_map,
-        source_date_epoch,
-        source_date_epoch_obj,
+        source_date_epoch_result_map,
     ) -> None:
-        if source_date_epoch_obj:
-            source_date_epoch = collect(source_date_epoch_obj)
-        print("STABLE_SOURCE_DATE_EPOCH", source_date_epoch)
+        stable_source_date_epochs = " ".join(
+            "{}:{}".format(path, result)
+            for path, result in sorted(source_date_epoch_result_map.items()))
+        print("STABLE_SOURCE_DATE_EPOCHS", stable_source_date_epochs)
 
         # If the list is empty, this prints "STABLE_SCMVERSIONS", and is
         # filtered by Bazel.
