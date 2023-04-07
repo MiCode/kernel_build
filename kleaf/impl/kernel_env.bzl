@@ -215,7 +215,8 @@ def _kernel_env_impl(ctx):
     )
 
     dependencies = []
-    dependencies += ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    dependencies += ctx.files._tools + ctx.files._rust_tools
+    dependencies += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
@@ -302,7 +303,9 @@ def _get_run_env(ctx, srcs):
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
     )
-    dependencies = srcs + ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+    dependencies = srcs + ctx.files._tools + ctx.files._rust_tools
+    dependencies += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    dependencies += [
         ctx.file.setup_env,
         ctx.file._build_utils_sh,
         ctx.file.build_config,
@@ -312,28 +315,26 @@ def _get_run_env(ctx, srcs):
         dependencies = dependencies,
     )
 
-def _get_tools(toolchain_version, rust_toolchain_version):
+def _get_tools(toolchain_version):
     if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
         # Using a test toolchain
         clang_binaries = toolchain_version
     else:
         clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
 
-    rust_binaries = None
-    if rust_toolchain_version:
-        if rust_toolchain_version.startswith("//build/kernel/kleaf/tests/"):
-            # Using a test toolchain
-            rust_binaries = rust_toolchain_version
-        else:
-            rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
+    return [Label(clang_binaries)]
 
-    ret = [clang_binaries]
-    if rust_toolchain_version:
-        ret.append(rust_binaries)
-    return [
-        Label(e)
-        for e in ret
-    ]
+def _get_rust_tools(rust_toolchain_version):
+    if not rust_toolchain_version:
+        return []
+
+    if rust_toolchain_version.startswith("//build/kernel/kleaf/tests/"):
+        # Using a test toolchain
+        rust_binaries = rust_toolchain_version
+    else:
+        rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
+
+    return [Label(rust_binaries)]
 
 def _kernel_env_additional_attrs():
     return dicts.add(
@@ -402,6 +403,7 @@ kernel_env = rule(
             values = ["true", "false", "auto"],
         ),
         "_tools": attr.label_list(default = _get_tools),
+        "_rust_tools": attr.label_list(default = _get_rust_tools),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
