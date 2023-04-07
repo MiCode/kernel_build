@@ -15,7 +15,17 @@
 """Utility functions to handle scmversion."""
 
 load(":status.bzl", "status")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
+def _get_status_at_path(ctx, status_name, quoted_src_path):
+    # {path}:{scmversion} {path}:{scmversion} ...
+
+    cmd = """extract_git_metadata "$({stable_status_cmd})" {quoted_src_path}""".format(
+        stable_status_cmd = status.get_stable_status_cmd(ctx, status_name),
+        quoted_src_path = quoted_src_path,
+    )
+    return cmd
 
 def _write_localversion_step(ctx, out_path):
     """Return command and inputs to set up scmversion.
@@ -31,7 +41,7 @@ def _write_localversion_step(ctx, out_path):
 
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         deps = [ctx.info_file]
-        stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+        stable_scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", '"${KERNEL_DIR}"')
     else:
         deps = []
         stable_scmversion_cmd = "echo '-maybe-dirty'"
@@ -87,15 +97,7 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
         """
         return struct(deps = [], cmd = cmd)
 
-    # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
-    scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
-    scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ext_mod)
-
-    # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
-    # should not run on KERNEL_DIR. However, for STABLE_SCMVERSION_EXT_MOD,
-    # we may have a missing item if setlocalversion should not run in
-    # a certain directory. Hence, be lenient about failures.
-    scmversion_cmd += " || true"
+    scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", shell.quote(ext_mod))
 
     cmd = """
         ( {scmversion_cmd} ) > ${{OUT_DIR}}/localversion
