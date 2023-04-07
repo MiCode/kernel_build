@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -75,6 +75,8 @@
 #                        $ANDROID_BUILD_TOP/out/$BRANCH and $KP_ROOT_DIR/out/$BRANCH
 #   DIST_DIR           - Kernel Platform dist folder for the KERNEL_TARGET and KERNEL_VARIANT
 #   RECOMPILE_KERNEL   - Recompile the kernel platform
+#   LTO                - Specify Link-Time Optimization level. See LTO_VALUES in kleaf/constants.bzl
+#                        for list of valid values.
 #   EXTRA_KBUILD_ARGS  - Arguments to pass to kernel build (build_with_bazel.py)
 #
 # To compile out-of-tree kernel objects and set up the prebuilt UAPI headers,
@@ -130,6 +132,12 @@ case "${KERNEL_TARGET}" in
     KERNEL_TARGET="waipio"
     ;;
 esac
+
+################################################################################
+# Configure LTO
+if [ -n "$LTO" ]; then
+  LTO_KBUILD_ARG="--lto=$LTO"
+fi
 
 ################################################################################
 # Create a build config used for this run of prepare_vendor
@@ -203,7 +211,7 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
 
   # shellcheck disable=SC2086
   "${ROOT_DIR}/build_with_bazel.py" \
-    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $EXTRA_KBUILD_ARGS \
+    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $LTO_KBUILD_ARG $EXTRA_KBUILD_ARGS \
     --out_dir "${ANDROID_KP_OUT_DIR}" && ret="$?" || ret="$?"
 
   # Modify the output directory's permissions so cleanup can occur later
