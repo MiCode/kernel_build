@@ -1041,7 +1041,7 @@ def _build_main_action(
     ## Declare implicit outputs of the command
     ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.
     ruledir = paths.join(
-        ctx.genfiles_dir.path,
+        ctx.bin_dir.path,
         paths.dirname(ctx.build_file_path),
         ctx.label.name,
     )

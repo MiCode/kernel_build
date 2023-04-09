@@ -110,7 +110,7 @@ def _intermediates_dir(ctx):
     a previous build may remain and affect a later build. Use with caution.
     """
     return paths.join(
-        ctx.genfiles_dir.path,
+        ctx.bin_dir.path,
         paths.dirname(ctx.build_file_path),
         ctx.attr.name + "_intermediates",
     )
