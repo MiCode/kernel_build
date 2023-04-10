@@ -139,7 +139,7 @@ KernelBuildUapiInfo = provider(
 )
 
 KernelBuildAbiInfo = provider(
-    doc = "A provider that specifies the expectations of a [`kernel_abi`](#kernel_abi) on a `kernel_build`.",
+    doc = "A provider that specifies ABI-related information of a [`kernel_build`](#kernel_build).",
     fields = {
         "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](#kernel_build).",
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",

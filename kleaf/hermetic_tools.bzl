@@ -18,6 +18,8 @@ Provide tools for a hermetic build.
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
+_PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
+
 HermeticToolsInfo = provider(
     doc = "Information provided by [hermetic_tools](#hermetic_tools).",
     fields = {
@@ -36,6 +38,29 @@ e.g. for generated executables and tests""",
     },
 )
 
+def _handle_python(ctx, py_outs, runtime):
+    if not py_outs:
+        return struct(
+            hermetic_outs_dict = {},
+            info_deps = [],
+        )
+
+    for out in py_outs:
+        ctx.actions.symlink(
+            output = out,
+            target_file = runtime.interpreter,
+            is_executable = True,
+            progress_message = "Creating symlink for {}: {}".format(
+                paths.basename(out.path),
+                ctx.label,
+            ),
+        )
+    return struct(
+        hermetic_outs_dict = {out.basename: out for out in py_outs},
+        # TODO(b/247624301): Use depset in HermeticToolsInfo.
+        info_deps = runtime.files.to_list(),
+    )
+
 def _hermetic_tools_impl(ctx):
     deps = [] + ctx.files.srcs + ctx.files.deps
     all_outputs = []
@@ -49,6 +74,21 @@ def _hermetic_tools_impl(ctx):
             is_executable = True,
             progress_message = "Creating symlinks to in-tree tools",
         )
+
+    py2 = _handle_python(
+        ctx = ctx,
+        py_outs = ctx.outputs.py2_outs,
+        runtime = ctx.toolchains[_PY_TOOLCHAIN_TYPE].py2_runtime,
+    )
+    hermetic_outs_dict.update(py2.hermetic_outs_dict)
+
+    py3 = _handle_python(
+        ctx = ctx,
+        py_outs = ctx.outputs.py3_outs,
+        runtime = ctx.toolchains[_PY_TOOLCHAIN_TYPE].py3_runtime,
+    )
+    hermetic_outs_dict.update(py3.hermetic_outs_dict)
+
     hermetic_outs = hermetic_outs_dict.values()
     all_outputs += hermetic_outs
     deps += hermetic_outs
@@ -94,7 +134,9 @@ EOF
     )
     all_outputs += host_outs
 
-    deps += ctx.outputs.host_tools
+    info_deps = deps + ctx.outputs.host_tools
+    info_deps += py2.info_deps
+    info_deps += py3.info_deps
 
     fail_hard = """
          # error on failures
@@ -115,7 +157,7 @@ EOF
     return [
         DefaultInfo(files = depset(all_outputs)),
         HermeticToolsInfo(
-            deps = deps,
+            deps = info_deps,
             setup = setup,
             additional_setup = additional_setup,
             run_setup = run_setup,
@@ -128,10 +170,15 @@ _hermetic_tools = rule(
     attrs = {
         "host_tools": attr.output_list(),
         "outs": attr.output_list(),
+        "py2_outs": attr.output_list(),
+        "py3_outs": attr.output_list(),
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
         "tar_args": attr.string_list(),
     },
+    toolchains = [
+        config_common.toolchain_type(_PY_TOOLCHAIN_TYPE, mandatory = True),
+    ],
 )
 
 def hermetic_tools(
@@ -140,6 +187,8 @@ def hermetic_tools(
         host_tools = None,
         deps = None,
         tar_args = None,
+        py2_outs = None,
+        py3_outs = None,
         **kwargs):
     """Provide tools for a hermetic build.
 
@@ -151,6 +200,8 @@ def hermetic_tools(
         host_tools: An allowlist of names of tools that are allowed to be used from the host.
 
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
+        py2_outs: List of tool names that are resolved to Python 2 binary.
+        py3_outs: List of tool names that are resolved to Python 3 binary.
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
         tar_args: List of fixed arguments provided to `tar` commands.
         **kwargs: Additional attributes to the internal rule, e.g.
@@ -166,11 +217,19 @@ def hermetic_tools(
     if srcs:
         outs = ["{}/{}".format(name, paths.basename(src)) for src in srcs]
 
+    if py2_outs:
+        py2_outs = ["{}/{}".format(name, paths.basename(py2_name)) for py2_name in py2_outs]
+
+    if py3_outs:
+        py3_outs = ["{}/{}".format(name, paths.basename(py3_name)) for py3_name in py3_outs]
+
     _hermetic_tools(
         name = name,
         srcs = srcs,
         outs = outs,
         host_tools = host_tools,
+        py2_outs = py2_outs,
+        py3_outs = py3_outs,
         deps = deps,
         tar_args = tar_args,
         **kwargs

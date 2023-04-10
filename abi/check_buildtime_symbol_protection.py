@@ -69,7 +69,8 @@ def main():
 
   if not os.path.isdir(args.directory):
     print(
-        f"Expected a directory to search for unsigned modules, but got {args.directory}"
+        f"Expected a directory to search for unsigned modules, but got {args.directory}",
+        file=sys.stderr,
     )
     return 1
 
@@ -106,10 +107,11 @@ def main():
 
   if missing_symbols:
     print(
-        "\nThese symbols are missing from the symbol list and are not available at runtime for unsigned modules:"
+        "\nThese symbols are missing from the symbol list and are not available at runtime for unsigned modules:",
+        file=sys.stderr,
     )
     for symbol in sorted(missing_symbols):
-      print(f"  {symbol}")
+      print(f"  {symbol}", file=sys.stderr)
     return 1
 
   return 0
