@@ -24,7 +24,7 @@ the list with the latest symbols from the msm-kernel build, then create a
 commit suitable for pushing back to ACK.
 
 Usage: $name [-s <SHORT DESCRIPTION>] [-l <LONG DESCRIPTION>] [-b <BUG>]
-             [-B <BRANCH>] [-t <TARGET>] [-p]
+             [-B <BRANCH>] [-t <TARGET>] [-a SYMBOLS] [-p]
 
 Options:
     -s SHORT_DESC  Short change description for use in commit message
@@ -32,6 +32,7 @@ Options:
     -b BUG         Bug number for use in commit message
     -B BRANCH      ACK branch to target (default $DEFAULT_BRANCH)
     -t TARGET      Target to build for (default $DEFAULT_TARGET)
+    -a SYMBOLS     Manually add SYMBOLS to the list (comma-separated)
     -p             Push the commit to ACK automatically
 
 Note: if -s, -l, or -b are omitted, the commit will be done in interactive mode.
@@ -74,7 +75,7 @@ restore_tree_state() {
 }
 
 main() {
-	while getopts "hs:l:b:p:t:B:" opt; do
+	while getopts "hs:l:b:p:t:B:a:" opt; do
 		case $opt in
 		h)
 			print_usage
@@ -97,6 +98,9 @@ main() {
 			;;
 		t)
 			target="$OPTARG"
+			;;
+		a)
+			manual_additions="$OPTARG"
 			;;
 		*)
 			print_usage
@@ -133,12 +137,19 @@ main() {
 		git commit --quiet -m 'Temporary ACK sync' "$SYMBOL_LIST"
 	fi
 
+	# Add any additional symbols passed in by the user (sorting/dedup will
+	# be taken care of later by Bazel)
+	for s in $(echo "$manual_additions" | tr ',' ' '); do
+		printf "  %s\n" "$s" >> android/abi_gki_aarch64_qcom
+	done
+
 	# Add new symbols from our build
 	(
 		cd ..
 		./tools/bazel run \
 			"//msm-kernel:${target:-$DEFAULT_TARGET}_gki_abi_update_symbol_list"
 	)
+
 	if ! tree_has_changes; then
 		printf "No new ABI symbols to add to ACK!\n"
 		exit 0
