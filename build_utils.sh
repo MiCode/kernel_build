@@ -725,18 +725,26 @@ function menuconfig() {
 }
 
 # $1: A mapping of the form path:value [path:value [...]]
-# $2: A path.
+# $2: A path. This may be a subpath of an item in the mapping
 # $3: What is being determined (for error messages)
 # Returns the corresponding value of path.
 # Example:
-#   extract_git_metadata "foo:123 bar:456" foo
+#   extract_git_metadata "foo:123 bar:456" foo/baz
 #   -> 123
 function extract_git_metadata() {
   local map=$1
   local git_project_candidate=$2
   local what=$3
-
-  # we may have a missing item if a certain directory is not managed
-  # by git. Hence, be lenient about failures.
-  echo "${map}" | sed -n 's|.*\<'"${git_project_candidate}"':\(\S\+\).*|\1|p' || true
+  while [[ "${git_project_candidate}" != "." ]]; do
+    value_candidate=$(echo "${map}" | sed -n 's|.*\<'"${git_project_candidate}"':\(\S\+\).*|\1|p' || true)
+    if [[ -n "${value_candidate}" ]]; then
+        break
+    fi
+    git_project_candidate=$(dirname ${git_project_candidate})
+  done
+  if [[ -n ${value_candidate} ]]; then
+    echo "${value_candidate}"
+  else
+    echo "WARNING: Can't determine $what for $2" >&2
+  fi
 }
