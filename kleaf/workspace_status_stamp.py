@@ -191,6 +191,7 @@ class Stamp(object):
         all_projects = set()
         if self.kernel_dir:
             all_projects.add(self.kernel_rel)
+        all_projects |= set(self.projects)
 
         return {
             proj: self.async_get_source_date_epoch(proj)
