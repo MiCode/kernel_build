@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import shutil
 import subprocess
@@ -49,8 +50,7 @@ def collect(popen_obj: subprocess.Popen) -> str:
     """
     stdout, _ = popen_obj.communicate()
     if popen_obj.returncode != 0:
-        sys.stderr.write("ERROR: return code is {}\n".format(
-            popen_obj.returncode))
+        logging.error("return code is %d", popen_obj.returncode)
         sys.exit(1)
     return stdout.strip()
 
@@ -114,11 +114,10 @@ class Stamp(object):
                                            stderr=subprocess.PIPE,
                                            executable="/bin/bash").split()
         except subprocess.CalledProcessError as e:
-            msg = ("WARNING: Unable to determine EXT_MODULES; scmversion "
-                   "for external modules may be incorrect. "
-                   "code={}, stderr={}\n").format(e.returncode,
-                                                  e.stderr.strip())
-            sys.stderr.write(msg)
+            logging.warning(
+                "Unable to determine EXT_MODULES; scmversion "
+                "for external modules may be incorrect. "
+                "code=%d, stderr=%s", e.returncode, e.stderr.strip())
         return []
 
     def call_setlocalversion_ext_modules(self, ext_modules):
@@ -170,4 +169,7 @@ class Stamp(object):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(stream=sys.stderr,
+                        level=logging.WARNING,
+                        format="%(levelname)s: %(message)s")
     sys.exit(Stamp().main())
