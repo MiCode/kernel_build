@@ -48,15 +48,10 @@ hermetic_tools(
     ),
     host_tools = [
         "bash",
-        "install",
         "perl",
         "rsync",
         "sh",
         "tar",
-    ],
-    py2_outs = [
-        "python2",
-        "python2.7",
     ],
     py3_outs = [
         "python",
