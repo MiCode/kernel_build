@@ -313,6 +313,8 @@ def _reconfig(ctx):
     """.format(configs = " ".join(configs)), deps = deps)
 
 def _kernel_config_impl(ctx):
+    localversion_file = stamp.write_localversion(ctx)
+
     inputs = [
         s
         for s in ctx.files.srcs
@@ -328,10 +330,7 @@ def _kernel_config_impl(ctx):
 
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
-    localversion_file_path = out_dir.path + "/localversion"
 
-    write_localversion_step = stamp.write_localversion_step(ctx, localversion_file_path)
-    inputs += write_localversion_step.deps
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
@@ -369,16 +368,12 @@ def _kernel_config_impl(ctx):
         # re-built. See b/263415662
           echo "include/config/auto.conf: FORCE" >> {out_dir}/include/config/auto.conf.cmd
 
-        # Infer localversion.
-          {write_localversion_cmd}
-
           {cache_dir_post_cmd}
         """.format(
         out_dir = out_dir.path,
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         reconfig_cmd = reconfig.cmd,
-        write_localversion_cmd = write_localversion_step.cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -395,19 +390,20 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    post_setup_deps = [out_dir]
+    post_setup_deps = [out_dir, localversion_file]
     post_setup = """
            [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
            rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
-           rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
+           rsync -aL --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
     """.format(
         out_dir = out_dir.path,
+        localversion_file = localversion_file.path,
     )
 
     if trim_nonlisted_kmi_utils.get_value(ctx):

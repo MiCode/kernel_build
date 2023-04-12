@@ -14,9 +14,13 @@
 
 """Utility functions to handle scmversion."""
 
-load(":status.bzl", "status")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(
+    ":common_providers.bzl",
+    "KernelEnvInfo",
+)
+load(":status.bzl", "status")
 
 def _get_status_at_path(ctx, status_name, quoted_src_path):
     # {path}:{scmversion} {path}:{scmversion} ...
@@ -27,18 +31,25 @@ def _get_status_at_path(ctx, status_name, quoted_src_path):
     )
     return cmd
 
-def _write_localversion_step(ctx, out_path):
-    """Return command and inputs to set up scmversion.
+def _write_localversion(ctx):
+    """Sets up scmversion.
+
+    This creates a separate action to set up scmversion to avoid direct
+    dependency on stable-status.txt which contains metadata of all git
+    projects in the repository, so that changes in unrelated projects does not
+    trigger a rebuild.
 
     Args:
-        ctx: [ctx](https://bazel.build/rules/lib/ctx)
-        out_path: output path of localversion file
+        ctx: [ctx](https://bazel.build/rules/lib/ctx) of `kernel_config`
+    Returns:
+        output localversion file
     """
 
     # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
     # STABLE_SCMVERSION because their values aren't known at that point.
     # Emulate the logic in setlocalversion to prepend them.
 
+    out_file = ctx.actions.declare_file(ctx.attr.name + "/localversion")
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
         deps = [ctx.info_file]
         stable_scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", '"${KERNEL_DIR}"')
@@ -47,7 +58,7 @@ def _write_localversion_step(ctx, out_path):
         stable_scmversion_cmd = "echo '-maybe-dirty'"
 
     # TODO(b/227520025): Remove the following logic in setlocalversion.
-    cmd = """
+    cmd = ctx.attr.env[KernelEnvInfo].setup + """
         (
             # Extract the Android release version. If there is no match, then return 255
             # and clear the variable $android_release
@@ -80,9 +91,17 @@ def _write_localversion_step(ctx, out_path):
         ) > {out_path}
     """.format(
         stable_scmversion_cmd = stable_scmversion_cmd,
-        out_path = out_path,
+        out_path = out_file.path,
     )
-    return struct(deps = deps, cmd = cmd)
+
+    ctx.actions.run_shell(
+        inputs = deps + ctx.attr.env[KernelEnvInfo].dependencies,
+        outputs = [out_file],
+        command = cmd,
+        progress_message = "Determining scmversion {}".format(ctx.label),
+        mnemonic = "KernelConfigScmversion",
+    )
+    return out_file
 
 def _get_ext_mod_scmversion(ctx, ext_mod):
     """Return command and inputs to get the SCM version for an external module.
@@ -144,7 +163,7 @@ def _set_localversion_cmd(_ctx):
     """
 
 stamp = struct(
-    write_localversion_step = _write_localversion_step,
+    write_localversion = _write_localversion,
     get_ext_mod_scmversion = _get_ext_mod_scmversion,
     set_source_date_epoch = _set_source_date_epoch,
     set_localversion_cmd = _set_localversion_cmd,
