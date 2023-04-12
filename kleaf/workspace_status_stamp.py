@@ -140,11 +140,18 @@ class Stamp(object):
 
     def find_setlocalversion(self) -> None:
         self.setlocalversion = None
+
+        all_projects = []
         if self.kernel_dir:
-            candidate = os.path.join(self.kernel_dir,
+            all_projects.append(self.kernel_rel)
+        all_projects.extend(self.projects)
+
+        for proj in all_projects:
+            candidate = os.path.join(proj,
                                      "scripts/setlocalversion")
             if os.access(candidate, os.X_OK):
-                self.setlocalversion = candidate
+                self.setlocalversion = os.path.realpath(candidate)
+                return
 
     def call_setlocalversion_all(self) -> dict[str, PathCollectible]:
         if not self.setlocalversion:
