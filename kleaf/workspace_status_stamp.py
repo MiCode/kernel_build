@@ -68,6 +68,31 @@ def call_setlocalversion(bin, srctree, *args) \
     return None
 
 
+def list_projects():
+    """Lists projects in the repository.
+
+    Returns:
+        a list of projects in the repository.
+    """
+    args = ["repo", "forall", "-c", 'echo "$REPO_PATH $REPO_LREV"']
+    try:
+        output = subprocess.check_output(args, text=True)
+        return parse_repo_prop(output)
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        logging.error("Unable to list projects: %s", e)
+
+    return []
+
+
+def parse_repo_prop(content: str):
+    """Parses a repo.prop file
+
+    Returns:
+        a list of projects in the repository.
+    """
+    return [line.split()[0] for line in content.splitlines()]
+
+
 def collect(popen_obj: subprocess.Popen) -> str:
     """Collect the result of a Popen object.
 
@@ -86,6 +111,7 @@ def collect(popen_obj: subprocess.Popen) -> str:
 class Stamp(object):
 
     def __init__(self):
+        self.projects = list_projects()
         self.init_for_dot_source_date_epoch_dir()
 
     def init_for_dot_source_date_epoch_dir(self) -> None:
@@ -128,6 +154,7 @@ class Stamp(object):
         if self.kernel_dir:
             all_projects.add(self.kernel_rel)
         all_projects |= set(self.get_ext_modules())
+        all_projects |= set(self.projects)
 
         scmversion_map = {}
         for project in all_projects:
