@@ -18,6 +18,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
+    "KernelBuildOriginalEnvInfo",
     "KernelEnvInfo",
 )
 load(":status.bzl", "status")
@@ -103,7 +104,7 @@ def _write_localversion(ctx):
     )
     return out_file
 
-def _get_ext_mod_scmversion(ctx, ext_mod):
+def _ext_mod_write_localversion(ctx, ext_mod):
     """Return command and inputs to get the SCM version for an external module.
 
     Args:
@@ -116,13 +117,33 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
         """
         return struct(deps = [], cmd = cmd)
 
+    # This creates a separate action to set up scmversion to avoid direct
+    # dependency on stable-status.txt which contains metadata of all git
+    # projects in the repository, so that changes in unrelated projects does not
+    # trigger a rebuild.
+    localversion_file = ctx.actions.declare_file(ctx.label.name + "/localversion")
     scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", shell.quote(ext_mod))
+    cmd = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.setup + """
+        ( {scmversion_cmd} ) > {localversion_file}
+    """.format(
+        scmversion_cmd = scmversion_cmd,
+        localversion_file = localversion_file.path,
+    )
+    ctx.actions.run_shell(
+        inputs = [ctx.info_file] + ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.dependencies,
+        outputs = [localversion_file],
+        command = cmd,
+        progress_message = "Determining scmversion for module {}".format(ctx.label),
+        mnemonic = "KernelModuleScmversion",
+    )
 
-    cmd = """
-        ( {scmversion_cmd} ) > ${{OUT_DIR}}/localversion
-    """.format(scmversion_cmd = scmversion_cmd)
+    ret_cmd = """
+        rsync -aL --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
+    """.format(
+        localversion_file = localversion_file.path,
+    )
 
-    return struct(deps = [ctx.info_file], cmd = cmd)
+    return struct(deps = [localversion_file], cmd = ret_cmd)
 
 def _set_source_date_epoch(ctx):
     """Return command and inputs to set the value of `SOURCE_DATE_EPOCH`.
@@ -164,7 +185,7 @@ def _set_localversion_cmd(_ctx):
 
 stamp = struct(
     write_localversion = _write_localversion,
-    get_ext_mod_scmversion = _get_ext_mod_scmversion,
+    ext_mod_write_localversion = _ext_mod_write_localversion,
     set_source_date_epoch = _set_source_date_epoch,
     set_localversion_cmd = _set_localversion_cmd,
 )

@@ -396,7 +396,7 @@ def _kernel_module_impl(ctx):
     inputs += grab_cmd_step.inputs
     command_outputs += grab_cmd_step.outputs
 
-    scmversion_ret = stamp.get_ext_mod_scmversion(ctx, ext_mod)
+    scmversion_ret = stamp.ext_mod_write_localversion(ctx, ext_mod)
     inputs += scmversion_ret.deps
     command += scmversion_ret.cmd
 
