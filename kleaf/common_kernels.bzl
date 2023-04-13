@@ -634,6 +634,17 @@ def define_common_kernels(
             subdirs = ["scripts"],
         )
 
+        native.filegroup(
+            name = name + "_ddk_allowlist_headers",
+            srcs = [
+                name + "_script_headers",
+                name + "_uapi_headers",
+            ],
+            visibility = [
+                "//build/kernel/kleaf:__pkg__",
+            ],
+        )
+
         kernel_modules_install(
             name = name + "_modules_install",
             # The GKI target does not have external modules. GKI modules goes
