@@ -74,6 +74,10 @@ def list_projects():
     Returns:
         a list of projects in the repository.
     """
+    if "KLEAF_REPO_PROP" in os.environ:
+        with open(os.environ["KLEAF_REPO_PROP"]) as repo_prop_file:
+            return parse_repo_prop(repo_prop_file.read())
+
     args = ["repo", "forall", "-c", 'echo "$REPO_PATH $REPO_LREV"']
     try:
         output = subprocess.check_output(args, text=True)
@@ -147,8 +151,7 @@ class Stamp(object):
         all_projects.extend(self.projects)
 
         for proj in all_projects:
-            candidate = os.path.join(proj,
-                                     "scripts/setlocalversion")
+            candidate = os.path.join(proj, "scripts/setlocalversion")
             if os.access(candidate, os.X_OK):
                 self.setlocalversion = os.path.realpath(candidate)
                 return
