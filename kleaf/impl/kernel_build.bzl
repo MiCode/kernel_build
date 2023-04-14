@@ -1338,7 +1338,7 @@ def _create_infos(
 
     kernel_build_info = KernelBuildInfo(
         out_dir_kernel_headers_tar = main_action_ret.out_dir_kernel_headers_tar,
-        outs = all_output_files["outs"].values(),
+        outs = depset(all_output_files["outs"].values()),
         base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
         interceptor_output = main_action_ret.interceptor_output,
         compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
