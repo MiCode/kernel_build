@@ -17,7 +17,8 @@
 KernelCmdsInfo = provider(
     doc = """Provides a directory of `.cmd` files.""",
     fields = {
-        "srcs": """sources to build the original target.""",
+        "srcs": """A [depset](https://bazel.build/extending/depsets) of sources to build
+            the original target.""",
         "directories": """A [depset](https://bazel.build/extending/depsets) of directories
                           containing the `.cmd` files""",
     },
