@@ -199,10 +199,22 @@ For an external [`kernel_module()`](#kernel_module), this is a directory contain
     },
 )
 
+KernelModuleKernelBuildInfo = provider(
+    doc = "Information about the `kernel_build` that an external module builds upon.",
+    fields = {
+        "label": "Label of the `kernel_build` target",
+        "ext_module_info": "`KernelBuildExtModuleInfo`",
+        "env_and_outputs_info": "`KernelEnvAndOutputsInfo`",
+        "images_info": "`KernelImagesInfo`",
+        "kernel_build_info": "`KernelBuildInfo`",
+    },
+)
+
 KernelModuleInfo = provider(
     doc = "A provider that provides installed external modules.",
     fields = {
-        "kernel_build": "kernel_build attribute of this module",
+        "kernel_build_infos": """`KernelModuleKernelBuildInfo` containing info about
+            the `kernel_build` attribute of this module""",
 
         # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
         "modules_staging_dws_depset": """A [depset](https://bazel.build/extending/depsets) of

@@ -23,7 +23,12 @@ load(
     ":common_providers.bzl",
     "DdkConfigInfo",
     "DdkSubmoduleInfo",
+    "KernelBuildExtModuleInfo",
+    "KernelBuildInfo",
+    "KernelEnvAndOutputsInfo",
+    "KernelImagesInfo",
     "KernelModuleInfo",
+    "KernelModuleKernelBuildInfo",
     "KernelModuleSetupInfo",
     "ModuleSymversInfo",
 )
@@ -254,10 +259,10 @@ def _check_kernel_build(kernel_module_infos, kernel_build_label, this_label):
 
     for kernel_module_info in kernel_module_infos:
         if kernel_build_label == None:
-            kernel_build_label = kernel_module_info.kernel_build.label
+            kernel_build_label = kernel_module_info.kernel_build_infos.label
             continue
 
-        if kernel_module_info.kernel_build.label != \
+        if kernel_module_info.kernel_build_infos.label != \
            kernel_build_label:
             fail((
                 "{this_label} refers to kernel_build {kernel_build}, but " +
@@ -267,8 +272,24 @@ def _check_kernel_build(kernel_module_infos, kernel_build_label, this_label):
                 this_label = this_label,
                 kernel_build = kernel_build_label,
                 dep = kernel_module_info.label,
-                dep_kernel_build = kernel_module_info.kernel_build.label,
+                dep_kernel_build = kernel_module_info.kernel_build_infos.label,
             ))
+
+def _create_kernel_module_kernel_build_info(kernel_build):
+    """Creates KernelModuleKernelBuildInfo.
+
+    This info represents information on a kernel_module.kernel_build.
+
+    Args:
+        kernel_build: the `kernel_build` Target.
+    """
+    return KernelModuleKernelBuildInfo(
+        label = kernel_build.label,
+        ext_module_info = kernel_build[KernelBuildExtModuleInfo],
+        env_and_outputs_info = kernel_build[KernelEnvAndOutputsInfo],
+        kernel_build_info = kernel_build[KernelBuildInfo],
+        images_info = kernel_build[KernelImagesInfo],
+    )
 
 def _local_exec_requirements(ctx):
     """Returns the execution requirement for `--config=local`.
@@ -359,4 +380,5 @@ kernel_utils = struct(
     local_exec_requirements = _local_exec_requirements,
     split_kernel_module_deps = _split_kernel_module_deps,
     set_src_arch_cmd = _set_src_arch_cmd,
+    create_kernel_module_kernel_build_info = _create_kernel_module_kernel_build_info,
 )

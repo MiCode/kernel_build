@@ -570,7 +570,7 @@ def _kernel_module_impl(ctx):
             setup = setup,
         ),
         KernelModuleInfo(
-            kernel_build = ctx.attr.kernel_build,
+            kernel_build_infos = kernel_utils.create_kernel_module_kernel_build_info(ctx.attr.kernel_build),
             modules_staging_dws_depset = depset([modules_staging_dws]),
             kernel_uapi_headers_dws_depset = depset([kernel_uapi_headers_dws]),
             files = depset(output_files),

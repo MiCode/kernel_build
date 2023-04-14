@@ -48,7 +48,7 @@ def _kernel_module_group_impl(ctx):
         ctx.label,
     )
     kernel_module_info = KernelModuleInfo(
-        kernel_build = targets[0][KernelModuleInfo].kernel_build,
+        kernel_build_infos = targets[0][KernelModuleInfo].kernel_build_infos,
         modules_staging_dws_depset = depset(transitive = [
             target[KernelModuleInfo].modules_staging_dws_depset
             for target in targets
