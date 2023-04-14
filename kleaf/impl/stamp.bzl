@@ -82,7 +82,10 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
         ext_mod: Defines the directory of the external module
     """
     if not ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        return struct(deps = [], cmd = "")
+        cmd = """
+            rm -f ${OUT_DIR}/localversion
+        """
+        return struct(deps = [], cmd = cmd)
 
     # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
     scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")

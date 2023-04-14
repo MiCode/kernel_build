@@ -15,6 +15,7 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -123,6 +124,17 @@ def _kernel_env_impl(ctx):
     additional_make_goals += kgdb.additional_make_goals(ctx)
     additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
 
+    if ctx.attr._rust_tools:
+        rustc = utils.find_file("rustc", ctx.files._rust_tools, "rust tools", required = True)
+        bindgen = utils.find_file("bindgen", ctx.files._rust_tools, "rust tools", required = True)
+        command += """
+            RUST_PREBUILT_BIN={quoted_rust_bin}
+            CLANGTOOLS_PREBUILT_BIN={quoted_clangtools_bin}
+        """.format(
+            quoted_rust_bin = shell.quote(rustc.dirname),
+            quoted_clangtools_bin = shell.quote(bindgen.dirname),
+        )
+
     command += """
         # create a build environment
           source {build_utils_sh}
@@ -215,7 +227,8 @@ def _kernel_env_impl(ctx):
     )
 
     dependencies = []
-    dependencies += ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    dependencies += ctx.files._tools + ctx.files._rust_tools
+    dependencies += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     dependencies += [
         out_file,
         ctx.file._build_utils_sh,
@@ -302,7 +315,9 @@ def _get_run_env(ctx, srcs):
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
     )
-    dependencies = srcs + ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+    dependencies = srcs + ctx.files._tools + ctx.files._rust_tools
+    dependencies += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    dependencies += [
         ctx.file.setup_env,
         ctx.file._build_utils_sh,
         ctx.file.build_config,
@@ -312,28 +327,28 @@ def _get_run_env(ctx, srcs):
         dependencies = dependencies,
     )
 
-def _get_tools(toolchain_version, rust_toolchain_version):
+def _get_tools(toolchain_version):
     if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
         # Using a test toolchain
         clang_binaries = toolchain_version
     else:
         clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
 
-    rust_binaries = None
-    if rust_toolchain_version:
-        if rust_toolchain_version.startswith("//build/kernel/kleaf/tests/"):
-            # Using a test toolchain
-            rust_binaries = rust_toolchain_version
-        else:
-            rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
+    return [Label(clang_binaries)]
 
-    ret = [clang_binaries]
-    if rust_toolchain_version:
-        ret.append(rust_binaries)
-    return [
-        Label(e)
-        for e in ret
-    ]
+def _get_rust_tools(rust_toolchain_version):
+    if not rust_toolchain_version:
+        return []
+
+    if rust_toolchain_version.startswith("//build/kernel/kleaf/tests/"):
+        # Using a test toolchain
+        rust_binaries = rust_toolchain_version
+    else:
+        rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
+
+    bindgen = "//prebuilts/clang-tools:linux-x86/bin/bindgen"
+
+    return [Label(rust_binaries), Label(bindgen)]
 
 def _kernel_env_additional_attrs():
     return dicts.add(
@@ -402,6 +417,7 @@ kernel_env = rule(
             values = ["true", "false", "auto"],
         ),
         "_tools": attr.label_list(default = _get_tools),
+        "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
