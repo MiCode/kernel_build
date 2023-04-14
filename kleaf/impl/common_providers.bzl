@@ -25,17 +25,14 @@ KernelCmdsInfo = provider(
 )
 
 KernelEnvInfo = provider(
-    doc = """Describe a generic environment setup with some dependencies and a setup script.
-
-`KernelEnvInfo` is a legacy name; it is not only provided by `kernel_env`, but
-other rules like `kernel_build`. Hence, the `KernelEnvInfo`
-is in its own extension instead of `kernel_env.bzl`.
-    """,
+    doc = """Describe a generic environment setup with some dependencies and a setup script.""",
     fields = {
-        "dependencies": "dependencies required to use this environment setup",
+        "inputs": """A [depset](https://bazel.build/extending/depsets) of inputs associated with
+            the target platform.""",
+        "tools": """A [depset](https://bazel.build/extending/depsets) of tools associated with
+            the execution platform.""",
         "setup": "setup script to initialize the environment",
-        "run_env": """Optional `KernelEnvInfo` to initialize the environment in
-[execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model).
+        "run_env": """Optional `KernelEnvInfo` to initialize the environment for `bazel run`.
 
 For `kernel_env`, the script only provides a bare-minimum environment after `source build.config`,
 without actually modifying any variables suitable for a proper kernel build.
@@ -224,13 +221,25 @@ KernelModuleInfo = provider(
     },
 )
 
+KernelModuleSetupInfo = provider(
+    doc = """Like `KernelEnvInfo` but the setup script is a fragment.
+
+    The setup script requires some pre-setup environment before running it.
+    """,
+    fields = {
+        "inputs": """A [depset](https://bazel.build/extending/depsets) of inputs associated with
+            the target platform.""",
+        "setup": "setup script fragment to initialize the environment",
+    },
+)
+
 ModuleSymversInfo = provider(
     doc = "A provider that provides `Module.symvers` for `modpost`.",
     fields = {
         "restore_paths": """A [depset](https://bazel.build/extending/depsets) of
             paths relative to <the root of the output directory> (e.g.
             `<sandbox_root>/out/<branch>`) where the `Module.symvers` files will be
-            restored to by `KernelEnvInfo`.""",
+            restored to by `KernelModuleSetupInfo`.""",
     },
 )
 

@@ -34,8 +34,8 @@ load(
     "KernelCmdsInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
-    "KernelEnvInfo",
     "KernelModuleInfo",
+    "KernelModuleSetupInfo",
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
@@ -271,8 +271,6 @@ def _kernel_module_impl(ctx):
     inputs = []
     inputs += ctx.files.makefile
     inputs += ctx.files.internal_ddk_makefiles_dir
-    for kernel_module_dep in kernel_module_deps:
-        inputs += kernel_module_dep[KernelEnvInfo].dependencies
 
     module_srcs = [target.files for target in ctx.attr.srcs]
     if not ctx.attr.internal_exclude_kernel_build_module_srcs:
@@ -281,6 +279,8 @@ def _kernel_module_impl(ctx):
 
     transitive_inputs = [module_srcs]
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
+    for kernel_module_dep in kernel_module_deps:
+        transitive_inputs.append(kernel_module_dep[KernelModuleSetupInfo].inputs)
 
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
@@ -368,7 +368,7 @@ def _kernel_module_impl(ctx):
         kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
     )
     for kernel_module_dep in kernel_module_deps:
-        command += kernel_module_dep[KernelEnvInfo].setup
+        command += kernel_module_dep[KernelModuleSetupInfo].setup
 
     grab_unstripped_cmd = ""
     if unstripped_dir:
@@ -586,8 +586,8 @@ def _kernel_module_impl(ctx):
             # For kernel_module_test
             runfiles = ctx.runfiles(files = output_files),
         ),
-        KernelEnvInfo(
-            dependencies = [module_symvers],
+        KernelModuleSetupInfo(
+            inputs = depset([module_symvers]),
             setup = setup,
         ),
         KernelModuleInfo(

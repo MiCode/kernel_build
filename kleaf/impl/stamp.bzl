@@ -52,11 +52,14 @@ def _write_localversion(ctx):
 
     out_file = ctx.actions.declare_file(ctx.attr.name + "/localversion")
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        deps = [ctx.info_file]
+        inputs = [ctx.info_file]
         stable_scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", '"${KERNEL_DIR}"')
     else:
-        deps = []
+        inputs = []
         stable_scmversion_cmd = "echo '-maybe-dirty'"
+
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+    tools = ctx.attr.env[KernelEnvInfo].tools
 
     # TODO(b/227520025): Remove the following logic in setlocalversion.
     cmd = ctx.attr.env[KernelEnvInfo].setup + """
@@ -96,8 +99,9 @@ def _write_localversion(ctx):
     )
 
     ctx.actions.run_shell(
-        inputs = deps + ctx.attr.env[KernelEnvInfo].dependencies,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
+        tools = tools,
         command = cmd,
         progress_message = "Determining scmversion {}".format(ctx.label),
         mnemonic = "KernelConfigScmversion",
@@ -117,6 +121,10 @@ def _ext_mod_write_localversion(ctx, ext_mod):
         """
         return struct(deps = [], cmd = cmd)
 
+    inputs = [ctx.info_file]
+    transitive_inputs = [ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.inputs]
+    tools = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.tools
+
     # This creates a separate action to set up scmversion to avoid direct
     # dependency on stable-status.txt which contains metadata of all git
     # projects in the repository, so that changes in unrelated projects does not
@@ -130,8 +138,9 @@ def _ext_mod_write_localversion(ctx, ext_mod):
         localversion_file = localversion_file.path,
     )
     ctx.actions.run_shell(
-        inputs = [ctx.info_file] + ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.dependencies,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [localversion_file],
+        tools = tools,
         command = cmd,
         progress_message = "Determining scmversion for module {}".format(ctx.label),
         mnemonic = "KernelModuleScmversion",

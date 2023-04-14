@@ -226,22 +226,26 @@ def _kernel_env_impl(ctx):
         set_up_jobs_cmd = set_up_jobs_cmd,
     )
 
-    dependencies = []
-    dependencies += ctx.files._tools + ctx.files._rust_tools
-    dependencies += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    dependencies += [
-        out_file,
+    setup_tools = [
         ctx.file._build_utils_sh,
+    ]
+    setup_tools += ctx.files._tools
+    setup_tools += ctx.files._rust_tools
+    setup_tools += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+
+    setup_inputs = [
+        out_file,
         ctx.version_file,
     ]
     if kconfig_ext:
-        dependencies.append(kconfig_ext)
-    dependencies += dtstree_srcs
+        setup_inputs.append(kconfig_ext)
+    setup_inputs += dtstree_srcs
 
     run_env = _get_run_env(ctx, srcs)
 
     env_info = KernelEnvInfo(
-        dependencies = dependencies,
+        inputs = depset(setup_inputs),
+        tools = depset(setup_tools),
         setup = setup,
         run_env = run_env,
     )
@@ -315,16 +319,20 @@ def _get_run_env(ctx, srcs):
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
     )
-    dependencies = srcs + ctx.files._tools + ctx.files._rust_tools
-    dependencies += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    dependencies += [
+    tools = [
         ctx.file.setup_env,
         ctx.file._build_utils_sh,
+    ]
+    tools += ctx.files._tools
+    tools += ctx.files._rust_tools
+    tools += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    inputs = srcs + [
         ctx.file.build_config,
     ]
     return KernelEnvInfo(
         setup = setup,
-        dependencies = dependencies,
+        inputs = depset(inputs),
+        tools = depset(tools),
     )
 
 def _get_tools(toolchain_version):

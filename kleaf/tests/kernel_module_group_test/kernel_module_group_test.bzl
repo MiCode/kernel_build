@@ -18,8 +18,8 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(
     "//build/kernel/kleaf/impl:common_providers.bzl",
-    "KernelEnvInfo",
     "KernelModuleInfo",
+    "KernelModuleSetupInfo",
 )
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
@@ -64,15 +64,15 @@ def _kernel_module_group_test_impl(ctx):
     )
 
     for src in ctx.attr.expected_srcs:
-        # check that KernelEnvInfo is merged
+        # check that KernelModuleSetupInfo is merged
         asserts.true(
-            src[KernelEnvInfo].setup in target[KernelEnvInfo].setup,
-            "KernelEnvInfo setup is not merged; expecting\n{}\n\n... in ...\n\n{}".format(
-                src[KernelEnvInfo].setup,
-                target[KernelEnvInfo].setup,
+            src[KernelModuleSetupInfo].setup in target[KernelModuleSetupInfo].setup,
+            "KernelModuleSetupInfo setup is not merged; expecting\n{}\n\n... in ...\n\n{}".format(
+                src[KernelModuleSetupInfo].setup,
+                target[KernelModuleSetupInfo].setup,
             ),
         )
-        _check_info_field_depset_merged(env, target, src, KernelEnvInfo, "dependencies")
+        _check_info_field_depset_merged(env, target, src, KernelModuleSetupInfo, "inputs")
 
         # check that DdkHeadersInfo is merged
         _check_info_field_depset_merged(env, target, src, DdkHeadersInfo, "files")
