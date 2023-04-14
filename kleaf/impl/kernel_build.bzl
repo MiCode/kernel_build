@@ -1313,6 +1313,8 @@ def _create_infos(
         kmi_symbol_list_violations_check_out: from `_kmi_symbol_list_violations_check`
     """
 
+    base_kernel = base_kernel_utils.get_base_kernel(ctx)
+
     all_output_files = main_action_ret.all_output_files
 
     # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
@@ -1397,8 +1399,8 @@ def _create_infos(
     )
 
     kernel_uapi_depsets = []
-    if base_kernel_utils.get_base_kernel(ctx):
-        kernel_uapi_depsets.append(base_kernel_utils.get_base_kernel(ctx)[KernelBuildUapiInfo].kernel_uapi_headers)
+    if base_kernel:
+        kernel_uapi_depsets.append(base_kernel[KernelBuildUapiInfo].kernel_uapi_headers)
     kernel_uapi_depsets.append(ctx.attr.kernel_uapi_headers.files)
     kernel_build_uapi_info = KernelBuildUapiInfo(
         kernel_uapi_headers = depset(transitive = kernel_uapi_depsets, order = "postorder"),
@@ -1419,8 +1421,8 @@ def _create_infos(
     unstripped_modules_depsets = []
     if main_action_ret.unstripped_dir:
         unstripped_modules_depsets.append(depset([main_action_ret.unstripped_dir]))
-    if base_kernel_utils.get_base_kernel(ctx):
-        unstripped_modules_depsets.append(base_kernel_utils.get_base_kernel(ctx)[KernelUnstrippedModulesInfo].directories)
+    if base_kernel:
+        unstripped_modules_depsets.append(base_kernel[KernelUnstrippedModulesInfo].directories)
     kernel_unstripped_modules_info = KernelUnstrippedModulesInfo(
         directories = depset(transitive = unstripped_modules_depsets, order = "postorder"),
     )
@@ -1429,7 +1431,7 @@ def _create_infos(
         module_outs_file = all_module_names_file,
     )
 
-    images_info = KernelImagesInfo(base_kernel = base_kernel_utils.get_base_kernel(ctx))
+    images_info = KernelImagesInfo(base_kernel_label = base_kernel.label if base_kernel else None)
 
     gcov_info = GcovInfo(
         gcno_mapping = main_action_ret.gcno_mapping,

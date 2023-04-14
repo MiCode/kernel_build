@@ -246,7 +246,7 @@ ModuleSymversInfo = provider(
 KernelImagesInfo = provider(
     doc = "A provider that represents the expectation of [`kernel_images`](#kernel_images) to [`kernel_build`](#kernel_build)",
     fields = {
-        "base_kernel": "the `base_kernel` target, if exists",
+        "base_kernel_label": "Label of the `base_kernel` target, if exists",
     },
 )
 
