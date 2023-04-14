@@ -243,33 +243,31 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
-def _check_kernel_build(kernel_modules, kernel_build, this_label):
+def _check_kernel_build(kernel_module_infos, kernel_build_label, this_label):
     """Check that kernel_modules have the same kernel_build as the given one.
 
     Args:
-        kernel_modules: the attribute of kernel_module dependencies. Should be
-          an attribute of a list of labels.
-        kernel_build: the attribute of kernel_build. Should be an attribute of
-          a label.
+        kernel_module_infos: list of KernelModuleInfo of kernel module dependencies.
+        kernel_build_label: the label of kernel_build.
         this_label: label of the module being checked.
     """
 
-    for kernel_module in kernel_modules:
-        if kernel_build == None:
-            kernel_build = kernel_module[KernelModuleInfo].kernel_build
+    for kernel_module_info in kernel_module_infos:
+        if kernel_build_label == None:
+            kernel_build_label = kernel_module_info.kernel_build.label
             continue
 
-        if kernel_module[KernelModuleInfo].kernel_build.label != \
-           kernel_build.label:
+        if kernel_module_info.kernel_build.label != \
+           kernel_build_label:
             fail((
                 "{this_label} refers to kernel_build {kernel_build}, but " +
                 "depended kernel_module {dep} refers to kernel_build " +
                 "{dep_kernel_build}. They must refer to the same kernel_build."
             ).format(
                 this_label = this_label,
-                kernel_build = kernel_build.label,
-                dep = kernel_module.label,
-                dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
+                kernel_build = kernel_build_label,
+                dep = kernel_module_info.label,
+                dep_kernel_build = kernel_module_info.kernel_build.label,
             ))
 
 def _local_exec_requirements(ctx):

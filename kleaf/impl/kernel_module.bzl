@@ -184,31 +184,6 @@ def kernel_module(
         tags = kwargs.get("tags"),
     )
 
-def _check_kernel_build(kernel_modules, kernel_build, this_label):
-    """Check that kernel_modules have the same kernel_build as the given one.
-
-    Args:
-        kernel_modules: the attribute of kernel_module dependencies. Should be
-          an attribute of a list of labels.
-        kernel_build: the attribute of kernel_build. Should be an attribute of
-          a label.
-        this_label: label of the module being checked.
-    """
-
-    for kernel_module in kernel_modules:
-        if kernel_module[KernelModuleInfo].kernel_build.label != \
-           kernel_build.label:
-            fail((
-                "{this_label} refers to kernel_build {kernel_build}, but " +
-                "depended kernel_module {dep} refers to kernel_build " +
-                "{dep_kernel_build}. They must refer to the same kernel_build."
-            ).format(
-                this_label = this_label,
-                kernel_build = kernel_build.label,
-                dep = kernel_module.label,
-                dep_kernel_build = kernel_module[KernelModuleInfo].kernel_build.label,
-            ))
-
 def _check_module_symvers_restore_path(kernel_modules, this_label):
     all_restore_paths = dict()
     for kernel_module in kernel_modules:
@@ -259,7 +234,11 @@ def _kernel_module_impl(ctx):
     if ctx.attr.internal_ddk_makefiles_dir:
         kernel_module_deps += ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].kernel_module_deps.to_list()
 
-    _check_kernel_build(kernel_module_deps, ctx.attr.kernel_build, ctx.label)
+    kernel_utils.check_kernel_build(
+        [target[KernelModuleInfo] for target in kernel_module_deps],
+        ctx.attr.kernel_build.label,
+        ctx.label,
+    )
     _check_module_symvers_restore_path(kernel_module_deps, ctx.label)
 
     # Define where to build the external module (default to the package name)
@@ -596,6 +575,7 @@ def _kernel_module_impl(ctx):
             kernel_uapi_headers_dws_depset = depset([kernel_uapi_headers_dws]),
             files = depset(output_files),
             packages = depset([ext_mod]),
+            label = ctx.label,
         ),
         KernelUnstrippedModulesInfo(
             directories = depset([unstripped_dir], order = "postorder"),

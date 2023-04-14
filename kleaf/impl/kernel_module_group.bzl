@@ -42,7 +42,11 @@ def _kernel_module_group_impl(ctx):
         setup = "\n".join(setup_cmds),
     )
 
-    kernel_utils.check_kernel_build(targets, None, ctx.label)
+    kernel_utils.check_kernel_build(
+        [target[KernelModuleInfo] for target in targets],
+        None,
+        ctx.label,
+    )
     kernel_module_info = KernelModuleInfo(
         kernel_build = targets[0][KernelModuleInfo].kernel_build,
         modules_staging_dws_depset = depset(transitive = [

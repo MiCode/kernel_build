@@ -218,6 +218,7 @@ KernelModuleInfo = provider(
             For other rules that contains multiple `kernel_module`s, a [depset] containing package
             names of all external modules in an unspecified order. This corresponds to `EXT_MODULES`
             in `build.sh`.""",
+        "label": "Label to the `kernel_module` target.",
     },
 )
 
