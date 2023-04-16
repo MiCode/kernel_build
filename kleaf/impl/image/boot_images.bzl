@@ -15,14 +15,24 @@
 Rules for building boot images.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
 load(":debug.bzl", "debug")
 load(":image/initramfs.bzl", "InitramfsInfo")
 load(":utils.bzl", "utils")
 
 def _boot_images_impl(ctx):
-    outdir = ctx.actions.declare_directory(ctx.label.name)
-    modules_staging_dir = outdir.path + "/staging"
+    ## Declare implicit outputs of the command
+    ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.
+    outdir_short = paths.join(
+        paths.dirname(ctx.build_file_path),
+        ctx.label.name,
+    )
+    outdir = paths.join(
+        ctx.bin_dir.path,
+        outdir_short,
+    )
+    modules_staging_dir = outdir + "/staging"
     mkbootimg_staging_dir = modules_staging_dir + "/mkbootimg_staging"
 
     # Initialized conditionally below.
@@ -35,7 +45,7 @@ def _boot_images_impl(ctx):
 
     outs = []
     for out in ctx.outputs.outs:
-        outs.append(out.short_path[len(outdir.short_path) + 1:])
+        outs.append(out.short_path[len(outdir_short) + 1:])
 
     kernel_build_outs = depset(
         ctx.attr.kernel_build[KernelBuildInfo].outs,
@@ -171,7 +181,7 @@ def _boot_images_impl(ctx):
     """.format(
         mkbootimg_staging_dir = mkbootimg_staging_dir,
         search_and_cp_output = ctx.executable._search_and_cp_output.path,
-        outdir = outdir.path,
+        outdir = outdir,
         outs = " ".join(outs),
         modules_staging_dir = modules_staging_dir,
         boot_flag_cmd = boot_flag_cmd,
@@ -183,7 +193,7 @@ def _boot_images_impl(ctx):
     ctx.actions.run_shell(
         mnemonic = "BootImages",
         inputs = depset(inputs, transitive = transitive_inputs),
-        outputs = ctx.outputs.outs + [outdir],
+        outputs = ctx.outputs.outs,
         tools = depset(tools, transitive = transitive_tools),
         progress_message = "Building boot images {}".format(ctx.label),
         command = command,

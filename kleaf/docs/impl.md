@@ -9,12 +9,6 @@ Android Continuous Integration. See
 
 Make the following changes to the kernel manifest to support Bazel build.
 
-* Add `.source_date_epoch_dir` symlink to your `${KERNEL_DIR}`
-  * The date of the last commit in this directory
-    determines `$SOURCE_DATE_EPOCH`.
-    See [SOURCE\_DATE\_EPOCH](https://reproducible-builds.org/docs/source-date-epoch/).
-  * **NOTE**: This is subject to change. In the future, this may not be required
-      any more.
 * Add `tools/bazel` symlink to `build/kernel/kleaf/bazel.sh`
 * Add `WORKSPACE` symlink to `build/kernel/kleaf/bazel.WORKSPACE`
   * See [workspace.md](workspace.md) for building with a custom workspace.

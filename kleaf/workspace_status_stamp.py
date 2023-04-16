@@ -12,12 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import logging
 import os
 import shutil
 import subprocess
 import sys
 from typing import Optional
+
+
+@dataclasses.dataclass
+class PathCollectible(object):
+    """Represents a path and the result of an asynchronous task."""
+    path: str
+
+    def collect(self):
+        return NotImplementedError
+
+
+@dataclasses.dataclass
+class PathPopen(PathCollectible):
+    """Consists of a path and the result of a subprocess."""
+    popen: subprocess.Popen
+
+    def collect(self):
+        return collect(self.popen)
+
+
+@dataclasses.dataclass
+class PresetResult(PathCollectible):
+    """Consists of a path and a pre-defined result."""
+    result: str
+
+    def collect(self):
+        return self.result
 
 
 def call_setlocalversion(bin, srctree, *args) \
@@ -40,6 +68,35 @@ def call_setlocalversion(bin, srctree, *args) \
     return None
 
 
+def list_projects():
+    """Lists projects in the repository.
+
+    Returns:
+        a list of projects in the repository.
+    """
+    if "KLEAF_REPO_PROP" in os.environ:
+        with open(os.environ["KLEAF_REPO_PROP"]) as repo_prop_file:
+            return parse_repo_prop(repo_prop_file.read())
+
+    args = ["repo", "forall", "-c", 'echo "$REPO_PATH $REPO_LREV"']
+    try:
+        output = subprocess.check_output(args, text=True)
+        return parse_repo_prop(output)
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        logging.error("Unable to list projects: %s", e)
+
+    return []
+
+
+def parse_repo_prop(content: str):
+    """Parses a repo.prop file
+
+    Returns:
+        a list of projects in the repository.
+    """
+    return [line.split()[0] for line in content.splitlines()]
+
+
 def collect(popen_obj: subprocess.Popen) -> str:
     """Collect the result of a Popen object.
 
@@ -58,48 +115,66 @@ def collect(popen_obj: subprocess.Popen) -> str:
 class Stamp(object):
 
     def __init__(self):
+        self.projects = list_projects()
         self.init_for_dot_source_date_epoch_dir()
 
     def init_for_dot_source_date_epoch_dir(self) -> None:
         self.kernel_dir = os.path.realpath(".source_date_epoch_dir")
         if not os.path.isdir(self.kernel_dir):
             self.kernel_dir = None
+        if self.kernel_dir:
+            self.kernel_rel = os.path.relpath(self.kernel_dir)
 
         self.find_setlocalversion()
 
     def main(self) -> int:
-        kernel_dir_scmversion_obj = self.call_setlocalversion_kernel_dir()
-        ext_modules = self.get_ext_modules()
-        ext_mod_scmversion_objs = self.call_setlocalversion_ext_modules(
-            ext_modules)
+        scmversion_map = self.call_setlocalversion_all()
 
-        source_date_epoch, source_date_epoch_obj = \
-            self.async_get_source_date_epoch_kernel_dir()
+        source_date_epoch_map = self.async_get_source_date_epoch_all()
+
+        scmversion_result_map = self.collect_map(scmversion_map)
+
+        source_date_epoch_result_map = self.collect_map(source_date_epoch_map)
 
         self.print_result(
-            kernel_dir_scmversion_obj=kernel_dir_scmversion_obj,
-            ext_modules=ext_modules,
-            ext_mod_scmversion_objs=ext_mod_scmversion_objs,
-            source_date_epoch=source_date_epoch,
-            source_date_epoch_obj=source_date_epoch_obj,
+            scmversion_result_map=scmversion_result_map,
+            source_date_epoch_result_map=source_date_epoch_result_map,
         )
         return 0
 
     def find_setlocalversion(self) -> None:
         self.setlocalversion = None
+
+        all_projects = []
         if self.kernel_dir:
-            candidate = os.path.join(self.kernel_dir,
-                                     "scripts/setlocalversion")
+            all_projects.append(self.kernel_rel)
+        all_projects.extend(self.projects)
+
+        for proj in all_projects:
+            candidate = os.path.join(proj, "scripts/setlocalversion")
             if os.access(candidate, os.X_OK):
-                self.setlocalversion = candidate
+                self.setlocalversion = os.path.realpath(candidate)
+                return
 
-    def call_setlocalversion_kernel_dir(self):
-        if not self.setlocalversion or not self.kernel_dir:
-            return None
+    def call_setlocalversion_all(self) -> dict[str, PathCollectible]:
+        if not self.setlocalversion:
+            return {}
 
-        return call_setlocalversion(self.setlocalversion, self.kernel_dir)
+        all_projects = set()
+        if self.kernel_dir:
+            all_projects.add(self.kernel_rel)
+        all_projects |= set(self.get_ext_modules())
+        all_projects |= set(self.projects)
 
-    def get_ext_modules(self):
+        scmversion_map = {}
+        for project in all_projects:
+            popen = call_setlocalversion(self.setlocalversion,
+                                         os.path.realpath(project))
+            scmversion_map[project] = PathPopen(project, popen)
+
+        return scmversion_map
+
+    def get_ext_modules(self) -> list[str]:
         if not self.setlocalversion:
             return []
         try:
@@ -120,52 +195,57 @@ class Stamp(object):
                 "code=%d, stderr=%s", e.returncode, e.stderr.strip())
         return []
 
-    def call_setlocalversion_ext_modules(self, ext_modules):
-        if not self.setlocalversion:
-            return []
+    def async_get_source_date_epoch_all(self) \
+            -> dict[str, PathCollectible]:
 
-        ret = []
-        for ext_mod in ext_modules:
-            popen = call_setlocalversion(self.setlocalversion,
-                                         os.path.realpath(ext_mod))
-            ret.append(popen)
-        return ret
+        all_projects = set()
+        if self.kernel_dir:
+            all_projects.add(self.kernel_rel)
+        all_projects |= set(self.projects)
 
-    def async_get_source_date_epoch_kernel_dir(self):
-        stable_source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH")
-        stable_source_date_epoch_obj = None
-        if not stable_source_date_epoch and self.kernel_dir and \
-                shutil.which("git"):
-            stable_source_date_epoch_obj = subprocess.Popen(
-                ["git", "-C", self.kernel_dir, "log", "-1", "--pretty=%ct"],
-                text=True,
-                stdout=subprocess.PIPE)
-        else:
-            stable_source_date_epoch = 0
-        return stable_source_date_epoch, stable_source_date_epoch_obj
+        return {
+            proj: self.async_get_source_date_epoch(proj)
+            for proj in all_projects
+        }
+
+    def async_get_source_date_epoch(self, rel_path) -> PathCollectible:
+        env_val = os.environ.get("SOURCE_DATE_EPOCH")
+        if env_val:
+            return PresetResult(rel_path, env_val)
+        if shutil.which("git"):
+            args = [
+                "git", "-C",
+                os.path.realpath(rel_path), "log", "-1", "--pretty=%ct"
+            ]
+            popen = subprocess.Popen(args, text=True, stdout=subprocess.PIPE)
+            return PathPopen(rel_path, popen)
+        return PresetResult(rel_path, "0")
+
+    def collect_map(
+        self,
+        legacy_map: dict[str, PathCollectible],
+    ) -> dict[str, str]:
+        return {
+            path: path_popen.collect()
+            for path, path_popen in legacy_map.items()
+        }
 
     def print_result(
         self,
-        kernel_dir_scmversion_obj,
-        ext_modules,
-        ext_mod_scmversion_objs,
-        source_date_epoch,
-        source_date_epoch_obj,
+        scmversion_result_map,
+        source_date_epoch_result_map,
     ) -> None:
-        if kernel_dir_scmversion_obj:
-            print("STABLE_SCMVERSION", collect(kernel_dir_scmversion_obj))
+        stable_source_date_epochs = " ".join(
+            "{}:{}".format(path, result)
+            for path, result in sorted(source_date_epoch_result_map.items()))
+        print("STABLE_SOURCE_DATE_EPOCHS", stable_source_date_epochs)
 
-        if source_date_epoch_obj:
-            source_date_epoch = collect(source_date_epoch_obj)
-        print("STABLE_SOURCE_DATE_EPOCH", source_date_epoch)
-
-        # If the list is empty, this prints "STABLE_SCMVERSION_EXT_MOD", and is
+        # If the list is empty, this prints "STABLE_SCMVERSIONS", and is
         # filtered by Bazel.
-        print(
-            "STABLE_SCMVERSION_EXT_MOD",
-            " ".join("{}:{}".format(ext_mod, result) for ext_mod, result in
-                     zip(ext_modules,
-                         [collect(obj) for obj in ext_mod_scmversion_objs])))
+        stable_scmversions = " ".join(
+            "{}:{}".format(path, result)
+            for path, result in sorted(scmversion_result_map.items()))
+        print("STABLE_SCMVERSIONS", stable_scmversions)
 
 
 if __name__ == '__main__':

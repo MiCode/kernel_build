@@ -80,7 +80,14 @@ export MODULES_ARCHIVE=modules.tar.gz
 export TZ=UTC
 export LC_ALL=C
 if [ -z "${SOURCE_DATE_EPOCH}" ]; then
-  export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+  if [[ -n "${KLEAF_SOURCE_DATE_EPOCHS}" ]]; then
+    export SOURCE_DATE_EPOCH=$(extract_git_metadata "${KLEAF_SOURCE_DATE_EPOCHS}" "${KERNEL_DIR}" SOURCE_DATE_EPOCH)
+    # Unset KLEAF_SOURCE_DATE_EPOCHS to avoid polluting {kernel_build}_env.sh
+    # with unnecessary information (git metadata of unrelated projects)
+    unset KLEAF_SOURCE_DATE_EPOCHS
+  else
+    export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
+  fi
 fi
 export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"
 export KBUILD_BUILD_HOST=build-host
