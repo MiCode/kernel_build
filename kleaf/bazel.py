@@ -138,6 +138,12 @@ class BazelWrapper(object):
         parser.add_argument("--cache_dir",
                             type=_require_absolute_path,
                             default=absolute_cache_dir)
+        parser.add_argument(
+            "--repo_manifest",
+            help="""Absolute path to repo manifest file, generated with """
+                 """`repo manifest -r`.""",
+            type=_require_absolute_path,
+        )
 
         # known_args: List of arguments known by this bazel wrapper. These
         #   are stripped from the final bazel invocation.
