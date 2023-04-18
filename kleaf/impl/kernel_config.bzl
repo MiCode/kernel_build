@@ -474,51 +474,26 @@ def _get_config_script(ctx, inputs):
     script += kernel_utils.set_src_arch_cmd()
 
     script += """
-          menucommand="${1:-savedefconfig}"
-          if ! [[ "${menucommand}" =~ .*config ]]; then
-            echo "Invalid command $menucommand. Must be *config." >&2
-            exit 1
-          fi
+            menucommand="${1:-savedefconfig}"
+            if ! [[ "${menucommand}" =~ .*config ]]; then
+                echo "Invalid command $menucommand. Must be *config." >&2
+                exit 1
+            fi
 
-          # The script is executed under <execroot>/, where defconfig is a
-          # symlink to the source file. However, `make savedefconfig` overwrites the
-          # symlink with the new defconfig. Restore the symlink on exit so that
-          # the next `bazel run X_config` can infer the source file properly.
+            # Pre-defconfig commands
+            set -x
+            eval ${PRE_DEFCONFIG_CMDS}
+            set +x
+            # Actual defconfig
+            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
 
-          DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${SRCARCH}/configs/${DEFCONFIG}
-          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK} || true)
-          if [[ -n ${DEFCONFIG_REAL} ]]; then
-              trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
-          else
-              DEFCONFIG_REAL=${DEFCONFIG_SYMLINK}
-          fi
+            # Show UI
+            menuconfig ${menucommand}
 
-          # This needs to be in a sub-shell, otherwise trap doesn't work.
-          (
-              # Pre-defconfig commands
-                set -x
-                eval ${PRE_DEFCONFIG_CMDS}
-                set +x
-              # Actual defconfig
-                make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
-
-              # Show UI
-                menuconfig ${menucommand}
-
-              # Post-defconfig commands
-                set -x
-                eval ${POST_DEFCONFIG_CMDS}
-                set +x
-
-              if [[ ${DEFCONFIG_REAL} != ${DEFCONFIG_SYMLINK} ]]; then
-                  mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
-                  echo "Updated $(realpath ${DEFCONFIG_REAL})"
-              elif [[ -f ${DEFCONFIG_REAL} ]]; then
-                  echo "Updated $(realpath ${DEFCONFIG_REAL})"
-              else
-                  echo "INFO: Can't find ${DEFCONFIG_REAL}. It may already be moved by POST_DEFCONFIG_CMDS."
-              fi
-          )
+            # Post-defconfig commands
+            set -x
+            eval ${POST_DEFCONFIG_CMDS}
+            set +x
     """
 
     ctx.actions.write(
