@@ -18,6 +18,8 @@ import os
 import shutil
 import subprocess
 import sys
+import xml.dom.minidom
+import xml.parsers.expat
 from typing import Optional
 
 
@@ -68,29 +70,35 @@ def call_setlocalversion(bin, srctree, *args) \
     return None
 
 
-def list_projects():
+def list_projects() -> list[str]:
     """Lists projects in the repository.
 
     Returns:
         a list of projects in the repository.
     """
-    args = ["repo", "forall", "-c", 'echo "$REPO_PATH $REPO_LREV"']
     try:
-        output = subprocess.check_output(args, text=True)
-        return parse_repo_prop(output)
+        output = subprocess.check_output(["repo", "manifest", "-r"],
+                                           text=True)
+        return parse_repo_manifest(output)
     except (subprocess.SubprocessError, FileNotFoundError) as e:
-        logging.error("Unable to list projects: %s", e)
+        logging.error("Unable to execute repo manifest -r: %s", e)
+        return []
 
-    return []
 
-
-def parse_repo_prop(content: str):
-    """Parses a repo.prop file
+def parse_repo_manifest(manifest: str) -> list[str]:
+    """Parses a repo manifest file.
 
     Returns:
         a list of projects in the repository.
     """
-    return [line.split()[0] for line in content.splitlines()]
+    try:
+        dom = xml.dom.minidom.parseString(manifest)
+    except xml.parsers.expat.ExpatError as e:
+        logging.error("Unable to parse repo manifest: %s", e)
+        return []
+    projects = dom.documentElement.getElementsByTagName("project")
+    # https://gerrit.googlesource.com/git-repo/+/master/docs/manifest-format.md#element-project
+    return [proj.getAttribute("path") or proj.getAttribute("name") for proj in projects]
 
 
 def collect(popen_obj: subprocess.Popen) -> str:
