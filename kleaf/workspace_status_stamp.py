@@ -80,6 +80,10 @@ def list_projects() -> list[str]:
     Returns:
         a list of projects in the repository.
     """
+    if "KLEAF_REPO_MANIFEST" in os.environ:
+        with open(os.environ["KLEAF_REPO_MANIFEST"]) as repo_prop_file:
+            return parse_repo_manifest(repo_prop_file.read())
+
     try:
         output = subprocess.check_output(["repo", "manifest", "-r"], text=True)
         return parse_repo_manifest(output)
