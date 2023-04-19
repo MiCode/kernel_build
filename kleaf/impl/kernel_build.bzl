@@ -19,6 +19,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
@@ -138,7 +139,8 @@ def kernel_build(
               ],
           )
           ```
-        arch: Target architecture. Default is `arm64`.
+        arch: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
+          Target architecture. Default is `arm64`.
 
           Value should be one of `arm64`, `x86_64` or `riscv64`.
 
@@ -362,7 +364,8 @@ def kernel_build(
 
           If the value is `"false"`; or the value is `"auto"` and
           `--kbuild_symtypes` is not specified, then `KBUILD_SYMTYPES=`.
-        toolchain_version: The toolchain version to depend on.
+        toolchain_version: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
+          The toolchain version to depend on.
         strip_modules: If `None` or not specified, default is `False`.
           If set to `True`, debug information for distributed modules is stripped.
 
@@ -404,6 +407,12 @@ def kernel_build(
     if strip_modules == None:
         strip_modules = False
 
+    if arch == None:
+        arch = "arm64"
+
+    if toolchain_version == None:
+        toolchain_version = VARS["CLANG_VERSION"]
+
     trim_nonlisted_kmi = trim_nonlisted_kmi_utils.selected_attr(trim_nonlisted_kmi)
 
     internal_kwargs = dict(kwargs)
@@ -421,18 +430,38 @@ def kernel_build(
         "//conditions:default": "default",
     })
 
+    native.platform(
+        name = name + "_platform_target",
+        constraint_values = [
+            "@platforms//os:android",
+            "@platforms//cpu:{}".format(arch),
+            Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)),
+        ],
+        **internal_kwargs
+    )
+
+    native.platform(
+        name = name + "_platform_exec",
+        constraint_values = [
+            "@platforms//os:linux",
+            "@platforms//cpu:x86_64",
+            Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)),
+        ],
+        **internal_kwargs
+    )
+
     kernel_env(
         name = env_target_name,
         build_config = build_config,
         kconfig_ext = kconfig_ext,
         dtstree = dtstree,
         srcs = srcs,
-        toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         lto = lto,
         make_goals = make_goals,
-        arch = arch,
+        target_platform = name + "_platform_target",
+        exec_platform = name + "_platform_exec",
         **internal_kwargs
     )
 
