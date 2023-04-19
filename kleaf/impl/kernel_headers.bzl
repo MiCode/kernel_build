@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Builds `kernel-headers.tar.gz`."""
+
 load(
     ":common_providers.bzl",
     "KernelBuildInfo",
@@ -20,12 +22,12 @@ load(
 load(":debug.bzl", "debug")
 
 def _kernel_headers_impl(ctx):
-    inputs = []
-    transitive_inputs = [target.files for target in ctx.attr.srcs]
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
-    inputs += [
+    inputs = [
         ctx.attr.kernel_build[KernelBuildInfo].out_dir_kernel_headers_tar,
     ]
+    transitive_inputs = [target.files for target in ctx.attr.srcs]
+    transitive_inputs.append(ctx.attr.env[KernelEnvInfo].inputs)
+    tools = ctx.attr.env[KernelEnvInfo].tools
     out_file = ctx.actions.declare_file("{}/kernel-headers.tar.gz".format(ctx.label.name))
     command = ctx.attr.env[KernelEnvInfo].setup + """
             # Restore headers in ${{OUT_DIR}}
@@ -54,6 +56,7 @@ def _kernel_headers_impl(ctx):
         mnemonic = "KernelHeaders",
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
+        tools = tools,
         progress_message = "Building kernel headers %s" % ctx.attr.name,
         command = command,
     )

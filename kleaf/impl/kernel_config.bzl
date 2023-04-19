@@ -334,7 +334,10 @@ def _kernel_config_impl(ctx):
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
-    tools = [] + ctx.attr.env[KernelEnvInfo].dependencies
+    tools = []
+
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+    transitive_tools = [ctx.attr.env[KernelEnvInfo].tools]
 
     cache_dir_step = cache_dir.get_step(
         ctx = ctx,
@@ -379,9 +382,9 @@ def _kernel_config_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelConfig",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = outputs,
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating kernel config {}{}".format(
             ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
             ctx.label,
@@ -413,9 +416,8 @@ def _kernel_config_impl(ctx):
 
     env_and_outputs_info = KernelEnvAndOutputsInfo(
         get_setup_script = _env_and_outputs_get_setup_script,
-        # TODO(b/263385781): Split KernelEnvInfo.dependencies
-        tools = depset(),
-        inputs = depset(ctx.attr.env[KernelEnvInfo].dependencies + post_setup_deps),
+        tools = ctx.attr.env[KernelEnvInfo].tools,
+        inputs = depset(post_setup_deps, transitive = [ctx.attr.env[KernelEnvInfo].inputs]),
         data = struct(
             pre_setup = ctx.attr.env[KernelEnvInfo].setup,
             post_setup = post_setup,
@@ -523,7 +525,13 @@ def _get_config_script(ctx, inputs):
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].run_env.dependencies + inputs)
+    runfiles = ctx.runfiles(
+        files = inputs,
+        transitive_files = depset(transitive = [
+            ctx.attr.env[KernelEnvInfo].run_env.inputs,
+            ctx.attr.env[KernelEnvInfo].run_env.tools,
+        ]),
+    )
 
     return struct(
         executable = executable,

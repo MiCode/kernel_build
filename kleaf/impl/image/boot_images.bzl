@@ -47,10 +47,10 @@ def _boot_images_impl(ctx):
     for out in ctx.outputs.outs:
         outs.append(out.short_path[len(outdir_short) + 1:])
 
-    kernel_build_outs = depset(
+    kernel_build_outs = depset(transitive = [
         ctx.attr.kernel_build[KernelBuildInfo].outs,
-        transitive = [ctx.attr.kernel_build[KernelBuildInfo].base_kernel_files],
-    )
+        ctx.attr.kernel_build[KernelBuildInfo].base_kernel_files,
+    ])
 
     inputs = [
         ctx.file.mkbootimg,

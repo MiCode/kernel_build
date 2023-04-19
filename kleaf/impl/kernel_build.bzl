@@ -1338,7 +1338,7 @@ def _create_infos(
 
     kernel_build_info = KernelBuildInfo(
         out_dir_kernel_headers_tar = main_action_ret.out_dir_kernel_headers_tar,
-        outs = all_output_files["outs"].values(),
+        outs = depset(all_output_files["outs"].values()),
         base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
         interceptor_output = main_action_ret.interceptor_output,
         compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
@@ -1818,12 +1818,12 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
         ctx.file.raw_kmi_symbol_list,
         modules_staging_archive,
     ]
+    tools = [ctx.executable._check_symbol_protection]
 
     # llvm-nm is needed to extract symbols.
     # Use kernel_env as _hermetic_tools is not enough.
-    inputs += ctx.attr.config[KernelBuildOriginalEnvInfo].env_info.dependencies
-
-    tools = [ctx.executable._check_symbol_protection]
+    transitive_inputs = [ctx.attr.config[KernelBuildOriginalEnvInfo].env_info.inputs]
+    transitive_tools = [ctx.attr.config[KernelBuildOriginalEnvInfo].env_info.tools]
 
     out = ctx.actions.declare_file(
         "{}_kmi_symbol_list_violations/{}_kmi_symbol_list_violations_checked".format(
@@ -1854,8 +1854,8 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
 
     ctx.actions.run_shell(
         mnemonic = "KernelBuildCheckSymbolViolations",
-        inputs = inputs,
-        tools = tools,
+        inputs = depset(inputs, transitive = transitive_inputs),
+        tools = depset(tools, transitive = transitive_tools),
         outputs = [out],
         command = command,
         progress_message = "Checking for kmi_symbol_list_violations {}".format(_progress_message_suffix(ctx)),

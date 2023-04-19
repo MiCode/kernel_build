@@ -23,8 +23,8 @@ load(
     ":common_providers.bzl",
     "DdkConfigInfo",
     "DdkSubmoduleInfo",
-    "KernelEnvInfo",
     "KernelModuleInfo",
+    "KernelModuleSetupInfo",
     "ModuleSymversInfo",
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
@@ -300,7 +300,7 @@ def _split_kernel_module_deps(deps, this_label):
         if DdkHeadersInfo in dep:
             hdr_deps.append(dep)
             is_valid_dep = True
-        if all([info in dep for info in [KernelEnvInfo, KernelModuleInfo, ModuleSymversInfo]]):
+        if all([info in dep for info in [KernelModuleSetupInfo, KernelModuleInfo, ModuleSymversInfo]]):
             kernel_module_deps.append(dep)
             is_valid_dep = True
         if all([info in dep for info in [DdkHeadersInfo, DdkSubmoduleInfo]]):
