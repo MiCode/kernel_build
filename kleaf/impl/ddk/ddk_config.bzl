@@ -68,14 +68,10 @@ def _create_kconfig_ext_step(ctx, kconfig_depset_file):
     intermediates_dir = utils.intermediates_dir(ctx)
     cmd = """
         mkdir -p {intermediates_dir}
-        : > {intermediates_dir}/Kconfig.ext
 
-        # Wrap Kconfig.ext from main kernel_build
-        if [[ -f ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}}Kconfig.ext ]]; then
-            echo 'source "'"${{KCONFIG_EXT_PREFIX}}Kconfig.ext"'"' > {intermediates_dir}/Kconfig.ext
-        else
-            echo "WARNING: Missing ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}}Kconfig.ext, skipping..." >&2
-        fi
+        # Copy all Kconfig files to our new KCONFIG_EXT directory
+        rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
+
         KCONFIG_EXT_PREFIX=$(realpath {intermediates_dir} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
 
         # Source Kconfig from depending modules
