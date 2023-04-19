@@ -582,7 +582,7 @@ def _kernel_module_impl(ctx):
     return [
         # Sync list of infos with kernel_module_group.
         DefaultInfo(
-            files = depset(output_files + [check_no_remaining]),
+            files = depset(output_files + [check_no_remaining, module_symvers]),
             # For kernel_module_test
             runfiles = ctx.runfiles(files = output_files),
         ),
