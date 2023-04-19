@@ -1415,6 +1415,7 @@ def _create_infos(
         src_protected_exports_list = ctx.file.src_protected_exports_list,
         src_protected_modules_list = ctx.file.src_protected_modules_list,
         src_kmi_symbol_list = ctx.file.src_kmi_symbol_list,
+        kmi_strict_mode_out = kmi_strict_mode_out,
     )
 
     # Device modules takes precedence over base_kernel (GKI) modules.

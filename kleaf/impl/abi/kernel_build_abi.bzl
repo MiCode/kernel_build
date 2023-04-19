@@ -23,11 +23,13 @@ load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
 load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
+load(":common_providers.bzl", "KernelBuildAbiInfo")
 load(":kernel_build.bzl", "kernel_build")
 
 # TODO(b/242072873): Delete once all use cases migrate to kernel_abi.
 def kernel_build_abi(
         name,
+        # buildifier: disable=unused-variable
         **kwargs):
     """**Deprecated**. Use [`kernel_build`](#kernel_build) (with `collect_unstripped_modules = True`) and [`kernel_abi`](#kernel_abi) directly.
 
@@ -43,6 +45,19 @@ def kernel_build_abi(
 
 See build/kernel/kleaf/docs/abi_device.md for details.
 """.format(native.package_name(), name))
+
+def _kmi_symbol_checks_impl(ctx):
+    kmi_strict_mode_out = ctx.attr.kernel_build[KernelBuildAbiInfo].kmi_strict_mode_out
+    kmi_strict_mode_out = depset([kmi_strict_mode_out]) if kmi_strict_mode_out else None
+    return DefaultInfo(files = kmi_strict_mode_out)
+
+kmi_symbol_checks = rule(
+    doc = "Returns kmi symbol checks for a `kernel_build`.",
+    implementation = _kmi_symbol_checks_impl,
+    attrs = {
+        "kernel_build": attr.label(providers = [KernelBuildAbiInfo]),
+    },
+)
 
 def kernel_abi(
         name,
@@ -259,6 +274,12 @@ def _define_abi_targets(
         **private_kwargs
     )
 
+    kmi_symbol_checks(
+        name = name + "_kmi_symbol_checks",
+        kernel_build = kernel_build,
+        **private_kwargs
+    )
+
     # extract_symbols ...
     extracted_symbols(
         name = name + "_extracted_symbols",
@@ -306,6 +327,7 @@ def _define_abi_targets(
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_src_kmi_symbol_list",
         protected_exports_list = name + "_src_protected_exports_list",
+        kmi_symbol_checks = name + "_kmi_symbol_checks",
         **private_kwargs
     )
 
@@ -321,6 +343,7 @@ def _define_abi_definition_targets(
         kmi_enforced,
         kmi_symbol_list,
         protected_exports_list,
+        kmi_symbol_checks,
         **kwargs):
     """Helper to `_define_abi_targets`.
 
@@ -392,6 +415,9 @@ def _define_abi_definition_targets(
                 name + "_update_definition",
                 kmi_symbol_list,
                 protected_exports_list,
+                # This is unused in the script, but placed here just to ensure
+                # the checks are executed.
+                kmi_symbol_checks,
             ],
             script = """
                 # Ensure that symbol list is updated
