@@ -35,6 +35,7 @@ Use with caution. Using this script does not provide hermeticity. Consider using
         "run_setup": """setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
+        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
@@ -158,6 +159,9 @@ def _hermetic_tools_impl(ctx):
     run_setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
 """.format(path = paths.dirname(all_outputs[0].short_path))
+    run_additional_setup = fail_hard + """
+                export PATH=$({path}/readlink -m {path}):$PATH
+""".format(path = paths.dirname(all_outputs[0].short_path))
 
     return [
         DefaultInfo(files = depset(all_outputs)),
@@ -166,6 +170,7 @@ def _hermetic_tools_impl(ctx):
             setup = setup,
             additional_setup = additional_setup,
             run_setup = run_setup,
+            run_additional_setup = run_additional_setup,
         ),
     ]
 
