@@ -28,7 +28,6 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
-load(":kernel_config_transition.bzl", "kernel_config_transition")
 load(":kgdb.bzl", "kgdb")
 load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
 load(":stamp.bzl", "stamp")
@@ -128,7 +127,7 @@ def _config_lto(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto_config_flag = ctx.attr.lto[BuildSettingInfo].value
+    lto_config_flag = ctx.attr.lto
 
     lto_configs = []
     if lto_config_flag == "none":
@@ -238,7 +237,7 @@ def _config_kasan(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto = ctx.attr.lto[BuildSettingInfo].value
+    lto = ctx.attr.lto
     kasan = ctx.attr.kasan[BuildSettingInfo].value
 
     if not kasan:
@@ -262,6 +261,28 @@ def _config_kasan(ctx):
     ]
     return struct(configs = configs, deps = [])
 
+def _config_btf_debug_info(ctx):
+    """Return configs for DEBUG_INFO_BTF.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+    btf_debug_info = ctx.attr.btf_debug_info[BuildSettingInfo].value
+
+    if btf_debug_info == "default":
+        configs = []
+    elif btf_debug_info == "enable":
+        configs = [_config.enable("DEBUG_INFO_BTF")]
+    elif btf_debug_info == "disable":
+        configs = [_config.disable("DEBUG_INFO_BTF")]
+    else:
+        fail("{}: unexpected value for --btf_debug_info: {}".format(ctx.label, btf_debug_info))
+
+    return struct(configs = configs, deps = [])
+
 def _reconfig(ctx):
     """Return a command and extra inputs to re-configure `.config` file."""
     configs = []
@@ -273,6 +294,7 @@ def _reconfig(ctx):
         _config_kasan,
         _config_gcov,
         _config_keys,
+        _config_btf_debug_info,
         kgdb.get_scripts_config_args,
     ):
         pair = fn(ctx)
@@ -401,7 +423,7 @@ def _kernel_config_impl(ctx):
         ),
     )
 
-    config_script_ret = _get_config_script(ctx)
+    config_script_ret = _get_config_script(ctx, inputs)
 
     return [
         env_and_outputs_info,
@@ -434,20 +456,19 @@ def _env_and_outputs_get_setup_script(data, restore_out_dir_cmd):
         post_setup = data.post_setup,
     )
 
-def _get_config_script(ctx):
+def _get_config_script(ctx, inputs):
     """Handles config.sh."""
     executable = ctx.actions.declare_file("{}/config.sh".format(ctx.attr.name))
 
-    script = """
-          cd ${BUILD_WORKSPACE_DIRECTORY}
-    """
-    script += ctx.attr.env[KernelEnvInfo].setup
+    script = ctx.attr.env[KernelEnvInfo].run_env.setup
 
     # TODO(b/254348147): Support ncurses for hermetic tools
     script += """
           export HOSTCFLAGS="${HOSTCFLAGS} --sysroot="
           export HOSTLDFLAGS="${HOSTLDFLAGS} --sysroot="
     """
+
+    script += kernel_utils.set_src_arch_cmd()
 
     script += """
           menucommand="${1:-savedefconfig}"
@@ -456,16 +477,31 @@ def _get_config_script(ctx):
             exit 1
           fi
 
-          # Pre-defconfig commands
-            eval ${PRE_DEFCONFIG_CMDS}
-          # Actual defconfig
-            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+          # The script is executed under <execroot>/, where defconfig is a
+          # symlink to the source file. However, `make savedefconfig` overwrites the
+          # symlink with the new defconfig. Restore the symlink on exit so that
+          # the next `bazel run X_config` can infer the source file properly.
 
-          # Show UI
-            menuconfig ${menucommand}
+          DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${SRCARCH}/configs/${DEFCONFIG}
+          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK})
+          trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
 
-          # Post-defconfig commands
-            eval ${POST_DEFCONFIG_CMDS}
+          # This needs to be in a sub-shell, otherwise trap doesn't work.
+          (
+              # Pre-defconfig commands
+                eval ${PRE_DEFCONFIG_CMDS}
+              # Actual defconfig
+                make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
+
+              # Show UI
+                menuconfig ${menucommand}
+
+              # Post-defconfig commands
+                eval ${POST_DEFCONFIG_CMDS}
+
+              mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
+              echo "Updated ${DEFCONFIG_REAL}"
+          )
     """
 
     ctx.actions.write(
@@ -474,7 +510,7 @@ def _get_config_script(ctx):
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].dependencies)
+    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].run_env.dependencies + inputs)
 
     return struct(
         executable = executable,
@@ -493,7 +529,6 @@ kernel_config = rule(
 - When `bazel build <target>`, this target runs `make defconfig` etc. during the build.
 - When `bazel run <target> -- Xconfig`, this target runs `make Xconfig`.
 """,
-    cfg = kernel_config_transition,
     attrs = {
         "env": attr.label(
             mandatory = True,
@@ -518,10 +553,6 @@ kernel_config = rule(
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-        "_allowlist_function_transition": attr.label(
-            # Allow everything because kernel_config is indirectly called in device packages.
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
     } | _kernel_config_additional_attrs(),
     executable = True,
 )

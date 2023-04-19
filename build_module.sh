@@ -272,7 +272,14 @@ for EXT_MOD in ${EXT_MODULES}; do
      && [ -n "$build_target" ]
   then
     # Run the dist command passing in the output directory from Android build system
-    ./tools/bazel run --lto="${LTO:-full}" "$build_target" -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}"
+    ./tools/bazel run --lto="${LTO:-full}" "$build_target" -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}" && ret="$?" || ret="$?"
+
+    # Modify the output directory's permissions so cleanup can occur later
+    find out/bazel -type d -exec chmod 0775 {} +
+
+    if [ "$ret" -ne 0 ]; then
+      exit "$ret"
+    fi
   else
     # Fall back on legacy make if Bazel build is not present
     echo "warning - building kernel modules with legacy make. Please migrate to DDK."

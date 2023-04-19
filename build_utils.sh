@@ -270,7 +270,8 @@ function build_vendor_dlkm() {
     cp ${vendor_dlkm_modules_root_dir}/modules.blocklist ${DIST_DIR}/vendor_dlkm.modules.blocklist
   fi
 
-  # Modules loaded in vendor_boot should not be loaded in vendor_dlkm.
+  # Modules loaded in vendor_boot (and optionally system_dlkm if dedup_dlkm_modules)
+  # should not be loaded in vendor_dlkm.
   if [ -f ${DIST_DIR}/modules.load ]; then
     local stripped_modules_load="$(mktemp)"
     ! grep -x -v -F -f ${DIST_DIR}/modules.load \

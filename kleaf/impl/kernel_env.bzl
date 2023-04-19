@@ -45,11 +45,6 @@ def _get_kbuild_symtypes(ctx):
     fail("{}: kernel_env has unknown value for kbuild_symtypes: {}".format(ctx.attr.label, ctx.attr.kbuild_symtypes))
 
 def _kernel_env_impl(ctx):
-    if ctx.attr._config_is_local[BuildSettingInfo].value and ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        fail("--config=local cannot be set with --config=stamp. " +
-             "SCM version cannot be embedded without sandboxing. " +
-             "See build/kernel/kleaf/sandbox.md.")
-
     srcs = [
         s
         for s in ctx.files.srcs

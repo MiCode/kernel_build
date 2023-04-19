@@ -22,7 +22,7 @@ extract_undefined_symbols(): Extracts the undefined symbols from an ELF file at
 binary_path.
 is_signature_present(): Checks whether a kernel module file has a PKCS#7
 signature appended.
-read_symbol_list(): Reads a previously created libabigail symbols symbol list
+read_symbol_list(): Reads a previously created libabigail format symbol list
 into a list of symbols.
 """
 

@@ -75,9 +75,13 @@ def _get_localversion(ctx):
             # Extract the Android release version. If there is no match, then return 255
             # and clear the variable $android_release
             set +e
-            android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
-            if [[ $? -ne 0 ]]; then
-                android_release=
+            if [[ "$BRANCH" == "android-mainline" ]]; then
+                android_release="mainline"
+            else
+                android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
+                if [[ $? -ne 0 ]]; then
+                    android_release=
+                fi
             fi
             set -e
             if [[ -n "$KMI_GENERATION" ]] && [[ $(expr $KMI_GENERATION : '^[0-9]\\+$') -eq 0 ]]; then
@@ -154,10 +158,11 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
     # a certain directory. Hence, be lenient about failures.
     scmversion_cmd += " || true"
 
-    return struct(deps = [ctx.info_file], cmd = _get_scmversion_cmd(
-        srctree = "${{ROOT_DIR}}/{ext_mod}".format(ext_mod = ext_mod),
-        scmversion = "$({})".format(scmversion_cmd),
-    ))
+    cmd = """
+        ( {scmversion_cmd} ) > ${{OUT_DIR}}/localversion
+    """.format(scmversion_cmd = scmversion_cmd)
+
+    return struct(deps = [ctx.info_file], cmd = cmd)
 
 def _set_source_date_epoch(ctx):
     """Return command and inputs to set the value of `SOURCE_DATE_EPOCH`.

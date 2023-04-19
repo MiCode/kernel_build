@@ -397,6 +397,15 @@ def kernel_build(
     kwargs_with_manual = dict(kwargs)
     kwargs_with_manual["tags"] = ["manual"]
 
+    lto = select({
+        "//build/kernel/kleaf:lto_is_none": "none",
+        "//build/kernel/kleaf:lto_is_thin": "thin",
+        "//build/kernel/kleaf:lto_is_full": "full",
+        "//build/kernel/kleaf:lto_is_fast": "fast",
+        # TODO(b/229662633): Allow kernel_build() macro to set this value.
+        "//conditions:default": "default",
+    })
+
     kernel_env(
         name = env_target_name,
         build_config = build_config,
@@ -406,6 +415,7 @@ def kernel_build(
         toolchain_version = toolchain_version,
         kbuild_symtypes = kbuild_symtypes,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
+        lto = lto,
         **internal_kwargs
     )
 
@@ -444,6 +454,7 @@ def kernel_build(
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name if all_kmi_symbol_lists else None,
         module_signing_key = module_signing_key,
         system_trusted_key = system_trusted_key,
+        lto = lto,
         **internal_kwargs
     )
 
@@ -1697,6 +1708,13 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
               IGNORED because --nokmi_symbol_list_strict_mode is set!".format(
             this_label = ctx.label,
         ))
+        return None
+
+    # Skip for the --kasan targets as they are not valid GKI release targets
+    if ctx.attr._kasan[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --kasan is set!".format(this_label = ctx.label))
         return None
 
     if not ctx.attr.kmi_symbol_list_strict_mode:
