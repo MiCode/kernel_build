@@ -123,7 +123,7 @@ def _kernel_filegroup_impl(ctx):
     )
     in_tree_modules_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
 
-    images_info = KernelImagesInfo(base_kernel = None)
+    images_info = KernelImagesInfo(base_kernel_label = None)
     gcov_info = GcovInfo(gcno_mapping = None)
 
     common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)

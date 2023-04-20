@@ -38,7 +38,11 @@ def _kernel_modules_install_impl(ctx):
     if not kernel_build:
         fail("No `kernel_build` or `kernel_modules` provided.")
 
-    kernel_utils.check_kernel_build(ctx.attr.kernel_modules, kernel_build, ctx.label)
+    kernel_utils.check_kernel_build(
+        [target[KernelModuleInfo] for target in ctx.attr.kernel_modules],
+        kernel_build.label,
+        ctx.label,
+    )
 
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
