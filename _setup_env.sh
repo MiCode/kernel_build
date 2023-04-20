@@ -89,6 +89,10 @@ if [ -z "${SOURCE_DATE_EPOCH}" ]; then
     export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)
   fi
 fi
+if [ -z "${SOURCE_DATE_EPOCH}" ]; then
+  echo "WARNING: Unable to determine SOURCE_DATE_EPOCH for ${ROOT_DIR}/${KERNEL_DIR}, fallback to 0" >&2
+  export SOURCE_DATE_EPOCH=0
+fi
 export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"
 export KBUILD_BUILD_HOST=build-host
 export KBUILD_BUILD_USER=build-user
