@@ -585,7 +585,7 @@ def _kernel_module_impl(ctx):
             # path/to/package/target_name/target_name_Module.symvers -> path/to/package/target_name_Module.symvers;
             # This is similar to ${{OUT_DIR}}/${{ext_mod_rel}}
             # It is needed to remove the `target_name` because we declare_file({name}/{internal_module_symvers_name}) above.
-            restore_paths = depset([paths.join(ctx.label.package, ctx.attr.internal_module_symvers_name)]),
+            restore_paths = depset([paths.join(ext_mod, ctx.attr.internal_module_symvers_name)]),
         ),
         ddk_headers_info,
         ddk_config_info,
