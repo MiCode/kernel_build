@@ -24,6 +24,7 @@ load(
 )
 load("//build/kernel/kleaf:download_repo.bzl", "download_artifacts_repo")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
 # buildifier: disable=unnamed-macro
 def define_kleaf_workspace(common_kernel_package = None):
@@ -117,3 +118,5 @@ def define_kleaf_workspace(common_kernel_package = None):
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
     )
+
+    register_clang_toolchains()
