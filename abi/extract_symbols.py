@@ -29,7 +29,6 @@ import symbol_extraction
 _ALWAYS_INCLUDED = [
     "module_layout",  # is exported even if CONFIG_TRIM_UNUSED_KSYMS is enabled
     "__put_task_struct",  # this allows us to keep `struct task_struct` stable
-    "utf8_data_table",  # this allows us to keep `utf8_data_table` stable
 ]
 _ABIGAIL_HEADER = "[abi_symbol_list]"
 
