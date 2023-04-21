@@ -319,6 +319,7 @@ def _get_run_env(ctx, srcs):
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
     )
+    setup += ctx.attr._hermetic_tools[HermeticToolsInfo].run_additional_setup
     tools = [
         ctx.file.setup_env,
         ctx.file._build_utils_sh,
