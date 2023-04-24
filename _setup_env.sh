@@ -160,6 +160,7 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
       perl \
       rsync \
       sh \
+      tar \
       ${ADDITIONAL_HOST_TOOLS}
   do
       ln -sf $(which $tool) ${HOST_TOOLS}
