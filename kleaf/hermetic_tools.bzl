@@ -15,8 +15,8 @@
 Provide tools for a hermetic build.
 """
 
-load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 
 _PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
 
@@ -64,7 +64,14 @@ def _handle_python(ctx, py_outs, runtime):
 
 def _handle_hermetic_tools(ctx):
     hermetic_outs_dict = {out.basename: out for out in ctx.outputs.outs}
+
+    tar_src = None
+    tar_out = hermetic_outs_dict.pop("tar")
+
     for src in ctx.files.srcs:
+        if src.basename == "tar" and ctx.attr.tar_args:
+            tar_src = src
+            continue
         out = hermetic_outs_dict[src.basename]
         ctx.actions.symlink(
             output = out,
@@ -72,9 +79,55 @@ def _handle_hermetic_tools(ctx):
             is_executable = True,
             progress_message = "Creating symlinks to in-tree tools",
         )
+
+    _handle_tar(
+        ctx = ctx,
+        src = tar_src,
+        out = tar_out,
+        hermetic_base = hermetic_outs_dict.values()[0].dirname,
+        deps = hermetic_outs_dict.values(),
+    )
+    hermetic_outs_dict["tar"] = tar_out
+
     return hermetic_outs_dict
 
+def _handle_tar(ctx, src, out, hermetic_base, deps):
+    if not ctx.attr.tar_args:
+        return
+
+    command = """
+        set -e
+        PATH={hermetic_base}
+        (
+            toybox=$(realpath {src})
+            if [[ $(basename $toybox) != "toybox" ]]; then
+                echo "Expects toybox for tar" >&2
+                exit 1
+            fi
+
+            cat > {out} << EOF
+#!/bin/sh
+
+$toybox tar "\\$@" {tar_args}
+EOF
+        )
+    """.format(
+        src = src.path,
+        out = out.path,
+        hermetic_base = hermetic_base,
+        tar_args = " ".join([shell.quote(arg) for arg in ctx.attr.tar_args]),
+    )
+
+    ctx.actions.run_shell(
+        inputs = deps + [src],
+        outputs = [out],
+        command = command,
+        mnemonic = "HermeticToolsTar",
+        progress_message = "Creating wrapper for tar: {}".format(ctx.label),
+    )
+
 def _handle_host_tools(ctx, hermetic_base, deps):
+    deps = list(deps)
     host_outs = ctx.outputs.host_tools
     command = """
             set -e
@@ -87,22 +140,6 @@ def _handle_host_tools(ctx, hermetic_base, deps):
         host_outs = " ".join([f.path for f in host_outs]),
         hermetic_base = hermetic_base,
     )
-
-    if ctx.attr.tar_args:
-        command += """
-        (
-            real_tar=$({hermetic_base}/readlink -e {hermetic_base}/tar)
-            rm {hermetic_base}/tar
-            cat > {hermetic_base}/tar << EOF
-#!/bin/sh
-
-$real_tar "\\$@" {tar_args}
-EOF
-        )
-        """.format(
-            hermetic_base = hermetic_base,
-            tar_args = " ".join([shell.quote(arg) for arg in ctx.attr.tar_args]),
-        )
 
     ctx.actions.run_shell(
         inputs = deps,
