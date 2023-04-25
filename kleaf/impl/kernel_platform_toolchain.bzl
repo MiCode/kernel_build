@@ -15,6 +15,10 @@
 """Helper to resolve toolchain for a single platform."""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load(
+    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
+    "C_COMPILE_ACTION_NAME",
+)
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
 load(":common_providers.bzl", "KernelPlatformToolchainInfo")
 
@@ -29,7 +33,34 @@ def _kernel_platform_toolchain_impl(ctx):
         # Intentionally not put any keys so kernel_toolchains emit a hard error
         return KernelPlatformToolchainInfo()
 
-    all_files = depset(cc_info.compilation_context.direct_headers, transitive = [
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = [
+            # -no-canonical-prefixes is added to work around
+            # https://github.com/bazelbuild/bazel/issues/4605
+            # "cxx_builtin_include_directory doesn't work with non-absolute path"
+            # Disable it.
+            "kleaf-no-canonical-prefixes",
+        ],
+    )
+    compile_variables = cc_common.create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        user_compile_flags = [],  # copts
+        include_directories = cc_info.compilation_context.includes,
+        quote_include_directories = cc_info.compilation_context.quote_includes,
+        system_include_directories = cc_info.compilation_context.system_includes,
+    )
+    compile_command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = C_COMPILE_ACTION_NAME,
+        variables = compile_variables,
+    )
+
+    all_files = depset(transitive = [
+        depset(cc_info.compilation_context.direct_headers),
         cc_info.compilation_context.headers,
         cc_toolchain.all_files,
     ])
@@ -38,6 +69,7 @@ def _kernel_platform_toolchain_impl(ctx):
         compiler_version = cc_toolchain.compiler,
         toolchain_id = cc_toolchain.toolchain_id,
         all_files = all_files,
+        cflags = compile_command_line,
         # All executables are in the same place, so just use the compiler executable
         # to locate PATH.
         bin_path = paths.dirname(cc_toolchain.compiler_executable),
