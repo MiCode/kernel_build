@@ -17,6 +17,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load(
     "@bazel_tools//tools/build_defs/cc:action_names.bzl",
+    "CPP_LINK_EXECUTABLE_ACTION_NAME",
     "C_COMPILE_ACTION_NAME",
 )
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
@@ -59,10 +60,36 @@ def _kernel_platform_toolchain_impl(ctx):
         variables = compile_variables,
     )
 
+    # Handle "//prebuilts/kernel-build-tools:linux_x86_imported_libs",
+    user_link_flags = []
+    additional_libs = []
+    library_search_directories = []
+    for dep in ctx.attr.deps:
+        if dep[CcInfo].linking_context:
+            for linker_input in dep[CcInfo].linking_context.linker_inputs.to_list():
+                for lib in linker_input.libraries:
+                    if lib.dynamic_library:
+                        additional_libs.append(lib.dynamic_library)
+                        library_search_directories.append(lib.dynamic_library.dirname)
+
+    link_variables = cc_common.create_link_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        user_link_flags = user_link_flags,  # linkopts
+        library_search_directories = depset(library_search_directories),
+    )
+    link_command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        # Use CPP_LINK_EXECUTABLE_ACTION_NAME to get rid of "-shared"
+        action_name = CPP_LINK_EXECUTABLE_ACTION_NAME,
+        variables = link_variables,
+    )
+
     all_files = depset(transitive = [
         depset(cc_info.compilation_context.direct_headers),
         cc_info.compilation_context.headers,
         cc_toolchain.all_files,
+        depset(additional_libs),
     ])
 
     return KernelPlatformToolchainInfo(
@@ -70,6 +97,7 @@ def _kernel_platform_toolchain_impl(ctx):
         toolchain_id = cc_toolchain.toolchain_id,
         all_files = all_files,
         cflags = compile_command_line,
+        ldflags = link_command_line,
         # All executables are in the same place, so just use the compiler executable
         # to locate PATH.
         bin_path = paths.dirname(cc_toolchain.compiler_executable),
