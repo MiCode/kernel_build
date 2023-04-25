@@ -87,6 +87,7 @@ def kernel_build(
         module_implicit_outs = None,
         generate_vmlinux_btf = None,
         deps = None,
+        arch = None,
         base_kernel = None,
         make_goals = None,
         kconfig_ext = None,
@@ -137,6 +138,13 @@ def kernel_build(
               ],
           )
           ```
+        arch: Target architecture. Default is `arm64`.
+
+          Value should be one of `arm64`, `x86_64` or `riscv64`.
+
+          This must be consistent to `ARCH` in build configs if the latter
+          is specified. Otherwise, a warning / error may be raised.
+
         base_kernel: A label referring the base kernel build.
 
           If set, the list of files specified in the `DefaultInfo` of the rule specified in
@@ -424,6 +432,7 @@ def kernel_build(
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         lto = lto,
         make_goals = make_goals,
+        arch = arch,
         **internal_kwargs
     )
 
