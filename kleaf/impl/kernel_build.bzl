@@ -61,7 +61,6 @@ load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
 load(":kernel_headers.bzl", "kernel_headers")
-load(":kernel_toolchain_aspect.bzl", "kernel_toolchain_aspect")
 load(":kernel_uapi_headers.bzl", "kernel_uapi_headers")
 load(":kgdb.bzl", "kgdb")
 load(":kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
@@ -1500,6 +1499,7 @@ def _create_infos(
         images_info,
         gcov_info,
         ctx.attr.config[KernelEnvAttrInfo],
+        ctx.attr.config[KernelToolchainInfo],
         output_group_info,
         default_info,
     ]
@@ -1574,8 +1574,12 @@ _kernel_build = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvAndOutputsInfo, KernelEnvAttrInfo, KernelEnvMakeGoalsInfo],
-            aspects = [kernel_toolchain_aspect],
+            providers = [
+                KernelEnvAndOutputsInfo,
+                KernelEnvAttrInfo,
+                KernelEnvMakeGoalsInfo,
+                KernelToolchainInfo,
+            ],
             doc = "the kernel_config target",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),

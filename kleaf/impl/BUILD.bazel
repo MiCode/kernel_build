@@ -67,7 +67,6 @@ bzl_library(
         "kernel_module.bzl",
         "kernel_module_group.bzl",
         "kernel_modules_install.bzl",
-        "kernel_toolchain_aspect.bzl",
         "kernel_uapi_headers.bzl",
         "kernel_uapi_headers_cc_library.bzl",
         "kernel_unstripped_modules_archive.bzl",
