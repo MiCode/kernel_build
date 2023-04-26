@@ -19,7 +19,6 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
@@ -412,9 +411,6 @@ def kernel_build(
     if arch == None:
         arch = "arm64"
 
-    if toolchain_version == None:
-        toolchain_version = VARS["CLANG_VERSION"]
-
     trim_nonlisted_kmi = trim_nonlisted_kmi_utils.selected_attr(trim_nonlisted_kmi)
 
     internal_kwargs = dict(kwargs)
@@ -432,13 +428,21 @@ def kernel_build(
         "//conditions:default": "default",
     })
 
+    toolchain_constraints = []
+    if toolchain_version != None:
+        toolchain_constraint = "//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)
+        toolchain_constraints.append(Label(toolchain_constraint))
+    else:
+        # use default toolchain, e.g.
+        # //prebuilts/clang/host/linux-x86/kleaf:android_arm64_clang_toolchain
+        pass
+
     native.platform(
         name = name + "_platform_target",
         constraint_values = [
             "@platforms//os:android",
             "@platforms//cpu:{}".format(arch),
-            Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)),
-        ],
+        ] + toolchain_constraints,
         **internal_kwargs
     )
 
@@ -447,8 +451,7 @@ def kernel_build(
         constraint_values = [
             "@platforms//os:linux",
             "@platforms//cpu:x86_64",
-            Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)),
-        ],
+        ] + toolchain_constraints,
         **internal_kwargs
     )
 
