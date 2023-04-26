@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Defines repositories in a Kleaf workspace.
+"""
+
 load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
 load(
     "//build/kernel/kleaf:constants.bzl",
@@ -21,6 +25,7 @@ load(
 load("//build/kernel/kleaf:download_repo.bzl", "download_artifacts_repo")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
 
+# buildifier: disable=unnamed-macro
 def define_kleaf_workspace(common_kernel_package = None):
     """Common macro for defining repositories in a Kleaf workspace.
 
@@ -95,6 +100,12 @@ def define_kleaf_workspace(common_kernel_package = None):
     native.local_repository(
         name = "remote_coverage_tools",
         path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
+    )
+
+    # Stub out @rules_java required for stardoc.
+    native.local_repository(
+        name = "rules_java",
+        path = "build/bazel_common_rules/rules/java/rules_java",
     )
 
     native.register_toolchains(

@@ -22,6 +22,8 @@ import xml.dom.minidom
 import xml.parsers.expat
 from typing import Optional
 
+_FAKE_KERNEL_VERSION = "99.99.99"
+
 
 @dataclasses.dataclass
 class PathCollectible(object):
@@ -66,7 +68,9 @@ def call_setlocalversion(bin, srctree, *args) \
         return subprocess.Popen([bin, srctree] + list(args),
                                 text=True,
                                 stdout=subprocess.PIPE,
-                                cwd=working_dir)
+                                cwd=working_dir,
+                                env=os.environ
+                                | {"KERNELVERSION": _FAKE_KERNEL_VERSION})
     return None
 
 
@@ -77,8 +81,7 @@ def list_projects() -> list[str]:
         a list of projects in the repository.
     """
     try:
-        output = subprocess.check_output(["repo", "manifest", "-r"],
-                                           text=True)
+        output = subprocess.check_output(["repo", "manifest", "-r"], text=True)
         return parse_repo_manifest(output)
     except (subprocess.SubprocessError, FileNotFoundError) as e:
         logging.error("Unable to execute repo manifest -r: %s", e)
@@ -98,7 +101,10 @@ def parse_repo_manifest(manifest: str) -> list[str]:
         return []
     projects = dom.documentElement.getElementsByTagName("project")
     # https://gerrit.googlesource.com/git-repo/+/master/docs/manifest-format.md#element-project
-    return [proj.getAttribute("path") or proj.getAttribute("name") for proj in projects]
+    return [
+        proj.getAttribute("path") or proj.getAttribute("name")
+        for proj in projects
+    ]
 
 
 def collect(popen_obj: subprocess.Popen) -> str:
@@ -137,6 +143,10 @@ class Stamp(object):
         source_date_epoch_map = self.async_get_source_date_epoch_all()
 
         scmversion_result_map = self.collect_map(scmversion_map)
+        scmversion_result_map = {
+            key: value.removeprefix(_FAKE_KERNEL_VERSION)
+            for key, value in scmversion_result_map.items()
+        }
 
         source_date_epoch_result_map = self.collect_map(source_date_epoch_map)
 
@@ -155,8 +165,7 @@ class Stamp(object):
         all_projects.extend(self.projects)
 
         for proj in all_projects:
-            candidate = os.path.join(proj,
-                                     "scripts/setlocalversion")
+            candidate = os.path.join(proj, "scripts/setlocalversion")
             if os.access(candidate, os.X_OK):
                 self.setlocalversion = os.path.realpath(candidate)
                 return
