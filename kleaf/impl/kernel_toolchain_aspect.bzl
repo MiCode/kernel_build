@@ -14,16 +14,9 @@
 
 """Aspect that passes toolchain information from `kernel_env` back to `_kernel_build`."""
 
+load(":common_providers.bzl", "KernelToolchainInfo")
 load(":constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load(":utils.bzl", "utils")
-
-KernelToolchainInfo = provider(
-    "Provides the toolchain version.",
-    fields = {
-        "toolchain_version": "The toolchain version",
-        "toolchain_version_file": "A file containing the toolchain version",
-    },
-)
 
 def _kernel_toolchain_aspect_impl(_target, ctx):
     if ctx.rule.kind == "_kernel_build":

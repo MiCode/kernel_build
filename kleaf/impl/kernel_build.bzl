@@ -45,6 +45,7 @@ load(
     "KernelEnvAttrInfo",
     "KernelEnvMakeGoalsInfo",
     "KernelImagesInfo",
+    "KernelToolchainInfo",
     "KernelUnstrippedModulesInfo",
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
@@ -60,7 +61,7 @@ load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
 load(":kernel_headers.bzl", "kernel_headers")
-load(":kernel_toolchain_aspect.bzl", "KernelToolchainInfo", "kernel_toolchain_aspect")
+load(":kernel_toolchain_aspect.bzl", "kernel_toolchain_aspect")
 load(":kernel_uapi_headers.bzl", "kernel_uapi_headers")
 load(":kgdb.bzl", "kgdb")
 load(":kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")

@@ -47,6 +47,14 @@ KernelEnvMakeGoalsInfo = provider(
     },
 )
 
+KernelToolchainInfo = provider(
+    doc = "Provides a single toolchain version.",
+    fields = {
+        "toolchain_version": "The toolchain version",
+        "toolchain_version_file": "A file containing the toolchain version",
+    },
+)
+
 KernelEnvAndOutputsInfo = provider(
     doc = """Like `KernelEnvInfo` but also restores artifacts.
 
