@@ -84,7 +84,7 @@ def list_projects() -> list[str]:
         output = subprocess.check_output(["repo", "manifest", "-r"], text=True)
         return parse_repo_manifest(output)
     except (subprocess.SubprocessError, FileNotFoundError) as e:
-        logging.error("Unable to execute repo manifest -r: %s", e)
+        logging.warning("Unable to execute repo manifest -r: %s", e)
         return []
 
 
