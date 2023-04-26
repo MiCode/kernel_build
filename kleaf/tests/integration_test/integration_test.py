@@ -342,12 +342,51 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
                                 f"`bazel run //{self._common()}:kernel_aarch64_config "
                                 f"-- olddefconfig`, but got\n{new_gki_defconfig_content}")
 
-                # It should be fine to call the same command subsequently. This tests that the
-                # symlink in execroot is properly restored.
+                # It should be fine to call the same command subsequently.
                 self._check_call("run",
                                  [f"//{self._common()}:kernel_{arch}_config", "--", "olddefconfig"]
                                  + _FASTEST)
 
+    def test_menuconfig_merge(self):
+        """Test that menuconfig works with a raw merge_config.sh in PRE_DEFCONFIG_CMDS.
+
+        See `menuconfig_merge_test/` for details.
+
+        See b/276889737 and b/274878805."""
+
+        args = [
+            "//build/kernel/kleaf/tests/integration_test/menuconfig_merge_test:menuconfig_merge_test_config",
+        ] + _FASTEST
+
+        output = self._check_output("run", args)
+
+        matching_line = lambda line: re.match(
+            r"^Updating .*common/arch/arm64/configs/menuconfig_test_defconfig$",
+            line)
+        self.assertTrue(
+            any([matching_line(line) for line in output.splitlines()]))
+
+        # It should be fine to call the same command subsequently.
+        self._check_call("run", args)
+
+    def test_menuconfig_fragment(self):
+        """Test that menuconfig works with a FRAGMENT_CONFIG defined.
+
+        See `menuconfig_fragment_test/` for details.
+
+        See b/276889737 and b/274878805."""
+
+        args = [
+            "//build/kernel/kleaf/tests/integration_test/menuconfig_fragment_test:menuconfig_fragment_test_config",
+        ] + _FASTEST
+
+        output = self._check_output("run", args)
+
+        expected_line = f"Updated {os.environ['BUILD_WORKSPACE_DIRECTORY']}/build/kernel/kleaf/tests/integration_test/menuconfig_fragment_test/defconfig.fragment"
+        self.assertTrue(expected_line, output.splitlines())
+
+        # It should be fine to call the same command subsequently.
+        self._check_call("run", args)
 
 class ScmversionIntegrationTest(KleafIntegrationTestBase):
     def setUp(self) -> None:

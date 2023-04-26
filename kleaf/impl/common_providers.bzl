@@ -40,6 +40,13 @@ without actually modifying any variables suitable for a proper kernel build.
     },
 )
 
+KernelEnvMakeGoalsInfo = provider(
+    doc = "Describe the targets for the current build.",
+    fields = {
+        "make_goals": "A list of strings defining targets for the kernel build.",
+    },
+)
+
 KernelEnvAndOutputsInfo = provider(
     doc = """Like `KernelEnvInfo` but also restores artifacts.
 
@@ -150,6 +157,7 @@ KernelBuildAbiInfo = provider(
                                   to be updated by `--update_symbol_list`""",
         "src_protected_exports_list": """Source file for protected symbols which are restricted from being exported by unsigned modules to be updated by `--update_protected_exports`""",
         "src_protected_modules_list": """Source file with list of protected modules whose exports are being protected and needs to be updated by `--update_protected_exports`""",
+        "kmi_strict_mode_out": "A [`File`](https://bazel.build/rules/lib/File) to force kmi_strict_mode check.",
     },
 )
 
