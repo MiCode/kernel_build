@@ -41,11 +41,11 @@ Either:
 
 Or:
 
-- A `repo.prop` file is generated in advance with
-  `repo forall -c 'echo "$REPO_PATH $REPO_LREV"'`, then provided to
-  Bazel with `bazel build --repo_prop=$(realpath <repo.prop>)`.
+- A `manifest.xml` file is generated in advance with
+  `repo manifest -r`, then provided to
+  Bazel with `bazel build --repo_manifest=$(realpath <manifest.xml>)`.
 
-The `repo.prop` file is needed by the build system when `repo` is not available
+The `manifest.xml` file is needed by the build system when `repo` is not available
 in the build environment. This is uncommon.
 
 ### `setlocalversion` requirements
