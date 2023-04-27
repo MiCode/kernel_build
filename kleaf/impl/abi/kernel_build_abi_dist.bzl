@@ -17,58 +17,25 @@
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec", "exec_rule")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
-load(":utils.bzl", "utils")
 
+# TODO(b/242072873): Delete once all use cases migrate to kernel_abi_dist.
 def kernel_build_abi_dist(
         name,
-        kernel_build_abi,
-        kernel_build_add_vmlinux = None,
         **kwargs):
     """**Deprecated**. Use [`kernel_abi_dist`](#kernel_abi_dist) instead.
 
-    A wrapper over `copy_to_dist_dir` for [`kernel_build_abi`](#kernel_build_abi).
-
-    After copying all files to dist dir, return the exit code from `diff_abi`.
-
     Args:
-      name: name of the dist target
-      kernel_build_abi: name of the [`kernel_build_abi`](#kernel_build_abi)
-        invocation.
-      kernel_build_add_vmlinux: See
-        [`kernel_abi_dist.kernel_build_add_vmlinux`](#kernel_abi_dist-kernel_build_add_vmlinux).
-      **kwargs: Additional attributes to the internal rule, e.g.
-        [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
-        See complete list
-        [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+      name: name
+      **kwargs: kwargs
 
     Deprecated:
       Use [`kernel_abi_dist`](#kernel_abi_dist) instead.
     """
 
-    # buildifier: disable=print
-    print("""
-WARNING: kernel_build_abi_dist is deprecated. Use kernel_abi_dist instead.
+    fail("""//{}:{}: kernel_build_abi_dist is deprecated. Use kernel_abi_dist instead.
 
-You may try copy-pasting the following definition to BUILD.bazel
-(note: this is not necessarily accurate and likely unformatted):
-
-kernel_abi_dist(
-    {kwargs}
-)
-""".format(
-        kwargs = utils.kwargs_to_def(
-            name = name,
-            kernel_abi = kernel_build_abi + "_abi",
-            **kwargs
-        ),
-    ))
-
-    kernel_abi_dist(
-        name = name,
-        kernel_abi = kernel_build_abi + "_abi",
-        kernel_build_add_vmlinux = kernel_build_add_vmlinux,
-        **kwargs
-    )
+See build/kernel/kleaf/docs/abi_device.md for details.
+""".format(native.package_name(), name))
 
 _kernel_abi_dist_exec = exec_rule(
     cfg = with_vmlinux_transition,

@@ -23,4 +23,4 @@ if [[ ! -f "WORKSPACE" ]]; then
 fi
 
 build/kernel/kleaf/workspace_status_common.sh
-build/kernel/build-tools/path/linux-x86/python3 build/kernel/kleaf/workspace_status_stamp.py
+prebuilts/build-tools/path/linux-x86/python3 build/kernel/kleaf/workspace_status_stamp.py

@@ -229,7 +229,7 @@ def ddk_module(
           }
           ```
 
-          In the above example, if `CONFIG_FOO` is `y`, `foo.c` is compiled.
+          In the above example, if `CONFIG_FOO` is `y` or `m`, `foo.c` is compiled.
           Otherwise, `notfoo.c` is compiled instead.
 
         out: The output module file. This should usually be `"{name}.ko"`.
@@ -367,11 +367,10 @@ def ddk_module(
                         config = config,
                         value_type = type(config_value),
                     ))
-                config_value = "y" if config_value else ""
                 fg_name = "{name}_{config}_{value}_srcs".format(
                     name = name,
                     config = config,
-                    value = utils.normalize(config_value),
+                    value = utils.normalize(str(config_value)),
                 )
                 ddk_conditional_filegroup(
                     name = fg_name,

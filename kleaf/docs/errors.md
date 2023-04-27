@@ -256,14 +256,20 @@ For details, see [scmversion.md](scmversion.md).
 
 ## rm: cannot remove 'out/bazel/output_user_root/<hash>/execroot/\_\_main\_\_/bazel-out/k8-fastbuild/bin/<...>
 
+**Note**: `--experimental_writable_outputs` is now enabled by default. If you
+still see this error, it may be due to left-over directories from builds before
+`--experimental_writable_outputs` is enabled. You may execute
+`tools/bazel clean` one last time. Then, you should no longer need to run
+`tools/bazel clean` before `rm -rf out/`.
+
 If you try to `rm -rf out/` and get the above message, this is because Bazel
-removes the write permission on output binaries.
+removes the write permission on output directories.
 
 Unlike with `build.sh`, it is no longer needed to clean the output
 directory for consistency of build results.
 
 However, if you need to clean the `out/` directory to
-save disk space, you may run `bazel clean`. See
+save disk space, you may run `tools/bazel clean`. See
 documentation for the `clean` command
 [here](https://bazel.build/docs/user-manual#cleaning-build-outputs).
 
