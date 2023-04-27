@@ -18,6 +18,8 @@
 # rules and macros. The implementations stays in sub-extensions,
 # which is not expected to be loaded directly by users.
 
+load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", _kernel_module_test = "kernel_module_test")
+
 # TODO(b/242072873): kernel_build_abi is deprecated
 # buildifier: disable=deprecated-function
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", _kernel_abi = "kernel_abi", _kernel_build_abi = "kernel_build_abi")
@@ -65,3 +67,6 @@ kernel_modules_install = _kernel_modules_install
 kernel_uapi_headers_cc_library = _kernel_uapi_headers_cc_library
 kernel_unstripped_modules_archive = _kernel_unstripped_modules_archive
 merged_kernel_uapi_headers = _merged_kernel_uapi_headers
+
+# Tests
+kernel_module_test = _kernel_module_test
