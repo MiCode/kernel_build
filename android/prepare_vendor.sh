@@ -247,7 +247,8 @@ if [ "${RECOMPILE_ABL}" == "1" -o "${COPY_ABL_NEEDED}" == "1" ]; then
 fi
 
 ################################################################################
-if [ "${RECOMPILE_ABL}" == "1" -a -n "${TARGET_BUILD_VARIANT}" ]; then
+if [ "${RECOMPILE_ABL}" == "1" ] && [ -n "${TARGET_BUILD_VARIANT}" ] && \
+   [ "${KERNEL_TARGET}" != "autogvm" ]; then
   echo
   echo "  Recompiling edk2"
 
