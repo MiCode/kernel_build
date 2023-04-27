@@ -42,7 +42,7 @@ following. Earlier items have higher priority.
 
 ```text
 # tuna/Kconfig.ext: Kconfig of the kernel_build
-config CONFIG_TUNA_LOW_MEM
+config TUNA_LOW_MEM
 	bool "Does the device have low memory?"
 ```
 
