@@ -60,6 +60,8 @@
 
 `--btf_debug_info`: [Enable/disable BTF debug information](docs/btf.md)
 
+`--gki_build_config_fragment`: [Supporting GKI\_BUILD\_CONFIG\_FRAGMENT on Kleaf](docs/gki_build_config_fragment.md)
+
 Other flags for debugging and disabling integrity checks may be found in the
 [Debugging Kleaf](docs/debugging.md) page.
 

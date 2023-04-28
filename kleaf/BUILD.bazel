@@ -188,6 +188,13 @@ string_flag(
     ],
 )
 
+# Debug option to modify GKI build config via build config fragments.
+# By default it points to an empty filegroup.
+label_flag(
+    name = "gki_build_config_fragment",
+    build_setting_default = "//build/kernel/kleaf/impl:empty_filegroup",
+)
+
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
 # If additional hacks are needed, put `select()` on the build_config.
 # See kleaf/docs/kgdb.md for details.

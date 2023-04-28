@@ -16,11 +16,13 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
     ":kernel.bzl",
     "kernel_abi",
     "kernel_abi_dist",
     "kernel_build",
+    "kernel_build_config",
     "kernel_compile_commands",
     "kernel_filegroup",
     "kernel_images",
@@ -527,6 +529,18 @@ def define_common_kernels(
     if visibility == None:
         visibility = ["//visibility:public"]
 
+    # Workaround to set KERNEL_DIR correctly and
+    #  avoid using the fallback (directory of the config).
+    set_kernel_dir_cmd = "KERNEL_DIR=\"{common_package}\"".format(
+        common_package = native.package_name(),
+    )
+    write_file(
+        name = "set_kernel_dir_build_config",
+        content = [set_kernel_dir_cmd, ""],
+        out = "set_kernel_dir_build_config/build.config",
+        visibility = visibility,
+    )
+
     default_target_configs = None  # _default_target_configs is lazily evaluated.
     if target_configs == None:
         target_configs = {}
@@ -587,6 +601,16 @@ def define_common_kernels(
             allow_unknown_keys = True,
         )
 
+        kernel_build_config(
+            name = name + "_build_config",
+            srcs = [
+                # do not sort
+                ":set_kernel_dir_build_config",
+                arch_config["build_config"],
+                Label("//build/kernel/kleaf:gki_build_config_fragment"),
+            ],
+        )
+
         kernel_build(
             name = name,
             srcs = [name + "_sources"],
@@ -599,7 +623,7 @@ def define_common_kernels(
                 "certs/signing_key.pem",
                 "certs/signing_key.x509",
             ],
-            build_config = arch_config["build_config"],
+            build_config = name + "_build_config",
             enable_interceptor = arch_config.get("enable_interceptor"),
             visibility = visibility,
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
