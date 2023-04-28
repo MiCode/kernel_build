@@ -174,6 +174,9 @@ class BazelWrapper(object):
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
 
+        if self.known_args.repo_manifest is not None:
+            self.env["KLEAF_REPO_MANIFEST"] = self.known_args.repo_manifest
+
         cache_dir_bazel_rc = f"{self.absolute_out_dir}/bazel/cache_dir.bazelrc"
         os.makedirs(os.path.dirname(cache_dir_bazel_rc), exist_ok=True)
         with open(cache_dir_bazel_rc, "w") as f:

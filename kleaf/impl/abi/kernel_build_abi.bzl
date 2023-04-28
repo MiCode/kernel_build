@@ -23,6 +23,7 @@ load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
 load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
+load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 load(":common_providers.bzl", "KernelBuildAbiInfo")
 load(":kernel_build.bzl", "kernel_build")
 
@@ -56,7 +57,11 @@ kmi_symbol_checks = rule(
     implementation = _kmi_symbol_checks_impl,
     attrs = {
         "kernel_build": attr.label(providers = [KernelBuildAbiInfo]),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
+    cfg = with_vmlinux_transition,
 )
 
 def kernel_abi(

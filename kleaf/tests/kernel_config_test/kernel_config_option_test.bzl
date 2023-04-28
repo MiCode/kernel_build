@@ -18,7 +18,6 @@ Require //common package.
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/kernel/kleaf:constants.bzl", "LTO_VALUES")
 load("//build/kernel/kleaf:kernel.bzl", "kernel_build")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -409,6 +408,8 @@ def _combined_option_test(name, kernels):
             # expected_trim is the expected value of CONFIG_TRIM_UNUSED_KSYMS, affected by kasan.
             expected_trim = key.trim
             if combination["kasan"]:
+                expected_trim = False
+            if combination["kgdb"]:
                 expected_trim = False
 
             _combined_test_expected(

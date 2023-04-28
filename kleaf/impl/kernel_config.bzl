@@ -183,6 +183,12 @@ def _config_trim(ctx):
     if not trim_nonlisted_kmi_utils.get_value(ctx):
         return struct(configs = [], deps = [])
 
+    if ctx.attr._kgdb[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Symbol trimming \
+              IGNORED because --kgdb is set!".format(this_label = ctx.label))
+        return struct(configs = [], deps = [])
+
     raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
     configs = [
         _config.disable("UNUSED_SYMBOLS"),

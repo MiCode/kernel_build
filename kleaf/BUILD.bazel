@@ -196,6 +196,11 @@ bool_flag(
     build_setting_default = False,
 )
 
+config_setting(
+    name = "kgdb_is_true",
+    flag_values = {":kgdb": "1"},
+)
+
 # The values of --config, as passed by command line and bazelrc files.
 _config_values = (
     "local",

@@ -1833,6 +1833,13 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
     if ctx.attr._kasan[BuildSettingInfo].value:
         return None
 
+    # Skip for the --kgdb targets as they are not valid GKI release targets
+    if ctx.attr._kgdb[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Symbol list violations check \
+              IGNORED because --kgdb is set!".format(this_label = ctx.label))
+        return None
+
     inputs = [
         ctx.file.raw_kmi_symbol_list,
         modules_staging_archive,
