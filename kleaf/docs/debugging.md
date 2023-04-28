@@ -81,3 +81,30 @@ $ diff out/hash_1.txt out/hash_2.txt
 Positional arguments to `build/kernel/kleaf/analysis/inputs.py` are fed directly to
 `tools/bazel aquery`. Visit [Action Graph Query](https://bazel.build/query/aquery) for the
 query language.
+
+## Debugging dependencies on external repositories
+
+If you see an error like this:
+
+```
+ERROR: An error occurred during the fetch of repository 'rules_python':
+   Traceback (most recent call last):
+        File "<...>/http.bzl", line 132, column 45, in _http_archive_impl
+                download_info = ctx.download_and_extract(
+[...]
+ERROR: <...>:24:22: While resolving toolchains for target <...>: invalid registered toolchain '@bazel_tools//tools/jdk:all': while parsing '@bazel_tools//tools/jdk:all': no such package '@rules_python//python': java.io.IOException: Error downloading <...>
+```
+
+In this example, the error message suggests that `@bazel_tools//tools/jdk:all`
+has a dependency on `@rules_python`.
+
+If this error is unexpected, you may try these commands to diagnose issues
+with external repositories:
+
+```sh
+rm -rf /tmp/temp_repo_cache && mkdir -p /tmp/temp_repo_cache
+bazel clean --expunge
+bazel query @bazel_tools//tools/jdk:all \
+  --repository_cache=/tmp/temp_repo_cache \
+  --experimental_repository_disable_download
+```
