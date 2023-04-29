@@ -83,6 +83,12 @@ def define_kleaf_workspace(common_kernel_package = None):
         target = "kernel_aarch64",
     )
 
+    # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
+    native.local_repository(
+        name = "rules_python",
+        path = "build/bazel_common_rules/rules/python/stubs",
+    )
+
     # Fake local_jdk to avoid fetching rules_java for any exec targets.
     # See build/kernel/kleaf/impl/fake_local_jdk/README.md.
     native.local_repository(

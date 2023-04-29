@@ -97,6 +97,7 @@ _KERNEL_BUILD_VALID_KEYS = [
     "module_implicit_outs",
     "protected_exports_list",
     "protected_modules_list",
+    "make_goals",
 ]
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
