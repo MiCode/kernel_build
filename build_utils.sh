@@ -736,7 +736,7 @@ function extract_git_metadata() {
   local git_project_candidate=$2
   local what=$3
   while [[ "${git_project_candidate}" != "." ]]; do
-    value_candidate=$(echo "${map}" | sed -n 's|.*\<'"${git_project_candidate}"':\(\S\+\).*|\1|p' || true)
+    value_candidate=$(echo "${map}" | sed -E -n 's;(^|.*\s)'"${git_project_candidate}"':(\S+).*;\2;p' || true)
     if [[ -n "${value_candidate}" ]]; then
         break
     fi
