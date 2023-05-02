@@ -27,6 +27,7 @@ load("//build/kernel/kleaf/impl:abi/kernel_build_abi.bzl", _kernel_abi = "kernel
 # TODO(b/242072873): kernel_build_abi_dist is deprecated
 # buildifier: disable=deprecated-function
 load("//build/kernel/kleaf/impl:abi/kernel_build_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist", _kernel_build_abi_dist = "kernel_build_abi_dist")
+load("//build/kernel/kleaf/impl:abi/extracted_symbols.bzl", _extract_symbols = "extracted_symbols")
 load("//build/kernel/kleaf/impl:android_filegroup.bzl", _android_filegroup = "android_filegroup")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
@@ -50,6 +51,7 @@ android_filegroup = _android_filegroup
 ddk_headers = _ddk_headers
 ddk_module = _ddk_module
 ddk_submodule = _ddk_submodule
+extract_symbols = _extract_symbols
 kernel_abi = _kernel_abi
 kernel_abi_dist = _kernel_abi_dist
 kernel_build = _kernel_build_macro
