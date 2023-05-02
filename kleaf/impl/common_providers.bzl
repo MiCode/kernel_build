@@ -262,6 +262,16 @@ KernelModuleSetupInfo = provider(
     },
 )
 
+KernelModuleDepInfo = provider(
+    doc = "Info that a `kernel_module` expects on a `kernel_module` dependency.",
+    fields = {
+        "label": "Label of the target where the infos are from.",
+        "kernel_module_setup_info": "`KernelModuleSetupInfo`",
+        "module_symvers_info": "`ModuleSymversInfo`",
+        "kernel_module_info": "`KernelModuleInfo`",
+    },
+)
+
 ModuleSymversInfo = provider(
     doc = "A provider that provides `Module.symvers` for `modpost`.",
     fields = {

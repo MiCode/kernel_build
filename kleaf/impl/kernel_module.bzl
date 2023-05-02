@@ -187,7 +187,7 @@ def kernel_module(
 def _check_module_symvers_restore_path(kernel_modules, this_label):
     all_restore_paths = dict()
     for kernel_module in kernel_modules:
-        for restore_path in kernel_module[ModuleSymversInfo].restore_paths.to_list():
+        for restore_path in kernel_module.module_symvers_info.restore_paths.to_list():
             if restore_path not in all_restore_paths:
                 all_restore_paths[restore_path] = []
             all_restore_paths[restore_path].append(str(kernel_module.label))
@@ -233,9 +233,10 @@ def _kernel_module_impl(ctx):
     kernel_module_deps = split_deps.kernel_modules
     if ctx.attr.internal_ddk_makefiles_dir:
         kernel_module_deps += ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].kernel_module_deps.to_list()
+    kernel_module_deps = [kernel_utils.create_kernel_module_dep_info(target) for target in kernel_module_deps]
 
     kernel_utils.check_kernel_build(
-        [target[KernelModuleInfo] for target in kernel_module_deps],
+        [target.kernel_module_info for target in kernel_module_deps],
         ctx.attr.kernel_build.label,
         ctx.label,
     )
@@ -259,7 +260,7 @@ def _kernel_module_impl(ctx):
     transitive_inputs = [module_srcs]
     transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
     for kernel_module_dep in kernel_module_deps:
-        transitive_inputs.append(kernel_module_dep[KernelModuleSetupInfo].inputs)
+        transitive_inputs.append(kernel_module_dep.kernel_module_setup_info.inputs)
 
     if ctx.attr.internal_ddk_makefiles_dir:
         transitive_inputs.append(ctx.attr.internal_ddk_makefiles_dir[DdkSubmoduleInfo].srcs)
@@ -347,7 +348,7 @@ def _kernel_module_impl(ctx):
         kernel_uapi_headers_dir = kernel_uapi_headers_dws.directory.path,
     )
     for kernel_module_dep in kernel_module_deps:
-        command += kernel_module_dep[KernelModuleSetupInfo].setup
+        command += kernel_module_dep.kernel_module_setup_info.setup
 
     grab_unstripped_cmd = ""
     if unstripped_dir:
