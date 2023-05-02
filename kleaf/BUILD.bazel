@@ -353,6 +353,7 @@ docs(
         "//build/bazel_common_rules/workspace",
         "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
+        "//prebuilts/clang/host/linux-x86/kleaf:register",
         "@bazel_skylib//:workspace",
         "@bazel_skylib//lib:dicts",
         "@bazel_skylib//lib:paths",
