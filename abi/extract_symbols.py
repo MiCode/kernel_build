@@ -33,30 +33,21 @@ _ALWAYS_INCLUDED = [
 _ABIGAIL_HEADER = "[abi_symbol_list]"
 
 def symbol_sort(symbols):
-  # use the method that `sort` uses: case insensitive and ignoring
-  # underscores, that keeps symbols with related name close to each other.
-  # yeah, that is a bit brute force, but it gets the job done
+  # Use a method similar to `LANG=en_US sort`: case insensitive and ignoring
+  # underscores, that keeps symbols with related names close to each other.
 
   def __key(a):
     """Creates a key for comparison of symbols."""
-    # We want to sort underscore prefixed symbols along with those without, but
-    # before them. Hence add a trailing underscore for every missing leading
-    # one and strip all others.
-    # E.g. __blk_mq_end_request, _blk_mq_end_request, blk_mq_end_request get
-    # replaced by blkmqendrequest, blkmqendrequest_, blkmqendrequest__ and
-    # compared lexicographically.
-
     # if the caller passes None or an empty string something is odd, so assert
     # and ignore if asserts are disabled as we do not need to deal with that
     assert (a)
     if not a:
       return a
 
-    tmp = a.lower()
-    for idx, c in enumerate(tmp):
-      if c != "_":
-        break
-    return (tmp.replace("_", "") + (5 - idx) * "_", a)
+    # We want to ignore case and underscores, except that we want to sort
+    # underscore-prefixed symbols before others. So use the (unique) symbol name
+    # as a tie-breaker.
+    return (a.lower().replace("_", ""), a)
 
   return sorted(set(symbols), key=__key)
 
