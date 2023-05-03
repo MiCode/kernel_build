@@ -413,10 +413,10 @@ def kernel_build(
     kwargs_with_manual["tags"] = ["manual"]
 
     lto = select({
-        "//build/kernel/kleaf:lto_is_none": "none",
-        "//build/kernel/kleaf:lto_is_thin": "thin",
-        "//build/kernel/kleaf:lto_is_full": "full",
-        "//build/kernel/kleaf:lto_is_fast": "fast",
+        Label("//build/kernel/kleaf:lto_is_none"): "none",
+        Label("//build/kernel/kleaf:lto_is_thin"): "thin",
+        Label("//build/kernel/kleaf:lto_is_full"): "full",
+        Label("//build/kernel/kleaf:lto_is_fast"): "fast",
         # TODO(b/229662633): Allow kernel_build() macro to set this value.
         "//conditions:default": "default",
     })
