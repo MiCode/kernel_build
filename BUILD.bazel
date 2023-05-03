@@ -55,6 +55,7 @@ hermetic_tools(
         "--owner=0",
         "--group=0",
         "--numeric-owner",
+        "--sort=name",
     ],
     visibility = ["//visibility:public"],
     deps = [

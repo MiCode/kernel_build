@@ -388,11 +388,7 @@ def _get_run_env(ctx, srcs):
     )
 
 def _get_tools(toolchain_version):
-    if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
-        # Using a test toolchain
-        clang_binaries = toolchain_version
-    else:
-        clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
+    clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
 
     return [Label(clang_binaries)]
 
@@ -400,11 +396,7 @@ def _get_rust_tools(rust_toolchain_version):
     if not rust_toolchain_version:
         return []
 
-    if rust_toolchain_version.startswith("//build/kernel/kleaf/tests/"):
-        # Using a test toolchain
-        rust_binaries = rust_toolchain_version
-    else:
-        rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
+    rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
 
     bindgen = "//prebuilts/clang-tools:linux-x86/bin/bindgen"
 
