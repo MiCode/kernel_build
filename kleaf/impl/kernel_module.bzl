@@ -156,7 +156,8 @@ def kernel_module(
     """
 
     if kwargs.get("kernel_module_deps"):
-        fail("//{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
+        fail("{}//{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
+            native.repository_name(),
             native.package_name(),
             name,
         ))

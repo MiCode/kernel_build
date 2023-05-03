@@ -391,7 +391,8 @@ def ddk_module(
         for config, config_srcs_dict in conditional_srcs.items():
             for config_value, config_srcs in config_srcs_dict.items():
                 if type(config_value) != "bool":
-                    fail("//{package}:{name}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
+                    fail("{workspace}//{package}:{name}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
+                        workspace = native.repository_name(),
                         package = native.package_name(),
                         name = name,
                         config_value = config_value,
