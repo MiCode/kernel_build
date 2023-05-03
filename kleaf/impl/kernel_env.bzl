@@ -72,16 +72,22 @@ def _get_check_arch_cmd(ctx):
     if expected_arch == "riscv64":
         expected_arch = "riscv"
 
-    # TODO(b/272164611): Turn this into an error.
     level = "WARNING"
+    exit_cmd = ""
+    if ctx.attr._kernel_use_resolved_toolchains[BuildSettingInfo].value:
+        level = "ERROR"
+        exit_cmd = "exit 1"
+
     return """
         if [[ "$ARCH" != "{expected_arch}" ]]; then
             echo '{level}: {label} must specify arch = "${{ARCH/riscv/riscv64}}".' >&2
+            {exit_cmd}
         fi
     """.format(
         level = level,
         label = ctx.label,
         expected_arch = expected_arch,
+        exit_cmd = exit_cmd,
     )
 
 def _get_make_goals(ctx):
@@ -523,6 +529,9 @@ kernel_env = rule(
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
+        "_kernel_use_resolved_toolchains": attr.label(
+            default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
+        ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),

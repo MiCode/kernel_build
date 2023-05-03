@@ -14,6 +14,9 @@
 
 # User defined flags.
 
+# flags that control toolchains
+build --flag_alias=experimental_kernel_use_resolved_toolchains=//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains
+
 # flags that control kleaf integrity checking
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers
 build --flag_alias=allow_undeclared_modules=//build/kernel/kleaf:allow_undeclared_modules
