@@ -52,7 +52,7 @@ _kernel_toolchain_pass_analysis_test = analysistest.make(
     },
 )
 
-def kernel_toolchain_aspect_test(name):
+def kernel_toolchain_test(name):
     """Tests kernel_build.toolchain_version.
 
     Args:

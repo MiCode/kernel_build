@@ -66,20 +66,15 @@ def die(*args, **kwargs):
 
 
 def _gen_makefile(
-        package: pathlib.Path,
         module_symvers_list: list[pathlib.Path],
         output_makefile: pathlib.Path,
 ):
-    # kernel_module always executes in a sandbox. So ../ only traverses within
-    # the sandbox.
-    rel_root = os.path.join(*([".."] * len(package.parts)))
-
     content = ""
 
     for module_symvers in module_symvers_list:
         content += textwrap.dedent(f"""\
             # Include symbol: {module_symvers}
-            EXTRA_SYMBOLS += $(OUT_DIR)/$(M)/{rel_root}/{module_symvers}
+            EXTRA_SYMBOLS += $(COMMON_OUT_DIR)/{module_symvers}
             """)
 
     content += textwrap.dedent("""\
@@ -131,7 +126,6 @@ def gen_ddk_makefile(
 ):
     if produce_top_level_makefile:
         _gen_makefile(
-            package=package,
             module_symvers_list=module_symvers_list,
             output_makefile=output_makefiles / "Makefile",
         )
@@ -186,12 +180,7 @@ def _gen_ddk_makefile_for_module(
             """))
         out_file.write("\n")
 
-        #    //path/to/package:target/name/foo.ko
-        # =>   path/to/package/target/name
-        rel_root_reversed = pathlib.Path(package) / kernel_module_out.parent
-        rel_root = pathlib.Path(*([".."] * len(rel_root_reversed.parts)))
-
-        _handle_linux_includes(out_file, linux_include_dirs, rel_root)
+        _handle_linux_includes(out_file, linux_include_dirs)
 
         for src_item in rel_srcs:
             config = src_item.get("config")
@@ -214,7 +203,6 @@ def _gen_ddk_makefile_for_module(
                     package=package,
                     local_defines=local_defines,
                     include_dirs=include_dirs,
-                    rel_root=rel_root,
                     copts=copts,
                     obj_suffix = obj_suffix,
                 )
@@ -266,7 +254,6 @@ def _handle_src(
         package: pathlib.Path,
         local_defines: list[str],
         include_dirs: list[pathlib.Path],
-        rel_root: pathlib.Path,
         copts: Optional[list[dict[str, str | bool]]],
         obj_suffix: str,
 ):
@@ -296,15 +283,14 @@ def _handle_src(
     # At this time of writing (2022-11-01), this is the order how cc_library
     # constructs arguments to the compiler.
     _handle_defines(out_file, out, local_defines)
-    _handle_includes(out_file, out, include_dirs, rel_root)
-    _handle_copts(out_file, out, copts, rel_root)
+    _handle_includes(out_file, out, include_dirs)
+    _handle_copts(out_file, out, copts)
 
     out_file.write("\n")
 
 
 def _handle_linux_includes(out_file: TextIO,
-                           linux_include_dirs: list[pathlib.Path],
-                           rel_root: pathlib.Path):
+                           linux_include_dirs: list[pathlib.Path]):
     if not linux_include_dirs:
         return
     out_file.write("\n")
@@ -312,7 +298,7 @@ def _handle_linux_includes(out_file: TextIO,
         LINUXINCLUDE := \\
     """))
     for linux_include_dir in linux_include_dirs:
-        out_file.write(f"  -I$(srctree)/$(src)/{rel_root}/{linux_include_dir} \\")
+        out_file.write(f"  -I$(ROOT_DIR)/{linux_include_dir} \\")
         out_file.write("\n")
     out_file.write("  $(LINUXINCLUDE)")
     out_file.write("\n\n")
@@ -333,19 +319,17 @@ def _handle_defines(out_file: TextIO,
 
 def _handle_includes(out_file: TextIO,
                      object_file: pathlib.Path,
-                     include_dirs: list[pathlib.Path],
-                     rel_root: pathlib.Path):
+                     include_dirs: list[pathlib.Path]):
     for include_dir in include_dirs:
         out_file.write(textwrap.dedent(f"""\
             # Include {include_dir}
             """))
-        _write_ccflag(out_file, object_file, f"-I$(srctree)/$(src)/{rel_root}/{include_dir}")
+        _write_ccflag(out_file, object_file, f"-I$(ROOT_DIR)/{include_dir}")
 
 
 def _handle_copts(out_file: TextIO,
                   object_file: pathlib.Path,
-                  copts: Optional[list[dict[str, str | bool]]],
-                  rel_root: pathlib.Path):
+                  copts: Optional[list[dict[str, str | bool]]]):
     if not copts:
         return
 
@@ -359,7 +343,7 @@ def _handle_copts(out_file: TextIO,
         is_path: bool = d["is_path"]
 
         if is_path:
-            expanded = str(rel_root / expanded)
+            expanded = f"$(ROOT_DIR)/{expanded}"
 
         _write_ccflag(out_file, object_file, expanded)
 

@@ -25,6 +25,7 @@ load(
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelEnvMakeGoalsInfo",
+    "KernelToolchainInfo",
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
@@ -306,6 +307,9 @@ def _kernel_env_impl(ctx):
         ),
         KernelEnvMakeGoalsInfo(
             make_goals = make_goals,
+        ),
+        KernelToolchainInfo(
+            toolchain_version = ctx.attr.toolchain_version,
         ),
         DefaultInfo(files = depset([out_file])),
     ]

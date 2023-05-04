@@ -27,11 +27,13 @@ load(
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelImagesInfo",
+    "KernelToolchainInfo",
     "KernelUnstrippedModulesInfo",
 )
 load(
     ":constants.bzl",
     "MODULES_STAGING_ARCHIVE",
+    "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
@@ -58,6 +60,13 @@ def _get_mixed_tree_files(target):
     if KernelBuildMixedTreeInfo in target:
         return target[KernelBuildMixedTreeInfo].files
     return target.files
+
+def _get_toolchain_version_info(ctx, all_deps):
+    # Traverse all dependencies and look for a file named "toolchain_version".
+    # If no file matches, leave it as None so that _kernel_build_check_toolchain prints a
+    # warning.
+    toolchain_version_file = utils.find_file(name = TOOLCHAIN_VERSION_FILENAME, files = all_deps, what = ctx.label)
+    return KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
 
 def _kernel_filegroup_impl(ctx):
     all_deps = ctx.files.srcs + ctx.files.deps
@@ -148,6 +157,7 @@ def _kernel_filegroup_impl(ctx):
         images_info,
         kernel_env_attr_info,
         gcov_info,
+        _get_toolchain_version_info(ctx, all_deps),
     ]
 
 def _kernel_filegroup_additional_attrs():
