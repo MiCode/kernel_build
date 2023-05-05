@@ -44,7 +44,7 @@ import pathlib
 import tempfile
 import textwrap
 import unittest
-from typing import Callable
+from typing import Callable, Iterable
 
 from absl.testing import absltest
 from build.kernel.kleaf.analysis.inputs import analyze_inputs
@@ -171,6 +171,27 @@ class KleafIntegrationTestBase(unittest.TestCase):
             with output_file_obj as output_file:
                 for line in input_file:
                     if pred(line):
+                        output_file.write(line)
+        shutil.move(output_file.name, path)
+
+    def replace_lines(
+        self,
+        path: pathlib.Path | str,
+        pred: Callable[[str], bool],
+        replacements: Iterable[str],
+    ):
+        """Replaces lines in a file."""
+        output_file_obj = tempfile.NamedTemporaryFile(mode="w", delete=False)
+        it = iter(replacements)
+        with open(path) as input_file:
+            with output_file_obj as output_file:
+                for line in input_file:
+                    if pred(line):
+                        replaced_line = next(it)
+                        output_file.write(replaced_line)
+                        if not replaced_line.endswith("\n"):
+                            output_file.write("\n")
+                    else:
                         output_file.write(line)
         shutil.move(output_file.name, path)
 
@@ -436,6 +457,9 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         self.gki_defconfig_path = f"{self._common()}/arch/arm64/configs/gki_defconfig"
         self.restore_file_after_test(self.gki_defconfig_path)
 
+        self.makefile_path = f"{self._common()}/Makefile"
+        self.restore_file_after_test(self.makefile_path)
+
     def _setup_mainline(self):
         with open(self.build_config_common_path, "a") as f:
             f.write("BRANCH=android-mainline\n")
@@ -448,6 +472,11 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         with open(self.build_config_gki_aarch64_path, "a") as f:
             f.write("POST_DEFCONFIG_CMDS=true\n")
 
+        extraversion_pattern = re.compile(r"^EXTRAVERSION\s*=")
+        self.replace_lines(self.makefile_path,
+                           lambda x: re.search(extraversion_pattern, x),
+                           ["EXTRAVERSION = -rc999"])
+
     def _setup_release_branch(self):
         with open(self.build_config_common_path, "a") as f:
             f.write(
@@ -459,6 +488,10 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         localversion_pattern = re.compile(r"^CONFIG_LOCALVERSION=")
         self.filter_lines(self.gki_defconfig_path,
                           lambda x: not re.search(localversion_pattern, x))
+        extraversion_pattern = re.compile(r"^EXTRAVERSION\s*=")
+        self.replace_lines(self.makefile_path,
+                           lambda x: re.search(extraversion_pattern, x),
+                           ["EXTRAVERSION ="])
 
     def _get_vmlinux_scmversion(self):
         strings_output = Exec.check_output([
@@ -473,71 +506,94 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         print(f"scmversion = {ret}")
         return ret
 
-    @unittest.skip("b/280853461")
+    @staticmethod
+    def _env_without_build_number():
+        env = dict(os.environ)
+        env.pop("BUILD_NUMBER", None)
+        return env
+
+    @staticmethod
+    def _env_with_build_number(build_number):
+        env = dict(os.environ)
+        env["BUILD_NUMBER"] = str(build_number)
+        return env
+
     def test_mainline_no_stamp(self):
         self._setup_mainline()
-        self._check_call("build", _FASTEST + [
-            f"//{self._common()}:kernel_aarch64",
-        ])
+        self._check_call(
+            "build",
+            _FASTEST + [
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
         for scmversion in self._get_vmlinux_scmversion():
-            self.assertEqual("-mainline-maybe-dirty", scmversion)
+            self.assertEqual("-rc999-mainline-maybe-dirty", scmversion)
 
     def test_mainline_stamp(self):
         self._setup_mainline()
         self._check_call(
-            "build", _FASTEST + [
+            "build",
+            _FASTEST + [
                 "--config=stamp",
                 f"//{self._common()}:kernel_aarch64",
-            ])
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
         scmversion_pat = re.compile(
-            r"-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?")
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
     def test_mainline_ab(self):
         self._setup_mainline()
-        self._check_call("build",
-                         _FASTEST + [
-                             "--config=stamp",
-                             f"//{self._common()}:kernel_aarch64",
-                         ],
-                         env=os.environ | {"BUILD_NUMBER": "123456"})
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_with_build_number("123456"))
         scmversion_pat = re.compile(
-            r"-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456")
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456$"
+        )
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
-    @unittest.skip("b/280853461")
     def test_release_branch_no_stamp(self):
         self._setup_release_branch()
-        self._check_call("build", _FASTEST + [
-            f"//{self._common()}:kernel_aarch64",
-        ])
+        self._check_call(
+            "build",
+            _FASTEST + [
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
         for scmversion in self._get_vmlinux_scmversion():
             self.assertEqual("-android99-56-maybe-dirty", scmversion)
 
     def test_release_branch_stamp(self):
         self._setup_release_branch()
         self._check_call(
-            "build", _FASTEST + [
+            "build",
+            _FASTEST + [
                 "--config=stamp",
                 f"//{self._common()}:kernel_aarch64",
-            ])
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
         scmversion_pat = re.compile(
-            r"-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?")
+            r"^-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
     def test_release_branch_ab(self):
         self._setup_release_branch()
-        self._check_call("build",
-                         _FASTEST + [
-                             "--config=stamp",
-                             f"//{self._common()}:kernel_aarch64",
-                         ],
-                         env=os.environ | {"BUILD_NUMBER": "123456"})
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_with_build_number("123456"))
         scmversion_pat = re.compile(
-            r"-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456")
+            r"^-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
