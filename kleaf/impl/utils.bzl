@@ -27,6 +27,7 @@ load(
     "KernelBuildInfo",
     "KernelEnvAndOutputsInfo",
     "KernelImagesInfo",
+    "KernelModuleDepInfo",
     "KernelModuleInfo",
     "KernelModuleKernelBuildInfo",
     "KernelModuleSetupInfo",
@@ -341,6 +342,20 @@ def _split_kernel_module_deps(deps, this_label):
         ddk_configs = ddk_config_deps,
     )
 
+def _create_kernel_module_dep_info(kernel_module):
+    """Creates KernelModuleDepInfo.
+
+    Args:
+        kernel_module: A `kernel_module` Target.
+    """
+
+    return KernelModuleDepInfo(
+        label = kernel_module.label,
+        kernel_module_setup_info = kernel_module[KernelModuleSetupInfo],
+        kernel_module_info = kernel_module[KernelModuleInfo],
+        module_symvers_info = kernel_module[ModuleSymversInfo],
+    )
+
 # Cross compiler name is not always the same as the linux arch
 # ARCH is not always the same as the architecture dir (b/254348147)
 def _set_src_arch_cmd():
@@ -381,4 +396,5 @@ kernel_utils = struct(
     split_kernel_module_deps = _split_kernel_module_deps,
     set_src_arch_cmd = _set_src_arch_cmd,
     create_kernel_module_kernel_build_info = _create_kernel_module_kernel_build_info,
+    create_kernel_module_dep_info = _create_kernel_module_dep_info,
 )

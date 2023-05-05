@@ -294,7 +294,7 @@ def _makefiles_impl(ctx):
             outs = depset(outs_depset_direct, transitive = outs_depset_transitive),
             srcs = depset(transitive = srcs_depset_transitive),
             kernel_module_deps = depset(
-                kernel_module_deps,
+                [kernel_utils.create_kernel_module_dep_info(target) for target in kernel_module_deps],
                 transitive = [dep[DdkSubmoduleInfo].kernel_module_deps for dep in submodule_deps],
             ),
         ),

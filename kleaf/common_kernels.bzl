@@ -642,7 +642,7 @@ def define_common_kernels(
                 name + "_uapi_headers",
             ],
             visibility = [
-                "//build/kernel/kleaf:__pkg__",
+                Label("//build/kernel/kleaf:__pkg__"),
             ],
         )
 
@@ -746,7 +746,7 @@ def define_common_kernels(
             name + "_modules_install",
             name + "_" + TOOLCHAIN_VERSION_FILENAME,
             # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
-            "//build/kernel:gki_certification_tools",
+            Label("//build/kernel:gki_certification_tools"),
         ]
 
         copy_to_dist_dir(
@@ -931,7 +931,7 @@ def _define_common_kernels_additional_tests(
         kernel_modules_install,
         modules,
         arch):
-    fake_modules_options = "//build/kernel/kleaf/artifact_tests:fake_modules_options.txt"
+    fake_modules_options = Label("//build/kernel/kleaf/artifact_tests:fake_modules_options.txt")
 
     kernel_images(
         name = name + "_fake_images",
@@ -967,7 +967,7 @@ def _define_common_kernels_additional_tests(
 
     device_modules_test(
         name = name + "_device_modules_test",
-        base_kernel_label = Label("//{}:{}".format(native.package_name(), kernel_build_name)),
+        base_kernel_label = Label("{}//{}:{}".format(native.repository_name(), native.package_name(), kernel_build_name)),
         base_kernel_module = min(modules) if modules else None,
         arch = arch,
     )
@@ -1020,7 +1020,7 @@ def define_db845c(
         build_config = "build.config.db845c"
 
     if kmi_symbol_list == None:
-        kmi_symbol_list = "//common:android/abi_gki_aarch64_db845c" if define_abi_targets else None
+        kmi_symbol_list = ":android/abi_gki_aarch64_db845c" if define_abi_targets else None
 
     if kmi_symbol_list_add_only == None:
         kmi_symbol_list_add_only = True if define_abi_targets else None

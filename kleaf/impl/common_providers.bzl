@@ -262,6 +262,16 @@ KernelModuleSetupInfo = provider(
     },
 )
 
+KernelModuleDepInfo = provider(
+    doc = "Info that a `kernel_module` expects on a `kernel_module` dependency.",
+    fields = {
+        "label": "Label of the target where the infos are from.",
+        "kernel_module_setup_info": "`KernelModuleSetupInfo`",
+        "module_symvers_info": "`ModuleSymversInfo`",
+        "kernel_module_info": "`KernelModuleInfo`",
+    },
+)
+
 ModuleSymversInfo = provider(
     doc = "A provider that provides `Module.symvers` for `modpost`.",
     fields = {
@@ -290,9 +300,8 @@ DdkSubmoduleInfo = provider(
              file.""",
         "srcs": """A [depset](https://bazel.build/extending/depsets) of source files to build the
             submodule.""",
-        # TODO(b/247622808): Clean up Target in providers
-        "kernel_module_deps": """A [depset](https://bazel.build/extending/depsets) of dependent
-            [Target](https://bazel.build/rules/lib/Target)s of this submodules that are
+        "kernel_module_deps": """A [depset](https://bazel.build/extending/depsets) of
+            `KernelModuleDepInfo` of dependent targets of this submodules that are
             kernel_module's.""",
     },
 )
