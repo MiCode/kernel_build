@@ -37,13 +37,25 @@ def define_kleaf_workspace(common_kernel_package = None):
     called, it must be called after `define_kleaf_workspace` is called.
 
     Args:
-      common_kernel_package: The path to the common kernel source tree. By
-        default, it is `"common"`.
+      common_kernel_package: Default is `"@//common"`. The package to the common
+        kernel source tree.
+
+        As a legacy behavior, if the provided string does not start with
+        `@` or `//`, it is prepended with `@//`.
 
         Do not provide the trailing `/`.
     """
     if common_kernel_package == None:
-        common_kernel_package = "common"
+        common_kernel_package = "@//common"
+    if not common_kernel_package.startswith("@") and not common_kernel_package.startswith("//"):
+        common_kernel_package = "@//" + common_kernel_package
+
+        # buildifier: disable=print
+        print("""
+WARNING: define_kleaf_workspace() should be called with common_kernel_package={}.
+    This will become an error in the future.""".format(
+            repr(common_kernel_package),
+        ))
 
     import_external_repositories(
         # keep sorted
@@ -62,7 +74,7 @@ def define_kleaf_workspace(common_kernel_package = None):
 
     key_value_repo(
         name = "kernel_toolchain_info",
-        srcs = ["//{}:build.config.constants".format(common_kernel_package)],
+        srcs = ["{}:build.config.constants".format(common_kernel_package)],
         additional_values = {
             "common_kernel_package": common_kernel_package,
         },

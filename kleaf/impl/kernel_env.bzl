@@ -79,13 +79,22 @@ def _get_make_goals(ctx):
     return make_goals
 
 def _get_make_goals_deprecation_warning(ctx):
+    # Omit the warning if the goals have been set
+    if ctx.attr.make_goals:
+        return ""
+
     msg = """
           # Warning about MAKE_GOALS deprecation.
           if [[ -n ${{MAKE_GOALS}} ]] ; then
             KLEAF_MAKE_TARGETS=$(echo "${{MAKE_GOALS% }}" | sed '/^$/d' | sed 's/\\S*/  "&",/g')
-            echo "WARNING: MAKE_GOALS from build.config is being deprecated, use make_goals in kernel_build;" >&2
-            echo "Consider adding:\n\nmake_goals = [\n${{KLEAF_MAKE_TARGETS}}" >&2
-            echo "],\n\nto {build_target} kernel." >&2
+            #  Omit when empty.
+            if [[ -z ${{KLEAF_MAKE_TARGETS}} ]]; then
+              echo "WARNING: Empty MAKE_GOALS detected. Ensure all targets are listed explicitly."
+            else
+              echo "WARNING: MAKE_GOALS from build.config is being deprecated, use make_goals in kernel_build;" >&2
+              echo "Consider adding:\n\nmake_goals = [\n${{KLEAF_MAKE_TARGETS}}" >&2
+              echo "],\n\nto {build_target} kernel." >&2
+            fi
             unset KLEAF_MAKE_TARGETS
           fi
     """.format(
