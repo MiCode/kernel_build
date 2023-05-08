@@ -67,7 +67,6 @@ bzl_library(
         "kernel_module.bzl",
         "kernel_module_group.bzl",
         "kernel_modules_install.bzl",
-        "kernel_toolchain_aspect.bzl",
         "kernel_uapi_headers.bzl",
         "kernel_uapi_headers_cc_library.bzl",
         "kernel_unstripped_modules_archive.bzl",
@@ -198,6 +197,21 @@ sh_binary(
     srcs = ["write_depset.sh"],
     # All kernel_* / ddk_* from different packages can see this
     visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "ddk/analyze_inputs",
+    srcs = ["ddk/analyze_inputs.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "ddk/gen_ddk_headers",
+    srcs = ["ddk/gen_ddk_headers.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/kernel/kleaf:buildozer_command_builder",
+    ],
 )
 
 # Local build platforms

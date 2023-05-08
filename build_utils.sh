@@ -771,18 +771,43 @@ function menuconfig() {
   if [ -z "${FRAGMENT_CONFIG}" ]; then
     (cd ${KERNEL_DIR} && make ${TOOL_ARGS} O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
     [ "$ARCH" = "x86_64" -o "$ARCH" = "i386" ] && local ARCH=x86
-    echo "Updating ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
-    mv ${OUT_DIR}/defconfig ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+    echo "Updating $(realpath ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG})"
+    mv ${OUT_DIR}/defconfig $(realpath ${ROOT_DIR}/${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG})
     return
   fi
 
   ${KERNEL_DIR}/scripts/diffconfig -m ${orig_config} ${new_config} > ${changed_config}
   KCONFIG_CONFIG=${new_fragment} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m ${FRAGMENT_CONFIG} ${changed_config}
-  sort_config ${new_fragment} > ${FRAGMENT_CONFIG}
+  sort_config ${new_fragment} > $(realpath ${FRAGMENT_CONFIG})
   set +x
 
 
   echo
-  echo "Updated ${FRAGMENT_CONFIG}"
+  echo "Updated $(realpath ${FRAGMENT_CONFIG})"
   echo
+}
+
+# $1: A mapping of the form path:value [path:value [...]]
+# $2: A path. This may be a subpath of an item in the mapping
+# $3: What is being determined (for error messages)
+# Returns the corresponding value of path.
+# Example:
+#   extract_git_metadata "foo:123 bar:456" foo/baz
+#   -> 123
+function extract_git_metadata() {
+  local map=$1
+  local git_project_candidate=$2
+  local what=$3
+  while [[ "${git_project_candidate}" != "." ]]; do
+    value_candidate=$(echo "${map}" | sed -E -n 's;(^|.*\s)'"${git_project_candidate}"':(\S+).*;\2;p' || true)
+    if [[ -n "${value_candidate}" ]]; then
+        break
+    fi
+    git_project_candidate=$(dirname ${git_project_candidate})
+  done
+  if [[ -n ${value_candidate} ]]; then
+    echo "${value_candidate}"
+  else
+    echo "WARNING: Can't determine $what for $2" >&2
+  fi
 }

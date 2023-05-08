@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests kernel_build.toolchain_version."""
+
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(
@@ -22,13 +24,21 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
+load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 
 def _kernel_toolchain_pass_analysis_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     if ctx.files.toolchain_version_file:
         check_action = test_utils.find_action(env, "KernelBuildCheckToolchain")
-        asserts.true(env, ctx.files.toolchain_version_file[0] in check_action.inputs.to_list())
+        asserts.true(
+            env,
+            ctx.files.toolchain_version_file[0] in check_action.inputs.to_list(),
+            "{}: {} not in inputs of KernelBuildCheckToolchain".format(
+                analysistest.target_under_test(env).label,
+                ctx.files.toolchain_version_file[0],
+            ),
+        )
 
     return analysistest.end(env)
 
@@ -42,39 +52,23 @@ _kernel_toolchain_pass_analysis_test = analysistest.make(
     },
 )
 
-def _make_fake_toolchain(name):
-    native.filegroup(
-        name = name,
-        srcs = [],
-        tags = ["manual"],
-    )
-    label = "//{}:{}".format(native.package_name(), name)
-    write_file(
-        name = name + "_file",
-        out = name + "_file/toolchain_version",
-        content = [label],
-        tags = ["manual"],
-    )
-    return struct(label = label, file = name + "_file")
+def kernel_toolchain_test(name):
+    """Tests kernel_build.toolchain_version.
 
-def kernel_toolchain_aspect_test(name):
-    suffixes = ("a", "b")
+    Args:
+        name: name of the test suite
+    """
 
-    toolchains = {
-        suffix: _make_fake_toolchain(name + "_fake_toolchain_" + suffix)
-        for suffix in suffixes
-    }
-
-    for base_suffix, base_toolchain in toolchains.items():
+    for clang_version in _CLANG_VERSIONS:
         kernel_build(
-            name = name + "_kernel_" + base_suffix,
-            toolchain_version = base_toolchain.label,
+            name = name + "_kernel_" + clang_version,
+            toolchain_version = clang_version,
             build_config = "build.config.fake",
             outs = [],
             tags = ["manual"],
         )
 
-        filegroup_name = name + "_filegroup_" + base_suffix
+        filegroup_name = name + "_filegroup_" + clang_version
 
         write_file(
             name = filegroup_name + "_staging_archive",
@@ -90,10 +84,16 @@ def kernel_toolchain_aspect_test(name):
             out = filegroup_name + "_module_outs_file/my_modules",
         )
 
+        write_file(
+            name = filegroup_name + "_toolchain_version",
+            out = filegroup_name + "/toolchain_version",
+            content = [clang_version],
+        )
+
         kernel_filegroup(
             name = filegroup_name,
             deps = [
-                base_toolchain.file,
+                filegroup_name + "_toolchain_version",
                 filegroup_name + "_unstripped_modules",
                 filegroup_name + "_staging_archive",
             ],
@@ -104,24 +104,24 @@ def kernel_toolchain_aspect_test(name):
     tests = []
 
     for base_kernel_type in ("kernel", "filegroup"):
-        for base_suffix, base_toolchain in toolchains.items():
-            for device_suffix, device_toolchain in toolchains.items():
-                test_name = "{name}_{device_suffix}_against_{base_kernel_type}_{base_suffix}_test".format(
+        for base_toolchain in _CLANG_VERSIONS:
+            for device_toolchain in _CLANG_VERSIONS:
+                test_name = "{name}_{device_toolchain}_against_{base_kernel_type}_{base_toolchain}_test".format(
                     name = name,
-                    device_suffix = device_suffix,
+                    device_toolchain = device_toolchain,
                     base_kernel_type = base_kernel_type,
-                    base_suffix = base_suffix,
+                    base_toolchain = base_toolchain,
                 )
-                base_kernel = "{name}_{base_kernel_type}_{base_suffix}".format(
+                base_kernel = "{name}_{base_kernel_type}_{base_toolchain}".format(
                     name = name,
                     base_kernel_type = base_kernel_type,
-                    base_suffix = base_suffix,
+                    base_toolchain = base_toolchain,
                 )
 
                 kernel_build(
                     name = test_name + "_device_kernel",
                     base_kernel = base_kernel,
-                    toolchain_version = device_toolchain.label,
+                    toolchain_version = device_toolchain,
                     build_config = "build.config.fake",
                     outs = [],
                     tags = ["manual"],
@@ -135,9 +135,9 @@ def kernel_toolchain_aspect_test(name):
                     _kernel_toolchain_pass_analysis_test(
                         name = test_name,
                         target_under_test = test_name + "_device_kernel",
-                        toolchain_version_file = base_toolchain.label,
+                        toolchain_version_file = base_kernel + "_toolchain_version",
                     )
-                elif base_suffix == device_suffix:
+                elif base_toolchain == device_toolchain:
                     _kernel_toolchain_pass_analysis_test(
                         name = test_name,
                         target_under_test = test_name + "_device_kernel",

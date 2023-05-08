@@ -17,6 +17,7 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
+load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
 load(":constants.bzl", "LTO_VALUES")
 load(":print_flags.bzl", "print_flags")
 
@@ -195,6 +196,11 @@ bool_flag(
     build_setting_default = False,
 )
 
+config_setting(
+    name = "kgdb_is_true",
+    flag_values = {":kgdb": "1"},
+)
+
 # The values of --config, as passed by command line and bazelrc files.
 _config_values = (
     "local",
@@ -251,6 +257,55 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+# Analyze DDK targets
+
+# Usage:
+#  # Analyze headers used by all external modules of a device:
+#  bazel run //build/kernel/kleaf:gen_ddk_headers \
+#    --gen_ddk_headers_target=//label/of:tuna_modules_install \
+#    --gen_ddk_headers_gen_files_archives=//common:kernel_aarch64_ddk_allowlist_headers \
+#    -- [flags]
+#
+#  # Analyze headers used by a specific module of a device:
+#  bazel run //build/kernel/kleaf:gen_ddk_headers \
+#    --gen_ddk_headers_target=//label/of:tuna_ext_module \
+#    --gen_ddk_headers_gen_files_archives=//common:kernel_aarch64_ddk_allowlist_headers \
+#    -- [flags]
+#
+#  # Analyze headers used by in-tree modules of a device:
+#  bazel run //build/kernel/kleaf:gen_ddk_headers \
+#    --gen_ddk_headers_target=//label/of:tuna \
+#    --gen_ddk_headers_gen_files_archives=//common:kernel_aarch64_ddk_allowlist_headers \
+#    -- [flags]
+gen_ddk_headers(
+    name = "gen_ddk_headers",
+    gen_files_archives = [":gen_ddk_headers_gen_files_archives"],
+    target = ":gen_ddk_headers_target",
+)
+
+label_flag(
+    name = "gen_ddk_headers_target",
+    build_setting_default = ":gen_ddk_headers_target_unspecified",
+)
+
+label_flag(
+    name = "gen_ddk_headers_gen_files_archives",
+    build_setting_default = ":gen_ddk_headers_target_unspecified",
+)
+
+filegroup(
+    name = "gen_ddk_headers_target_unspecified",
+    srcs = [],
+    visibility = ["//visibility:private"],
+)
+
+py_library(
+    name = "buildozer_command_builder",
+    srcs = ["buildozer_command_builder.py"],
+    srcs_version = "PY3",
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+)
+
 bzl_library(
     name = "directory_with_structure_def",
     srcs = ["directory_with_structure.bzl"],
@@ -298,6 +353,7 @@ docs(
         "//build/bazel_common_rules/workspace",
         "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
+        "//prebuilts/clang/host/linux-x86/kleaf:register",
         "@bazel_skylib//:workspace",
         "@bazel_skylib//lib:dicts",
         "@bazel_skylib//lib:paths",

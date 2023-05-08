@@ -34,29 +34,14 @@ hermetic_tools(
             "build-tools/path/**",
         ],
         allow_empty = False,
-        # TODO(b/274975942): Delete these symlinks and the exclude clause once
-        #   build.sh goes away.
-        exclude = ["**/python*"],
     ) + [
         "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(VARS["CLANG_VERSION"]),
-    ] + (
-        [
-            "//prebuilts/rust/linux-x86/{}:bin/rustc".format(VARS.get("RUSTC_VERSION", "")),
-            "//prebuilts/clang-tools:linux-x86/bin/bindgen",
-            "//prebuilts/rust/linux-x86/{}:bin/cargo".format(VARS.get("RUSTC_VERSION", "")),
-        ] if "RUSTC_VERSION" in VARS else []
-    ),
+    ],
     host_tools = [
         "bash",
-        "install",
         "perl",
         "rsync",
         "sh",
-        "tar",
-    ],
-    py2_outs = [
-        "python2",
-        "python2.7",
     ],
     py3_outs = [
         "python",
@@ -67,6 +52,7 @@ hermetic_tools(
         "--owner=0",
         "--group=0",
         "--numeric-owner",
+        "--sort=name",
     ],
     visibility = ["//visibility:public"],
     deps = [

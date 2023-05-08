@@ -25,7 +25,6 @@ load(
 )
 load(
     ":common_providers.bzl",
-    "KernelImagesInfo",
     "KernelModuleInfo",
 )
 
@@ -44,15 +43,15 @@ def _system_dlkm_image_impl(ctx):
     extract_staging_archive_cmd = ""
     extra_flags_cmd = ""
 
-    kernel_build = ctx.attr.kernel_modules_install[KernelModuleInfo].kernel_build
-    if kernel_build[KernelImagesInfo].base_kernel != None:
+    kernel_build_infos = ctx.attr.kernel_modules_install[KernelModuleInfo].kernel_build_infos
+    if kernel_build_infos.images_info.base_kernel_label != None:
         if ctx.attr.base_kernel_images == None:
-            fail("""{this_label}: Building device-specific system_dlkm ({kernel_build} has base_kernel {base_kernel}), but base_kernel_images is not set. Perhaps add the following?
-    base_kernel_images = {base_kernel}_images
+            fail("""{this_label}: Building device-specific system_dlkm ({kernel_build} has base_kernel {base_kernel_label}), but base_kernel_images is not set. Perhaps add the following?
+    base_kernel_images = "{base_kernel_label}_images"
                  """.format(
                 this_label = ctx.label,
-                kernel_build = kernel_build.label,
-                base_kernel = kernel_build[KernelImagesInfo].base_kernel,
+                kernel_build = kernel_build_infos.label,
+                base_kernel_label = kernel_build_infos.images_info.base_kernel_label,
             ))
 
         # When building device-specific system_dlkm against GKI's

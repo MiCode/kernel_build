@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Defines repositories in a Kleaf workspace.
+"""
+
 load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
 load(
     "//build/kernel/kleaf:constants.bzl",
@@ -20,7 +24,9 @@ load(
 )
 load("//build/kernel/kleaf:download_repo.bzl", "download_artifacts_repo")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
+# buildifier: disable=unnamed-macro
 def define_kleaf_workspace(common_kernel_package = None):
     """Common macro for defining repositories in a Kleaf workspace.
 
@@ -78,6 +84,12 @@ def define_kleaf_workspace(common_kernel_package = None):
         target = "kernel_aarch64",
     )
 
+    # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
+    native.local_repository(
+        name = "rules_python",
+        path = "build/bazel_common_rules/rules/python/stubs",
+    )
+
     # Fake local_jdk to avoid fetching rules_java for any exec targets.
     # See build/kernel/kleaf/impl/fake_local_jdk/README.md.
     native.local_repository(
@@ -97,6 +109,14 @@ def define_kleaf_workspace(common_kernel_package = None):
         path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
     )
 
+    # Stub out @rules_java required for stardoc.
+    native.local_repository(
+        name = "rules_java",
+        path = "build/bazel_common_rules/rules/java/rules_java",
+    )
+
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
     )
+
+    register_clang_toolchains()

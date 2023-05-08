@@ -22,7 +22,10 @@ def _raw_kmi_symbol_list_impl(ctx):
         return []
 
     inputs = [ctx.file.src]
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+
+    tools = [ctx.executable._flatten_symbol_list]
+    transitive_tools = [ctx.attr.env[KernelEnvInfo].tools]
 
     out_file = ctx.actions.declare_file("{}/abi_symbollist.raw".format(ctx.attr.name))
 
@@ -39,9 +42,9 @@ def _raw_kmi_symbol_list_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "RawKmiSymbolList",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
-        tools = [ctx.executable._flatten_symbol_list],
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating abi_symbollist.raw {}".format(ctx.label),
         command = command,
     )

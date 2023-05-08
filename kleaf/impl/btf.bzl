@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Builds vmlinux.btf."""
+
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
@@ -19,9 +21,14 @@ def _btf_impl(ctx):
     inputs = [
         ctx.file.vmlinux,
     ]
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+    tools = ctx.attr.env[KernelEnvInfo].tools
     out_file = ctx.actions.declare_file("{}/vmlinux.btf".format(ctx.label.name))
     out_dir = out_file.dirname
+
+    # We need KernelEnvInfo for llvm-strip.
+    # TODO(b/272164611): We can get it from the clang toolchain; then we can use
+    #  hermetic tools.
     command = ctx.attr.env[KernelEnvInfo].setup + """
               mkdir -p {out_dir}
               cp -Lp {vmlinux} {btf}
@@ -36,8 +43,9 @@ def _btf_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "Btf",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
+        tools = tools,
         progress_message = "Building vmlinux.btf {}".format(ctx.label),
         command = command,
     )
