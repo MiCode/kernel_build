@@ -15,6 +15,7 @@
 import dataclasses
 import logging
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -85,8 +86,8 @@ def list_projects() -> list[str]:
             return parse_repo_manifest(repo_prop_file.read())
 
     try:
-        output = subprocess.check_output(["repo", "manifest", "-r"], text=True)
-        return parse_repo_manifest(output)
+        output = subprocess.check_output(["repo", "list", "-f"], text=True)
+        return parse_repo_list(output)
     except (subprocess.SubprocessError, FileNotFoundError) as e:
         logging.warning("Unable to execute repo manifest -r: %s", e)
         return []
@@ -96,7 +97,7 @@ def parse_repo_manifest(manifest: str) -> list[str]:
     """Parses a repo manifest file.
 
     Returns:
-        a list of projects in the repository.
+        a list of paths to all projects in the repository.
     """
     try:
         dom = xml.dom.minidom.parseString(manifest)
@@ -109,6 +110,28 @@ def parse_repo_manifest(manifest: str) -> list[str]:
         proj.getAttribute("path") or proj.getAttribute("name")
         for proj in projects
     ]
+
+
+def parse_repo_list(repo_list: str) -> list[str]:
+    """Parses the result of `repo list -f`.
+
+    Returns:
+        a list of paths to all projects in the repository.
+    """
+    workspace = pathlib.Path(".").absolute()
+    paths = []
+    for line in repo_list.splitlines():
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+        proj = pathlib.Path(line.split(":", 2)[0].strip())
+        if proj.is_relative_to(workspace):
+            paths.append(str(proj.relative_to(workspace)))
+        else:
+            logging.info(
+                "Ignoring project %s because it is not under the Bazel workspace",
+                proj)
+    return paths
 
 
 def collect(popen_obj: subprocess.Popen) -> str:
