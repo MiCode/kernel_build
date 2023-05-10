@@ -57,10 +57,13 @@ class PresetResult(PathCollectible):
 class LocalversionResult(PathPopen):
     """Consists of results of localversion."""
     removed_prefix: str
+    suffix: Optional[str]
 
     def collect(self) -> str:
         ret = super().collect()
         ret = ret.removeprefix(self.removed_prefix)
+        if self.suffix:
+            ret += self.suffix
         return ret
 
 
@@ -84,15 +87,21 @@ def get_localversion(bin: Optional[str], project: str, *args) \
         working_dir = "build/kernel/kleaf/workspace_status_dir"
         env = dict(os.environ)
         env["KERNELVERSION"] = _FAKE_KERNEL_VERSION
+        env.pop("BUILD_NUMBER", None)
         popen = subprocess.Popen([bin, srctree] + list(args),
                                  text=True,
                                  stdout=subprocess.PIPE,
                                  cwd=working_dir,
                                  env=env)
+
+        suffix = None
+        if os.environ.get("BUILD_NUMBER"):
+            suffix = "-ab" + os.environ["BUILD_NUMBER"]
         return LocalversionResult(
             path=project,
             popen=popen,
             removed_prefix=_FAKE_KERNEL_VERSION,
+            suffix=suffix
         )
 
     return None
