@@ -61,7 +61,6 @@ def _write_localversion(ctx):
     transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
     tools = ctx.attr.env[KernelEnvInfo].tools
 
-    # TODO(b/227520025): Remove the following logic in setlocalversion.
     cmd = ctx.attr.env[KernelEnvInfo].setup + """
         (
             # Extract the Android release version. If there is no match, then return 255
