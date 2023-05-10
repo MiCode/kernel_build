@@ -1121,6 +1121,8 @@ def define_db845c(
 
     Requires [`define_common_kernels`](#define_common_kernels) to be called in the same package.
 
+    **Deprecated**. Use [`kernel_build`](#kernel_build) directly.
+
     Args:
         name: name of target. Usually `"db845c"`.
         build_config: See [kernel_build.build_config](#kernel_build-build_config). If `None`,
@@ -1138,7 +1140,19 @@ def define_db845c(
         gki_modules_list: List of gki modules to be copied to the dist directory.
           If `None`, all gki kernel modules will be copied.
         dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{name}/dist"`.
+
+    Deprecated:
+        Use [`kernel_build`](#kernel_build) directly.
     """
+
+    # buildifier: disable=print
+    print("""{}//{}:{}: define_db845c is deprecated.
+
+          Use [`kernel_build`](#kernel_build) directly.
+
+          Use https://r.android.com/2634654 and its cherry-picks as a reference
+            on how to unfold the macro and use the other rules directly.
+    """.format(native.package_relative_label(name), native.package_name(), name))
 
     if build_config == None:
         build_config = "build.config.db845c"
