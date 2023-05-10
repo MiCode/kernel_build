@@ -31,7 +31,7 @@ class PathCollectible(object):
     """Represents a path and the result of an asynchronous task."""
     path: str
 
-    def collect(self):
+    def collect(self) -> str:
         return NotImplementedError
 
 
@@ -40,7 +40,7 @@ class PathPopen(PathCollectible):
     """Consists of a path and the result of a subprocess."""
     popen: subprocess.Popen
 
-    def collect(self):
+    def collect(self) -> str:
         return collect(self.popen)
 
 
@@ -49,29 +49,52 @@ class PresetResult(PathCollectible):
     """Consists of a path and a pre-defined result."""
     result: str
 
-    def collect(self):
+    def collect(self) -> str:
         return self.result
 
 
-def call_setlocalversion(bin, srctree, *args) \
-        -> Optional[subprocess.Popen[str]]:
+@dataclasses.dataclass
+class LocalversionResult(PathPopen):
+    """Consists of results of localversion."""
+    removed_prefix: str
+
+    def collect(self) -> str:
+        ret = super().collect()
+        ret = ret.removeprefix(self.removed_prefix)
+        return ret
+
+
+def get_localversion(bin: Optional[str], project: str, *args) \
+        -> Optional[PathCollectible]:
     """Call setlocalversion.
 
     Args:
       bin: path to setlocalversion, or None if it does not exist.
-      srctree: The argument to setlocalversion.
+      project: relative path to the project
       args: additional arguments
     Return:
-      A subprocess.Popen object, or None if bin or srctree does not exist.
+      A PathCollectible object that resolves to the result, or None if bin or
+      project does not exist.
     """
-    working_dir = "build/kernel/kleaf/workspace_status_dir"
-    if bin and os.path.isdir(srctree):
-        return subprocess.Popen([bin, srctree] + list(args),
-                                text=True,
-                                stdout=subprocess.PIPE,
-                                cwd=working_dir,
-                                env=os.environ
-                                | {"KERNELVERSION": _FAKE_KERNEL_VERSION})
+    if not os.path.isdir(project):
+        return None
+    srctree = os.path.realpath(project)
+
+    if bin:
+        working_dir = "build/kernel/kleaf/workspace_status_dir"
+        env = dict(os.environ)
+        env["KERNELVERSION"] = _FAKE_KERNEL_VERSION
+        popen = subprocess.Popen([bin, srctree] + list(args),
+                                 text=True,
+                                 stdout=subprocess.PIPE,
+                                 cwd=working_dir,
+                                 env=env)
+        return LocalversionResult(
+            path=project,
+            popen=popen,
+            removed_prefix=_FAKE_KERNEL_VERSION,
+        )
+
     return None
 
 
@@ -165,15 +188,11 @@ class Stamp(object):
         self.find_setlocalversion()
 
     def main(self) -> int:
-        scmversion_map = self.call_setlocalversion_all()
+        scmversion_map = self.get_localversion_all()
 
         source_date_epoch_map = self.async_get_source_date_epoch_all()
 
         scmversion_result_map = self.collect_map(scmversion_map)
-        scmversion_result_map = {
-            key: value.removeprefix(_FAKE_KERNEL_VERSION)
-            for key, value in scmversion_result_map.items()
-        }
 
         source_date_epoch_result_map = self.collect_map(source_date_epoch_map)
 
@@ -197,10 +216,7 @@ class Stamp(object):
                 self.setlocalversion = os.path.realpath(candidate)
                 return
 
-    def call_setlocalversion_all(self) -> dict[str, PathCollectible]:
-        if not self.setlocalversion:
-            return {}
-
+    def get_localversion_all(self) -> dict[str, PathCollectible]:
         all_projects = set()
         if self.kernel_dir:
             all_projects.add(self.kernel_rel)
@@ -209,9 +225,9 @@ class Stamp(object):
 
         scmversion_map = {}
         for project in all_projects:
-            popen = call_setlocalversion(self.setlocalversion,
-                                         os.path.realpath(project))
-            scmversion_map[project] = PathPopen(project, popen)
+            path_popen = get_localversion(self.setlocalversion, project)
+            if path_popen:
+                scmversion_map[project] = path_popen
 
         return scmversion_map
 
