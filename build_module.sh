@@ -271,8 +271,15 @@ for EXT_MOD in ${EXT_MODULES}; do
           "filter('${TARGET_PRODUCT/_/-}_${VARIANT/_/-}_.*_dist$', ${bazel_pkg}/...)") \
      && [ -n "$build_target" ]
   then
+
+    build_flags=("--lto=${LTO:-full}")
+    if [ "$ALLOW_UNSAFE_DDK_HEADERS" = "true" ]; then
+      build_flags+=("--allow_ddk_unsafe_headers")
+    fi
+
     # Run the dist command passing in the output directory from Android build system
-    ./tools/bazel run --lto="${LTO:-full}" "$build_target" -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}" && ret="$?" || ret="$?"
+    ./tools/bazel run "${build_flags[@]}" "$build_target" \
+      -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}" && ret="$?" || ret="$?"
 
     # Modify the output directory's permissions so cleanup can occur later
     find out/bazel -type d -exec chmod 0775 {} +
