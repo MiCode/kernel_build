@@ -986,6 +986,7 @@ def define_db845c(
         outs,
         build_config = None,
         module_outs = None,
+        make_goals = None,
         define_abi_targets = None,
         kmi_symbol_list = None,
         kmi_symbol_list_add_only = None,
@@ -1006,6 +1007,8 @@ def define_db845c(
         outs: See [kernel_build.outs](#kernel_build-outs).
         module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
           in-tree kernel modules.
+        make_goals: See [kernel_build.make_goals](#kernel_build-make_goals).  A list of strings
+          defining targets for the kernel build.
         define_abi_targets: See [kernel_abi.define_abi_targets](#kernel_abi-define_abi_targets).
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
         kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](#kernel_abi-kmi_symbol_list_add_only).
@@ -1046,6 +1049,7 @@ def define_db845c(
         kmi_symbol_list = kmi_symbol_list,
         collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
         strip_modules = True,
+        make_goals = make_goals,
     )
 
     # enable ABI Monitoring
