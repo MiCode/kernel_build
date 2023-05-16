@@ -201,6 +201,16 @@ set +x
 
 cp "${ROOT_DIR}/build.config" "${ANDROID_KERNEL_OUT}/build.config"
 
+# Make sure Bazel extensions are linked properly
+if [ ! -f "${ROOT_DIR}/build/msm_kernel_extensions.bzl" ] \
+      && [ -f "${ROOT_DIR}/msm-kernel/msm_kernel_extensions.bzl" ]; then
+  ln -fs "../msm-kernel/msm_kernel_extensions.bzl" "${ROOT_DIR}/build/msm_kernel_extensions.bzl"
+fi
+if [ ! -f "${ROOT_DIR}/build/abl_extensions.bzl" ] \
+      && [ -f "${ROOT_DIR}/bootable/bootloader/edk2/abl_extensions.bzl" ]; then
+  ln -fs "../bootable/bootloader/edk2/abl_extensions.bzl" "${ROOT_DIR}/build/abl_extensions.bzl"
+fi
+
 # If prepare_vendor.sh fails and nobody checked the error code, make sure the android build fails
 # by removing the kernel Image which is needed to build boot.img
 if [ "${RECOMPILE_KERNEL}" == "1" -o "${COPY_NEEDED}" == "1" ]; then
@@ -251,15 +261,6 @@ if [ "${RECOMPILE_ABL}" == "1" ] && [ -n "${TARGET_BUILD_VARIANT}" ] && \
    [ "${KERNEL_TARGET}" != "autogvm" ]; then
   echo
   echo "  Recompiling edk2"
-
-    # Make sure Bazel extensions are linked properly
-    if [ ! -f "${ROOT_DIR}/build/msm_kernel_extensions.bzl" ]; then
-      ln -fs "../msm-kernel/msm_kernel_extensions.bzl" "${ROOT_DIR}/build/msm_kernel_extensions.bzl"
-    fi
-    if [ ! -f "${ROOT_DIR}/build/abl_extensions.bzl" ]; then
-      ln -fs "../bootable/bootloader/edk2/abl_extensions.bzl" "${ROOT_DIR}/build/abl_extensions.bzl"
-    fi
-
     (
       cd "${ROOT_DIR}"
 
