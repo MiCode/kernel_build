@@ -248,6 +248,10 @@ function build_system_dlkm() {
   build_image "${SYSTEM_DLKM_STAGING_DIR}" "${system_dlkm_props_file}" \
     "${DIST_DIR}/system_dlkm.img" /dev/null
 
+  if [ -z "${SYSTEM_DLKM_PROPS}" ]; then
+    rm ${system_dlkm_props_file}
+  fi
+
   # No need to sign the image as modules are signed
   avbtool add_hashtree_footer \
     --partition_name system_dlkm \
