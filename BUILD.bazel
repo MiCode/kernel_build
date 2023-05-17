@@ -34,6 +34,9 @@ hermetic_tools(
             "build-tools/path/**",
         ],
         allow_empty = False,
+        # TODO(b/274975942): Delete these symlinks and the exclude clause once
+        #   build.sh goes away.
+        exclude = ["**/python*"],
     ) + [
         "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(VARS["CLANG_VERSION"]),
     ],
