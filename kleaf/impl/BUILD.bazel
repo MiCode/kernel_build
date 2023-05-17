@@ -48,6 +48,7 @@ bzl_library(
         "ddk/ddk_submodule.bzl",
         "ddk/makefiles.bzl",
         "debug.bzl",
+        "file.bzl",
         "gki_artifacts.bzl",
         "image/boot_images.bzl",
         "image/dtbo.bzl",

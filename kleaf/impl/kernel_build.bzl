@@ -58,6 +58,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
+load(":file.bzl", "file")
 load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
@@ -389,6 +390,7 @@ def kernel_build(
     modules_prepare_target_name = name + "_modules_prepare"
     uapi_headers_target_name = name + "_uapi_headers"
     headers_target_name = name + "_headers"
+    src_kmi_symbol_list_target_name = name + "_src_kmi_symbol_list"
     kmi_symbol_list_target_name = name + "_kmi_symbol_list"
     abi_symbollist_target_name = name + "_kmi_symbol_list_abi_symbollist"
     raw_kmi_symbol_list_target_name = name + "_raw_kmi_symbol_list"
@@ -465,9 +467,15 @@ def kernel_build(
         **internal_kwargs
     )
 
-    all_kmi_symbol_lists = []
-    if kmi_symbol_list:
-        all_kmi_symbol_lists.append(kmi_symbol_list)
+    # Wrap in a target so kmi_symbol_list is configurable. A select() value cannot be
+    # embedded in the all_kmi_symbol_lists below.
+    file(
+        name = src_kmi_symbol_list_target_name,
+        src = kmi_symbol_list,
+        **internal_kwargs
+    )
+
+    all_kmi_symbol_lists = [src_kmi_symbol_list_target_name]
     if additional_kmi_symbol_lists:
         all_kmi_symbol_lists += additional_kmi_symbol_lists
 
