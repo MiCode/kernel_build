@@ -101,6 +101,18 @@ class Exec(object):
         sys.stderr.write(f"+ {' '.join(args)}\n")
         return subprocess.check_output(args, **kwargs)
 
+    @staticmethod
+    def popen(args: list[str], **kwargs) -> subprocess.Popen:
+        """Executes a shell command.
+
+        Returns:
+            the Popen object
+        """
+        kwargs.setdefault("text", True)
+        sys.stderr.write(f"+ {' '.join(args)}\n")
+        popen = subprocess.Popen(args, **kwargs)
+        return popen
+
 
 class KleafIntegrationTestBase(unittest.TestCase):
 
@@ -126,6 +138,14 @@ class KleafIntegrationTestBase(unittest.TestCase):
                       **kwargs) -> str:
         """Returns output of a bazel command."""
         return Exec.check_output([
+            str(_BAZEL),
+            f"--bazelrc={self._bazel_rc.name}",
+            command,
+        ] + command_args, **kwargs)
+
+    def _popen(self, command: str, command_args: list[str], **kwargs) \
+            -> subprocess.Popen:
+        return Exec.popen([
             str(_BAZEL),
             f"--bazelrc={self._bazel_rc.name}",
             command,
@@ -440,6 +460,30 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
 
         # It should be fine to call the same command subsequently.
         self._check_call("run", args)
+
+    def test_ddk_defconfig_must_present(self):
+        """Test that for ddk_module, items in defconfig must be in the final .config.
+
+        See b/279105294.
+        """
+
+        args = [
+            "//build/kernel/kleaf/tests/integration_test/ddk_negative_test:defconfig_must_present_test_module_config",
+        ] + _FASTEST
+        popen = self._popen("build",
+                            args,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+        _, stderr = popen.communicate()
+        self.assertNotEqual(popen.returncode, 0)
+        self.assertIn(
+            "CONFIG_DELETED_SET: actual '', expected 'CONFIG_DELETED_SET=y'.",
+            stderr)
+        self.assertIn(
+            "CONFIG_DELETED_UNSET: actual '', expected '# CONFIG_DELETED_UNSET is not set'.",
+            stderr)
+        self.assertNotIn("DECLARED_SET", stderr)
+        self.assertNotIn("DECLARED_UNSET", stderr)
 
 
 class ScmversionIntegrationTest(KleafIntegrationTestBase):
