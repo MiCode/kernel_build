@@ -21,19 +21,19 @@ load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
 load(":constants.bzl", "LTO_VALUES")
 load(":print_flags.bzl", "print_flags")
 
-package(default_visibility = ["//visibility:public"])
-
 # Build flags
 
 string_flag(
     name = "lto",
     build_setting_default = "default",
     values = LTO_VALUES,
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "lto_is_default",
     flag_values = {"//build/kernel/kleaf:lto": "default"},
+    visibility = ["//visibility:public"],
 )
 
 # If --lto=none, or if --kasan, LTO should be set to none.
@@ -43,21 +43,25 @@ selects.config_setting_group(
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
         "//build/kernel/kleaf/impl:lto_is_default_and_kasan_is_true",
     ],
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "lto_is_thin",
     flag_values = {":lto": "thin"},
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "lto_is_full",
     flag_values = {":lto": "full"},
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "lto_is_fast",
     flag_values = {":lto": "fast"},
+    visibility = ["//visibility:public"],
 )
 
 # If true, kernel_images sets EXT_MODULES before creating the staging directory.
@@ -67,11 +71,13 @@ config_setting(
 bool_flag(
     name = "set_ext_modules",
     build_setting_default = True,
+    visibility = ["//visibility:public"],
 )
 
 string_flag(
     name = "cache_dir",
     build_setting_default = "",
+    visibility = ["//visibility:public"],
 )
 
 # If true, set `KBUILD_SYMTYPES=1` for kernel_build() with
@@ -79,6 +85,7 @@ string_flag(
 bool_flag(
     name = "kbuild_symtypes",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # If true, enable kasan. This assumes --lto=none, but :print_flags only shows
@@ -86,41 +93,48 @@ bool_flag(
 bool_flag(
     name = "kasan",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "kasan_is_true",
     flag_values = {":kasan": "1"},
+    visibility = ["//visibility:public"],
 )
 
 # If true, //{common}:all_headers also includes //{common}:all_headers_unsafe.
 bool_flag(
     name = "allow_ddk_unsafe_headers",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # If true, *.gcno files are collected.
 bool_flag(
     name = "gcov",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # If true, allow modules to be undeclared in kernel_build.
 bool_flag(
     name = "allow_undeclared_modules",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # If true, warnings / errors about undeclared modules in kernel_build are printed.
 bool_flag(
     name = "warn_undeclared_modules",
     build_setting_default = True,
+    visibility = ["//visibility:public"],
 )
 
 # If true, everything inside OUT_DIR is collected unconditionally
 bool_flag(
     name = "preserve_kbuild_output",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
@@ -128,18 +142,21 @@ config_setting(
     flag_values = {
         ":allow_ddk_unsafe_headers": "1",
     },
+    visibility = ["//visibility:public"],
 )
 
 # If true, kmi_symbol_list_strict_mode attribute in kernel_build is respected.
 bool_flag(
     name = "kmi_symbol_list_strict_mode",
     build_setting_default = True,
+    visibility = ["//visibility:public"],
 )
 
 # If false, kmi_symbol_list_violations_check is disabled.
 bool_flag(
     name = "kmi_symbol_list_violations_check",
     build_setting_default = True,
+    visibility = ["//visibility:public"],
 )
 
 # Flag to enable/disable BTF debug information
@@ -151,6 +168,7 @@ string_flag(
         "enable",
         "disable",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # Use the resolved toolchains for building kernel_* rules.
@@ -158,6 +176,7 @@ string_flag(
 bool_flag(
     name = "experimental_kernel_use_resolved_toolchains",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # Debug options
@@ -165,11 +184,13 @@ bool_flag(
 bool_flag(
     name = "debug_annotate_scripts",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 bool_flag(
     name = "debug_print_scripts",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # If true, set KBUILD_MODPOST_WARN=1.
@@ -177,6 +198,7 @@ bool_flag(
 bool_flag(
     name = "debug_modpost_warn",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # Debug flag to control make verbosity
@@ -193,6 +215,7 @@ string_flag(
         "E",
         "I",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # Debug option to modify GKI build config via build config fragments.
@@ -200,6 +223,7 @@ string_flag(
 label_flag(
     name = "gki_build_config_fragment",
     build_setting_default = "//build/kernel/kleaf/impl:empty_filegroup",
+    visibility = ["//visibility:public"],
 )
 
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
@@ -208,11 +232,13 @@ label_flag(
 bool_flag(
     name = "kgdb",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "kgdb_is_true",
     flag_values = {":kgdb": "1"},
+    visibility = ["//visibility:public"],
 )
 
 # The values of --config, as passed by command line and bazelrc files.
@@ -228,6 +254,7 @@ _config_values = (
 [bool_flag(
     name = "config_" + value,
     build_setting_default = False,
+    visibility = ["//visibility:public"],
 ) for value in _config_values]
 
 print_flags(
@@ -395,12 +422,14 @@ platform(
         "OSFamily": "Linux",
     },
     parents = ["@local_config_platform//:host"],
+    visibility = ["//visibility:public"],
 )
 
 # tests
 
 empty_test(
     name = "empty_test",
+    visibility = ["//visibility:public"],
 )
 
 py_test(
