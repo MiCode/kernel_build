@@ -171,6 +171,13 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
+# Helper filegroup with no sources.
+filegroup(
+    name = "empty_filegroup",
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+
 py_binary(
     name = "ddk/gen_makefiles",
     srcs = ["ddk/gen_makefiles.py"],
