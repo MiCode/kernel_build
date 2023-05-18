@@ -507,8 +507,20 @@ kernel_env = rule(
             values = ["true", "false", "auto"],
         ),
         "make_goals": attr.string_list(doc = "`MAKE_GOALS`"),
-        "target_platform": attr.label(mandatory = True),
-        "exec_platform": attr.label(mandatory = True),
+        "target_platform": attr.label(
+            mandatory = True,
+            doc = """Target platform that describes characteristics of the target device.
+
+                See https://bazel.build/extending/platforms.
+            """,
+        ),
+        "exec_platform": attr.label(
+            mandatory = True,
+            doc = """Execution platform, where the build is executed.
+
+                See https://bazel.build/extending/platforms.
+            """,
+        ),
         "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
@@ -517,6 +529,7 @@ kernel_env = rule(
             cfg = "exec",
         ),
         "_toolchains": attr.label(
+            doc = "Provides all toolchains that the kernel build needs.",
             default = "//build/kernel/kleaf/impl:kernel_toolchains",
             providers = [KernelEnvToolchainsInfo],
             cfg = _toolchains_transition,
