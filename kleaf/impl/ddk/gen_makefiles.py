@@ -25,7 +25,7 @@ import pathlib
 import shlex
 import sys
 import textwrap
-from typing import Optional, TextIO
+from typing import Optional, TextIO, Any
 
 _SOURCE_SUFFIXES = (
     ".c",
@@ -160,6 +160,7 @@ def _gen_ddk_makefile_for_module(
         **unused_kwargs
 ):
     kernel_module_srcs_json_content = json.load(kernel_module_srcs_json)
+    # List of JSON objects (dictionaries) with keys like "file", "config", "value", etc.
     rel_srcs = []
     for kernel_module_srcs_json_item in kernel_module_srcs_json_content:
         rel_item = dict(kernel_module_srcs_json_item)
@@ -170,6 +171,8 @@ def _gen_ddk_makefile_for_module(
 
     if kernel_module_out.suffix != ".ko":
         die("Invalid output: %s; must end with .ko", kernel_module_out)
+
+    _check_srcs_valid(rel_srcs, kernel_module_out)
 
     kbuild = output_makefiles / kernel_module_out.parent / "Kbuild"
     os.makedirs(kbuild.parent, exist_ok=True)
@@ -193,10 +196,15 @@ def _gen_ddk_makefile_for_module(
         for src_item in rel_srcs:
             config = src_item.get("config")
             value = src_item.get("value")
+            obj_suffix = "y"
 
             if config is not None:
-                conditional = f"ifeq ($({config}),{value})"
-                out_file.write(f"{conditional}\n")
+                if value == True:
+                    # The special value True means y or m.
+                    obj_suffix = f"$({config})"
+                else:
+                    conditional = f"ifeq ($({config}),{value})"
+                    out_file.write(f"{conditional}\n")
 
             for src in src_item["files"]:
                 _handle_src(
@@ -208,9 +216,10 @@ def _gen_ddk_makefile_for_module(
                     include_dirs=include_dirs,
                     rel_root=rel_root,
                     copts=copts,
+                    obj_suffix = obj_suffix,
                 )
 
-            if config is not None:
+            if config is not None and value != True:
                 out_file.write(textwrap.dedent(f"""\
                     endif # {conditional}
                 """))
@@ -225,6 +234,31 @@ def _gen_ddk_makefile_for_module(
                 """))
 
 
+def _check_srcs_valid(rel_srcs: list[dict[str, Any]],
+                      kernel_module_out: pathlib.Path):
+    """Checks that the list of srcs is valid.
+
+    Args:
+        rel_srcs: Like content in kernel_module_srcs_json, but only includes files
+          relative to the current package.
+        kernel_module_out: The `out` attribute.
+    """
+    # List of paths of source files (minus headers)
+    rel_srcs_flat: list[pathlib.Path] = []
+    for rel_item in rel_srcs:
+        files = rel_item["files"]
+        rel_srcs_flat.extend(file for file in files if file.suffix.lower() in _SOURCE_SUFFIXES)
+
+    source_files_with_name_of_kernel_module = \
+        [src for src in rel_srcs_flat if src.with_suffix(".ko") == kernel_module_out]
+
+    if source_files_with_name_of_kernel_module and len(rel_srcs_flat) > 1:
+        die("Source files %s are not allowed to build %s when multiple source files exist. "
+            "Please change the name of the output file.",
+            [str(e) for e in source_files_with_name_of_kernel_module],
+            kernel_module_out)
+
+
 def _handle_src(
         src: pathlib.Path,
         out_file: TextIO,
@@ -234,6 +268,7 @@ def _handle_src(
         include_dirs: list[pathlib.Path],
         rel_root: pathlib.Path,
         copts: Optional[list[dict[str, str | bool]]],
+        obj_suffix: str,
 ):
     # Ignore non-exported headers specified in srcs
     if src.suffix.lower() in (".h",):
@@ -253,7 +288,7 @@ def _handle_src(
     else:
         out_file.write(textwrap.dedent(f"""\
                         # Source: {package / src}
-                        {kernel_module_out.with_suffix('').name}-y += {out}
+                        {kernel_module_out.with_suffix('').name}-{obj_suffix} += {out}
                     """))
 
         out_file.write("\n")

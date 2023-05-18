@@ -102,6 +102,7 @@ def kernel_build(
         strip_modules = None,
         module_signing_key = None,
         system_trusted_key = None,
+        modules_prepare_force_generate_headers = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -361,6 +362,8 @@ def kernel_build(
 
           This is to allow for dynamic setting of `CONFIG_SYSTEM_TRUSTED_KEY` from Bazel.
         dtstree: Device tree support.
+        modules_prepare_force_generate_headers: If `True` it forces generation of
+          additional headers as part of modules_prepare.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -464,6 +467,7 @@ def kernel_build(
         srcs = srcs,
         outdir_tar_gz = modules_prepare_target_name + "/modules_prepare_outdir.tar.gz",
         trim_nonlisted_kmi = trim_nonlisted_kmi,
+        force_generate_headers = modules_prepare_force_generate_headers,
         **internal_kwargs
     )
 
@@ -770,7 +774,7 @@ def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, rul
         """.format(
             search_and_cp_output = ctx.executable._search_and_cp_output.path,
             modules_staging_dir = modules_staging_dir,
-            ruledir = ruledir.path,
+            ruledir = ruledir,
             all_module_names_file = all_module_names_file.path,
         )
     return struct(
@@ -840,7 +844,14 @@ def _get_check_remaining_modules_step(
     """
 
     if not ctx.attr._warn_undeclared_modules[BuildSettingInfo].value:
-        return struct(cmd = "", inputs = [], tools = [], outputs = [])
+        return struct(
+            cmd = """
+            echo "Check for undeclared modules in kernel_build skipped." >&2
+            """,
+            inputs = [],
+            tools = [],
+            outputs = [],
+        )
 
     message_type = "ERROR"
     epilog = "exit 1"
@@ -1028,7 +1039,12 @@ def _build_main_action(
     all_output_files = _declare_all_output_files(ctx)
 
     ## Declare implicit outputs of the command
-    ruledir = ctx.actions.declare_directory(ctx.label.name)
+    ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.
+    ruledir = paths.join(
+        ctx.genfiles_dir.path,
+        paths.dirname(ctx.build_file_path),
+        ctx.label.name,
+    )
 
     if base_kernel_utils.get_base_kernel(ctx):
         # We will re-package MODULES_STAGING_ARCHIVE in _repack_module_staging_archive,
@@ -1108,7 +1124,7 @@ def _build_main_action(
          # Set variables and create dirs for modules
            mkdir -p {modules_staging_dir}
          # Install modules
-           if grep -q "CONFIG_MODULES=y" ${{OUT_DIR}}/.config ; then
+           if grep -q "\\bmodules\\b" <<< ${{MAKE_GOALS}} ; then
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
            else
                # Workaround as this file is required, hence just produce a placeholder.
@@ -1142,8 +1158,10 @@ def _build_main_action(
            {grab_intree_modules_cmd}
          # Grab unstripped in-tree modules
            {grab_unstripped_intree_modules_cmd}
-         # Check if there are remaining *.ko files
-           {check_remaining_modules_cmd}
+           if grep -q "\\bmodules\\b" <<< ${{MAKE_GOALS}} ; then
+             # Check if there are remaining *.ko files
+               {check_remaining_modules_cmd}
+           fi
          # Clean up staging directories
            rm -rf {modules_staging_dir}
          # Create last_build symlink in cache_dir
@@ -1154,7 +1172,7 @@ def _build_main_action(
         search_and_cp_output = ctx.executable._search_and_cp_output.path,
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
-        ruledir = ruledir.path,
+        ruledir = ruledir,
         internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         all_output_names_minus_modules = " ".join(all_output_names.non_modules),
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
@@ -1197,7 +1215,6 @@ def _build_main_action(
 
     # all outputs that |command| generates
     command_outputs = [
-        ruledir,
         modules_staging_archive_self,
         out_dir_kernel_headers_tar,
     ]
@@ -1308,7 +1325,7 @@ def _create_infos(
     env_and_outputs_info_setup_restore_outputs = """
          # Restore kernel build outputs
            rsync -aL --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
-           """.format(ruledir = main_action_ret.ruledir.path)
+           """.format(ruledir = main_action_ret.ruledir)
     env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
 
     env_and_outputs_info = _create_env_and_outputs_info(
@@ -1344,7 +1361,7 @@ def _create_infos(
         # Restore kernel build outputs necessary for building external modules
     """
     for dep in ext_mod_env_and_outputs_info_deps:
-        relpath = paths.relativize(dep.path, main_action_ret.ruledir.path)
+        relpath = paths.relativize(dep.path, main_action_ret.ruledir)
         ext_mod_env_and_outputs_info_setup_restore_outputs += """
             mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
             rsync -aL {dep} ${{OUT_DIR}}/{relpath}
@@ -1371,6 +1388,8 @@ def _create_infos(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
         module_scripts = module_srcs.module_scripts,
+        module_kconfig = module_srcs.module_kconfig,
+        config_env_and_outputs_info = ctx.attr.config[KernelEnvAndOutputsInfo],
         modules_env_and_outputs_info = ext_mod_env_and_outputs_info,
         modules_install_env_and_outputs_info = ext_modinst_env_and_outputs_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,

@@ -1,3 +1,5 @@
+#!/bin/bash -e
+
 # Copyright (C) 2023 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Define various platforms
+# Helper script to dump a Bazel depset to a file.
+# usage: write_depset.sh out.txt [FILE [...]]
 
-build:android_arm64 --platforms=//build/kernel/kleaf/impl:android_arm64
-build:android_x86_64 --platforms=//build/kernel/kleaf/impl:android_x86_64
-build:android_riscv64 --platforms=//build/kernel/kleaf/impl:android_riscv64
+# Avoid using host tools.
+export PATH=
 
-# --config=hermetic_cc is already the default.
+out="$1"
+shift
+echo "$@" > $out

@@ -21,6 +21,9 @@ build --experimental_ui_max_stdouterr_bytes=-1
 # Show the full set of flags for observability and debuggability.
 # common --announce_rc
 
+# Make output directories writable so `rm -rf out/` works.
+build --experimental_writable_outputs
+
 # Add support for various configs
 # Do not sort, the order here might matter.
 import %workspace%/build/kernel/kleaf/bazelrc/ants.bazelrc
