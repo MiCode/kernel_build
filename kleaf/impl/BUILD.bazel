@@ -17,6 +17,8 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "bool_setting")
+load(":kernel_platform_toolchain.bzl", "kernel_platform_toolchain")
+load(":kernel_toolchains.bzl", "kernel_toolchains")
 
 bzl_library(
     name = "impl",
@@ -67,6 +69,8 @@ bzl_library(
         "kernel_module.bzl",
         "kernel_module_group.bzl",
         "kernel_modules_install.bzl",
+        "kernel_platform_toolchain.bzl",
+        "kernel_toolchains.bzl",
         "kernel_uapi_headers.bzl",
         "kernel_uapi_headers_cc_library.bzl",
         "kernel_unstripped_modules_archive.bzl",
@@ -219,6 +223,25 @@ py_binary(
     deps = [
         "//build/kernel/kleaf:buildozer_command_builder",
     ],
+)
+
+kernel_platform_toolchain(
+    name = "kernel_toolchain_target",
+)
+
+kernel_platform_toolchain(
+    name = "kernel_toolchain_exec",
+    deps = [
+        "//prebuilts/kernel-build-tools:linux_x86_imported_libs",
+    ],
+)
+
+kernel_toolchains(
+    name = "kernel_toolchains",
+    exec_toolchain = ":kernel_toolchain_exec",
+    target_toolchain = "kernel_toolchain_target",
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
 )
 
 # Local build platforms
