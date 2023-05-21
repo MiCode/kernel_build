@@ -81,7 +81,7 @@ def _determine_local_path(ctx, file_name, file_attr):
 def _determine_raw_symbollist_path(ctx):
     """A local action that stores the path to `abi_symbollist.raw` to a file object."""
 
-    return _determine_local_path(ctx, "abi_symbollist.raw", ctx.file.raw_kmi_symbol_list)
+    return _determine_local_path(ctx, "abi_symbollist.raw", ctx.files.raw_kmi_symbol_list[0])
 
 def _determine_module_signing_key_path(ctx):
     """A local action that stores the path to `signing_key.pem` to a file object."""
@@ -178,8 +178,11 @@ def _config_trim(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    if trim_nonlisted_kmi_utils.get_value(ctx) and not ctx.file.raw_kmi_symbol_list:
+    if trim_nonlisted_kmi_utils.get_value(ctx) and not ctx.files.raw_kmi_symbol_list:
         fail("{}: trim_nonlisted_kmi is set but raw_kmi_symbol_list is empty.".format(ctx.label))
+
+    if len(ctx.files.raw_kmi_symbol_list) > 1:
+        fail("{}: raw_kmi_symbol_list must only provide at most one file".format(ctx.label))
 
     if not trim_nonlisted_kmi_utils.get_value(ctx):
         return struct(configs = [], deps = [])
@@ -420,7 +423,7 @@ def _kernel_config_impl(ctx):
     if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
-        post_setup_deps.append(ctx.file.raw_kmi_symbol_list)
+        post_setup_deps += ctx.files.raw_kmi_symbol_list  # This is 0 or 1 file
 
     env_and_outputs_info = KernelEnvAndOutputsInfo(
         get_setup_script = _env_and_outputs_get_setup_script,
@@ -548,8 +551,8 @@ kernel_config = rule(
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "raw_kmi_symbol_list": attr.label(
-            doc = "Label to abi_symbollist.raw.",
-            allow_single_file = True,
+            doc = "Label to abi_symbollist.raw. Must be 0 or 1 file.",
+            allow_files = True,
         ),
         "module_signing_key": attr.label(
             doc = "Label to module signing key.",
