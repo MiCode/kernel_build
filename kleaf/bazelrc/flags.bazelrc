@@ -23,6 +23,7 @@ build --flag_alias=allow_undeclared_modules=//build/kernel/kleaf:allow_undeclare
 build --flag_alias=nowarn_undeclared_modules=no//build/kernel/kleaf:warn_undeclared_modules
 build --flag_alias=nokmi_symbol_list_strict_mode=no//build/kernel/kleaf:kmi_symbol_list_strict_mode
 build --flag_alias=nokmi_symbol_list_violations_check=no//build/kernel/kleaf:kmi_symbol_list_violations_check
+build --flag_alias=user_kmi_symbol_lists=//build/kernel/kleaf:user_kmi_symbol_lists
 
 # flags that control binary features
 build --flag_alias=gcov=//build/kernel/kleaf:gcov
