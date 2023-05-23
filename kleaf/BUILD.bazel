@@ -175,6 +175,13 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+# Additional symbol lists to add to GKI kernel build
+label_flag(
+    name = "user_kmi_symbol_lists",
+    build_setting_default = "//build/kernel/kleaf/impl:empty_filegroup",
+    visibility = ["//visibility:public"],
+)
+
 # Flag to enable/disable BTF debug information
 string_flag(
     name = "btf_debug_info",

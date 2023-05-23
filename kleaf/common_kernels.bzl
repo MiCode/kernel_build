@@ -585,6 +585,12 @@ def define_common_kernels(
 
         all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
         all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
+
+        # Add user KMI symbol lists to additional lists
+        target_config["additional_kmi_symbol_lists"] = all_kmi_symbol_lists + [
+            "//build/kernel/kleaf:user_kmi_symbol_lists",
+        ]
+
         if target_config.get("kmi_symbol_list"):
             all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
         native.filegroup(
