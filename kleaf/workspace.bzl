@@ -119,11 +119,15 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
             path = "prebuilts/bazel/linux-x86_64/remote_java_tools_linux",
         )
 
-    # Fake local_jdk to avoid fetching rules_java for any exec targets.
-    # See build/kernel/kleaf/impl/fake_local_jdk/README.md.
-    native.local_repository(
+    # Use checked-in JDK from prebuilts as local_jdk
+    #   Needed for stardoc
+    # Note: This was not added directly to avoid conflicts with roboleaf,
+    #   see https://android-review.googlesource.com/c/platform/build/bazel/+/2457390
+    #   for more details.
+    native.new_local_repository(
         name = "local_jdk",
-        path = "build/kernel/kleaf/impl/fake_local_jdk",
+        path = "prebuilts/jdk/jdk11/linux-x86",
+        build_file = "build/kernel/kleaf/jdk11.BUILD",
     )
 
     # Fake rules_cc to avoid fetching it for any py_binary targets.
@@ -142,6 +146,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     native.local_repository(
         name = "rules_java",
         path = "build/bazel_common_rules/rules/java/rules_java",
+    )
+
+    # Use checked-in JDK from prebuilts as local_jdk
+    #   Needed for stardoc
+    native.register_toolchains(
+        "@local_jdk//:all",
     )
 
     native.register_toolchains(
