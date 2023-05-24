@@ -556,8 +556,7 @@ def _makefiles_copts_test(name):
         expected_lines = [
             # do not sort
             "CFLAGS_base.o += -include",
-            "CFLAGS_base.o += {}/{}/self.h".format(
-                paths.join(*([".."] * len(native.package_name().split("/")))),
+            "CFLAGS_base.o += '$(ROOT_DIR)/{}/self.h'".format(
                 native.package_name(),
             ),
         ],
@@ -573,8 +572,7 @@ def _makefiles_copts_test(name):
 def _makefiles_includes_test(name):
     tests = []
 
-    prefix = "$(srctree)/$(src)/{}/{}".format(
-        paths.join(*([".."] * len(native.package_name().split("/")))),
+    prefix = "$(ROOT_DIR)/{}".format(
         native.package_name(),
     )
     _create_makefiles_artifact_test(
@@ -646,8 +644,7 @@ def _makefiles_include_ordering_artifacts_test(name):
         tags = ["manual"],
     )
 
-    prefix = "$(srctree)/$(src)/{}/{}".format(
-        paths.join(*([".."] * len(native.package_name().split("/")))),
+    prefix = "$(ROOT_DIR)/{}".format(
         native.package_name(),
     )
 
@@ -752,8 +749,7 @@ def _makefiles_submodule_symvers_test(
         deps = [name + "_B"],
         top_level_makefile = True,
         expected_makefile_lines = [
-            "EXTRA_SYMBOLS += $(OUT_DIR)/$(M)/{}/{}/{}_C_Module.symvers".format(
-                paths.join(*([".."] * len(native.package_name().split("/")))),
+            "EXTRA_SYMBOLS += $(COMMON_OUT_DIR)/{}/{}_C_Module.symvers".format(
                 native.package_name(),
                 name,
             ),

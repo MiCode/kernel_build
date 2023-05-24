@@ -60,16 +60,16 @@ def _get_step(ctx, common_config_tags, symlink_name):
               KLEAF_CACHED_OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
               (
                   mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
-                  KLEAF_CONIFG_TAGS="${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
+                  KLEAF_CONFIG_TAGS="${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
 
-                  # {config_tags_json_file} is readonly. If ${{KLEAF_CONIFG_TAGS}} exists,
+                  # {config_tags_json_file} is readonly. If ${{KLEAF_CONFIG_TAGS}} exists,
                   # it should be readonly too.
-                  # If ${{KLEAF_CONIFG_TAGS}} exists, copying fails, and then we diff the file
+                  # If ${{KLEAF_CONFIG_TAGS}} exists, copying fails, and then we diff the file
                   # to ensure we aren't polluting the sandbox for something else.
-                  if ! cp -p {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}" 2>/dev/null; then
-                    if ! diff -q {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}"; then
-                      echo "Collision detected in ${{KLEAF_CONIFG_TAGS}}" >&2
-                      diff {config_tags_json_file} "${{KLEAF_CONIFG_TAGS}}" >&2
+                  if ! cp -p {config_tags_json_file} "${{KLEAF_CONFIG_TAGS}}" 2>/dev/null; then
+                    if ! diff -q {config_tags_json_file} "${{KLEAF_CONFIG_TAGS}}"; then
+                      echo "Collision detected in ${{KLEAF_CONFIG_TAGS}}" >&2
+                      diff {config_tags_json_file} "${{KLEAF_CONFIG_TAGS}}" >&2
                       echo 'Run `tools/bazel clean` and try again. If the error persists, report a bug.' >&2
                       exit 1
                     fi

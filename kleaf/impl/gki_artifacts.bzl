@@ -33,6 +33,8 @@ def _gki_artifacts_impl(ctx):
     inputs.append(kernel_release)
 
     outs = []
+    boot_lz4 = None
+    boot_gz = None
 
     tarball = ctx.actions.declare_file("{}/boot-img.tar.gz".format(ctx.label.name))
     outs.append(tarball)
@@ -48,9 +50,14 @@ def _gki_artifacts_impl(ctx):
             var_name = ""
         elif image.basename.startswith("Image."):
             compression = image.basename.removeprefix("Image.")
-            outs.append(ctx.actions.declare_file("{}/boot-{}.img".format(ctx.label.name, compression)))
             size_key = compression
             var_name = "_" + compression.upper()
+            boot_image = ctx.actions.declare_file("{}/boot-{}.img".format(ctx.label.name, compression))
+            if compression == "lz4":
+                boot_lz4 = boot_image
+            elif compression == "gz":
+                boot_gz = boot_image
+            outs.append(boot_image)
         else:
             # Not an image
             continue
@@ -110,7 +117,13 @@ def _gki_artifacts_impl(ctx):
         progress_message = "Building GKI artifacts {}".format(ctx.label),
     )
 
-    return DefaultInfo(files = depset(outs))
+    return [
+        DefaultInfo(files = depset(outs)),
+        OutputGroupInfo(
+            boot_lz4 = depset([boot_lz4] if boot_lz4 else []),
+            boot_gz = depset([boot_gz] if boot_gz else []),
+        ),
+    ]
 
 gki_artifacts = rule(
     implementation = _gki_artifacts_impl,

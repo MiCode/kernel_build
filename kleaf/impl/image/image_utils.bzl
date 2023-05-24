@@ -20,8 +20,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load(
     ":common_providers.bzl",
-    "KernelBuildInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
@@ -62,13 +60,24 @@ def _build_modules_image_impl_common(
     if restore_modules_install == None:
         restore_modules_install = True
 
-    kernel_build = ctx.attr.kernel_modules_install[KernelModuleInfo].kernel_build
-    kernel_build_outs = kernel_build[KernelBuildInfo].outs + kernel_build[KernelBuildInfo].base_kernel_files.to_list()
+    kernel_build_infos = ctx.attr.kernel_modules_install[KernelModuleInfo].kernel_build_infos
+    kernel_build_outs = depset(
+        transitive = [
+            # Prefer device kernel_build, then base kernel_build
+            kernel_build_infos.kernel_build_info.outs,
+            kernel_build_infos.kernel_build_info.base_kernel_files,
+        ],
+        order = "preorder",
+    )
+
+    # depset.to_list() required for find_file.
+    # TODO(b/256688440): providers should provide System.map directly
+    kernel_build_outs = kernel_build_outs.to_list()
     system_map = utils.find_file(
         name = "System.map",
         files = kernel_build_outs,
         required = True,
-        what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build),
+        what = "{}: outs of dependent kernel_build {}".format(ctx.label, kernel_build_infos.label),
     )
 
     modules_install_staging_dws = None
@@ -88,16 +97,16 @@ def _build_modules_image_impl_common(
     if restore_modules_install:
         inputs += dws.files(modules_install_staging_dws)
     inputs += ctx.files.deps
-    transitive_inputs = [kernel_build[KernelEnvAndOutputsInfo].inputs]
-    tools = kernel_build[KernelEnvAndOutputsInfo].tools
+    transitive_inputs = [kernel_build_infos.env_and_outputs_info.inputs]
+    tools = kernel_build_infos.env_and_outputs_info.tools
 
     command_outputs = []
     command_outputs += outputs
     if implicit_outputs != None:
         command_outputs += implicit_outputs
 
-    command = kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
-        data = kernel_build[KernelEnvAndOutputsInfo].data,
+    command = kernel_build_infos.env_and_outputs_info.get_setup_script(
+        data = kernel_build_infos.env_and_outputs_info.data,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 

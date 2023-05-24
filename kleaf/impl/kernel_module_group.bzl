@@ -17,8 +17,8 @@
 load(
     ":common_providers.bzl",
     "KernelCmdsInfo",
-    "KernelEnvInfo",
     "KernelModuleInfo",
+    "KernelModuleSetupInfo",
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
@@ -32,19 +32,23 @@ def _kernel_module_group_impl(ctx):
         runfiles = ctx.runfiles().merge_all([target[DefaultInfo].default_runfiles for target in targets]),
     )
 
-    kernel_env_deps = []
-    kernel_env_setup = []
+    setup_transitive_inputs = []
+    setup_cmds = []
     for target in targets:
-        kernel_env_deps += target[KernelEnvInfo].dependencies
-        kernel_env_setup.append(target[KernelEnvInfo].setup)
-    kernel_env_info = KernelEnvInfo(
-        dependencies = kernel_env_deps,
-        setup = "\n".join(kernel_env_setup),
+        setup_transitive_inputs.append(target[KernelModuleSetupInfo].inputs)
+        setup_cmds.append(target[KernelModuleSetupInfo].setup)
+    setup_info = KernelModuleSetupInfo(
+        inputs = depset(transitive = setup_transitive_inputs),
+        setup = "\n".join(setup_cmds),
     )
 
-    kernel_utils.check_kernel_build(targets, None, ctx.label)
+    kernel_utils.check_kernel_build(
+        [target[KernelModuleInfo] for target in targets],
+        None,
+        ctx.label,
+    )
     kernel_module_info = KernelModuleInfo(
-        kernel_build = targets[0][KernelModuleInfo].kernel_build,
+        kernel_build_infos = targets[0][KernelModuleInfo].kernel_build_infos,
         modules_staging_dws_depset = depset(transitive = [
             target[KernelModuleInfo].modules_staging_dws_depset
             for target in targets
@@ -86,7 +90,7 @@ def _kernel_module_group_impl(ctx):
     # Sync list of infos with kernel_module / ddk_module.
     return [
         default_info,
-        kernel_env_info,
+        setup_info,
         kernel_module_info,
         unstripped_modules_info,
         module_symvers_info,
@@ -140,7 +144,7 @@ kernel_modules_install(
             mandatory = True,
             providers = [
                 DefaultInfo,
-                KernelEnvInfo,
+                KernelModuleSetupInfo,
                 KernelModuleInfo,
                 KernelUnstrippedModulesInfo,
                 ModuleSymversInfo,

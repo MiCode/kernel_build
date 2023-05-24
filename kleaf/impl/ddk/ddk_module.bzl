@@ -347,11 +347,10 @@ def ddk_module(
           - Kconfig from `kernel_build`
           - Kconfig from dependent modules, if any
           - Kconfig of this module, if any
-        defconfig: The `defconfig` file. If specified, `Kconfig` must also be
-          specified. Otherwise it is useless.
+        defconfig: The `defconfig` file.
 
           Items must already be declared in `kconfig`. An item not declared
-          in Kconfig is silently dropped.
+          in Kconfig and inherited Kconfig files is silently dropped.
 
           An item declared in `kconfig` without a specific value in `defconfig`
           uses default value specified in `kconfig`.

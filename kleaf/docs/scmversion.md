@@ -24,26 +24,38 @@ The flag `--config=stamp` is also implied by other flags, e.g.:
 
 * `--config=release`. See [release.md](release.md).
 
-## Handling SCM version in `kernel_build`
+## Handling SCM version and `SOURCE_DATE_EPOCH` in `kernel_build`
 
 For `kernel_build()` that produces `vmlinux`, the following is required to embed
-SCM version properly.
+SCM version and `SOURCE_DATE_EPOCH` properly.
 
-A symlink under the repository root named `.source_date_epoch_dir` should point
-to the package that invokes the `kernel_build()` macro.
+### `repo` requirements
 
-The symlink also ensures that `SOURCE_DATE_EPOCH` is calculated correctly. For
-details, see [Manifest changes](impl.md#manifest-changes).
+The following is required for the build system to infer the list of git projects
+in the repository.
 
-Example for Pixel 2021 Mainline build:
-[https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml](https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml)
-. Because Pixel 2021 Mainline build uses "mixed build", `vmlinux` comes from the
-GKI build `//common:kernel_aarch64`. Hence, `.source_date_epoch_dir`
-is a symlink to `common/`.
+Either:
 
-If your device does not use "mixed build" and builds `vmlinux` in the
-`kernel_build()` macro, the `.source_date_epoch_dir` symlink should point to the
-package defining your device's `kernel_build()`.
+- repo is installed on the host machine
+- The git repository defining the `kernel_build()` is managed by a repo manifest
+
+Or:
+
+- A `manifest.xml` file is generated in advance with
+  `repo manifest -r`, then provided to
+  Bazel with `bazel build --repo_manifest=$(realpath <manifest.xml>)`.
+
+The `manifest.xml` file is needed by the build system when `repo` is not available
+in the build environment. This is uncommon.
+
+### `setlocalversion` requirements
+
+`scripts/setlocalversion` needs to exist in some git repository managed by the
+repo manifest. It is not necessary that the git repository is the same as the
+one containing the `kernel_build`. Usually, the file can be found in
+`common/scripts/setlocalversion` in the workspace if you check out the core
+kernel source tree under `common/`. (This requirement may not be necessary in
+the future.)
 
 ### Testing
 
@@ -66,22 +78,7 @@ check the following.
 - `modinfo -F scmversion <modulename>.ko`
 - Boot the device, and check `/sys/module/<MODULENAME>/scmversion`.
 
-## Handling SCM version for external `kernel_module`s
-
-For external `kernel_module`s, the following is required to embed SCM version
-properly.
-
-A symlink under the repository root named `build.config` should point to the
-build config of the `kernel_build()`.
-
-Example for Pixel 2021 Mainline build:
-
-[https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml](https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml)
-
-**Note**: The key is that the file must define `EXT_MODULES` to be a (super)set
-of external modules.
-
-### Testing
+## Testing SCM version for external `kernel_module`s
 
 To ensure the external kernel modules contains SCM version properly, you may
 check the following.
@@ -93,3 +90,12 @@ check the following.
 - `modinfo -F scmversion <modulename>.ko`
 - Boot the device, and check `/sys/module/<MODULENAME>/scmversion`.
 
+## Deprecated: `.source_date_epoch_dir` and `build.config`
+
+It was required previously (specifically, in `master-kernel-build-2022` for
+`android13-*` branches and early commits in `android14-*` branches) that
+the top level symlinks `.source_date_epoch_dir` and `build.config` was required
+to set `SOURCE_DATE_EPOCH` and scmversion correctly.
+
+The two symlinks are not needed any more. In `android14-*` branches and later
+(including `android-mainline`), you are advised to delete these symlinks.

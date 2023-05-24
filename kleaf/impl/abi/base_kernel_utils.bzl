@@ -21,8 +21,8 @@ load(
     "KernelBuildAbiInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
+    "KernelToolchainInfo",
 )
-load(":kernel_toolchain_aspect.bzl", "kernel_toolchain_aspect")
 
 _FORCE_IGNORE_BASE_KERNEL_SETTING = "//build/kernel/kleaf/impl:force_ignore_base_kernel"
 
@@ -35,11 +35,11 @@ def _base_kernel_non_config_attrs():
     """Attributes of rules that supports adding vmlinux via outgoing-edge transitions."""
     return {
         "base_kernel": attr.label(
-            aspects = [kernel_toolchain_aspect],
             providers = [
                 KernelBuildInTreeModulesInfo,
                 KernelBuildMixedTreeInfo,
                 KernelBuildAbiInfo,
+                KernelToolchainInfo,
                 GcovInfo,
             ],
         ),

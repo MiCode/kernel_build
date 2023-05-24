@@ -65,6 +65,9 @@ def _modules_prepare_impl(ctx):
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} modules_prepare
          # Additional steps
            {force_gen_headers_cmd}
+         # b/279211056: Exclude the top-level source symlink. It is not useful and points outside
+         # of the directory, making tar unhappy.
+           rm -f ${{OUT_DIR}}/source
          # Package files
            tar czf {outdir_tar_gz} -C ${{OUT_DIR}} .
            {cache_dir_post_cmd}

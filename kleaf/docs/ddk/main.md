@@ -32,4 +32,6 @@ The virtual device serves as a reference implementation for DDK modules. See
 
 [Using headers from the common kernel](common_headers.md)
 
+[Configuring DDK module](config.md)
+
 [Resolving common errors](errors.md)

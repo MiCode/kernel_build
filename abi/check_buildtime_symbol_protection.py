@@ -89,9 +89,18 @@ def main():
       print(f" {os.path.basename(module)}")
 
   # Find all undefined symbols from unsigned modules
-  undefined_symbols = itertools.chain.from_iterable(
-      symbol_extraction.extract_undefined_symbols(module)
-      for module in unsigned_modules)
+  undefined_symbol_consumer_lookup = {}
+  undefined_symbols = []
+  for module in unsigned_modules:
+    module_undefined_symbols = symbol_extraction.extract_undefined_symbols(
+        module
+    )
+    undefined_symbols.extend(module_undefined_symbols)
+    for symbol in module_undefined_symbols:
+      if symbol in undefined_symbol_consumer_lookup:
+        undefined_symbol_consumer_lookup[symbol].append(module.name)
+      else:
+        undefined_symbol_consumer_lookup[symbol] = [module.name]
 
   # Find all defined symbols from unsigned modules
   defined_symbols = itertools.chain.from_iterable(
@@ -102,16 +111,23 @@ def main():
   abi_symbols = symbol_extraction.read_symbol_list(args.abi_symbol_list)
 
   # Set difference to get elements in undefined but not in defined or symbollist
-  missing_symbols = set(undefined_symbols) - set(defined_symbols) - set(
-      abi_symbols)
+  missing_symbols = (
+      set(undefined_symbols) - set(defined_symbols) - set(abi_symbols)
+  )
 
   if missing_symbols:
     print(
-        "\nThese symbols are missing from the symbol list and are not available at runtime for unsigned modules:",
+        (
+            "\nThese symbols are missing from the symbol list and are not"
+            " available at runtime for unsigned modules:"
+        ),
         file=sys.stderr,
     )
     for symbol in sorted(missing_symbols):
-      print(f"  {symbol}", file=sys.stderr)
+      print(
+          f"  {symbol} required by {undefined_symbol_consumer_lookup[symbol]}",
+          file=sys.stderr,
+      )
     return 1
 
   return 0

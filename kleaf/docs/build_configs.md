@@ -156,7 +156,13 @@ See [documentation for all rules].
 
 ## MAKE\_GOALS
 
-Specify in the build config.
+```python
+kernel_build(
+  make_goals = ...
+)
+```
+
+See [documentation for all rules].
 
 ## EXT\_MODULES
 

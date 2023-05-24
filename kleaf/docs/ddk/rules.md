@@ -70,6 +70,13 @@ For up-to-date information about `ddk_module`, its API, and more examples, see
 [documentation for all rules](../api_reference.md) and click on the `ddk_module`
 rule.
 
+### Kconfig / defconfig
+
+A `ddk_module` target may optionally provide a `Kconfig` and/or a `defconfig`
+file, via the `kconfig` or `defconfig` attribute, respectively.
+
+See [configuring DDK module](config.md) for details.
+
 ## ddk\_submodule
 
 **NOTE**: Using `ddk_submodule` is discouraged because of the unclear module

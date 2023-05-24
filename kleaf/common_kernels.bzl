@@ -97,6 +97,7 @@ _KERNEL_BUILD_VALID_KEYS = [
     "module_implicit_outs",
     "protected_exports_list",
     "protected_modules_list",
+    "make_goals",
 ]
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
@@ -632,6 +633,17 @@ def define_common_kernels(
             name = name + "_script_headers",
             kernel_build = name,
             subdirs = ["scripts"],
+        )
+
+        native.filegroup(
+            name = name + "_ddk_allowlist_headers",
+            srcs = [
+                name + "_script_headers",
+                name + "_uapi_headers",
+            ],
+            visibility = [
+                "//build/kernel/kleaf:__pkg__",
+            ],
         )
 
         kernel_modules_install(
