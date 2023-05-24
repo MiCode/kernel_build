@@ -182,8 +182,6 @@ def _gen_ddk_makefile_for_module(
             """))
         out_file.write("\n")
 
-        _handle_linux_includes(out_file, linux_include_dirs)
-
         for src_item in rel_srcs:
             config = src_item.get("config")
             value = src_item.get("value")
@@ -203,11 +201,37 @@ def _gen_ddk_makefile_for_module(
                     out_file=out_file,
                     kernel_module_out=kernel_module_out,
                     package=package,
-                    local_defines=local_defines,
-                    include_dirs=include_dirs,
-                    copts=copts,
                     obj_suffix=obj_suffix,
                 )
+
+            if config is not None and value != True:
+                out_file.write(textwrap.dedent(f"""\
+                    endif # {conditional}
+                """))
+
+        out_file.write(f"\n# Common flags for {kernel_module_out.with_suffix('.o').name}\n")
+        _handle_linux_includes(out_file, linux_include_dirs)
+
+        for src_item in rel_srcs:
+            config = src_item.get("config")
+            value = src_item.get("value")
+
+            if config is not None and value != True:
+                conditional = f"ifeq ($({config}),{value})"
+                out_file.write(f"{conditional}\n")
+
+            for src in src_item["files"]:
+
+                out = src.with_suffix(".o").relative_to(
+                    kernel_module_out.parent)
+
+                # At this time of writing (2022-11-01), this is the order how cc_library
+                # constructs arguments to the compiler.
+                _handle_defines(out_file, out, local_defines)
+                _handle_includes(out_file, out, include_dirs)
+                _handle_copts(out_file, out, copts)
+
+                out_file.write("\n")
 
             if config is not None and value != True:
                 out_file.write(textwrap.dedent(f"""\
@@ -256,9 +280,6 @@ def _handle_src(
         out_file: TextIO,
         kernel_module_out: pathlib.Path,
         package: pathlib.Path,
-        local_defines: list[str],
-        include_dirs: list[pathlib.Path],
-        copts: Optional[list[dict[str, str | bool]]],
         obj_suffix: str,
 ):
     # Ignore non-exported headers specified in srcs
@@ -281,16 +302,6 @@ def _handle_src(
                         # Source: {package / src}
                         {kernel_module_out.with_suffix('').name}-{obj_suffix} += {out}
                     """))
-
-        out_file.write("\n")
-
-    # At this time of writing (2022-11-01), this is the order how cc_library
-    # constructs arguments to the compiler.
-    _handle_defines(out_file, out, local_defines)
-    _handle_includes(out_file, out, include_dirs)
-    _handle_copts(out_file, out, copts)
-
-    out_file.write("\n")
 
 
 def _handle_linux_includes(out_file: TextIO,
