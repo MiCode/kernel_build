@@ -110,7 +110,10 @@ def _kernel_filegroup_impl(ctx):
         unstripped_dir = ctx.actions.declare_directory("{}/unstripped".format(ctx.label.name))
         command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
             tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
-        """
+        """.format(
+            unstripped_modules_archive = unstripped_modules_archive.path,
+            unstripped_dir = unstripped_dir.path,
+        )
         debug.print_scripts(ctx, command, what = "unstripped_modules_archive")
         ctx.actions.run_shell(
             command = command,
