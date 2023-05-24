@@ -39,9 +39,7 @@ class ScmVersionTestCase(unittest.TestCase):
             with self.subTest(module=module):
                 self._assert_contains_scmversion(module)
 
-    # TODO(b/202077908): Investigate why modinfo doesn't work for these modules
-    _modinfo_exempt_list = ["spidev.ko"]
-    _scmversion_pattern = re.compile(r"g[0-9a-f]{12,40}")
+    _scmversion_pattern = re.compile(r"^g[0-9a-f]{12,40}$")
 
     def _assert_contains_scmversion(self, module):
         basename = os.path.basename(module)
@@ -53,11 +51,9 @@ class ScmVersionTestCase(unittest.TestCase):
                 text=True, stderr=subprocess.PIPE).strip()
         except subprocess.CalledProcessError as e:
             self.fail("modinfo returns {}: {}".format(e.returncode, e.stderr))
-        mo = ScmVersionTestCase._scmversion_pattern.match(scmversion)
 
-        if basename not in ScmVersionTestCase._modinfo_exempt_list:
-            self.assertTrue(mo, "no matching scmversion, found {}".format(
-                scmversion))
+        self.assertRegex(scmversion, ScmVersionTestCase._scmversion_pattern,
+                         "no matching scmversion")
 
 
 if __name__ == '__main__':
