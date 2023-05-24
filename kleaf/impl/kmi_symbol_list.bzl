@@ -70,7 +70,7 @@ kmi_symbol_list = rule(
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(
-            doc = "`KMI_SYMBOL_LIST` + `ADDTIONAL_KMI_SYMBOL_LISTS`",
+            doc = "`KMI_SYMBOL_LIST` + `ADDITIONAL_KMI_SYMBOL_LISTS`",
             allow_files = True,
         ),
         "_process_symbols": attr.label(
