@@ -48,11 +48,13 @@ class DieException(SystemExit):
     def handle(die_exception: Optional["DieException"], msg: Optional[str]):
         if msg:
             if die_exception is None:
-                logging.error(f"Expect build failure %s, but there's no failure", msg)
+                logging.error(
+                    f"Expect build failure %s, but there's no failure", msg)
                 sys.exit(1)
             if die_exception.msg != msg:
                 logging.error(*die_exception.args, **die_exception.kwargs)
-                logging.error(f"Expect build failure %s, but got a different failure", msg)
+                logging.error(
+                    f"Expect build failure %s, but got a different failure", msg)
                 sys.exit(1)
             return
 
@@ -204,7 +206,7 @@ def _gen_ddk_makefile_for_module(
                     local_defines=local_defines,
                     include_dirs=include_dirs,
                     copts=copts,
-                    obj_suffix = obj_suffix,
+                    obj_suffix=obj_suffix,
                 )
 
             if config is not None and value != True:
@@ -235,10 +237,12 @@ def _check_srcs_valid(rel_srcs: list[dict[str, Any]],
     rel_srcs_flat: list[pathlib.Path] = []
     for rel_item in rel_srcs:
         files = rel_item["files"]
-        rel_srcs_flat.extend(file for file in files if file.suffix.lower() in _SOURCE_SUFFIXES)
+        rel_srcs_flat.extend(
+            file for file in files if file.suffix.lower() in _SOURCE_SUFFIXES)
 
     source_files_with_name_of_kernel_module = \
-        [src for src in rel_srcs_flat if src.with_suffix(".ko") == kernel_module_out]
+        [src for src in rel_srcs_flat if src.with_suffix(
+            ".ko") == kernel_module_out]
 
     if source_files_with_name_of_kernel_module and len(rel_srcs_flat) > 1:
         die("Source files %s are not allowed to build %s when multiple source files exist. "
@@ -354,20 +358,26 @@ if __name__ == "__main__":
     # https://github.com/abseil/abseil-py/issues/199
     absl.flags.DEFINE_string("flagfile_hack_do_not_use", "", "")
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    logging.basicConfig(level=logging.INFO,
+                        format="%(levelname)s: %(message)s")
 
     parser = absl.flags.argparse_flags.ArgumentParser(description=__doc__)
     parser.add_argument("--package", type=pathlib.Path)
     parser.add_argument("--kernel-module-out", type=pathlib.Path)
-    parser.add_argument("--kernel-module-srcs-json", type=argparse.FileType("r"), required=True)
+    parser.add_argument("--kernel-module-srcs-json",
+                        type=argparse.FileType("r"), required=True)
     parser.add_argument("--output-makefiles", type=pathlib.Path)
-    parser.add_argument("--linux-include-dirs", type=pathlib.Path, nargs="*", default=[])
-    parser.add_argument("--include-dirs", type=pathlib.Path, nargs="*", default=[])
-    parser.add_argument("--module-symvers-list", type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--linux-include-dirs",
+                        type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--include-dirs", type=pathlib.Path,
+                        nargs="*", default=[])
+    parser.add_argument("--module-symvers-list",
+                        type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
     parser.add_argument("--copt-file", type=argparse.FileType("r"))
     parser.add_argument("--produce-top-level-makefile", action="store_true")
-    parser.add_argument("--submodule-makefiles", type=pathlib.Path, nargs="*", default=[])
+    parser.add_argument("--submodule-makefiles",
+                        type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--internal-target-fail-message", default=None)
 
     args = parser.parse_args()

@@ -289,10 +289,10 @@ def kernel_build(
 
         kmi_symbol_list: A label referring to the main KMI symbol list file. See `additional_kmi_symbol_lists`.
 
-          This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
+          This is the Bazel equivalent of `ADDITIONAL_KMI_SYMBOL_LISTS`.
         additional_kmi_symbol_lists: A list of labels referring to additional KMI symbol list files.
 
-          This is the Bazel equivalent of `ADDTIONAL_KMI_SYMBOL_LISTS`.
+          This is the Bazel equivalent of `ADDITIONAL_KMI_SYMBOL_LISTS`.
 
           Let
           ```
