@@ -106,7 +106,9 @@ def _merge_directories(output_makefiles: pathlib.Path, submodule_makefile_dir: p
             dst_path.parent.mkdir(parents=True, exist_ok=True)
             with open(dst_path, "a") as dst, \
                     open(submodule_file, "r") as src:
-                dst.write(f"# {submodule_file}\n")
+                # Comments are not allowed in .cflags files
+                if dst_path.suffix != ".cflags":
+                    dst.write(f"# {submodule_file}\n")
                 dst.write(src.read())
                 dst.write("\n")
 
@@ -167,9 +169,15 @@ def _gen_ddk_makefile_for_module(
     kbuild = output_makefiles / kernel_module_out.parent / "Kbuild"
     os.makedirs(kbuild.parent, exist_ok=True)
 
+    # rel to this package
+    out_cflags_subpath = kernel_module_out.with_suffix(".cflags")
+
+    # Output cflags file path
+    out_cflags_path = output_makefiles / out_cflags_subpath
+
     copts = json.load(copt_file) if copt_file else None
 
-    with open(kbuild, "w") as out_file:
+    with open(kbuild, "w") as out_file, open(out_cflags_path, "w") as out_cflags:
         out_file.write(textwrap.dedent(f"""\
             # Build {package / kernel_module_out}
             obj-m += {kernel_module_out.with_suffix('.o').name}
@@ -203,15 +211,13 @@ def _gen_ddk_makefile_for_module(
                     endif # {conditional}
                 """))
 
-        module_cflags_var_name = f"_cflags_{kernel_module_out.with_suffix('.o').name}"
         out_file.write(f"\n# Common flags for {kernel_module_out.with_suffix('.o').name}\n")
         _handle_linux_includes(out_file, linux_include_dirs)
         # At this time of writing (2022-11-01), this is the order how cc_library
         # constructs arguments to the compiler.
-        _handle_defines(out_file, module_cflags_var_name, local_defines)
-        _handle_includes(out_file, module_cflags_var_name, include_dirs)
-        _handle_copts(out_file, module_cflags_var_name, copts)
-        out_file.write("\n")
+        _handle_defines(out_cflags, local_defines)
+        _handle_includes(out_cflags, include_dirs)
+        _handle_copts(out_cflags, copts)
 
         for src_item in rel_srcs:
             config = src_item.get("config")
@@ -226,8 +232,11 @@ def _gen_ddk_makefile_for_module(
                 out = src.with_suffix(".o").relative_to(
                     kernel_module_out.parent)
 
+                # kernel_module() copies makefiles and .cflags files to
+                # $(ROOT_DIR)/<package> (aka $ROOT_DIR/<ext_mod>) and fix up
+                # .cflags files there before building.
                 out_file.write(textwrap.dedent(f"""\
-                    CFLAGS_{out} += $({module_cflags_var_name})
+                    CFLAGS_{out} += @$(ROOT_DIR)/{package / out_cflags_subpath}
                     """))
 
             if config is not None and value != True:
@@ -314,53 +323,40 @@ def _handle_linux_includes(out_file: TextIO,
     out_file.write("\n\n")
 
 
-def _handle_defines(out_file: TextIO,
-                    cflags_var_name: str,
+def _handle_defines(out_cflags: TextIO,
                     local_defines: list[str]):
     if not local_defines:
         return
-    out_file.write("\n")
-    out_file.write(textwrap.dedent("""\
-        # local defines
-        """))
     for local_define in local_defines:
-        out_file.write(textwrap.dedent(f"""\
-            {cflags_var_name} += {shlex.quote(f"-D{local_define}")}
+        out_cflags.write(textwrap.dedent(f"""\
+            {shlex.quote(f"-D{local_define}")}
             """))
 
 
-def _handle_includes(out_file: TextIO,
-                     cflags_var_name: str,
+def _handle_includes(out_cflags: TextIO,
                      include_dirs: list[pathlib.Path]):
     for include_dir in include_dirs:
-        out_file.write(textwrap.dedent(f"""\
-            # Include {include_dir}
-            {cflags_var_name} += -I$(ROOT_DIR)/{shlex.quote(str(include_dir))}
+        out_cflags.write(textwrap.dedent(f"""\
+            -I$(ROOT_DIR)/{shlex.quote(str(include_dir))}
             """))
 
 
-def _handle_copts(out_file: TextIO,
-                  cflags_var_name: str,
+def _handle_copts(out_cflags: TextIO,
                   copts: Optional[list[dict[str, str | bool]]]):
     if not copts:
         return
-
-    out_file.write("\n")
-    out_file.write(textwrap.dedent("""\
-        # copts
-        """))
 
     for d in copts:
         expanded: str = d["expanded"]
         is_path: bool = d["is_path"]
 
         if is_path:
-            out_file.write(textwrap.dedent(f"""\
-                {cflags_var_name} += $(ROOT_DIR)/{shlex.quote(expanded)}
+            out_cflags.write(textwrap.dedent(f"""\
+                $(ROOT_DIR)/{shlex.quote(expanded)}
                 """))
         else:
-            out_file.write(textwrap.dedent(f"""\
-                {cflags_var_name} += {shlex.quote(expanded)}
+            out_cflags.write(textwrap.dedent(f"""\
+                {shlex.quote(expanded)}
                 """))
 
 
