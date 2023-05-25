@@ -4,8 +4,7 @@ To run `make *config` or `config.sh` in Kleaf, follow the following steps.
 
 ## Step 0: Try the old `config.sh` command to guess the Kleaf equivalent
 
-If you already know what `kernel_build` or `kernel_build_abi` target you
-need to run on, go to step 1.
+If you already know what `kernel_build` you need to run on, go to step 1.
 
 Run the old `config.sh` command with appropriate environment variables
 and arguments. The `config.sh` guesses an equivalent command for you.
