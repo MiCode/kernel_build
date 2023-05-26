@@ -200,6 +200,7 @@ function build_system_dlkm() {
   local system_dlkm_root_dir=$(echo ${SYSTEM_DLKM_STAGING_DIR}/lib/modules/*)
   cp ${system_dlkm_root_dir}/modules.load ${DIST_DIR}/system_dlkm.modules.load
   local system_dlkm_props_file
+  local system_dlkm_file_contexts
 
   if [ -f "${system_dlkm_root_dir}/modules.blocklist" ]; then
     cp "${system_dlkm_root_dir}/modules.blocklist" "${DIST_DIR}/system_dlkm.modules.blocklist"
@@ -214,12 +215,19 @@ function build_system_dlkm() {
 
   if [ -z "${SYSTEM_DLKM_PROPS}" ]; then
     system_dlkm_props_file="$(mktemp)"
-    echo -e "system_dlkm_fs_type=${SYSTEM_DLKM_FS_TYPE}\n" >> ${system_dlkm_props_file}
+    system_dlkm_file_contexts="$(mktemp)"
+    echo -e "fs_type=${SYSTEM_DLKM_FS_TYPE}\n" >> ${system_dlkm_props_file}
     echo -e "use_dynamic_partition_size=true\n" >> ${system_dlkm_props_file}
     if [[ "${SYSTEM_DLKM_FS_TYPE}" == "ext4" ]]; then
       echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${system_dlkm_props_file}
       echo -e "ext4_share_dup_blocks=true\n" >> ${system_dlkm_props_file}
+      echo -e "extfs_rsv_pct=0\n" >> ${system_dlkm_props_file}
+      echo -e "journal_size=0\n" >> ${system_dlkm_props_file}
     fi
+    echo -e "mount_point=system_dlkm\n" >> ${system_dlkm_props_file}
+    echo -e "selinux_fc=${system_dlkm_file_contexts}\n" >> ${system_dlkm_props_file}
+
+    echo -e "/system_dlkm(/.*)? u:object_r:system_dlkm_file:s0" > ${system_dlkm_file_contexts}
   else
     system_dlkm_props_file="${SYSTEM_DLKM_PROPS}"
     if [[ -f "${ROOT_DIR}/${system_dlkm_props_file}" ]]; then
@@ -250,6 +258,7 @@ function build_system_dlkm() {
 
   if [ -z "${SYSTEM_DLKM_PROPS}" ]; then
     rm ${system_dlkm_props_file}
+    rm ${system_dlkm_file_contexts}
   fi
 
   # No need to sign the image as modules are signed
