@@ -163,12 +163,7 @@ fi
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
 ANDROID_KP_OUT_DIR="${3:-${OUT_DIR}}"
 if [ -z "${ANDROID_KP_OUT_DIR}" ]; then
-  ANDROID_KP_OUT_DIR=out/$(
-    cd ${ROOT_DIR}
-    OUT_DIR=${TEMP_KP_OUT_DIR}
-    source build/_wrapper_common.sh
-    get_branch
-  )
+  ANDROID_KP_OUT_DIR="out/msm-kernel-${KERNEL_TARGET}-${KERNEL_VARIANT}"
 
   if [ -n "${ANDROID_BUILD_TOP}" -a -e "${ANDROID_BUILD_TOP}/${ANDROID_KP_OUT_DIR}" ] ; then
     ANDROID_KP_OUT_DIR="${ANDROID_BUILD_TOP}/${ANDROID_KP_OUT_DIR}"
