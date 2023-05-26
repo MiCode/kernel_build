@@ -53,6 +53,8 @@ KernelPlatformToolchainInfo = provider(
         "compiler_version": "A string representing compiler version",
         "toolchain_id": "A string representing toolchain ID for debugging purposes",
         "all_files": "A [depset](https://bazel.build/extending/depsets) of all files of the toolchain",
+        "cflags": "flags for C compilation",
+        "ldflags": "flags for C linking",
         "bin_path": "`PATH` relative to execroot.",
     },
 )
