@@ -380,9 +380,8 @@ copy_to_dist_dir(
     data = [":docs_deprecated"],
 )
 
-# Docs. To view them:
-#   bazel run //build/kernel/kleaf:docs_server
-
+# Kleaf API Docs. To view them:
+#   Refer to kleaf/docs/api_reference.md
 docs(
     name = "docs",
     srcs = [
