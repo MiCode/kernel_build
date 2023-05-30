@@ -184,6 +184,7 @@ def collect(popen_obj: subprocess.Popen) -> str:
 class Stamp(object):
 
     def __init__(self):
+        self.ignore_missing_projects = os.environ.get("KLEAF_IGNORE_MISSING_PROJECTS", "false") == "true"
         self.projects = list_projects()
         self.init_for_dot_source_date_epoch_dir()
 
@@ -219,7 +220,17 @@ class Stamp(object):
             all_projects.append(self.kernel_rel)
         all_projects.extend(self.projects)
 
+        if self.ignore_missing_projects:
+            all_projects = filter(os.path.isdir, all_projects)
+
         for proj in all_projects:
+            if not os.path.isdir(proj):
+                logging.error(
+                    "Project %s in repo manifest does not exist on disk.",
+                    proj
+                )
+                sys.exit(1)
+
             candidate = os.path.join(proj, "scripts/setlocalversion")
             if os.access(candidate, os.X_OK):
                 self.setlocalversion = os.path.realpath(candidate)
@@ -232,8 +243,17 @@ class Stamp(object):
         all_projects |= set(self.get_ext_modules())
         all_projects |= set(self.projects)
 
+        if self.ignore_missing_projects:
+            all_projects = filter(os.path.isdir, all_projects)
+
         scmversion_map = {}
         for project in all_projects:
+            if not os.path.isdir(project):
+                logging.error(
+                    "Project %s in repo manifest does not exist on disk.",
+                    project)
+                sys.exit(1)
+
             path_popen = get_localversion(self.setlocalversion, project)
             if path_popen:
                 scmversion_map[project] = path_popen
@@ -268,6 +288,9 @@ class Stamp(object):
         if self.kernel_dir:
             all_projects.add(self.kernel_rel)
         all_projects |= set(self.projects)
+
+        if self.ignore_missing_projects:
+            all_projects = filter(os.path.isdir, all_projects)
 
         return {
             proj: self.async_get_source_date_epoch(proj)
