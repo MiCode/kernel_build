@@ -7,9 +7,6 @@ For build configs with a Bazel equivalent / alternative, a code snippet and a
 link to the [documentation for all rules] is provided. You may look up the
 relevant macros, rules and attributes in the documentation.
 
-- **NOTE**: All arguments to `kernel_build()` are also applicable to
-  `kernel_build_abi()`.
-
 For build configs that should be kept in `build.config` files, the text
 _"Specify in the build config"_ is displayed.
 
@@ -240,8 +237,13 @@ See [documentation for all rules].
 
 ## ABI\_DEFINITION
 
+Not used in Bazel. Alternatives:
+
+The XML format of ABI definition is no longer supported. The STG format
+of ABI definition may be set with the following:
+
 ```python
-kernel_build_abi(abi_definition=...)
+kernel_abi(abi_definition_stg=...)
 ```
 
 See [documentation for all rules].
@@ -252,7 +254,6 @@ See [documentation for ABI monitoring].
 
 ```python
 kernel_build(kmi_symbol_list=...)
-kernel_build_abi(kmi_symbol_list=...)
 ```
 
 See [documentation for all rules].
@@ -263,7 +264,6 @@ See [documentation for ABI monitoring].
 
 ```python
 kernel_build(additional_kmi_symbol_lists=...)
-kernel_build_abi(additional_kmi_symbol_lists=...)
 ```
 
 See [documentation for all rules].
@@ -273,7 +273,7 @@ See [documentation for ABI monitoring].
 ## KMI\_ENFORCED
 
 ```python
-kernel_build_abi(kmi_enforced=...)
+kernel_abi(kmi_enforced=...)
 ```
 
 See [documentation for all rules].
@@ -320,7 +320,7 @@ Or, remove from the build config, and use `kernel_build_config` and `genrule`.
 This is recommended.
 
 To support `--config=local` builds, `PRE_DEFCONFIG_CMDS` must not write to the
-source tree, including `$ROOT_DIR/$KERNEL_DIR`. See 
+source tree, including `$ROOT_DIR/$KERNEL_DIR`. See
 [errors.md#defconfig-readonly](errors.md#defconfig-readonly) for details.
 
 See [documentation for all rules].
@@ -646,7 +646,6 @@ See [documentation for all rules].
 
 ```python
 kernel_build(trim_nonlisted_kmi=...)
-kernel_build_abi(trim_nonlisted_kmi=...)
 ```
 
 See [documentation for all rules].
@@ -657,7 +656,6 @@ See [documentation for ABI monitoring].
 
 ```python
 kernel_build(kmi_symbol_list_strict_mode=...)
-kernel_build_abi(kmi_symbol_list_strict_mode=...)
 ```
 
 See [documentation for all rules].
@@ -668,9 +666,9 @@ See [documentation for ABI monitoring].
 
 Not customizable in Bazel.
 
-Reason: for a `kernel_build_abi` macro invocation, this is always
-`vmlinux` (regardless of whether it is in `outs`), plus the list
-of `module_outs`.
+Reason: This is always `vmlinux` (regardless of whether it is in `outs`) and
+the list of `module_outs` from the `kernel_build` attribute of the `kernel_abi`
+macro invocation.
 
 See [documentation for all rules].
 
@@ -823,7 +821,7 @@ See [symtypes.md](symtypes.md) for details.
 ## KMI\_SYMBOL\_LIST\_ADD\_ONLY
 
 ```python
-kernel_build_abi(kmi_symbol_list_add_only=...)
+kernel_abi(kmi_symbol_list_add_only=...)
 ```
 
 See [documentation for all rules].

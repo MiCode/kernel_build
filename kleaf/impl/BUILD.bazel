@@ -31,8 +31,8 @@ bzl_library(
         "abi/force_add_vmlinux_utils.bzl",
         "abi/get_src_kmi_symbol_list.bzl",
         "abi/get_src_protected_exports_files.bzl",
-        "abi/kernel_build_abi.bzl",
-        "abi/kernel_build_abi_dist.bzl",
+        "abi/kernel_abi.bzl",
+        "abi/kernel_abi_dist.bzl",
         "abi/protected_exports.bzl",
         "abi/trim_nonlisted_kmi_utils.bzl",
         "android_filegroup.bzl",
@@ -129,15 +129,6 @@ config_setting(
     name = "force_disable_trim_is_true",
     flag_values = {
         ":force_disable_trim": "1",
-    },
-    # All kernel_* from different packages can see this
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "kasan_is_true",
-    flag_values = {
-        "//build/kernel/kleaf:kasan": "1",
     },
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
