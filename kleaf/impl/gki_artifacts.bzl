@@ -18,7 +18,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
-load(":common_providers.bzl", "KernelBuildInfo")
+load(":common_providers.bzl", "KernelBuildUnameInfo")
 load(":constants.bzl", "GKI_ARTIFACTS_AARCH64_OUTS")
 load(":utils.bzl", "utils")
 
@@ -32,7 +32,7 @@ def _gki_artifacts_impl(ctx):
         ctx.file._build_utils_sh,
     ]
 
-    kernel_release = ctx.attr.kernel_build[KernelBuildInfo].kernel_release
+    kernel_release = ctx.attr.kernel_build[KernelBuildUnameInfo].kernel_release
     inputs.append(kernel_release)
 
     outs = []
@@ -143,7 +143,7 @@ gki_artifacts = rule(
     doc = "`BUILD_GKI_ARTIFACTS`. Build boot images and optionally `boot-img.tar.gz` as default outputs.",
     attrs = {
         "kernel_build": attr.label(
-            providers = [KernelBuildInfo],
+            providers = [KernelBuildUnameInfo],
             doc = "The [`kernel_build`](#kernel_build) that provides all `Image` and `Image.*`.",
         ),
         "mkbootimg": attr.label(

@@ -24,6 +24,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
+    "KernelBuildUnameInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelImagesInfo",
@@ -67,6 +68,39 @@ def _get_toolchain_version_info(ctx, all_deps):
     # warning.
     toolchain_version_file = utils.find_file(name = TOOLCHAIN_VERSION_FILENAME, files = all_deps, what = ctx.label)
     return KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
+
+def _get_kernel_release(ctx):
+    gki_info = utils.find_file(
+        name = "gki-info.txt",
+        files = ctx.files.gki_artifacts,
+        what = "{} gki_artifacts".format(ctx.label),
+    )
+    if gki_info == None:
+        # For tests
+        return None
+    kernel_release = ctx.actions.declare_file("{}/kernel.release".format(ctx.label.name))
+    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        kernel_release=$(cat {gki_info} | sed -nE 's/^kernel_release=(.*)$/\\1/p')
+        if [[ -z "${{kernel_release}}" ]]; then
+            echo "ERROR: Unable to determine kernel_release from {gki_info}" >&2
+            exit 1
+        fi
+        echo "${{kernel_release}}" > {kernel_release_file}
+    """.format(
+        gki_info = gki_info.path,
+        kernel_release_file = kernel_release.path,
+    )
+    debug.print_scripts(ctx, command, what = "kernel.release")
+    ctx.actions.run_shell(
+        command = command,
+        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+            gki_info,
+        ],
+        outputs = [kernel_release],
+        progress_message = "Extracting kernel.release {}".format(ctx.label),
+        mnemonic = "KernelFilegroupKernelRelease",
+    )
+    return kernel_release
 
 def _kernel_filegroup_impl(ctx):
     all_deps = ctx.files.srcs + ctx.files.deps
@@ -148,10 +182,12 @@ def _kernel_filegroup_impl(ctx):
 
     srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
     mixed_tree_files = depset(transitive = [_get_mixed_tree_files(target) for target in ctx.attr.srcs])
+    kernel_release = _get_kernel_release(ctx)
 
     return [
         DefaultInfo(files = srcs_depset),
         KernelBuildMixedTreeInfo(files = mixed_tree_files),
+        KernelBuildUnameInfo(kernel_release = kernel_release),
         kernel_module_dev_info,
         # TODO(b/219112010): implement KernelEnvAndOutputsInfo properly for kernel_filegroup
         uapi_info,
@@ -259,6 +295,10 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             doc = """A label providing files similar to a [`kernel_images`](#kernel_images) target.""",
         ),
         "protected_modules_list": attr.label(allow_single_file = True),
+        "gki_artifacts": attr.label(
+            allow_files = True,
+            doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.""",
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     } | _kernel_filegroup_additional_attrs(),

@@ -911,6 +911,7 @@ def _define_prebuilts(target_configs, **kwargs):
                 "//conditions:default": ":" + name + "_module_outs_file",
             }),
             protected_modules_list = target_configs[name].get("protected_modules_list"),
+            gki_artifacts = name + "_gki_artifacts_download_or_build",
             **kwargs
         )
 

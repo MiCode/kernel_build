@@ -40,6 +40,7 @@ load(
     "KernelBuildMixedTreeInfo",
     "KernelBuildOriginalEnvInfo",
     "KernelBuildUapiInfo",
+    "KernelBuildUnameInfo",
     "KernelCmdsInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
@@ -1442,6 +1443,9 @@ def _create_infos(
         interceptor_output = main_action_ret.interceptor_output,
         compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
         compile_commands_out_dir = main_action_ret.compile_commands_out_dir,
+    )
+
+    kernel_build_uname_info = KernelBuildUnameInfo(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
@@ -1592,6 +1596,7 @@ def _create_infos(
         kernel_build_info,
         kernel_build_module_info,
         kernel_build_uapi_info,
+        kernel_build_uname_info,
         kernel_build_abi_info,
         kernel_unstripped_modules_info,
         in_tree_modules_info,
