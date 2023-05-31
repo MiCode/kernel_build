@@ -187,6 +187,13 @@ py_binary(
 )
 
 py_binary(
+    name = "get_kmi_string",
+    srcs = ["get_kmi_string.py"],
+    # All kernel_* / ddk_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
     name = "kernel_kythe_reconstruct_out_dir",
     srcs = ["kernel_kythe_reconstruct_out_dir.py"],
     visibility = ["//visibility:public"],
@@ -217,6 +224,17 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//build/kernel/kleaf:buildozer_command_builder",
+    ],
+)
+
+py_test(
+    name = "get_kmi_string_test",
+    timeout = "short",
+    srcs = ["get_kmi_string_test.py"],
+    main = "get_kmi_string_test.py",
+    deps = [
+        ":get_kmi_string",
+        "@io_abseil_py//absl/testing:absltest",
     ],
 )
 
