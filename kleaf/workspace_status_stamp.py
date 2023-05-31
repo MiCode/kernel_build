@@ -192,10 +192,11 @@ class Stamp(object):
         all_projects.extend(self.projects)
 
         for proj in all_projects:
-            candidate = os.path.join(proj, "scripts/setlocalversion")
-            if os.access(candidate, os.X_OK):
-                self.setlocalversion = os.path.realpath(candidate)
-                return
+            if os.path.exists(proj):
+                candidate = os.path.join(proj, "scripts/setlocalversion")
+                if os.access(candidate, os.X_OK):
+                    self.setlocalversion = os.path.realpath(candidate)
+                    return
 
     def call_setlocalversion_all(self) -> dict[str, PathCollectible]:
         if not self.setlocalversion:
@@ -209,9 +210,10 @@ class Stamp(object):
 
         scmversion_map = {}
         for project in all_projects:
-            popen = call_setlocalversion(self.setlocalversion,
-                                         os.path.realpath(project))
-            scmversion_map[project] = PathPopen(project, popen)
+            if os.path.exists(project):
+                popen = call_setlocalversion(self.setlocalversion,
+                                             os.path.realpath(project))
+                scmversion_map[project] = PathPopen(project, popen)
 
         return scmversion_map
 
@@ -246,7 +248,7 @@ class Stamp(object):
 
         return {
             proj: self.async_get_source_date_epoch(proj)
-            for proj in all_projects
+            for proj in filter(os.path.exists, all_projects)
         }
 
     def async_get_source_date_epoch(self, rel_path) -> PathCollectible:
