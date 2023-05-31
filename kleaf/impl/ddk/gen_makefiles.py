@@ -89,12 +89,6 @@ def _gen_makefile(
         out_file.write(content)
 
 
-def _write_ccflag(out_file, object_file, ccflag):
-    out_file.write(textwrap.dedent(f"""\
-        CFLAGS_{object_file} += {shlex.quote(ccflag)}
-        """))
-
-
 def _merge_directories(output_makefiles: pathlib.Path, submodule_makefile_dir: pathlib.Path):
     """Merges the content of submodule_makefile_dir into output_makefiles.
 
@@ -209,8 +203,15 @@ def _gen_ddk_makefile_for_module(
                     endif # {conditional}
                 """))
 
+        module_cflags_var_name = f"_cflags_{kernel_module_out.with_suffix('.o').name}"
         out_file.write(f"\n# Common flags for {kernel_module_out.with_suffix('.o').name}\n")
         _handle_linux_includes(out_file, linux_include_dirs)
+        # At this time of writing (2022-11-01), this is the order how cc_library
+        # constructs arguments to the compiler.
+        _handle_defines(out_file, module_cflags_var_name, local_defines)
+        _handle_includes(out_file, module_cflags_var_name, include_dirs)
+        _handle_copts(out_file, module_cflags_var_name, copts)
+        out_file.write("\n")
 
         for src_item in rel_srcs:
             config = src_item.get("config")
@@ -225,18 +226,12 @@ def _gen_ddk_makefile_for_module(
                 out = src.with_suffix(".o").relative_to(
                     kernel_module_out.parent)
 
-                # At this time of writing (2022-11-01), this is the order how cc_library
-                # constructs arguments to the compiler.
-                _handle_defines(out_file, out, local_defines)
-                _handle_includes(out_file, out, include_dirs)
-                _handle_copts(out_file, out, copts)
-
-                out_file.write("\n")
+                out_file.write(textwrap.dedent(f"""\
+                    CFLAGS_{out} += $({module_cflags_var_name})
+                    """))
 
             if config is not None and value != True:
-                out_file.write(textwrap.dedent(f"""\
-                    endif # {conditional}
-                """))
+                out_file.write(f"endif # {conditional}\n\n")
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -320,7 +315,7 @@ def _handle_linux_includes(out_file: TextIO,
 
 
 def _handle_defines(out_file: TextIO,
-                    object_file: pathlib.Path,
+                    cflags_var_name: str,
                     local_defines: list[str]):
     if not local_defines:
         return
@@ -329,21 +324,23 @@ def _handle_defines(out_file: TextIO,
         # local defines
         """))
     for local_define in local_defines:
-        _write_ccflag(out_file, object_file, f"-D{local_define}")
+        out_file.write(textwrap.dedent(f"""\
+            {cflags_var_name} += {shlex.quote(f"-D{local_define}")}
+            """))
 
 
 def _handle_includes(out_file: TextIO,
-                     object_file: pathlib.Path,
+                     cflags_var_name: str,
                      include_dirs: list[pathlib.Path]):
     for include_dir in include_dirs:
         out_file.write(textwrap.dedent(f"""\
             # Include {include_dir}
+            {cflags_var_name} += -I$(ROOT_DIR)/{shlex.quote(str(include_dir))}
             """))
-        _write_ccflag(out_file, object_file, f"-I$(ROOT_DIR)/{include_dir}")
 
 
 def _handle_copts(out_file: TextIO,
-                  object_file: pathlib.Path,
+                  cflags_var_name: str,
                   copts: Optional[list[dict[str, str | bool]]]):
     if not copts:
         return
@@ -358,9 +355,13 @@ def _handle_copts(out_file: TextIO,
         is_path: bool = d["is_path"]
 
         if is_path:
-            expanded = f"$(ROOT_DIR)/{expanded}"
-
-        _write_ccflag(out_file, object_file, expanded)
+            out_file.write(textwrap.dedent(f"""\
+                {cflags_var_name} += $(ROOT_DIR)/{shlex.quote(expanded)}
+                """))
+        else:
+            out_file.write(textwrap.dedent(f"""\
+                {cflags_var_name} += {shlex.quote(expanded)}
+                """))
 
 
 if __name__ == "__main__":

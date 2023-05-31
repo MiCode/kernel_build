@@ -545,19 +545,20 @@ def _makefiles_include_ordering_artifacts_test(name):
             # linux_include/hdrs_a is already specified, so dropping
             "$(LINUXINCLUDE)",
             # local "includes"
-            "CFLAGS_base.o += '-I{}/local_include/B'".format(prefix),
-            "CFLAGS_base.o += '-I{}/local_include/A'".format(prefix),
-            "CFLAGS_base.o += '-I{}/local_include/C'".format(prefix),
+            "_cflags_{}_base.o += -I{}/local_include/B".format(name, prefix),
+            "_cflags_{}_base.o += -I{}/local_include/A".format(name, prefix),
+            "_cflags_{}_base.o += -I{}/local_include/C".format(name, prefix),
             # deps, recursively
-            "CFLAGS_base.o += '-I{}/include/dep_c'".format(prefix),
-            "CFLAGS_base.o += '-I{}/include/dep_a'".format(prefix),  # c includes a
-            "CFLAGS_base.o += '-I{}/include/dep_b'".format(prefix),
+            "_cflags_{}_base.o += -I{}/include/dep_c".format(name, prefix),
+            "_cflags_{}_base.o += -I{}/include/dep_a".format(name, prefix),  # c includes a
+            "_cflags_{}_base.o += -I{}/include/dep_b".format(name, prefix),
             # dep_a is already specified, so dropping
             # hdrs, recursively
-            "CFLAGS_base.o += '-I{}/include/hdrs_c'".format(prefix),
-            "CFLAGS_base.o += '-I{}/include/hdrs_a'".format(prefix),  # c includes a
-            "CFLAGS_base.o += '-I{}/include/hdrs_b'".format(prefix),
+            "_cflags_{}_base.o += -I{}/include/hdrs_c".format(name, prefix),
+            "_cflags_{}_base.o += -I{}/include/hdrs_a".format(name, prefix),  # c includes a
+            "_cflags_{}_base.o += -I{}/include/hdrs_b".format(name, prefix),
             # hdrs_a is already specified, so dropping
+            "CFLAGS_base.o += $(_cflags_{}_base.o)".format(name),
         ],
     )
     tests.append(name + "_include_ordering")
