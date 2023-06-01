@@ -1105,12 +1105,39 @@ def _get_copy_module_symvers_step(ctx):
         """.format(
             module_symvers_copy = module_symvers_copy.path,
         )
-
     return struct(
         inputs = [],
         tools = [],
         cmd = copy_module_symvers_cmd,
         outputs = outputs,
+    )
+
+def _get_modinst_step(ctx, modules_staging_dir):
+    module_strip_flag = "INSTALL_MOD_STRIP="
+    if ctx.attr.strip_modules:
+        module_strip_flag += "1"
+    cmd = """
+         # Set variables and create dirs for modules
+           mkdir -p {modules_staging_dir}
+         # Install modules
+           if grep -q "\\bmodules\\b" <<< "{make_goals}" ; then
+               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
+           else
+               # Workaround as this file is required, hence just produce a placeholder.
+               touch {internal_outs_under_out_dir}
+           fi
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
+        module_strip_flag = module_strip_flag,
+        make_goals = ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals,
+    )
+
+    return struct(
+        inputs = [],
+        tools = [],
+        cmd = cmd,
+        outputs = [],
     )
 
 def _build_main_action(
@@ -1159,6 +1186,10 @@ def _build_main_action(
         common_config_tags = ctx.attr.config[KernelEnvAttrInfo].common_config_tags,
         symlink_name = "build",
     )
+    modinst_step = _get_modinst_step(
+        ctx = ctx,
+        modules_staging_dir = modules_staging_dir,
+    )
     grab_intree_modules_step = _get_grab_intree_modules_step(
         ctx = ctx,
         has_any_modules = bool(all_output_names.modules),
@@ -1187,6 +1218,7 @@ def _build_main_action(
     steps = (
         interceptor_step,
         cache_dir_step,
+        modinst_step,
         grab_intree_modules_step,
         grab_unstripped_modules_step,
         grab_symtypes_step,
@@ -1199,10 +1231,6 @@ def _build_main_action(
         check_remaining_modules_step,
     )
 
-    module_strip_flag = "INSTALL_MOD_STRIP="
-    if ctx.attr.strip_modules:
-        module_strip_flag += "1"
-
     # Build the command for the main action.
     command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
         data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
@@ -1214,15 +1242,8 @@ def _build_main_action(
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
            {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
-         # Set variables and create dirs for modules
-           mkdir -p {modules_staging_dir}
          # Install modules
-           if grep -q "\\bmodules\\b" <<< "{make_goals}" ; then
-               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
-           else
-               # Workaround as this file is required, hence just produce a placeholder.
-               touch {internal_outs_under_out_dir}
-           fi
+           {modinst_cmd}
          # Archive headers in OUT_DIR
            find ${{OUT_DIR}} -name *.h -print0                          \
                | tar czf {out_dir_kernel_headers_tar}                   \
@@ -1268,8 +1289,8 @@ def _build_main_action(
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir,
-        internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         all_output_names_minus_modules = " ".join(all_output_names.non_modules),
+        modinst_cmd = modinst_step.cmd,
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_modules_step.cmd,
         grab_symtypes_cmd = grab_symtypes_step.cmd,
@@ -1281,7 +1302,6 @@ def _build_main_action(
         check_remaining_modules_cmd = check_remaining_modules_step.cmd,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
-        module_strip_flag = module_strip_flag,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
         interceptor_command_prefix = interceptor_step.command_prefix,
         label = ctx.label,
