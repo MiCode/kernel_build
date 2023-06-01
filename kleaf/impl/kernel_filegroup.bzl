@@ -74,10 +74,8 @@ def _get_kernel_release(ctx):
         name = "gki-info.txt",
         files = ctx.files.gki_artifacts,
         what = "{} gki_artifacts".format(ctx.label),
+        required = True,
     )
-    if gki_info == None:
-        # For tests
-        return None
     kernel_release = ctx.actions.declare_file("{}/kernel.release".format(ctx.label.name))
     command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
         kernel_release=$(cat {gki_info} | sed -nE 's/^kernel_release=(.*)$/\\1/p')

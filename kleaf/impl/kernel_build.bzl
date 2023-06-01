@@ -1117,7 +1117,40 @@ def _get_modinst_step(ctx, modules_staging_dir):
     module_strip_flag = "INSTALL_MOD_STRIP="
     if ctx.attr.strip_modules:
         module_strip_flag += "1"
-    cmd = """
+
+    base_kernel = base_kernel_utils.get_base_kernel(ctx)
+
+    cmd = ""
+    inputs = []
+    tools = []
+
+    if base_kernel:
+        cmd += """
+          # Check that base_kernel has the same KMI as the current kernel_build
+            (
+                base_release=$(cat {base_kernel_release_file})
+                base_kmi=$({get_kmi_string} --keep_sublevel ${{base_release}})
+                my_release=$(cat ${{OUT_DIR}}/include/config/kernel.release)
+                my_kmi=$({get_kmi_string} --keep_sublevel ${{my_release}})
+                if [[ "${{base_kmi}}" != "${{my_kmi}}" ]]; then
+                    echo "ERROR: KMI or sublevel mismatch before running make modules_install:" >&2
+                    echo "  {label}: ${{my_kmi}} (from ${{my_release}})" >&2
+                    echo "  {base_kernel_label}: ${{base_kmi}} (from ${{base_release}})" >&2
+                fi
+            )
+
+          # Fix up kernel.release to be the one from {base_kernel_label} before installing modules
+            cp -L {base_kernel_release_file} ${{OUT_DIR}}/include/config/kernel.release
+        """.format(
+            get_kmi_string = ctx.executable._get_kmi_string.path,
+            label = ctx.label,
+            base_kernel_label = base_kernel.label,
+            base_kernel_release_file = base_kernel[KernelBuildUnameInfo].kernel_release.path,
+        )
+        inputs.append(base_kernel[KernelBuildUnameInfo].kernel_release)
+        tools.append(ctx.executable._get_kmi_string)
+
+    cmd += """
          # Set variables and create dirs for modules
            mkdir -p {modules_staging_dir}
          # Install modules
@@ -1134,9 +1167,20 @@ def _get_modinst_step(ctx, modules_staging_dir):
         make_goals = ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals,
     )
 
+    if base_kernel:
+        cmd += """
+          # Check that `make modules_install` does not revert include/config/kernel.release
+            if diff -q {base_kernel_release} ${{OUT_DIR}}/include/config/kernel.release; then
+                echo "ERROR: make modules_install modifies include/config/kernel.release." >&2
+                echo "   This is not expected; please file a bug!" >&2
+            fi
+        """.format(
+            base_kernel_release = base_kernel[KernelBuildUnameInfo].kernel_release.path,
+        )
+
     return struct(
-        inputs = [],
-        tools = [],
+        inputs = inputs,
+        tools = tools,
         cmd = cmd,
         outputs = [],
     )
@@ -1749,6 +1793,11 @@ _kernel_build = rule(
         ),
         "_check_symbol_protection": attr.label(
             default = "//build/kernel:check_buildtime_symbol_protection",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_get_kmi_string": attr.label(
+            default = "//build/kernel/kleaf/impl:get_kmi_string",
             executable = True,
             cfg = "exec",
         ),
