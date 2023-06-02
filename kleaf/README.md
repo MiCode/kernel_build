@@ -38,6 +38,8 @@
 
 [Ensuring hermeticity](docs/hermeticity.md)
 
+[Internet Access](docs/network.md)
+
 ### Configurations
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
