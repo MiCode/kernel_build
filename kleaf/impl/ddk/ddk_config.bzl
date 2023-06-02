@@ -227,7 +227,11 @@ def _create_env_and_outputs_info(ctx, out_dir):
     """Creates info for module build."""
 
     # Info from kernel_build
-    pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info
+    if ctx.attr.generate_btf:
+        # All outputs are required for BTF generation, including vmlinux image
+        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_all_outputs_info
+    else:
+        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_minimal_outputs_info
 
     # Overlay module-specific configs
     restore_outputs_cmd = """
@@ -307,6 +311,10 @@ for its format.
             cfg = "exec",
         ),
         "module_deps": attr.label_list(),
+        "generate_btf": attr.bool(
+            default = False,
+            doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )

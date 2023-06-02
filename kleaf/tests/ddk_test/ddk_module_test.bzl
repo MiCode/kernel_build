@@ -71,6 +71,16 @@ def _ddk_module_test_impl(ctx):
         ),
     )
 
+    if len(ctx.files.unexpected_inputs) > 0:
+        unexpected_inputs = sets.make(ctx.files.unexpected_inputs)
+        asserts.false(
+            env,
+            sets.is_subset(unexpected_inputs, inputs),
+            "Unexpected inputs to action {}".format(
+                sets.to_list(sets.intersection(unexpected_inputs, inputs)),
+            ),
+        )
+
     check_ddk_headers_info(ctx, env)
 
     return analysistest.end(env)
@@ -79,6 +89,7 @@ ddk_module_test = analysistest.make(
     impl = _ddk_module_test_impl,
     attrs = {
         "expected_inputs": attr.label_list(allow_files = True),
+        "unexpected_inputs": attr.label_list(allow_files = True),
         "expected_includes": attr.string_list(),
         "expected_hdrs": attr.label_list(allow_files = [".h"]),
         "_config_is_local": attr.label(
@@ -90,6 +101,7 @@ ddk_module_test = analysistest.make(
 def _ddk_module_test_make(
         name,
         expected_inputs = None,
+        unexpected_inputs = None,
         expected_hdrs = None,
         expected_includes = None,
         **kwargs):
@@ -104,6 +116,7 @@ def _ddk_module_test_make(
         name = name,
         target_under_test = name + "_module",
         expected_inputs = expected_inputs,
+        unexpected_inputs = unexpected_inputs,
         expected_hdrs = expected_hdrs,
         expected_includes = expected_includes,
     )
@@ -156,7 +169,7 @@ def ddk_module_test_suite(name):
     kernel_build(
         name = name + "_kernel_build",
         build_config = "build.config.fake",
-        outs = [],
+        outs = ["vmlinux"],
         tags = ["manual"],
     )
 
@@ -244,6 +257,24 @@ def ddk_module_test_suite(name):
         deps = [name + "_legacy_module_a"],
     )
     tests.append(name + "_depend_on_legacy_module")
+
+    _ddk_module_test_make(
+        name = name + "_generate_btf",
+        srcs = ["self.c"],
+        kernel_build = name + "_kernel_build",
+        generate_btf = True,
+        expected_inputs = [name + "_kernel_build/vmlinux"],
+    )
+    tests.append(name + "_generate_btf")
+
+    _ddk_module_test_make(
+        name = name + "_no_generate_btf",
+        srcs = ["self.c"],
+        kernel_build = name + "_kernel_build",
+        generate_btf = False,
+        unexpected_inputs = [name + "_kernel_build/vmlinux"],
+    )
+    tests.append(name + "_no_generate_btf")
 
     ddk_module(
         name = name + "_depend_on_legacy_modules_in_the_same_package_module",

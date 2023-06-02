@@ -52,6 +52,7 @@ def kernel_module(
         srcs = None,
         deps = None,
         makefile = None,
+        generate_btf = None,
         **kwargs):
     """Generates a rule that builds an external kernel module.
 
@@ -149,6 +150,18 @@ def kernel_module(
             This file determines where `make modules` is executed.
 
             This is useful when the Makefile is located in a different package or in a subdirectory.
+        generate_btf: Allows generation of BTF type information for the module.
+          If enabled, passes `vmlinux` image to module build, which is required
+          by BTF generator makefile scripts.
+
+          Disabled by default.
+
+          Requires `CONFIG_DEBUG_INFO_BTF` enabled in base kernel.
+
+          Requires rebuild of module if `vmlinux` changed, which may lead to an
+          increase of incremental build time.
+
+          BTF type information increases size of module binary.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -171,6 +184,7 @@ def kernel_module(
         deps = deps,
         outs = outs,
         makefile = makefile,
+        generate_btf = generate_btf,
     )
     kwargs = _kernel_module_set_defaults(kwargs)
 
@@ -333,8 +347,11 @@ def _kernel_module_impl(ctx):
     # Determine the proper script to set up environment
     if ctx.attr.internal_ddk_config:
         setup_info = ctx.attr.internal_ddk_config[KernelEnvAndOutputsInfo]
+    elif ctx.attr.generate_btf:
+        # All outputs are required for BTF generation, including vmlinux image
+        setup_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_all_outputs_info
     else:
-        setup_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info
+        setup_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_minimal_outputs_info
     transitive_inputs.append(setup_info.inputs)
     transitive_tools.append(setup_info.tools)
     command = setup_info.get_setup_script(
@@ -442,6 +459,7 @@ def _kernel_module_impl(ctx):
                """.format(
         label = ctx.label,
         ext_mod = ext_mod,
+        generate_btf = int(ctx.attr.generate_btf),
         make_redirect = modpost_warn.make_redirect,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dws.directory.path,
@@ -620,6 +638,10 @@ _kernel_module = rule(
         "internal_drop_modules_order": attr.bool(),
         "internal_exclude_kernel_build_module_srcs": attr.bool(),
         "internal_ddk_config": attr.label(providers = [KernelEnvAndOutputsInfo]),
+        "generate_btf": attr.bool(
+            default = False,
+            doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
+        ),
         "kernel_build": attr.label(
             mandatory = True,
             providers = [KernelBuildExtModuleInfo],
