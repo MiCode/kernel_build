@@ -65,6 +65,22 @@ hermetic_tools(
     ],
 )
 
+toolchain_type(
+    name = "hermetic_tools_toolchain_type",
+    visibility = ["//visibility:private"],
+)
+
+toolchain(
+    name = "hermetic_tools_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":hermetic-tools",
+    toolchain_type = ":hermetic_tools_toolchain_type",
+    visibility = ["//visibility:private"],
+)
+
 # Tools visible to all packages that uses kernel_build.
 # Implementation detail of kernel_build; do not use directly.
 sh_library(

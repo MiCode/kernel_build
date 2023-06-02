@@ -21,9 +21,28 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 _PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
 
 HermeticToolsInfo = provider(
-    doc = "Information provided by [hermetic_tools](#hermetic_tools).",
+    doc = "Legacy information provided by [hermetic_tools](#hermetic_tools).",
     fields = {
         "deps": "the hermetic tools",
+        "setup": "setup script to initialize the environment to only use the hermetic tools",
+        "additional_setup": """Alternative setup script that preserves original `PATH`.
+
+After using this script, the shell environment prioritizes using hermetic tools, but falls
+back on tools from the original `PATH` if a tool cannot be found.
+
+Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
+""",
+        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
+[execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
+e.g. for generated executables and tests""",
+        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
+    },
+)
+
+_HermeticToolchainInfo = provider(
+    doc = "Toolchain information provided by [hermetic_tools](#hermetic_tools).",
+    fields = {
+        "deps": "a depset containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
         "additional_setup": """Alternative setup script that preserves original `PATH`.
 
@@ -200,14 +219,27 @@ def _hermetic_tools_impl(ctx):
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = paths.dirname(all_outputs[0].short_path))
 
+    hermetic_tools_info = HermeticToolsInfo(
+        deps = info_deps,
+        setup = setup,
+        additional_setup = additional_setup,
+        run_setup = run_setup,
+        run_additional_setup = run_additional_setup,
+    )
+
+    hermetic_toolchain_info = _HermeticToolchainInfo(
+        deps = depset(info_deps),
+        setup = setup,
+        additional_setup = additional_setup,
+        run_setup = run_setup,
+        run_additional_setup = run_additional_setup,
+    )
+
     return [
         DefaultInfo(files = depset(all_outputs)),
-        HermeticToolsInfo(
-            deps = info_deps,
-            setup = setup,
-            additional_setup = additional_setup,
-            run_setup = run_setup,
-            run_additional_setup = run_additional_setup,
+        hermetic_tools_info,
+        platform_common.ToolchainInfo(
+            hermetic_toolchain_info = hermetic_toolchain_info,
         ),
     ]
 
