@@ -622,6 +622,8 @@ function build_gki_artifacts_info() {
   artifacts_info="${artifacts_info} --prop KERNEL_RELEASE:${KERNEL_RELEASE}"
 
   echo "${artifacts_info}" > "$1"
+
+  echo "kernel_release=${KERNEL_RELEASE}" >> "$1"
 }
 
 # build_gki_boot_images <uncompressed kernel path>.
