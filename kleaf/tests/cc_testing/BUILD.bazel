@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//build/kernel/kleaf/impl:android_filegroup.bzl", "android_filegroup")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
 
 _LINUX_X86_64 = [
     "@platforms//os:linux",
@@ -68,7 +69,7 @@ cc_binary(
 
 # genrule that applies the `cfg = exec` transition. This ensures that all these
 # tools are built for the execution platform, not the target platform.
-genrule(
+hermetic_genrule(
     name = "linux_x86_64_tests_genrule",
     outs = ["linux_x86_64_tests_genrule.txt"],
     cmd = """
