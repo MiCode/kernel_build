@@ -18,7 +18,6 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
     ":common_providers.bzl",
@@ -30,6 +29,7 @@ load(
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":kgdb.bzl", "kgdb")
@@ -147,21 +147,22 @@ def _kernel_env_impl(ctx):
     preserve_env = ctx.executable.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
     inputs = [
         build_config,
     ]
     inputs += srcs
-    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     tools = [
         setup_env,
         ctx.file._build_utils_sh,
         preserve_env,
     ]
+    transitive_tools = [hermetic_tools.deps]
 
     toolchains = _get_toolchains(ctx)
 
-    command = ""
-    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    command = hermetic_tools.setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         command += debug.trap()
 
@@ -255,13 +256,12 @@ def _kernel_env_impl(ctx):
         mnemonic = "KernelEnv",
         inputs = inputs,
         outputs = [out_file],
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),
         command = command,
     )
 
-    setup = ""
-    setup += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    setup = hermetic_tools.setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += debug.trap()
 
@@ -308,7 +308,7 @@ def _kernel_env_impl(ctx):
              export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
            fi
            """.format(
-        hermetic_tools_additional_setup = ctx.attr._hermetic_tools[HermeticToolsInfo].additional_setup,
+        hermetic_tools_additional_setup = hermetic_tools.additional_setup,
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
@@ -319,8 +319,10 @@ def _kernel_env_impl(ctx):
         ctx.file._build_utils_sh,
     ]
     setup_tools += ctx.files._rust_tools
-    setup_tools += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    setup_transitive_tools = [toolchains.all_files]
+    setup_transitive_tools = [
+        toolchains.all_files,
+        hermetic_tools.deps,
+    ]
 
     setup_inputs = [
         out_file,
@@ -398,7 +400,9 @@ def _get_run_env(ctx, srcs):
     """
 
     toolchains = _get_toolchains(ctx)
-    setup = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
+    setup = hermetic_tools.run_setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += debug.trap()
     setup += _get_make_verbosity_command(ctx)
@@ -416,14 +420,16 @@ def _get_run_env(ctx, srcs):
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
     )
-    setup += ctx.attr._hermetic_tools[HermeticToolsInfo].run_additional_setup
+    setup += hermetic_tools.run_additional_setup
     tools = [
         ctx.file.setup_env,
         ctx.file._build_utils_sh,
     ]
     tools += ctx.files._rust_tools
-    tools += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    transitive_tools = [toolchains.all_files]
+    transitive_tools = [
+        toolchains.all_files,
+        hermetic_tools.deps,
+    ]
     inputs = srcs + [
         ctx.file.build_config,
     ]
@@ -522,7 +528,6 @@ kernel_env = rule(
             """,
         ),
         "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils"),
@@ -549,4 +554,5 @@ kernel_env = rule(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     } | _kernel_env_additional_attrs(),
+    toolchains = [hermetic_toolchain.type],
 )
