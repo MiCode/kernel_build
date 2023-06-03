@@ -15,7 +15,6 @@
 """A target that mimics [`kernel_build`](#kernel_build) from a list of prebuilt files."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
     "GcovInfo",
@@ -37,6 +36,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(
     ":utils.bzl",
@@ -70,6 +70,7 @@ def _get_toolchain_version_info(ctx, all_deps):
     return KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
 
 def _get_kernel_release(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
     gki_info = utils.find_file(
         name = "gki-info.txt",
         files = ctx.files.gki_artifacts,
@@ -77,7 +78,7 @@ def _get_kernel_release(ctx):
         required = True,
     )
     kernel_release = ctx.actions.declare_file("{}/kernel.release".format(ctx.label.name))
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    command = hermetic_tools.setup + """
         kernel_release=$(cat {gki_info} | sed -nE 's/^kernel_release=(.*)$/\\1/p')
         if [[ -z "${{kernel_release}}" ]]; then
             echo "ERROR: Unable to determine kernel_release from {gki_info}" >&2
@@ -91,16 +92,17 @@ def _get_kernel_release(ctx):
     debug.print_scripts(ctx, command, what = "kernel.release")
     ctx.actions.run_shell(
         command = command,
-        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
-            gki_info,
-        ],
+        inputs = [gki_info],
         outputs = [kernel_release],
+        tools = hermetic_tools.deps,
         progress_message = "Extracting kernel.release {}".format(ctx.label),
         mnemonic = "KernelFilegroupKernelRelease",
     )
     return kernel_release
 
 def _kernel_filegroup_impl(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
     all_deps = ctx.files.srcs + ctx.files.deps
 
     modules_prepare_out_dir_tar_gz = utils.find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label)
@@ -141,7 +143,7 @@ def _kernel_filegroup_impl(ctx):
         # Reverse of kernel_unstripped_modules_archive
         unstripped_modules_archive = utils.find_file("unstripped_modules.tar.gz", all_deps, what = ctx.label, required = True)
         unstripped_dir = ctx.actions.declare_directory("{}/unstripped".format(ctx.label.name))
-        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        command = hermetic_tools.setup + """
             tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
         """.format(
             unstripped_modules_archive = unstripped_modules_archive.path,
@@ -150,10 +152,11 @@ def _kernel_filegroup_impl(ctx):
         debug.print_scripts(ctx, command, what = "unstripped_modules_archive")
         ctx.actions.run_shell(
             command = command,
-            inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+            inputs = [
                 unstripped_modules_archive,
             ],
             outputs = [unstripped_dir],
+            tools = hermetic_tools.deps,
             progress_message = "Extracting unstripped_modules_archive {}".format(ctx.label),
             mnemonic = "KernelFilegroupUnstrippedModulesArchive",
         )
@@ -304,6 +307,6 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.""",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     } | _kernel_filegroup_additional_attrs(),
+    toolchains = [hermetic_toolchain.type],
 )
