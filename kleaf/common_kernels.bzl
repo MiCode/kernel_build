@@ -974,10 +974,10 @@ def _define_common_kernels_additional_tests(
         expected_modules_options = fake_modules_options,
     )
 
-    native.genrule(
+    write_file(
         name = name + "_empty_modules_options",
-        outs = [name + "_empty_modules_options/modules.options"],
-        cmd = ": > $@",
+        out = name + "_empty_modules_options/modules.options",
+        content = [],
     )
 
     kernel_images(
