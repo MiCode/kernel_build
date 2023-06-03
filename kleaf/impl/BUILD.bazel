@@ -51,6 +51,7 @@ bzl_library(
         "file.bzl",
         "gki_artifacts.bzl",
         "hermetic_exec.bzl",
+        "hermetic_genrule.bzl",
         "hermetic_toolchain.bzl",
         "image/boot_images.bzl",
         "image/dtbo.bzl",

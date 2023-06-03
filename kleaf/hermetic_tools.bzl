@@ -22,10 +22,12 @@ load(
     _hermetic_exec = "hermetic_exec",
     _hermetic_exec_test = "hermetic_exec_test",
 )
+load("//build/kernel/kleaf/impl:hermetic_genrule.bzl", _hermetic_genrule = "hermetic_genrule")
 
 # Re-export functions
 hermetic_exec = _hermetic_exec
 hermetic_exec_test = _hermetic_exec_test
+hermetic_genrule = _hermetic_genrule
 
 _PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
 
