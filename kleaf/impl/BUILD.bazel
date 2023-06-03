@@ -50,6 +50,7 @@ bzl_library(
         "debug.bzl",
         "file.bzl",
         "gki_artifacts.bzl",
+        "hermetic_toolchain.bzl",
         "image/boot_images.bzl",
         "image/dtbo.bzl",
         "image/image_utils.bzl",
