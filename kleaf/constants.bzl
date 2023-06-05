@@ -113,6 +113,7 @@ CI_TARGET_MAPPING = {
         "outs": DEFAULT_GKI_OUTS + [
             "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
         ],
+        "protected_modules": "gki_aarch64_protected_modules",
     },
 }
 

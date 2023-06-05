@@ -164,8 +164,17 @@ def _kernel_filegroup_impl(ctx):
             directories = depset([unstripped_dir], order = "postorder"),
         )
 
+    protected_modules_list = None
+    if ctx.files.protected_modules_list:
+        if len(ctx.files.protected_modules_list) != 1:
+            fail("{}: protected_modules_list {} produces multiple files, expected 0 or 1".format(
+                ctx.label,
+                ctx.attr.protected_modules_list,
+            ))
+        protected_modules_list = ctx.files.protected_modules_list[0]
+
     abi_info = KernelBuildAbiInfo(
-        src_protected_modules_list = ctx.file.protected_modules_list,
+        src_protected_modules_list = protected_modules_list,
         module_outs_file = ctx.file.module_outs_file,
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
     )
@@ -301,7 +310,7 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             allow_files = True,
             doc = """A label providing files similar to a [`kernel_images`](#kernel_images) target.""",
         ),
-        "protected_modules_list": attr.label(allow_single_file = True),
+        "protected_modules_list": attr.label(allow_files = True),
         "gki_artifacts": attr.label(
             allow_files = True,
             doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.""",
