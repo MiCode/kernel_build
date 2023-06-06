@@ -46,6 +46,7 @@ def kernel_images(
         system_dlkm_modules_list = None,
         system_dlkm_modules_blocklist = None,
         system_dlkm_props = None,
+        vendor_dlkm_archive = None,
         vendor_dlkm_etc_files = None,
         vendor_dlkm_fs_type = None,
         vendor_dlkm_modules_list = None,
@@ -212,6 +213,7 @@ def kernel_images(
           which assumes an ext4 filesystem and a dynamic partition.
 
           This corresponds to `SYSTEM_DLKM_PROPS` in `build.config` for `build.sh`.
+        vendor_dlkm_archive: If set, enable archiving the vendor_dlkm staging directory.
         vendor_dlkm_fs_type: Supported filesystems for `vendor_dlkm.img` are `ext4` and `erofs`. Defaults to `ext4` if not specified.
         vendor_dlkm_etc_files: Files that need to be copied to `vendor_dlkm.img` etc/ directory.
         vendor_dlkm_modules_list: location of an optional file
@@ -381,6 +383,7 @@ def kernel_images(
             kernel_modules_install = kernel_modules_install,
             vendor_boot_modules_load = vendor_boot_modules_load,
             deps = deps,
+            vendor_dlkm_archive = vendor_dlkm_archive,
             vendor_dlkm_etc_files = vendor_dlkm_etc_files,
             vendor_dlkm_fs_type = vendor_dlkm_fs_type,
             vendor_dlkm_modules_list = vendor_dlkm_modules_list,
