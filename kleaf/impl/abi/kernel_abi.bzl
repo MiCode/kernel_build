@@ -42,10 +42,10 @@ def kernel_build_abi(
       Use [`kernel_build`](#kernel_build) (with `collect_unstripped_modules = True`) and
       [`kernel_abi`](#kernel_abi) directly.
     """
-    fail("""//{}:{}: kernel_build_abi is deprecated. Split into kernel_build and kernel_abi.
+    fail("""{}//{}:{}: kernel_build_abi is deprecated. Split into kernel_build and kernel_abi.
 
 See build/kernel/kleaf/docs/abi_device.md for details.
-""".format(native.package_name(), name))
+""".format(native.repository_name(), native.package_name(), name))
 
 def _kmi_symbol_checks_impl(ctx):
     kmi_strict_mode_out = ctx.attr.kernel_build[KernelBuildAbiInfo].kmi_strict_mode_out

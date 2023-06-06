@@ -47,11 +47,33 @@ KernelEnvMakeGoalsInfo = provider(
     },
 )
 
+KernelPlatformToolchainInfo = provider(
+    doc = """Provides toolchain information of a single platform (target or execution).""",
+    fields = {
+        "compiler_version": "A string representing compiler version",
+        "toolchain_id": "A string representing toolchain ID for debugging purposes",
+        "all_files": "A [depset](https://bazel.build/extending/depsets) of all files of the toolchain",
+        "cflags": "flags for C compilation",
+        "ldflags": "flags for C linking",
+        "bin_path": "`PATH` relative to execroot.",
+    },
+)
+
 KernelToolchainInfo = provider(
     doc = "Provides a single toolchain version.",
     fields = {
         "toolchain_version": "The toolchain version",
         "toolchain_version_file": "A file containing the toolchain version",
+    },
+)
+
+KernelEnvToolchainsInfo = provider(
+    doc = """Provides resolved toolchains information to `kernel_env`.""",
+    fields = {
+        "compiler_version": "A string representing compiler version",
+        "all_files": "A [depset](https://bazel.build/extending/depsets) of all files of all toolchains",
+        "target_arch": "arch of target platform",
+        "setup_env_var_cmd": "A command to set up environment variables",
     },
 )
 
@@ -134,7 +156,8 @@ KernelBuildExtModuleInfo = provider(
         "module_scripts": "A [depset](https://bazel.build/extending/depsets) containing scripts for this `kernel_build` for building external modules",
         "module_kconfig": "A [depset](https://bazel.build/extending/depsets) containing `Kconfig` for this `kernel_build` for configuring external modules",
         "config_env_and_outputs_info": "`KernelEnvAndOutputsInfo` for configuring external modules.",
-        "modules_env_and_outputs_info": "`KernelEnvAndOutputsInfo` for building external modules.",
+        "modules_env_and_minimal_outputs_info": "`KernelEnvAndOutputsInfo` for building external modules, including minimal needed `kernel_build` outputs.",
+        "modules_env_and_all_outputs_info": "`KernelEnvAndOutputsInfo` for building external modules, including all `kernel_build` outputs.",
         "modules_install_env_and_outputs_info": "`KernelEnvAndOutputsInfo` for running modules_install.",
         "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
         "strip_modules": "Whether debug information for distributed modules is stripped",
@@ -262,6 +285,16 @@ KernelModuleSetupInfo = provider(
     },
 )
 
+KernelModuleDepInfo = provider(
+    doc = "Info that a `kernel_module` expects on a `kernel_module` dependency.",
+    fields = {
+        "label": "Label of the target where the infos are from.",
+        "kernel_module_setup_info": "`KernelModuleSetupInfo`",
+        "module_symvers_info": "`ModuleSymversInfo`",
+        "kernel_module_info": "`KernelModuleInfo`",
+    },
+)
+
 ModuleSymversInfo = provider(
     doc = "A provider that provides `Module.symvers` for `modpost`.",
     fields = {
@@ -290,9 +323,8 @@ DdkSubmoduleInfo = provider(
              file.""",
         "srcs": """A [depset](https://bazel.build/extending/depsets) of source files to build the
             submodule.""",
-        # TODO(b/247622808): Clean up Target in providers
-        "kernel_module_deps": """A [depset](https://bazel.build/extending/depsets) of dependent
-            [Target](https://bazel.build/rules/lib/Target)s of this submodules that are
+        "kernel_module_deps": """A [depset](https://bazel.build/extending/depsets) of
+            `KernelModuleDepInfo` of dependent targets of this submodules that are
             kernel_module's.""",
     },
 )

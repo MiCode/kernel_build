@@ -70,7 +70,8 @@ def _create_kconfig_ext_step(ctx, kconfig_depset_file):
         mkdir -p {intermediates_dir}
 
         # Copy all Kconfig files to our new KCONFIG_EXT directory
-        rsync --no-perms -L -r --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
+        # TODO(b/281706135): rsync source files cannot chgrp in sandbox
+        rsync --no-perms -L -r --no-group --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
 
         KCONFIG_EXT_PREFIX=$(realpath {intermediates_dir} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
 
@@ -93,7 +94,8 @@ def _create_kconfig_ext_step(ctx, kconfig_depset_file):
         cmd = cmd,
     )
 
-def _create_oldconfig_step(ddk_config_info, defconfig_depset_file, kconfig_depset_file):
+def _create_oldconfig_step(ctx, ddk_config_info, defconfig_depset_file, kconfig_depset_file):
+    module_label = Label(str(ctx.label).removesuffix("_config"))
     cmd = """
         if [[ -s {defconfig_depset_file} ]] || [[ -s {kconfig_depset_file} ]]; then
             # Regenerate include/.
@@ -111,6 +113,37 @@ def _create_oldconfig_step(ddk_config_info, defconfig_depset_file, kconfig_depse
         defconfig_depset_file = defconfig_depset_file.path,
         kconfig_depset_file = kconfig_depset_file.path,
     )
+
+    if ctx.file.defconfig:
+        cmd += """
+            (
+                # Check that configs in my defconfig are still there
+                # This does not include defconfig from dependencies, because values from
+                # dependencies could technically be overridden by this target.
+                config_set='s/^(CONFIG_\\w*)=.*/\\1/p'
+                config_not_set='s/^# (CONFIG_\\w*) is not set$/\\1/p'
+                configs=$(sed -n -E -e "${{config_set}}" -e "${{config_not_set}}" {defconfig_file})
+                msg=""
+                for config in ${{configs}}; do
+                    defconfig_value=$(grep -w -e "${{config}}" {defconfig_file})
+                    actual_value=$(grep -w -e "${{config}}" ${{OUT_DIR}}/.config || true)
+                    if [[ "${{defconfig_value}}" != "${{actual_value}}" ]] ; then
+                        msg="${{msg}}
+    ${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}'."
+                        found_unexpected=1
+                    fi
+                done
+                if [[ -n "${{msg}}" ]]; then
+                    echo "ERROR: {module_label}: ${{msg}}
+    Are they declared in Kconfig?" >&2
+                    exit 1
+                fi
+            )
+        """.format(
+            module_label = module_label,
+            defconfig_file = ctx.file.defconfig.path,
+        )
+
     return struct(
         inputs = depset(
             [defconfig_depset_file, kconfig_depset_file],
@@ -146,6 +179,7 @@ def _create_main_action(
         kconfig_depset_file = kconfig_depset_file,
     )
     oldconfig_step = _create_oldconfig_step(
+        ctx = ctx,
         ddk_config_info = ddk_config_info,
         defconfig_depset_file = defconfig_depset_file,
         kconfig_depset_file = kconfig_depset_file,
@@ -193,7 +227,11 @@ def _create_env_and_outputs_info(ctx, out_dir):
     """Creates info for module build."""
 
     # Info from kernel_build
-    pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_outputs_info
+    if ctx.attr.generate_btf:
+        # All outputs are required for BTF generation, including vmlinux image
+        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_all_outputs_info
+    else:
+        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_minimal_outputs_info
 
     # Overlay module-specific configs
     restore_outputs_cmd = """
@@ -273,6 +311,10 @@ for its format.
             cfg = "exec",
         ),
         "module_deps": attr.label_list(),
+        "generate_btf": attr.bool(
+            default = False,
+            doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
 )
