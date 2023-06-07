@@ -16,7 +16,6 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(":cache_dir.bzl", "cache_dir")
 load(
@@ -29,6 +28,7 @@ load(
     "KernelToolchainInfo",
 )
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kgdb.bzl", "kgdb")
 load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
@@ -58,8 +58,9 @@ def _determine_local_path(ctx, file_name, file_attr):
     # NOTE: This may hurt remote caching for developer builds. We may want to
     # re-visit this when we implement remote caching for developers.
 
+    hermetic_tools = hermetic_toolchain.get(ctx)
     abspath = ctx.actions.declare_file("{}/{}.abspath".format(ctx.attr.name, file_name))
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    command = hermetic_tools.setup + """
       # Record the absolute path so we can use in .config
         readlink -e {file_attr_path} > {abspath}
     """.format(
@@ -68,8 +69,9 @@ def _determine_local_path(ctx, file_name, file_attr):
     )
     ctx.actions.run_shell(
         command = command,
-        inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [file_attr],
+        inputs = [file_attr],
         outputs = [abspath],
+        tools = hermetic_tools.deps,
         mnemonic = "KernelConfigLocalPath",
         progress_message = "Storing sandboxed path for {}".format(file_name),
         execution_requirements = {
@@ -605,10 +607,10 @@ kernel_config = rule(
             allow_single_file = True,
         ),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     } | _kernel_config_additional_attrs(),
     executable = True,
+    toolchains = [hermetic_toolchain.type],
 )
