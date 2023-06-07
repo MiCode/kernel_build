@@ -672,10 +672,12 @@ function build_gki_boot_images() {
     GKI_MKBOOTIMG_ARGS+=("--output" "${boot_image_path}")
     "${MKBOOTIMG_PATH}" "${GKI_MKBOOTIMG_ARGS[@]}"
 
-    gki_add_avb_footer "${boot_image_path}" \
-      "$(gki_get_boot_img_size "${compression}")"
-    gki_dry_run_certify_bootimg "${boot_image_path}" \
-      "${GKI_ARTIFACTS_INFO_FILE}"
+    if [[ -z "${BUILD_GKI_BOOT_SKIP_AVB}" ]]; then
+      gki_add_avb_footer "${boot_image_path}" \
+        "$(gki_get_boot_img_size "${compression}")"
+      gki_dry_run_certify_bootimg "${boot_image_path}" \
+        "${GKI_ARTIFACTS_INFO_FILE}"
+    fi
     images_to_pack+=("${boot_image}")
   done
 

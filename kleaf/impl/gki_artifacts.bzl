@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Build GKI artifacts, including GKI boot images."""
+
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":common_providers.bzl", "KernelBuildInfo")
 load(":constants.bzl", "GKI_ARTIFACTS_AARCH64_OUTS")
@@ -70,6 +73,14 @@ def _gki_artifacts_impl(ctx):
             export BUILD_GKI_BOOT_IMG{var_name}_SIZE={size}
         """.format(var_name = var_name, size = size)
 
+    # b/283225390: boot images with --gcov may overflow the boot image size
+    #   check when adding AVB hash footer.
+    skip_avb_cmd = ""
+    if ctx.attr._gcov[BuildSettingInfo].value:
+        skip_avb_cmd = """
+            export BUILD_GKI_BOOT_SKIP_AVB=1
+        """
+
     inputs += images
 
     # All declare_file's above are "<name>/<filename>" without subdirectories,
@@ -88,6 +99,7 @@ def _gki_artifacts_impl(ctx):
         export OUT_DIR=$(readlink -e {out_dir})
         export MKBOOTIMG_PATH={mkbootimg}
         {size_cmd}
+        {skip_avb_cmd}
         build_gki_artifacts
     """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
@@ -99,6 +111,7 @@ def _gki_artifacts_impl(ctx):
         quoted_arch = shell.quote(ctx.attr.arch),
         mkbootimg = ctx.file.mkbootimg.path,
         size_cmd = size_cmd,
+        skip_avb_cmd = skip_avb_cmd,
     )
 
     if ctx.attr.arch == "arm64":
@@ -159,6 +172,7 @@ For example:
             default = Label("//build/kernel:build_utils"),
             cfg = "exec",
         ),
+        "_gcov": attr.label(default = "//build/kernel/kleaf:gcov"),
         "_testkey": attr.label(default = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem", allow_single_file = True),
     },
 )
