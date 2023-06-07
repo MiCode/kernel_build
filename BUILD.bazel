@@ -24,6 +24,7 @@ filegroup(
     visibility = [
         ":__subpackages__",
         "//prebuilts/clang/host/linux-x86/kleaf:__subpackages__",
+        "@kleaf_user_clang_toolchain//:__subpackages__",
     ],
 )
 

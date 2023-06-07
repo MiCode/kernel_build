@@ -8,6 +8,9 @@ registered by default, refer to `prebuilts/clang/host/linux-x86/kleaf`.
 For details about Bazel's C toolchain registration, see
 [this tutorial](https://bazel.build/tutorials/ccp-toolchain-config).
 
+For details about C toolchain resolution in Kleaf, see
+`prebuilts/clang/host/linux-x86/kleaf/README.md`.
+
 ## cc\_* rules
 
 When `--config=hermetic_cc` is set (this is the default),

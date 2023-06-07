@@ -485,6 +485,26 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
         self.assertNotIn("DECLARED_SET", stderr)
         self.assertNotIn("DECLARED_UNSET", stderr)
 
+    def test_user_clang_toolchain(self):
+        """Test --user_clang_toolchain option."""
+
+        clang_version = None
+        build_config_constants = f"{self._common()}/build.config.constants"
+        with open(build_config_constants) as f:
+            for line in f.read().splitlines():
+                if line.startswith("CLANG_VERSION="):
+                    clang_version = line.strip().split("=", 2)[1]
+        self.assertIsNotNone(clang_version)
+        clang_dir = f"prebuilts/clang/host/linux-x86/clang-{clang_version}"
+        clang_dir = os.path.realpath(clang_dir)
+
+        # Do not use --config=local to ensure the toolchain dependency is
+        # correct.
+        args = [
+            f"--user_clang_toolchain={clang_dir}",
+            f"//{self._common()}:kernel",
+        ] + _LTO_NONE
+        self._build(args)
 
 class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
