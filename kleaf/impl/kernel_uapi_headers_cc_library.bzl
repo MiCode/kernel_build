@@ -1,9 +1,10 @@
 """Rules for defining a native cc_library based on a kernel's UAPI headers."""
 
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo")
 
 def _kernel_unarchived_uapi_headers_impl(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
     uapi_headers = ctx.attr.kernel_build[KernelBuildUapiInfo].kernel_uapi_headers.to_list()
 
     if not uapi_headers:
@@ -14,11 +15,8 @@ def _kernel_unarchived_uapi_headers_impl(ctx):
     input_tar = uapi_headers[-1]
     out_dir = ctx.actions.declare_directory(ctx.label.name)
 
-    inputs = [input_tar]
-    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-
     command = ""
-    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    command += hermetic_tools.setup
     command += """
       # Create output dir
       mkdir -p "{out_dir}"
@@ -31,8 +29,9 @@ def _kernel_unarchived_uapi_headers_impl(ctx):
 
     ctx.actions.run_shell(
         mnemonic = "KernelUnarchivedUapiHeaders",
-        inputs = inputs,
+        inputs = [input_tar],
         outputs = [out_dir],
+        tools = hermetic_tools.deps,
         progress_message = "Unpacking UAPI headers {}".format(ctx.label),
         command = command,
     )
@@ -50,8 +49,8 @@ _kernel_unarchived_uapi_headers = rule(
             mandatory = True,
             doc = "the `kernel_build` whose UAPI headers to unarchive",
         ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     },
+    toolchains = [hermetic_toolchain.type],
 )
 
 def kernel_uapi_headers_cc_library(name, kernel_build):
