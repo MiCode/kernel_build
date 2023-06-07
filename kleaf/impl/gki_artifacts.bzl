@@ -17,20 +17,21 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":common_providers.bzl", "KernelBuildUnameInfo")
 load(":constants.bzl", "GKI_ARTIFACTS_AARCH64_OUTS")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "utils")
 
 def _gki_artifacts_impl(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
     inputs = [
         ctx.file.mkbootimg,
         ctx.file._testkey,
     ]
-    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
     tools = [
         ctx.file._build_utils_sh,
     ]
+    transitive_tools = [hermetic_tools.deps]
 
     kernel_release = ctx.attr.kernel_build[KernelBuildUnameInfo].kernel_release
     inputs.append(kernel_release)
@@ -88,7 +89,7 @@ def _gki_artifacts_impl(ctx):
     dist_dir = outs[0].dirname
     out_dir = paths.join(utils.intermediates_dir(ctx), "out_dir")
 
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    command = hermetic_tools.setup + """
         source {build_utils_sh}
         cp -pl -t {dist_dir} {images}
         mkdir -p {out_dir}/include/config
@@ -125,7 +126,7 @@ def _gki_artifacts_impl(ctx):
         command = command,
         inputs = inputs,
         outputs = outs,
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         mnemonic = "GkiArtifacts",
         progress_message = "Building GKI artifacts {}".format(ctx.label),
     )
@@ -175,7 +176,6 @@ For example:
             ],
             mandatory = True,
         ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils"),
@@ -184,4 +184,5 @@ For example:
         "_gcov": attr.label(default = "//build/kernel/kleaf:gcov"),
         "_testkey": attr.label(default = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem", allow_single_file = True),
     },
+    toolchains = [hermetic_toolchain.type],
 )
