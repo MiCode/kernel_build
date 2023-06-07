@@ -20,7 +20,6 @@ Makefile and Kbuild files are required.
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_module_test",
@@ -41,6 +40,7 @@ load(
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
@@ -523,7 +523,8 @@ def _kernel_module_impl(ctx):
     cp_cmd_outputs = output_files + additional_declared_outputs
 
     if cp_cmd_outputs:
-        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        hermetic_tools = hermetic_toolchain.get(ctx)
+        command = hermetic_tools.setup + """
              # Copy files into place
                {search_and_cp_output} --srcdir {modules_staging_dir}/lib/modules/*/extra/{ext_mod}/ --dstdir {outdir} {outs}
         """.format(
@@ -536,13 +537,14 @@ def _kernel_module_impl(ctx):
         debug.print_scripts(ctx, command, what = "cp_outputs")
         ctx.actions.run_shell(
             mnemonic = "KernelModuleCpOutputs",
-            inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+            inputs = [
                 # We don't need structure_file here because we only care about files in the directory.
                 modules_staging_dws.directory,
             ],
-            tools = [
-                ctx.executable._search_and_cp_output,
-            ],
+            tools = depset(
+                [ctx.executable._search_and_cp_output],
+                transitive = [hermetic_tools.deps],
+            ),
             outputs = cp_cmd_outputs,
             command = command,
             progress_message = "Copying outputs {}".format(ctx.label),
@@ -657,7 +659,6 @@ _kernel_module = rule(
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_search_and_cp_output": attr.label(
             default = Label("//build/kernel/kleaf:search_and_cp_output"),
             cfg = "exec",
@@ -675,6 +676,7 @@ _kernel_module = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_debug_modpost_warn": attr.label(default = "//build/kernel/kleaf:debug_modpost_warn"),
     },
+    toolchains = [hermetic_toolchain.type],
 )
 
 def _kernel_module_set_defaults(kwargs):
