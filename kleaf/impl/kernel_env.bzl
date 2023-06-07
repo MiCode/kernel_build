@@ -80,7 +80,7 @@ def _get_check_arch_cmd(ctx):
 
     return """
         if [[ "$ARCH" != "{expected_arch}" ]]; then
-            echo '{level}: {label} must specify arch = "${{ARCH/riscv/riscv64}}".' >&2
+            echo '{level}: {label} must specify arch = '"${{ARCH/riscv/riscv64}}"'.' >&2
             {exit_cmd}
         fi
     """.format(
