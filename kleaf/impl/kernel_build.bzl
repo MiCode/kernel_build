@@ -19,7 +19,6 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_build_test",
@@ -59,6 +58,7 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":file.bzl", "file")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
@@ -664,6 +664,7 @@ def _progress_message_suffix(ctx):
 
 def _create_kbuild_mixed_tree(ctx):
     """Adds actions that creates the `KBUILD_MIXED_TREE`."""
+    hermetic_tools = hermetic_toolchain.get(ctx)
     base_kernel_files = depset()
     outputs = []
     kbuild_mixed_tree = None
@@ -676,7 +677,7 @@ def _create_kbuild_mixed_tree(ctx):
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
         outputs = [kbuild_mixed_tree]
         base_kernel_files = base_kernel_utils.get_base_kernel(ctx)[KernelBuildMixedTreeInfo].files
-        kbuild_mixed_tree_command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        kbuild_mixed_tree_command = hermetic_tools.setup + """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
             rm -rf ${{KBUILD_MIXED_TREE}}
@@ -691,8 +692,9 @@ def _create_kbuild_mixed_tree(ctx):
         debug.print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildKbuildMixedTree",
-            inputs = depset(ctx.attr._hermetic_tools[HermeticToolsInfo].deps, transitive = [base_kernel_files]),
+            inputs = depset(transitive = [base_kernel_files]),
             outputs = [kbuild_mixed_tree],
+            tools = hermetic_tools.deps,
             progress_message = "Creating KBUILD_MIXED_TREE {}".format(_progress_message_suffix(ctx)),
             command = kbuild_mixed_tree_command,
         )
@@ -1801,7 +1803,6 @@ _kernel_build = rule(
             executable = True,
             cfg = "exec",
         ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
@@ -1825,6 +1826,7 @@ _kernel_build = rule(
         "src_protected_modules_list": attr.label(allow_single_file = True),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
     } | _kernel_build_additional_attrs(),
+    toolchains = [hermetic_toolchain.type],
 )
 
 def _kernel_build_check_toolchain(ctx):
@@ -1835,6 +1837,8 @@ def _kernel_build_check_toolchain(ctx):
         checks toolchain version at execution phase when it is built. If it is an empty list,
         no checks need to be performed at execution phase.
     """
+
+    hermetic_tools = hermetic_toolchain.get(ctx)
 
     base_kernel = base_kernel_utils.get_base_kernel(ctx)
     if not base_kernel:
@@ -1889,7 +1893,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             base_kernel = base_kernel.label,
             base_toolchain = base_toolchain,
         )
-        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        command = hermetic_tools.setup + """
                 # Check toolchain_version against base kernel
                   if ! diff <(cat {base_toolchain_file}) <(echo "{this_toolchain}") > /dev/null; then
                     echo "{msg}" >&2
@@ -1906,8 +1910,9 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
         debug.print_scripts(ctx, command, what = "check_toolchain")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildCheckToolchain",
-            inputs = [base_toolchain_file] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+            inputs = [base_toolchain_file],
             outputs = [out],
+            tools = hermetic_tools.deps,
             command = command,
             progress_message = "Checking toolchain version against base kernel {}".format(_progress_message_suffix(ctx)),
         )
@@ -2105,6 +2110,7 @@ def _repack_modules_staging_archive(
             in `_build_main_action`.
         all_module_basenames_file: Complete list of base names.
     """
+    hermetic_tools = hermetic_toolchain.get(ctx)
     if not base_kernel_utils.get_base_kernel(ctx):
         # No need to repack.
         if not modules_staging_archive_self.basename == MODULES_STAGING_ARCHIVE:
@@ -2122,7 +2128,7 @@ def _repack_modules_staging_archive(
     # Re-package module_staging_dir to also include the one from base_kernel.
     # Pick ko files only from base_kernel, while keeping all depmod files from self.
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
-    cmd = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    cmd = hermetic_tools.setup + """
         mkdir -p {modules_staging_dir}
         tar xf {self_archive} -C {modules_staging_dir}
 
@@ -2153,7 +2159,7 @@ def _repack_modules_staging_archive(
             all_module_basenames_file,
         ],
         outputs = [modules_staging_archive],
-        tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        tools = hermetic_tools.deps,
         progress_message = "Repackaging module_staging_archive {}".format(_progress_message_suffix(ctx)),
         command = cmd,
     )
