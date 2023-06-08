@@ -829,6 +829,11 @@ def define_common_kernels(
         kernel_build = ":kernel_aarch64",
     )
 
+    kernel_compile_commands(
+        name = "kernel_x86_64_compile_commands",
+        kernel_build = ":kernel_x86_64",
+    )
+
     string_flag(
         name = "kernel_kythe_corpus",
         build_setting_default = "",
