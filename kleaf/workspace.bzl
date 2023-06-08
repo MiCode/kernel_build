@@ -156,6 +156,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
 
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
+        "//build/kernel:hermetic_tools_toolchain",
     )
 
     register_clang_toolchains()

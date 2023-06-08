@@ -1576,6 +1576,8 @@ def _create_infos(
     default_info_files.extend(main_action_ret.gcno_outputs)
     if kmi_symbol_list_violations_check_out:
         default_info_files.append(kmi_symbol_list_violations_check_out)
+    if ctx.file.src_protected_modules_list:
+        default_info_files.append(ctx.file.src_protected_modules_list)
     default_info = DefaultInfo(
         files = depset(default_info_files),
         # For kernel_build_test

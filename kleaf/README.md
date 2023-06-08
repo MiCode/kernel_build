@@ -6,6 +6,8 @@
 
 [Building your kernels and drivers with Bazel](docs/impl.md)
 
+[Creating distributions](docs/dist.md)
+
 [`build.sh` build configs](docs/build_configs.md)
 
 [Running `make *config`](docs/kernel_config.md)

@@ -19,15 +19,9 @@
 # which is not expected to be loaded directly by users.
 
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", _kernel_module_test = "kernel_module_test")
-
-# TODO(b/242072873): kernel_build_abi is deprecated
-# buildifier: disable=deprecated-function
-load("//build/kernel/kleaf/impl:abi/kernel_abi.bzl", _kernel_abi = "kernel_abi", _kernel_build_abi = "kernel_build_abi")
-
-# TODO(b/242072873): kernel_build_abi_dist is deprecated
-# buildifier: disable=deprecated-function
-load("//build/kernel/kleaf/impl:abi/kernel_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist", _kernel_build_abi_dist = "kernel_build_abi_dist")
 load("//build/kernel/kleaf/impl:abi/extracted_symbols.bzl", _extract_symbols = "extracted_symbols")
+load("//build/kernel/kleaf/impl:abi/kernel_abi.bzl", _kernel_abi = "kernel_abi")
+load("//build/kernel/kleaf/impl:abi/kernel_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist")
 load("//build/kernel/kleaf/impl:android_filegroup.bzl", _android_filegroup = "android_filegroup")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
@@ -55,8 +49,6 @@ extract_symbols = _extract_symbols
 kernel_abi = _kernel_abi
 kernel_abi_dist = _kernel_abi_dist
 kernel_build = _kernel_build_macro
-kernel_build_abi = _kernel_build_abi
-kernel_build_abi_dist = _kernel_build_abi_dist
 kernel_build_config = _kernel_build_config
 kernel_compile_commands = _kernel_compile_commands
 kernel_dtstree = _kernel_dtstree

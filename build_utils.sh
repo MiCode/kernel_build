@@ -17,6 +17,7 @@
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
+  echo "WARNING: rel_path is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
   ${ROOT_DIR}/build/kernel/build-tools/path/linux-x86/realpath "$1" --relative-to="$2"
 }
 
@@ -24,7 +25,8 @@ function rel_path() {
 # rel_path2 <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path2() {
-  rel_path "$@"
+  echo "ERROR: rel_path2 is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
+  exit 1
 }
 
 # $1 directory of kernel modules ($1/lib/modules/x.y)
@@ -622,6 +624,8 @@ function build_gki_artifacts_info() {
   artifacts_info="${artifacts_info} --prop KERNEL_RELEASE:${KERNEL_RELEASE}"
 
   echo "${artifacts_info}" > "$1"
+
+  echo "kernel_release=${KERNEL_RELEASE}" >> "$1"
 }
 
 # build_gki_boot_images <uncompressed kernel path>.
@@ -668,10 +672,12 @@ function build_gki_boot_images() {
     GKI_MKBOOTIMG_ARGS+=("--output" "${boot_image_path}")
     "${MKBOOTIMG_PATH}" "${GKI_MKBOOTIMG_ARGS[@]}"
 
-    gki_add_avb_footer "${boot_image_path}" \
-      "$(gki_get_boot_img_size "${compression}")"
-    gki_dry_run_certify_bootimg "${boot_image_path}" \
-      "${GKI_ARTIFACTS_INFO_FILE}"
+    if [[ -z "${BUILD_GKI_BOOT_SKIP_AVB}" ]]; then
+      gki_add_avb_footer "${boot_image_path}" \
+        "$(gki_get_boot_img_size "${compression}")"
+      gki_dry_run_certify_bootimg "${boot_image_path}" \
+        "${GKI_ARTIFACTS_INFO_FILE}"
+    fi
     images_to_pack+=("${boot_image}")
   done
 
