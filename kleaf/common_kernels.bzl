@@ -830,8 +830,7 @@ def define_common_kernels(
 
     string_flag(
         name = "kernel_kythe_corpus",
-        # TODO(b/201801372): Remove the default value once build bots are configured properly.
-        build_setting_default = "android.googlesource.com/kernel/superproject//common-android-mainline",
+        build_setting_default = "",
     )
 
     kernel_kythe(
