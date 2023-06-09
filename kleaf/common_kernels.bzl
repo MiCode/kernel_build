@@ -618,6 +618,7 @@ def define_common_kernels(
             name = name,
             srcs = [name + "_sources"],
             outs = arch_config["outs"],
+            arch = arch_config["arch"],
             implicit_outs = [
                 # Kernel build time module signining utility and keys
                 # Only available during GKI builds
