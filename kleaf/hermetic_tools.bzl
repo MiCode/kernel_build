@@ -33,22 +33,33 @@ hermetic_toolchain = _hermetic_toolchain
 
 _PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
 
+# Deprecated.
 HermeticToolsInfo = provider(
-    doc = "Legacy information provided by [hermetic_tools](#hermetic_tools).",
+    doc = """Legacy information provided by [hermetic_tools](#hermetic_tools).
+
+Deprecated:
+    Use `hermetic_toolchain` instead. See `build/kernel/kleaf/docs/hermeticity.md`.
+""",
     fields = {
-        "deps": "the hermetic tools",
+        "deps": "A list containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """Alternative setup script that preserves original `PATH`.
+        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Alternative setup script that preserves original `PATH`.
 
 After using this script, the shell environment prioritizes using hermetic tools, but falls
 back on tools from the original `PATH` if a tool cannot be found.
 
 Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
 """,
-        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
+        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
-        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
+        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
@@ -57,17 +68,23 @@ _HermeticToolchainInfo = provider(
     fields = {
         "deps": "a depset containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """Alternative setup script that preserves original `PATH`.
+        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Alternative setup script that preserves original `PATH`.
 
 After using this script, the shell environment prioritizes using hermetic tools, but falls
 back on tools from the original `PATH` if a tool cannot be found.
 
 Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
 """,
-        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
+        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
-        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
+        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
