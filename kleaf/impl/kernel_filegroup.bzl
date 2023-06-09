@@ -207,7 +207,13 @@ def _kernel_filegroup_additional_attrs():
 
 kernel_filegroup = rule(
     implementation = _kernel_filegroup_impl,
-    doc = """Specify a list of kernel prebuilts.
+    doc = """**EXPERIMENTAL.** The API of `kernel_filegroup` rapidly changes and
+is not backwards compatible with older builds. The usage of `kernel_filegroup`
+is limited to the implementation detail of Kleaf (in particular,
+[`define_common_kernels`](#define_common_kernels)). Do not use
+`kernel_filegroup` directly. See `download_prebuilt.md` for details.
+
+Specify a list of kernel prebuilts.
 
 This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/general.html#filegroup)
 that gives a convenient name to a collection of targets, which can be referenced from other rules.
