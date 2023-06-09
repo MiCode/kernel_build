@@ -50,9 +50,6 @@ bzl_library(
         "debug.bzl",
         "file.bzl",
         "gki_artifacts.bzl",
-        "hermetic_exec.bzl",
-        "hermetic_genrule.bzl",
-        "hermetic_toolchain.bzl",
         "image/boot_images.bzl",
         "image/dtbo.bzl",
         "image/image_utils.bzl",
@@ -92,7 +89,9 @@ bzl_library(
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
+        ":hermetic_tools_deps",
         "//build/kernel/kleaf:directory_with_structure_def",
+        # TODO(b/285650848): Remove once all HermeticToolsInfo usages are removed
         "//build/kernel/kleaf:hermetic_tools_def",
         "//build/kernel/kleaf:update_source_file_def",
         "@bazel_skylib//lib:collections",
@@ -100,6 +99,19 @@ bzl_library(
         "@bazel_skylib//lib:sets",
         "@bazel_skylib//lib:shell",
         "@bazel_skylib//rules:common_settings",
+    ],
+)
+
+bzl_library(
+    name = "hermetic_tools_deps",
+    srcs = [
+        "hermetic_exec.bzl",
+        "hermetic_genrule.bzl",
+        "hermetic_toolchain.bzl",
+    ],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [
+        "//build/bazel_common_rules/exec",
     ],
 )
 
