@@ -57,6 +57,10 @@ def _create_vnames_mappings(ctx):
     return output
 
 def _kernel_kythe_impl(ctx):
+    if not ctx.attr.corpus[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("WARNING: {}: --{} is not defined!".format(ctx.label, ctx.attr.corpus.label))
+
     compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
     compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
     all_kzip = ctx.actions.declare_file(ctx.attr.name + "/all.kzip")

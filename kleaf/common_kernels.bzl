@@ -830,8 +830,7 @@ def define_common_kernels(
 
     string_flag(
         name = "kernel_kythe_corpus",
-        # TODO(b/201801372): Remove the default value once build bots are configured properly.
-        build_setting_default = "android.googlesource.com/kernel/superproject//common-android-mainline",
+        build_setting_default = "",
     )
 
     kernel_kythe(
@@ -911,6 +910,7 @@ def _define_prebuilts(target_configs, **kwargs):
                 "//conditions:default": ":" + name + "_module_outs_file",
             }),
             protected_modules_list = target_configs[name].get("protected_modules_list"),
+            gki_artifacts = name + "_gki_artifacts_download_or_build",
             **kwargs
         )
 
