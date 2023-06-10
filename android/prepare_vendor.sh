@@ -318,6 +318,7 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   fi
 
   rm -rf ${ANDROID_KERNEL_OUT}/system_dlkm/*
+  rm -rf ${ANDROID_PRODUCT_OUT}/system_dlkm*
   system_dlkm_archive="${ANDROID_KP_OUT_DIR}/dist/system_dlkm_staging_archive.tar.gz"
   if [ -e "$system_dlkm_archive" ]; then
     mkdir -p "${ANDROID_KERNEL_OUT}/system_dlkm/"
