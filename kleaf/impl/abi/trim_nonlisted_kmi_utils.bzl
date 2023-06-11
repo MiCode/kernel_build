@@ -17,12 +17,14 @@
 FORCE_DISABLE_TRIM = "//build/kernel/kleaf/impl:force_disable_trim"
 _FORCE_DISABLE_TRIM_IS_TRUE = "//build/kernel/kleaf/impl:force_disable_trim_is_true"
 _KASAN_IS_TRUE = "//build/kernel/kleaf:kasan_is_true"
+_KCSAN_IS_TRUE = "//build/kernel/kleaf:kcsan_is_true"
 TRIM_NONLISTED_KMI_ATTR_NAME = "trim_nonlisted_kmi"
 
 def _selected_attr(attr_val):
     return select({
         _FORCE_DISABLE_TRIM_IS_TRUE: False,
         _KASAN_IS_TRUE: False,
+        _KCSAN_IS_TRUE: False,
         "//conditions:default": attr_val,
     })
 

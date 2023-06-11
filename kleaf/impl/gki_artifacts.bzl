@@ -165,7 +165,16 @@ For example:
 """,
         ),
         "gki_kernel_cmdline": attr.string(doc = "`GKI_KERNEL_CMDLINE`."),
-        "arch": attr.string(doc = "`ARCH`.", values = ["arm64", "riscv64", "x86_64"], mandatory = True),
+        "arch": attr.string(
+            doc = "`ARCH`.",
+            values = [
+                "arm64",
+                "riscv64",
+                "x86_64",
+                # We don't have arm 32-bit GKI
+            ],
+            mandatory = True,
+        ),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,

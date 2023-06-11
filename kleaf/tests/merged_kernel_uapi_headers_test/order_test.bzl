@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test ordering of unpacking UAPI header archives.
+"""Test ordering of unpacking UAPI header archives."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo", "KernelModuleInfo")
 load("//build/kernel/kleaf/impl:constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
@@ -30,6 +31,7 @@ def _find_extract_command(env, target, commands):
         file_name = target.label.name + "/kernel-uapi-headers.tar.gz_staging"
     else:
         asserts.true(env, False, "Unrecognized target {}".format(target.label.name))
+        return None
 
     for index, command in enumerate(commands):
         if file_name in command:
@@ -39,6 +41,7 @@ def _find_extract_command(env, target, commands):
         file_name,
         "\n".join(commands),
     ))
+    return None
 
 def _assert_acending(env, lst, commands_text):
     for prev_item, next_item in zip(lst, lst[1:]):
@@ -90,6 +93,11 @@ def _make_order_test(name, expect_extract_order, **kwargs):
     )
 
 def order_test(name):
+    """Test ordering of unpacking UAPI header archives.
+
+    Args:
+        name: name of test
+    """
     tests = []
 
     kernel_build(
@@ -113,6 +121,15 @@ def order_test(name):
         tags = ["manual"],
     )
 
+    write_file(
+        name = name + "_gki_info",
+        out = name + "_gki_info/gki-info.txt",
+        content = [
+            "KERNEL_RELEASE=99.98.97",
+            "",
+        ],
+    )
+
     kernel_filegroup(
         name = name + "_fg",
         srcs = [name + "_base"],
@@ -122,6 +139,7 @@ def order_test(name):
         ],
         kernel_uapi_headers = name + "_base_uapi_headers",
         module_outs_file = name + "_module_outs_file",
+        gki_artifacts = name + "_gki_info",
         tags = ["manual"],
     )
 

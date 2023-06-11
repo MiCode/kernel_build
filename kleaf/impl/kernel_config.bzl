@@ -272,6 +272,47 @@ def _config_kasan(ctx):
     ]
     return struct(configs = configs, deps = [])
 
+def _config_kcsan(ctx):
+    """Return configs for --kcsan.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+    lto = ctx.attr.lto
+    kcsan = ctx.attr.kcsan[BuildSettingInfo].value
+
+    if not kcsan:
+        return struct(configs = [], deps = [])
+
+    if lto != "none":
+        fail("{}: --kcsan requires --lto=none, but --lto is {}".format(ctx.label, lto))
+
+    if trim_nonlisted_kmi_utils.get_value(ctx):
+        fail("{}: --kcsan requires trimming to be disabled".format(ctx.label))
+
+    configs = [
+        _config.enable("KCSAN"),
+        _config.enable("KCSAN_VERBOSE"),
+        _config.disable("KCSAN_KCOV_BROKEN"),
+        _config.enable("KCOV"),
+        _config.enable("KCOV_ENABLE_COMPARISONS"),
+        _config.enable("PROVE_LOCKING"),
+        _config.disable("KASAN"),
+        _config.disable("KASAN_STACK"),
+        _config.enable("PANIC_ON_WARN_DEFAULT_ENABLE"),
+        _config.disable("RANDOMIZE_BASE"),
+        _config.set_val("FRAME_WARN", 0),
+        _config.disable("KASAN_HW_TAGS"),
+        _config.disable("CFI"),
+        _config.disable("CFI_PERMISSIVE"),
+        _config.disable("CFI_CLANG"),
+        _config.disable("SHADOW_CALL_STACK"),
+    ]
+    return struct(configs = configs, deps = [])
+
 def _config_btf_debug_info(ctx):
     """Return configs for DEBUG_INFO_BTF.
 
@@ -302,6 +343,7 @@ def _reconfig(ctx):
     for fn in (
         _config_lto,
         _config_trim,
+        _config_kcsan,
         _config_kasan,
         _config_gcov,
         _config_keys,

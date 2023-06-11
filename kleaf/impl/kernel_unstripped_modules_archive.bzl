@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Compress the unstripped modules into a tarball."""
+
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
@@ -41,8 +43,11 @@ def _kernel_unstripped_modules_archive_impl(ctx):
     # Copy the source ko files in low to high priority order.
     for src in reversed(srcs):
         # src could be empty, so use find + cp
+        # TODO(https://github.com/landley/toybox/issues/431): Using `-L` instead
+        #  of `-l` to force copy the files intead of their symlinks due to an
+        #  issue with toybox tar which is not following them when using `--sort`.
         command += """
-            find {src} -name '*.ko' -exec cp -f -l -t {unstripped_dir} {{}} +
+            find {src} -name '*.ko' -exec cp -f -L -t {unstripped_dir} {{}} +
         """.format(
             src = src.path,
             unstripped_dir = unstripped_dir,

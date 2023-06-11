@@ -14,17 +14,19 @@
 
 """Rules for defining a DDK (Driver Development Kit) submodule."""
 
+load(":ddk/ddk_conditional_filegroup.bzl", "flatten_conditional_srcs")
 load(":ddk/makefiles.bzl", "makefiles")
 
 def ddk_submodule(
         name,
-        srcs,
         out,
+        srcs = None,
         deps = None,
         hdrs = None,
         includes = None,
         local_defines = None,
         copts = None,
+        conditional_srcs = None,
         **kwargs):
     """Declares a DDK (Driver Development Kit) submodule.
 
@@ -90,6 +92,7 @@ def ddk_submodule(
     Args:
         name: See [`ddk_module.name`](#ddk_module-name).
         srcs: See [`ddk_module.srcs`](#ddk_module-srcs).
+        conditional_srcs: See [`ddk_module.conditional_srcs`](#ddk_module-conditional_srcs).
         out: See [`ddk_module.out`](#ddk_module-out).
         hdrs: See [`ddk_module.hdrs`](#ddk_module-hdrs).
 
@@ -152,9 +155,18 @@ def ddk_submodule(
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
 
+    private_kwargs = dict(kwargs)
+    private_kwargs["visibility"] = ["//visibility:private"]
+
+    flattened_conditional_srcs = flatten_conditional_srcs(
+        module_name = name,
+        conditional_srcs = conditional_srcs,
+        **private_kwargs
+    )
+
     makefiles(
         name = name,
-        module_srcs = srcs,
+        module_srcs = (srcs or []) + flattened_conditional_srcs,
         module_hdrs = hdrs,
         module_includes = includes,
         module_out = out,

@@ -37,12 +37,13 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# If --lto=none, or if --kasan, LTO should be set to none.
+# If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
 selects.config_setting_group(
     name = "lto_is_none",
     match_any = [
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
         "//build/kernel/kleaf/impl:lto_is_default_and_kasan_is_true",
+        "//build/kernel/kleaf/impl:lto_is_default_and_kcsan_is_true",
     ],
     visibility = ["//visibility:public"],
 )
@@ -100,6 +101,20 @@ bool_flag(
 config_setting(
     name = "kasan_is_true",
     flag_values = {":kasan": "1"},
+    visibility = ["//visibility:public"],
+)
+
+# If true, enable kcsan. This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kcsan",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kcsan_is_true",
+    flag_values = {":kcsan": "1"},
     visibility = ["//visibility:public"],
 )
 
@@ -262,6 +277,7 @@ print_flags(
     name = "print_flags",
     flags = [
         ":kasan",
+        ":kcsan",
         ":kbuild_symtypes",
         ":lto",
     ] + [":config_" + value for value in _config_values],
