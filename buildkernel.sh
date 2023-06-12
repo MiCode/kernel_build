@@ -59,8 +59,25 @@ make_defconfig()
 		set -x
 		(cd ${KERNEL_DIR} && \
 		${MAKE_PATH}make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${DEFCONFIG})
+		pushd ${KERNEL_DIR}
+		for config_override in ${KERNEL_CONFIG_OVERRIDE}; do
+			echo ${config_override} >> ${OUT_DIR}/.config
+		done
+		${MAKE_PATH}make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig
+		popd
 		set +x
 	fi
+
+        if [ ! -z "${KERNEL_CONFIG_OVERRIDE_REGION}"  ]; then
+                echo "Rebuilding defconfig"
+                echo "Overriding kernel config with" ${KERNEL_CONFIG_OVERRIDE_REGION};
+                echo ${KERNEL_CONFIG_OVERRIDE_REGION} >> ${OUT_DIR}/.config;
+                set -x
+                (cd ${KERNEL_DIR} && \
+                make O=${OUT_DIR} ${MAKE_ARGS} HOSTCFLAGS="${TARGET_INCLUDES}" HOSTLDFLAGS="${TARGET_LINCLUDES}" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} oldconfig)
+                set +x
+        fi
+
 }
 
 #Install headers
