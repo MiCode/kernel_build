@@ -24,6 +24,7 @@
 | umi-q-oss | Mi 10 Pro, Mi 10 | Android Q | LA.UM.8.12.r1-06000-sm8250.0 | [umi-q-oss](https://github.com/MiCode/kernel_build/tree/umi-q-oss) |
 | vangogh-q-oss | Mi 10 Lite 5G, Mi 10 Lite Zoom | Android Q | LA.UM.8.13.r1-04700-SAIPAN.0 | [vangogh-q-oss](https://github.com/MiCode/kernel_build/tree/vangogh-q-oss) |
 | venus-r-oss | Mi 11 | Android R | LA.UM.9.14.r1-10000-LAHAINA.0 | [venus-r-oss](https://github.com/MiCode/kernel_build/tree/venus-r-oss) |
+| veux-r-oss | Redmi Note 11E Pro, Redmi Note 11 Pro 5G, Redmi Note 11 Pro+ 5G | Android R | LA.UM.9.16.r1-07900-MANNAR.0-1 | [veux-r-oss](https://github.com/MiCode/kernel_build/tree/veux-r-oss) |
 | vili-r-oss | Xiaomi 11T Pro | Android R | LA.UM.9.14.r1-16700-LAHAINA.0 | [vili-r-oss](https://github.com/MiCode/kernel_build/tree/vili-r-oss) |
 | odin-r-oss | MIX 4 | Android R | LA.UM.9.14.r1-16700-LAHAINA.0 | [odin-r-oss](https://github.com/MiCode/kernel_build/tree/odin-r-oss) |
 | zijin-s-oss | Xiaomi Civi 1S | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [zijin-s-oss](https://github.com/MiCode/kernel_build/tree/zijin-s-oss) |
