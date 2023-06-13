@@ -257,18 +257,24 @@ for EXT_MOD in ${EXT_MODULES}; do
   # Create a link to the module's tree within kernel_platform
   (cd "$ROOT_DIR" && ln -fs "../${top_dir}")
 
-  # Search within the module dir and one level up for a BUILD.bazel file
-  if [ -f "${module_path}/BUILD.bazel" ]; then
-    bazel_pkg="//${module_path}"
-  elif [ -f "${module_path}/../BUILD.bazel" ]; then
-    bazel_pkg="//$(dirname "$module_path")"
-  fi
+  # Search for the module package by looking up from the module_path
+  pkg_path="$module_path"
+  until [ -f "${pkg_path}/BUILD.bazel" ]; do
+    pkg_path="$(dirname "$pkg_path")"
+
+    # If we see a WORKSPACE file, we've gone too far
+    if [ -f "${pkg_path}/WORKSPACE" ]; then
+      echo "error - no Bazel package associated with $module_path"
+      pkg_path=""
+      break
+    fi
+  done
 
   # Query for a target that matches the pattern for module distribution
   if [ "$ENABLE_DDK_BUILD" = "true" ] \
-     && [ -n "$bazel_pkg" ] \
+     && [ -n "$pkg_path" ] \
      && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
-          "filter('${TARGET_PRODUCT/_/-}_${VARIANT/_/-}_.*_dist$', ${bazel_pkg}/...)") \
+          "filter('${TARGET_PRODUCT/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
      && [ -n "$build_target" ]
   then
 
