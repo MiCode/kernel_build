@@ -14,6 +14,7 @@
 
 """Support `compile_commands.json`."""
 
+load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":abi/abi_transitions.bzl",
     "FORCE_IGNORE_BASE_KERNEL_SETTING",
@@ -22,7 +23,6 @@ load(
     ":common_providers.bzl",
     "KernelBuildInfo",
 )
-load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 def _kernel_compile_commands_transition_impl(_settings, _attr):
     return {
@@ -40,12 +40,11 @@ _kernel_compile_commands_transition = transition(
 )
 
 def _kernel_compile_commands_impl(ctx):
-    hermetic_tools = hermetic_toolchain.get(ctx)
     compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
     compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
 
     script = ctx.actions.declare_file(ctx.attr.name + ".sh")
-    script_content = hermetic_tools.run_setup + """
+    script_content = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup + """
         OUTPUT=${{1:-${{BUILD_WORKSPACE_DIRECTORY}}/compile_commands.json}}
         sed -e "s:\\${{OUT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}/{compile_commands_out_dir}:g;s:\\${{ROOT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}:g" \\
             {compile_commands_with_vars} > ${{OUTPUT}}
@@ -57,7 +56,7 @@ def _kernel_compile_commands_impl(ctx):
     ctx.actions.write(script, script_content, is_executable = True)
 
     direct_runfiles = [compile_commands_with_vars]
-    direct_runfiles += hermetic_tools.deps
+    direct_runfiles += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
     return DefaultInfo(
         executable = script,
@@ -73,6 +72,7 @@ kernel_compile_commands = rule(
             doc = "The `kernel_build` rule to extract from.",
             providers = [KernelBuildInfo],
         ),
+        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         # Allow any package to use kernel_compile_commands because it is a public API.
         # The ACK source tree may be checked out anywhere; it is not necessarily //common
         "_allowlist_function_transition": attr.label(
@@ -81,5 +81,4 @@ kernel_compile_commands = rule(
     },
     executable = True,
     cfg = _kernel_compile_commands_transition,
-    toolchains = [hermetic_toolchain.type],
 )
