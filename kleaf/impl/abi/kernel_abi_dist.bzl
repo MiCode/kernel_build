@@ -15,8 +15,7 @@
 """Dist rules for devices with ABI monitoring enabled."""
 
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
-load("//build/bazel_common_rules/exec:exec.bzl", "exec_rule")
-load(":hermetic_exec.bzl", "hermetic_exec", "hermetic_exec_target")
+load("//build/bazel_common_rules/exec:exec.bzl", "exec", "exec_rule")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 
 _kernel_abi_dist_exec = exec_rule(
@@ -27,12 +26,6 @@ _kernel_abi_dist_exec = exec_rule(
         ),
     },
 )
-
-def _hermetic_kernel_abi_dist_exec(**kwargs):
-    return hermetic_exec_target(
-        rule = _kernel_abi_dist_exec,
-        **kwargs
-    )
 
 def kernel_abi_dist(
         name,
@@ -108,11 +101,7 @@ def kernel_abi_dist(
         **kwargs
     )
 
-    if kernel_build_add_vmlinux:
-        exec_macro = _hermetic_kernel_abi_dist_exec
-    else:
-        exec_macro = hermetic_exec
-
+    exec_macro = _kernel_abi_dist_exec if kernel_build_add_vmlinux else exec
     exec_macro(
         name = name,
         data = [
