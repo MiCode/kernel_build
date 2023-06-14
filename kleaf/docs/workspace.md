@@ -74,7 +74,7 @@ Sample workspace file in `private/tuna/bazel.WORKSPACE`:
 ```python
 # Call with common_kernel_package = path to the common kernel source tree
 load("//build/kernel/kleaf:workspace.bzl", "define_kleaf_workspace")
-define_kleaf_workspace(common_kernel_package = "aosp")
+define_kleaf_workspace(common_kernel_package = "//aosp")
 
 # Optional epilog for analysis testing.
 # https://bazel.build/rules/testing

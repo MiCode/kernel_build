@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+"""Create a build.config file by concatenating build config fragments."""
+
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":debug.bzl", "debug")
 
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    hermetic_tools = hermetic_toolchain.get(ctx)
+    command = hermetic_tools.setup + """
         cat {srcs} > {out_file}
     """.format(
         srcs = " ".join([src.path for src in ctx.files.srcs]),
@@ -26,7 +29,8 @@ def _kernel_build_config_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuildConfig",
-        inputs = ctx.files.srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        inputs = ctx.files.srcs,
+        tools = hermetic_tools.deps,
         outputs = [out_file],
         command = command,
         progress_message = "Generating build config {}".format(ctx.label),
@@ -57,7 +61,7 @@ kernel_build_config(
 
 """,
         ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
+    toolchains = [hermetic_toolchain.type],
 )

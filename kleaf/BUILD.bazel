@@ -375,7 +375,10 @@ bzl_library(
     name = "hermetic_tools_def",
     srcs = ["hermetic_tools.bzl"],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
-    deps = ["@bazel_skylib//lib:paths"],
+    deps = [
+        "//build/kernel/kleaf/impl:hermetic_tools_deps",
+        "@bazel_skylib//lib:paths",
+    ],
 )
 
 bzl_library(
