@@ -92,15 +92,21 @@ def _kernel_platform_toolchain_impl(ctx):
         depset(additional_libs),
     ])
 
+    # All executables are in the same place, so just use the compiler executable
+    # to locate PATH.
+    compiler_executable = cc_common.get_tool_for_action(
+        feature_configuration = feature_configuration,
+        action_name = C_COMPILE_ACTION_NAME,
+    )
+    bin_path = paths.dirname(compiler_executable)
+
     return KernelPlatformToolchainInfo(
         compiler_version = cc_toolchain.compiler,
         toolchain_id = cc_toolchain.toolchain_id,
         all_files = all_files,
         cflags = compile_command_line,
         ldflags = link_command_line,
-        # All executables are in the same place, so just use the compiler executable
-        # to locate PATH.
-        bin_path = paths.dirname(cc_toolchain.compiler_executable),
+        bin_path = bin_path,
     )
 
 kernel_platform_toolchain = rule(
