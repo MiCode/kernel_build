@@ -26,6 +26,7 @@ bzl_library(
         "abi/abi_dump.bzl",
         "abi/abi_stgdiff.bzl",
         "abi/abi_transitions.bzl",
+        "abi/abi_update.bzl",
         "abi/base_kernel_utils.bzl",
         "abi/extracted_symbols.bzl",
         "abi/force_add_vmlinux_utils.bzl",

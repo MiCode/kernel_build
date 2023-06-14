@@ -20,6 +20,7 @@ load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(":abi/abi_stgdiff.bzl", "stgdiff")
 load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
+load(":abi/abi_update.bzl", "abi_update")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
 load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
@@ -430,36 +431,12 @@ def _define_abi_definition_targets(
             **kwargs
         )
 
-        exec(
+        abi_update(
             name = name + "_update",
-            data = [
-                abi_definition_stg,
-                name + "_diff_executable",
-                name + "_nodiff_update",
-                name + "_diff_git_message",
-            ],
-            script = """
-                # Update abi_definition
-                $(rootpath {nodiff_update})
-                # Create git commit if requested
-                if [[ $1 == "--commit" ]]; then
-                    real_abi_def="$(realpath $(rootpath {abi_definition}))"
-                    git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
-                    git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
-                fi
-                $(rootpath {diff})
-                if [[ $1 == "--commit" ]]; then
-                    echo
-                    echo "INFO: git commit created. Execute the following to edit the commit message:"
-                    echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
-                fi
-                """.format(
-                diff = name + "_diff_executable",
-                nodiff_update = name + "_nodiff_update",
-                abi_definition = abi_definition_stg,
-                git_message = name + "_diff_git_message",
-            ),
-            **kwargs
+            abi_definition_stg = abi_definition_stg,
+            git_message = name + "_diff_git_message",
+            diff = name + "_diff_executable",
+            nodiff_update = name + "_nodiff_update",
         )
 
     return default_outputs
