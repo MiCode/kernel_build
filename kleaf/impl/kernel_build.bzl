@@ -971,7 +971,7 @@ def _get_grab_symtypes_step(ctx):
         symtypes_dir = ctx.actions.declare_directory("{name}/symtypes".format(name = ctx.label.name))
         outputs.append(symtypes_dir)
         grab_symtypes_cmd = """
-            rsync -a --prune-empty-dirs --include '*/' --include '*.symtypes' --exclude '*' ${{OUT_DIR}}/ {symtypes_dir}/
+            rsync -a --no-group --prune-empty-dirs --include '*/' --include '*.symtypes' --exclude '*' ${{OUT_DIR}}/ {symtypes_dir}/
         """.format(
             symtypes_dir = symtypes_dir.path,
         )
@@ -1009,7 +1009,7 @@ def _get_grab_gcno_step(ctx):
         # However, note that these ir-reproducibility are tied to vmlinux, because these paths are already
         # embedded in vmlinux. This file just makes such ir-reproducibility more explicit.
         grab_gcno_cmd = """
-            rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
+            rsync -a --no-group --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
             {print_gcno_mapping} {extra_args} ${{OUT_DIR}}:{gcno_dir} > {gcno_mapping}
         """.format(
             gcno_dir = gcno_dir.path,
@@ -1037,7 +1037,7 @@ def _get_grab_kbuild_output_step(ctx):
         kbuild_output_target = ctx.actions.declare_directory("{name}/kbuild_output".format(name = ctx.label.name))
         outputs.append(kbuild_output_target)
         grab_kbuild_output_cmd = """
-            rsync -a --prune-empty-dirs --include '*/' ${{OUT_DIR}}/ {kbuild_output_target}/
+            rsync -a --no-group --prune-empty-dirs --include '*/' ${{OUT_DIR}}/ {kbuild_output_target}/
         """.format(
             kbuild_output_target = kbuild_output_target.path,
         )
@@ -1070,7 +1070,7 @@ def get_grab_cmd_step(ctx, src_dir):
         cmd_dir = ctx.actions.declare_directory("{name}/cmds".format(name = ctx.label.name))
         outputs.append(cmd_dir)
         cmd = """
-            rsync -a --chmod=F+w --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
+            rsync -a --no-group --chmod=F+w --prune-empty-dirs --include '*/' --include '*.cmd' --exclude '*' {src_dir}/ {cmd_dir}/
             find {cmd_dir}/ -name '*.cmd' -exec sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {{}} \\+
         """.format(
             src_dir = src_dir,
@@ -1423,7 +1423,7 @@ def _create_infos(
 
     env_and_outputs_info_setup_restore_outputs = """
          # Restore kernel build outputs
-           rsync -aL --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
+           rsync -aL --no-group --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
            """.format(ruledir = main_action_ret.ruledir)
     env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
 
@@ -1463,7 +1463,7 @@ def _create_infos(
         relpath = paths.relativize(dep.path, main_action_ret.ruledir)
         ext_mod_env_and_outputs_info_setup_restore_outputs += """
             mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
-            rsync -aL {dep} ${{OUT_DIR}}/{relpath}
+            rsync -aL --no-group {dep} ${{OUT_DIR}}/{relpath}
         """.format(
             dep = dep.path,
             relpath = relpath,

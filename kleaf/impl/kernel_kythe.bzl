@@ -85,7 +85,7 @@ def _kernel_kythe_impl(ctx):
 
              # Prepare directories. Copy from compile_commands_out_dir to $OUT_DIR.
                mkdir -p {kzip_dir} {extracted_kzip_dir} ${{OUT_DIR}}
-               rsync -aL --chmod=D+w --chmod=F+w {compile_commands_out_dir}/ ${{OUT_DIR}}/
+               rsync -aL --no-group --chmod=D+w --chmod=F+w {compile_commands_out_dir}/ ${{OUT_DIR}}/
 
                {reconstruct_out_dir} ${{COMMON_OUT_DIR}} {compile_commands_with_vars}
 
