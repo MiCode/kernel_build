@@ -172,7 +172,7 @@ For example:
                 "arm64",
                 "riscv64",
                 "x86_64",
-                # We don't have arm 32-bit GKI
+                # We don't have 32-bit GKIs
             ],
             mandatory = True,
         ),

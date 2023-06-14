@@ -56,14 +56,16 @@ def _check_toolchain_version(ctx, resolved_toolchain_info, declared_toolchain_ve
         ))
 
 def _get_target_arch(ctx):
+    if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_arm[platform_common.ConstraintValueInfo]):
+        return ctx.attr._platform_cpu_arm.label.name
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_arm64[platform_common.ConstraintValueInfo]):
         return ctx.attr._platform_cpu_arm64.label.name
-    elif ctx.target_platform_has_constraint(ctx.attr._platform_cpu_arm[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_arm.label.name
-    elif ctx.target_platform_has_constraint(ctx.attr._platform_cpu_x86_64[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_x86_64.label.name
-    elif ctx.target_platform_has_constraint(ctx.attr._platform_cpu_riscv64[platform_common.ConstraintValueInfo]):
+    if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_i386[platform_common.ConstraintValueInfo]):
+        return ctx.attr._platform_cpu_i386.label.name
+    if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_riscv64[platform_common.ConstraintValueInfo]):
         return ctx.attr._platform_cpu_riscv64.label.name
+    if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_x86_64[platform_common.ConstraintValueInfo]):
+        return ctx.attr._platform_cpu_x86_64.label.name
     fail("{}: Cannot determine target platform.".format(ctx.label))
 
 def _quote_sanitize_flags(flags):
@@ -182,10 +184,11 @@ kernel_toolchains = rule(
         "_kernel_use_resolved_toolchains": attr.label(
             default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
         ),
-        "_platform_cpu_arm64": attr.label(default = "@platforms//cpu:arm64"),
         "_platform_cpu_arm": attr.label(default = "@platforms//cpu:arm"),
-        "_platform_cpu_x86_64": attr.label(default = "@platforms//cpu:x86_64"),
+        "_platform_cpu_arm64": attr.label(default = "@platforms//cpu:arm64"),
+        "_platform_cpu_i386": attr.label(default = "@platforms//cpu:i386"),
         "_platform_cpu_riscv64": attr.label(default = "@platforms//cpu:riscv64"),
+        "_platform_cpu_x86_64": attr.label(default = "@platforms//cpu:x86_64"),
     } | {
         "_clang_version_{}".format(version): attr.label(default = "//prebuilts/clang/host/linux-x86/kleaf:{}".format(version))
         for version in _CLANG_VERSIONS

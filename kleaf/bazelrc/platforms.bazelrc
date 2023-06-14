@@ -16,7 +16,8 @@
 
 build:android_arm --platforms=//build/kernel/kleaf/impl:android_arm
 build:android_arm64 --platforms=//build/kernel/kleaf/impl:android_arm64
-build:android_x86_64 --platforms=//build/kernel/kleaf/impl:android_x86_64
+build:android_i386 --platforms=//build/kernel/kleaf/impl:android_i386
 build:android_riscv64 --platforms=//build/kernel/kleaf/impl:android_riscv64
+build:android_x86_64 --platforms=//build/kernel/kleaf/impl:android_x86_64
 
 # --config=hermetic_cc is already the default.
