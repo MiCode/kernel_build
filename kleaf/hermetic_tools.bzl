@@ -176,9 +176,43 @@ EOF
         progress_message = "Creating wrapper for tar: {}".format(ctx.label),
     )
 
+def _handle_rsync(ctx, out, hermetic_base, deps):
+    if not ctx.attr.rsync_args:
+        return
+
+    command = """
+        set -e
+        export PATH
+        rsync=$(realpath $({hermetic_base}/which rsync))
+        cat > {out} << EOF
+#!/bin/sh
+
+$rsync "\\$@" {rsync_args}
+EOF
+    """.format(
+        out = out.path,
+        hermetic_base = hermetic_base,
+        rsync_args = " ".join([shell.quote(arg) for arg in ctx.attr.rsync_args]),
+    )
+
+    ctx.actions.run_shell(
+        inputs = deps,
+        outputs = [out],
+        command = command,
+        mnemonic = "HermeticToolsRsync",
+        progress_message = "Creating wrapper for rsync: {}".format(ctx.label),
+    )
+
 def _handle_host_tools(ctx, hermetic_base, deps):
     deps = list(deps)
-    host_outs = ctx.outputs.host_tools
+    host_outs = []
+    rsync_out = None
+    for f in ctx.outputs.host_tools:
+        if f.basename == "rsync":
+            rsync_out = f
+        else:
+            host_outs.append(f)
+
     command = """
             set -e
           # export PATH so which can work
@@ -201,6 +235,16 @@ def _handle_host_tools(ctx, hermetic_base, deps):
             "no-remote": "1",
         },
     )
+
+    if rsync_out:
+        _handle_rsync(
+            ctx = ctx,
+            out = rsync_out,
+            hermetic_base = hermetic_base,
+            deps = deps,
+        )
+        host_outs.append(rsync_out)
+
     return host_outs
 
 def _hermetic_tools_impl(ctx):
@@ -290,6 +334,7 @@ _hermetic_tools = rule(
         "_disable_hermetic_tools_info": attr.label(
             default = "//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info",
         ),
+        "rsync_args": attr.string_list(),
     },
     toolchains = [
         config_common.toolchain_type(_PY_TOOLCHAIN_TYPE, mandatory = True),
@@ -302,6 +347,7 @@ def hermetic_tools(
         host_tools = None,
         deps = None,
         tar_args = None,
+        rsync_args = None,
         py3_outs = None,
         **kwargs):
     """Provide tools for a hermetic build.
@@ -317,6 +363,7 @@ def hermetic_tools(
         py3_outs: List of tool names that are resolved to Python 3 binary.
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
         tar_args: List of fixed arguments provided to `tar` commands.
+        rsync_args: List of fixed arguments provided to `rsync` commands.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -341,5 +388,6 @@ def hermetic_tools(
         py3_outs = py3_outs,
         deps = deps,
         tar_args = tar_args,
+        rsync_args = rsync_args,
         **kwargs
     )

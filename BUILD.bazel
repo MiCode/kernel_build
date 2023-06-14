@@ -50,6 +50,9 @@ hermetic_tools(
         "python",
         "python3",
     ],
+    rsync_args = [
+        "--no-group",
+    ],
     tar_args = [
         "--mtime=@0",
         "--owner=0",
