@@ -180,7 +180,7 @@ genrule(
     # Set PATH to ensure hermeticity.
     cmd = """
         PATH=$$($(location :hermetic-tools/readlink) -m $$($(location :hermetic-tools/dirname) $(location :hermetic-tools/dirname)))
-        tar -czf $@ \\
+        tar -czhf $@ \\
             -C $$(dirname $$(dirname $(location {prefix}{first}))) \\
             {files}
     """.format(
