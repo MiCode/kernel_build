@@ -17,6 +17,7 @@ Provide tools for a hermetic build.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//build/kernel/kleaf/impl:hermetic_exec.bzl",
     _hermetic_exec = "hermetic_exec",
@@ -249,14 +250,6 @@ def _hermetic_tools_impl(ctx):
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = paths.dirname(all_outputs[0].short_path))
 
-    hermetic_tools_info = HermeticToolsInfo(
-        deps = info_deps,
-        setup = setup,
-        additional_setup = additional_setup,
-        run_setup = run_setup,
-        run_additional_setup = run_additional_setup,
-    )
-
     hermetic_toolchain_info = _HermeticToolchainInfo(
         deps = depset(info_deps),
         setup = setup,
@@ -265,13 +258,24 @@ def _hermetic_tools_impl(ctx):
         run_additional_setup = run_additional_setup,
     )
 
-    return [
+    infos = [
         DefaultInfo(files = depset(all_outputs)),
-        hermetic_tools_info,
         platform_common.ToolchainInfo(
             hermetic_toolchain_info = hermetic_toolchain_info,
         ),
     ]
+
+    if not ctx.attr._disable_hermetic_tools_info[BuildSettingInfo].value:
+        hermetic_tools_info = HermeticToolsInfo(
+            deps = info_deps,
+            setup = setup,
+            additional_setup = additional_setup,
+            run_setup = run_setup,
+            run_additional_setup = run_additional_setup,
+        )
+        infos.append(hermetic_tools_info)
+
+    return infos
 
 _hermetic_tools = rule(
     implementation = _hermetic_tools_impl,
@@ -283,6 +287,9 @@ _hermetic_tools = rule(
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
         "tar_args": attr.string_list(),
+        "_disable_hermetic_tools_info": attr.label(
+            default = "//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info",
+        ),
     },
     toolchains = [
         config_common.toolchain_type(_PY_TOOLCHAIN_TYPE, mandatory = True),

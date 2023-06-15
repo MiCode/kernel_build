@@ -197,6 +197,12 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
+bool_flag(
+    name = "incompatible_disable_hermetic_tools_info",
+    build_setting_default = False,
+    visibility = ["//build/kernel:__pkg__"],
+)
+
 py_binary(
     name = "ddk/gen_makefiles",
     srcs = ["ddk/gen_makefiles.py"],
