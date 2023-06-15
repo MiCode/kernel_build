@@ -91,8 +91,6 @@ bzl_library(
     deps = [
         ":hermetic_tools_deps",
         "//build/kernel/kleaf:directory_with_structure_def",
-        # TODO(b/285650848): Remove once all HermeticToolsInfo usages are removed
-        "//build/kernel/kleaf:hermetic_tools_def",
         "//build/kernel/kleaf:update_source_file_def",
         "@bazel_skylib//lib:collections",
         "@bazel_skylib//lib:paths",
