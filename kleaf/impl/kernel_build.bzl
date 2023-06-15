@@ -148,8 +148,12 @@ def kernel_build(
         arch: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
           Target architecture. Default is `arm64`.
 
-          Value should be one of `arm64`, `x86_64` or `riscv64`, or
-          `arm` (for 32-bit).
+          Value should be one of:
+          * `arm64`
+          * `x86_64`
+          * `riscv64`
+          * `arm` (for 32-bit, uncommon)
+          * `i386` (for 32-bit, uncommon)
 
           This must be consistent to `ARCH` in build configs if the latter
           is specified. Otherwise, a warning / error may be raised.

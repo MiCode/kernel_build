@@ -14,6 +14,7 @@
 
 """Rules to enable ABI monitoring."""
 
+load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(":abi/abi_stgdiff.bzl", "stgdiff")
@@ -24,7 +25,6 @@ load(":abi/protected_exports.bzl", "protected_exports")
 load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 load(":common_providers.bzl", "KernelBuildAbiInfo")
-load(":hermetic_exec.bzl", "hermetic_exec")
 load(":kernel_build.bzl", "kernel_build")
 
 def _kmi_symbol_checks_impl(ctx):
@@ -209,12 +209,12 @@ def _not_define_abi_targets(
     )
 
     # For kernel_abi_dist to use when define_abi_targets is not set.
-    hermetic_exec(
+    exec(
         name = name + "_diff_executable",
         script = "",
         **private_kwargs
     )
-    hermetic_exec(
+    exec(
         name = name + "_diff_executable_xml",
         script = "",
         **private_kwargs
@@ -341,7 +341,7 @@ def _define_abi_definition_targets(
 
     if not abi_definition_stg:
         # For kernel_abi_dist to use when abi_definition is empty.
-        hermetic_exec(
+        exec(
             name = name + "_diff_executable",
             script = "",
             **kwargs
@@ -392,7 +392,7 @@ def _define_abi_definition_targets(
             **kwargs
         )
 
-        hermetic_exec(
+        exec(
             name = name + "_nodiff_update",
             data = [
                 name + "_extracted_symbols",
@@ -431,7 +431,7 @@ def _define_abi_definition_targets(
             **kwargs
         )
 
-        hermetic_exec(
+        exec(
             name = name + "_update",
             data = [
                 abi_definition_stg,

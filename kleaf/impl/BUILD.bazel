@@ -306,10 +306,10 @@ platform(
 )
 
 platform(
-    name = "android_x86_64",
+    name = "android_i386",
     constraint_values = [
         "@platforms//os:android",
-        "@platforms//cpu:x86_64",
+        "@platforms//cpu:i386",
     ],
 )
 
@@ -318,5 +318,13 @@ platform(
     constraint_values = [
         "@platforms//os:android",
         "@platforms//cpu:riscv64",
+    ],
+)
+
+platform(
+    name = "android_x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
     ],
 )

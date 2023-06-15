@@ -41,7 +41,13 @@ android_filegroup = rule(
         "cpu": attr.string(
             doc = "Architecture.",
             default = "arm64",
-            values = ["arm64", "x86_64", "riscv64", "arm"],
+            values = [
+                "arm",
+                "arm64",
+                "i386",
+                "riscv64",
+                "x86_64",
+            ],
         ),
         "_config_is_hermetic_cc": attr.label(default = "//build/kernel/kleaf:config_hermetic_cc"),
         "_allowlist_function_transition": attr.label(
