@@ -526,7 +526,7 @@ def define_common_kernels(
         print(("\nWARNING: {package}: define_common_kernels() no longer uses the branch " +
                "attribute. Default value of --dist_dir has been changed to out/{{name}}/dist. " +
                "Please remove the branch attribute from define_common_kernels().").format(
-            package = native.package_name(),
+            package = str(native.package_relative_label(":x")).removesuffix(":x"),
         ))
 
     if visibility == None:
@@ -551,8 +551,8 @@ def define_common_kernels(
         target_configs[name] = _filter_keys(
             target_configs.get(name, {}),
             valid_keys = _TARGET_CONFIG_VALID_KEYS,
-            what = '//{package}:{name}: target_configs["{name}"]'.format(
-                package = native.package_name(),
+            what = '{label}: target_configs["{name}"]'.format(
+                label = native.package_relative_label(name),
                 name = name,
             ),
         )

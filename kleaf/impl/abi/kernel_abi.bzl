@@ -408,12 +408,12 @@ def _define_abi_definition_targets(
                 # Ensure that symbol list is updated
                 if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
                     echo "ERROR: symbol list must be updated before updating ABI definition."
-                    echo " To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                    echo " To update, execute 'tools/bazel run {update_symbol_list_label}'." >&2
                     exit 1
                 fi
                 # Ensure that protected exports list is updated
                 if ! diff -q $(rootpath {src_protected_exports_list}) $(rootpath {dst_protected_exports_list}); then
-                echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_protected_exports_label}'." >&2
+                echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run {update_protected_exports_label}'." >&2
                     exit 1
                 fi
                 # Update abi_definition
@@ -423,9 +423,8 @@ def _define_abi_definition_targets(
                 dst_protected_exports_list = protected_exports_list,
                 src_symbol_list = name + "_extracted_symbols",
                 dst_symbol_list = kmi_symbol_list,
-                package = native.package_name(),
-                update_protected_exports_label = name + "_update_protected_exports",
-                update_symbol_list_label = name + "_update_symbol_list",
+                update_protected_exports_label = native.package_relative_label(name + "_update_protected_exports"),
+                update_symbol_list_label = native.package_relative_label(name + "_update_symbol_list"),
                 update_definition = name + "_update_definition",
             ),
             **kwargs

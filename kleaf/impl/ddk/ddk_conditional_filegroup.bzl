@@ -183,10 +183,8 @@ def flatten_conditional_srcs(
     for config, config_srcs_dict in conditional_srcs.items():
         for config_value, config_srcs in config_srcs_dict.items():
             if type(config_value) != "bool":
-                fail("{workspace}//{package}:{name}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
-                    workspace = native.repository_name(),
-                    package = native.package_name(),
-                    name = module_name,
+                fail("{label}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
+                    label = native.package_relative_label(module_name),
                     config_value = config_value,
                     config = config,
                     value_type = type(config_value),
