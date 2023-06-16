@@ -182,7 +182,7 @@ kernel_toolchains = rule(
             providers = [KernelPlatformToolchainInfo],
         ),
         "_kernel_use_resolved_toolchains": attr.label(
-            default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
+            default = "//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains",
         ),
         "_platform_cpu_arm": attr.label(default = "@platforms//cpu:arm"),
         "_platform_cpu_arm64": attr.label(default = "@platforms//cpu:arm64"),

@@ -548,7 +548,7 @@ kernel_env = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
         "_kernel_use_resolved_toolchains": attr.label(
-            default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
+            default = "//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains",
         ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
