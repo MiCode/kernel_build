@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule", "hermetic_tools")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
 
 filegroup(
@@ -173,13 +173,11 @@ _GKI_CERTIFICATION_BINARIES = [
     "certify_bootimg",
 ]
 
-genrule(
+hermetic_genrule(
     name = "gki_certification_tools",
     srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
     outs = ["gki_certification_tools.tar.gz"],
-    # Set PATH to ensure hermeticity.
     cmd = """
-        PATH=$$($(location :hermetic-tools/readlink) -m $$($(location :hermetic-tools/dirname) $(location :hermetic-tools/dirname)))
         tar -czhf $@ \\
             -C $$(dirname $$(dirname $(location {prefix}{first}))) \\
             {files}
@@ -188,10 +186,5 @@ genrule(
         first = _GKI_CERTIFICATION_BINARIES[0],
         prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
     ),
-    tools = [
-        ":hermetic-tools",
-        ":hermetic-tools/dirname",
-        ":hermetic-tools/readlink",
-    ],
     visibility = ["//visibility:public"],
 )

@@ -16,6 +16,7 @@
 
 # flags that control toolchains
 build --flag_alias=experimental_kernel_use_resolved_toolchains=//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains
+build --flag_alias=incompatible_disable_hermetic_tools_info=//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info
 
 # flags that control kleaf integrity checking
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers
