@@ -41,6 +41,7 @@ bzl_library(
         "cache_dir.bzl",
         "common_providers.bzl",
         "compile_commands_utils.bzl",
+        "config_utils.bzl",
         "constants.bzl",
         "ddk/ddk_conditional_filegroup.bzl",
         "ddk/ddk_config.bzl",

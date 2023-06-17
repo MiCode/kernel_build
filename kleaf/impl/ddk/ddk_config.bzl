@@ -20,6 +20,7 @@ load(
     "KernelBuildExtModuleInfo",
     "KernelEnvAndOutputsInfo",
 )
+load(":config_utils.bzl", "config_utils")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "kernel_utils", "utils")
 
@@ -43,26 +44,6 @@ def _ddk_config_impl(ctx):
         env_and_outputs_info,
         ddk_config_info,
     ]
-
-def _create_merge_dot_config_step(defconfig_depset_written):
-    cmd = """
-        if [[ -s {defconfig_depset_file} ]]; then
-            # Merge module-specific defconfig into .config from kernel_build
-            KCONFIG_CONFIG=${{OUT_DIR}}/.config.tmp \\
-                ${{KERNEL_DIR}}/scripts/kconfig/merge_config.sh \\
-                    -m -r \\
-                    ${{OUT_DIR}}/.config \\
-                    $(cat {defconfig_depset_file}) > /dev/null
-            mv ${{OUT_DIR}}/.config.tmp ${{OUT_DIR}}/.config
-        fi
-    """.format(
-        defconfig_depset_file = defconfig_depset_written.depset_file.path,
-    )
-
-    return struct(
-        inputs = defconfig_depset_written.depset,
-        cmd = cmd,
-    )
 
 def _create_kconfig_ext_step(ctx, kconfig_depset_written):
     intermediates_dir = utils.intermediates_dir(ctx)
@@ -116,32 +97,12 @@ def _create_oldconfig_step(ctx, defconfig_depset_written, kconfig_depset_written
 
     if ctx.file.defconfig:
         cmd += """
-            (
-                # Check that configs in my defconfig are still there
-                # This does not include defconfig from dependencies, because values from
-                # dependencies could technically be overridden by this target.
-                config_set='s/^(CONFIG_\\w*)=.*/\\1/p'
-                config_not_set='s/^# (CONFIG_\\w*) is not set$/\\1/p'
-                configs=$(sed -n -E -e "${{config_set}}" -e "${{config_not_set}}" {defconfig_file})
-                msg=""
-                for config in ${{configs}}; do
-                    defconfig_value=$(grep -w -e "${{config}}" {defconfig_file})
-                    actual_value=$(grep -w -e "${{config}}" ${{OUT_DIR}}/.config || true)
-                    if [[ "${{defconfig_value}}" != "${{actual_value}}" ]] ; then
-                        msg="${{msg}}
-    ${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}'."
-                        found_unexpected=1
-                    fi
-                done
-                if [[ -n "${{msg}}" ]]; then
-                    echo "ERROR: {module_label}: ${{msg}}
-    Are they declared in Kconfig?" >&2
-                    exit 1
-                fi
-            )
+            # Check that configs in my defconfig are still there
+            # This does not include defconfig from dependencies, because values from
+            # dependencies could technically be overridden by this target.
+            {check_defconfig_cmd}
         """.format(
-            module_label = module_label,
-            defconfig_file = ctx.file.defconfig.path,
+            check_defconfig_cmd = config_utils.create_check_defconfig_cmd(module_label, ctx.file.defconfig.path),
         )
 
     return struct(
@@ -174,7 +135,7 @@ def _create_main_action(
 
     tools = config_env_and_outputs_info.tools
 
-    merge_dot_config_step = _create_merge_dot_config_step(
+    merge_dot_config_step = config_utils.create_merge_dot_config_step(
         defconfig_depset_written = defconfig_depset_written,
     )
     kconfig_ext_step = _create_kconfig_ext_step(
