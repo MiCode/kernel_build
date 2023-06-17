@@ -44,7 +44,7 @@ def _ddk_config_impl(ctx):
         ddk_config_info,
     ]
 
-def _create_merge_dot_config_step(defconfig_depset_file):
+def _create_merge_dot_config_step(defconfig_depset_written):
     cmd = """
         if [[ -s {defconfig_depset_file} ]]; then
             # Merge module-specific defconfig into .config from kernel_build
@@ -56,15 +56,15 @@ def _create_merge_dot_config_step(defconfig_depset_file):
             mv ${{OUT_DIR}}/.config.tmp ${{OUT_DIR}}/.config
         fi
     """.format(
-        defconfig_depset_file = defconfig_depset_file.path,
+        defconfig_depset_file = defconfig_depset_written.depset_file.path,
     )
 
     return struct(
-        inputs = depset([defconfig_depset_file]),
+        inputs = defconfig_depset_written.depset,
         cmd = cmd,
     )
 
-def _create_kconfig_ext_step(ctx, kconfig_depset_file):
+def _create_kconfig_ext_step(ctx, kconfig_depset_written):
     intermediates_dir = utils.intermediates_dir(ctx)
     cmd = """
         mkdir -p {intermediates_dir}
@@ -86,15 +86,15 @@ def _create_kconfig_ext_step(ctx, kconfig_depset_file):
         fi
     """.format(
         intermediates_dir = intermediates_dir,
-        kconfig_depset_file = kconfig_depset_file.path,
+        kconfig_depset_file = kconfig_depset_written.depset_file.path,
     )
 
     return struct(
-        inputs = depset([kconfig_depset_file]),
+        inputs = kconfig_depset_written.depset,
         cmd = cmd,
     )
 
-def _create_oldconfig_step(ctx, ddk_config_info, defconfig_depset_file, kconfig_depset_file):
+def _create_oldconfig_step(ctx, defconfig_depset_written, kconfig_depset_written):
     module_label = Label(str(ctx.label).removesuffix("_config"))
     cmd = """
         if [[ -s {defconfig_depset_file} ]] || [[ -s {kconfig_depset_file} ]]; then
@@ -110,8 +110,8 @@ def _create_oldconfig_step(ctx, ddk_config_info, defconfig_depset_file, kconfig_
                 olddefconfig
         fi
     """.format(
-        defconfig_depset_file = defconfig_depset_file.path,
-        kconfig_depset_file = kconfig_depset_file.path,
+        defconfig_depset_file = defconfig_depset_written.depset_file.path,
+        kconfig_depset_file = kconfig_depset_written.depset_file.path,
     )
 
     if ctx.file.defconfig:
@@ -146,8 +146,11 @@ def _create_oldconfig_step(ctx, ddk_config_info, defconfig_depset_file, kconfig_
 
     return struct(
         inputs = depset(
-            [defconfig_depset_file, kconfig_depset_file],
-            transitive = [ddk_config_info.kconfig, ddk_config_info.defconfig],
+            ctx.files.defconfig,
+            transitive = [
+                defconfig_depset_written.depset,
+                kconfig_depset_written.depset,
+            ],
         ),
         cmd = cmd,
     )
@@ -158,8 +161,8 @@ def _create_main_action(
         ddk_config_info):
     """Registers the main action that creates the output files."""
 
-    kconfig_depset_file = utils.write_depset(ctx, ddk_config_info.kconfig, "kconfig_depset.txt")
-    defconfig_depset_file = utils.write_depset(ctx, ddk_config_info.defconfig, "defconfig_depset.txt")
+    kconfig_depset_written = utils.write_depset(ctx, ddk_config_info.kconfig, "kconfig_depset.txt")
+    defconfig_depset_written = utils.write_depset(ctx, ddk_config_info.defconfig, "defconfig_depset.txt")
 
     config_env_and_outputs_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].config_env_and_outputs_info
 
@@ -172,17 +175,16 @@ def _create_main_action(
     tools = config_env_and_outputs_info.tools
 
     merge_dot_config_step = _create_merge_dot_config_step(
-        defconfig_depset_file = defconfig_depset_file,
+        defconfig_depset_written = defconfig_depset_written,
     )
     kconfig_ext_step = _create_kconfig_ext_step(
         ctx = ctx,
-        kconfig_depset_file = kconfig_depset_file,
+        kconfig_depset_written = kconfig_depset_written,
     )
     oldconfig_step = _create_oldconfig_step(
         ctx = ctx,
-        ddk_config_info = ddk_config_info,
-        defconfig_depset_file = defconfig_depset_file,
-        kconfig_depset_file = kconfig_depset_file,
+        defconfig_depset_written = defconfig_depset_written,
+        kconfig_depset_written = kconfig_depset_written,
     )
 
     steps = [
