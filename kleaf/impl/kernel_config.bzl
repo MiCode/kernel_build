@@ -27,6 +27,7 @@ load(
     "KernelEnvMakeGoalsInfo",
     "KernelToolchainInfo",
 )
+load(":config_utils.bzl", "config_utils")
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
@@ -341,6 +342,9 @@ def _reconfig(ctx):
     """Return a command and extra inputs to re-configure `.config` file."""
     configs = []
     deps = []
+    transitive_deps = []
+    apply_defconfig_fragments_cmd = ""
+    check_defconfig_fragments_cmd = ""
 
     for fn in (
         _config_lto,
@@ -356,16 +360,49 @@ def _reconfig(ctx):
         configs += pair.configs
         deps += pair.deps
 
-    return struct(cmd = """
-        configs_to_apply=$(echo {configs})
-        # There could be reconfigurations based on configs which can lead to
-        #  an empty `configs_to_apply` even when `configs` is not empty,
-        #  for that reason it is better to check it is not empty before using it.
-        if [ -n "${{configs_to_apply}}" ]; then
-            ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config ${{configs_to_apply}}
-            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
-        fi
-    """.format(configs = " ".join(configs)), deps = deps)
+    if ctx.files.defconfig_fragments:
+        transitive_deps += [target.files for target in ctx.attr.defconfig_fragments]
+        defconfig_fragments_paths = [f.path for f in ctx.files.defconfig_fragments]
+
+        apply_defconfig_fragments_cmd = config_utils.create_merge_dot_config_cmd(
+            " ".join(defconfig_fragments_paths),
+        )
+        apply_defconfig_fragments_cmd += """
+            need_olddefconfig=1
+        """
+
+        check_defconfig_fragments_cmd = config_utils.create_check_defconfig_cmd(
+            ctx.label,
+            " ".join(defconfig_fragments_paths),
+        )
+
+    cmd = """
+        (
+            need_olddefconfig=
+            configs_to_apply=$(echo {configs})
+            # There could be reconfigurations based on configs which can lead to
+            #  an empty `configs_to_apply` even when `configs` is not empty,
+            #  for that reason it is better to check it is not empty before using it.
+            if [ -n "${{configs_to_apply}}" ]; then
+                ${{KERNEL_DIR}}/scripts/config --file ${{OUT_DIR}}/.config ${{configs_to_apply}}
+                need_olddefconfig=1
+            fi
+
+            {apply_defconfig_fragments_cmd}
+
+            if [[ -n "${{need_olddefconfig}}" ]]; then
+                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} olddefconfig
+            fi
+
+            {check_defconfig_fragments_cmd}
+        )
+    """.format(
+        configs = " ".join(configs),
+        apply_defconfig_fragments_cmd = apply_defconfig_fragments_cmd,
+        check_defconfig_fragments_cmd = check_defconfig_fragments_cmd,
+    )
+
+    return struct(cmd = cmd, deps = depset(deps, transitive = transitive_deps))
 
 def _kernel_config_impl(ctx):
     localversion_file = stamp.write_localversion(ctx)
@@ -382,16 +419,17 @@ def _kernel_config_impl(ctx):
             ".fragment",
         ]])
     ]
+    transitive_inputs = []
 
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
 
     reconfig = _reconfig(ctx)
-    inputs += reconfig.deps
+    transitive_inputs.append(reconfig.deps)
 
     tools = []
 
-    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+    transitive_inputs.append(ctx.attr.env[KernelEnvInfo].inputs)
     transitive_tools = [ctx.attr.env[KernelEnvInfo].tools]
 
     cache_dir_step = cache_dir.get_step(
@@ -472,7 +510,7 @@ def _kernel_config_impl(ctx):
     env_and_outputs_info = KernelEnvAndOutputsInfo(
         get_setup_script = _env_and_outputs_get_setup_script,
         tools = ctx.attr.env[KernelEnvInfo].tools,
-        inputs = depset(post_setup_deps, transitive = [ctx.attr.env[KernelEnvInfo].inputs]),
+        inputs = depset(post_setup_deps, transitive = transitive_inputs),
         data = struct(
             pre_setup = ctx.attr.env[KernelEnvInfo].setup,
             post_setup = post_setup,
@@ -605,6 +643,15 @@ kernel_config = rule(
         "system_trusted_key": attr.label(
             doc = "Label to trusted system key.",
             allow_single_file = True,
+        ),
+        "defconfig_fragments": attr.label_list(
+            doc = "defconfig fragments",
+            allow_files = True,
+        ),
+        "_write_depset": attr.label(
+            default = "//build/kernel/kleaf/impl:write_depset",
+            executable = True,
+            cfg = "exec",
         ),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),

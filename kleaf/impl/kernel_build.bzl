@@ -109,6 +109,7 @@ def kernel_build(
         module_signing_key = None,
         system_trusted_key = None,
         modules_prepare_force_generate_headers = None,
+        defconfig_fragments = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -390,6 +391,7 @@ def kernel_build(
         dtstree: Device tree support.
         modules_prepare_force_generate_headers: If `True` it forces generation of
           additional headers as part of modules_prepare.
+        defconfig_fragments: A list of targets that are applied to the defconfig.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -523,6 +525,7 @@ def kernel_build(
         module_signing_key = module_signing_key,
         system_trusted_key = system_trusted_key,
         lto = lto,
+        defconfig_fragments = defconfig_fragments,
         **internal_kwargs
     )
 
