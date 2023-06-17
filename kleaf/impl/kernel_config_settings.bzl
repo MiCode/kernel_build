@@ -33,6 +33,7 @@ mentioned here. In particular:
 - The following is not listed because it is already handled by defconfig_fragments. See
   kernel_env.bzl, _handle_config_tags:
   - btf_debug_info
+  - gcov
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
@@ -73,7 +74,6 @@ def _kernel_build_config_settings_raw():
         compile_commands_utils.config_settings_raw(),
         {
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
-            "_gcov": "//build/kernel/kleaf:gcov",
             "_debug": "//build/kernel/kleaf:debug",
             "_kasan": "//build/kernel/kleaf:kasan",
             "_kasan_sw_tags": "//build/kernel/kleaf:kasan_sw_tags",
@@ -98,7 +98,6 @@ def _kernel_config_config_settings_raw():
             "kasan_sw_tags": "//build/kernel/kleaf:kasan_sw_tags",
             "kasan_generic": "//build/kernel/kleaf:kasan_generic",
             "kcsan": "//build/kernel/kleaf:kcsan",
-            "gcov": "//build/kernel/kleaf:gcov",
         },
     )
 

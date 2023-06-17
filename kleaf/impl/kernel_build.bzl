@@ -756,6 +756,7 @@ def _get_defconfig_fragments(
     additional_fragments = [
         Label("//build/kernel/kleaf:defconfig_fragment"),
         Label("//build/kernel/kleaf/impl/defconfig:debug"),
+        Label("//build/kernel/kleaf/impl/defconfig:gcov"),
         Label("//build/kernel/kleaf/impl/defconfig:rust"),
         Label("//build/kernel/kleaf/impl/defconfig:zstd_dwarf_compression"),
     ]
@@ -2152,6 +2153,7 @@ _kernel_build = rule(
         "_warn_undeclared_modules": attr.label(default = "//build/kernel/kleaf:warn_undeclared_modules"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_kmi_symbol_list_violations_check": attr.label(default = "//build/kernel/kleaf:kmi_symbol_list_violations_check"),
+        "_gcov": attr.label(default = "//build/kernel/kleaf:gcov"),
         # Though these rules are unrelated to the `_kernel_build` rule, they are added as fake
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the

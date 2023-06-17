@@ -88,18 +88,20 @@ Example:
 ```python
 # path/to/tuna/BUILD.bazel
 exports_files([
-    "gcov_defconfig",
+    "kasan_hw_tags_defconfig",
 ])
 kernel_build(name = "tuna", ...)
 ```
 ```shell
-# gcov_defconfig
-CONFIG_GCOV_KERNEL=y
-CONFIG_GCOV_PROFILE_ALL=y
+# kasan_hw_tags_defconfig
+CONFIG_KASAN=y
+CONFIG_KASAN_HW_TAGS=y
+# CONFIG_KASAN_SW_TAGS is not set
+# etc. Add your configs!
 ```
 ```shell
 $ tools/bazel build \
-    --defconfig_fragment=//path/to/tuna:gcov_defconfig \
+    --defconfig_fragment=//path/to/tuna:kasan_hw_tags_defconfig \
     //path/to/tuna:tuna
 ```
 
@@ -132,6 +134,7 @@ own defconfig fragments to avoid fragmentation in the ecosystem (pun intended).
 
 *   `--btf_debug_info`
 *   `--debug`
+*   `--gcov`
 *   `--kasan`
 *   `--kasan_sw_tags`
 *   `--kasan_generic`
@@ -188,8 +191,8 @@ To shorten `--defconfig_fragment` flags, you may use
 
 ```text
 # device.bazelrc
-build:gcov --defconfig_fragment=//path/to/tuna:gcov_defconfig
+build:kasan_hw_tags --defconfig_fragment=//path/to/tuna:kasan_hw_tags_defconfig
 ```
 ```shell
-$ tools/bazel build --config=gcov //path/to/tuna:tuna
+$ tools/bazel build --config=kasan_hw_tags //path/to/tuna:tuna
 ```

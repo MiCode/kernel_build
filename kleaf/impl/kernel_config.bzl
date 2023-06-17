@@ -105,28 +105,6 @@ def _determine_system_trusted_key_path(ctx):
 
     return _determine_local_path(ctx, "trusted_key.pem", ctx.file.system_trusted_key)
 
-def _config_gcov(ctx):
-    """Return configs for GCOV.
-
-    Args:
-        ctx: ctx
-    Returns:
-        A struct, where `configs` is a list of arguments to `scripts/config`,
-        and `deps` is a list of input files.
-    """
-    gcov = ctx.attr.gcov[BuildSettingInfo].value
-
-    if not gcov:
-        return struct(configs = [], deps = [])
-    configs = [
-        _config.enable("GCOV_KERNEL"),
-        _config.enable("GCOV_PROFILE_ALL"),
-        # TODO(b/291710318) Allow section mismatch when using GCOV_PROFILE_ALL
-        #  modpost: vmlinux.o: section mismatch in reference: cpumask_andnot (section: .text) -> efi_systab_phys (section: .init.data)
-        _config.enable("SECTION_MISMATCH_WARN_ONLY"),
-    ]
-    return struct(configs = configs, deps = [])
-
 def _config_lto(ctx):
     """Return configs for LTO.
 
@@ -340,7 +318,6 @@ def _reconfig(ctx):
         _config_kasan,
         _config_kasan_sw_tags,
         _config_kasan_generic,
-        _config_gcov,
         _config_keys,
         kgdb.get_scripts_config_args,
     ):

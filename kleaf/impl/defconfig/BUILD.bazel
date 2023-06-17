@@ -172,3 +172,12 @@ filegroup(
     srcs = ["signing_modules_disabled_defconfig"],
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "gcov",
+    srcs = select({
+        "//build/kernel/kleaf:gcov_is_true": ["gcov_defconfig"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)

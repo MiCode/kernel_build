@@ -255,6 +255,12 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "gcov_is_true",
+    flag_values = {":gcov": "1"},
+    visibility = ["//build/kernel/kleaf/impl/defconfig:__pkg__"],
+)
+
 # If true, allow modules to be undeclared in kernel_build.
 bool_flag(
     name = "allow_undeclared_modules",
