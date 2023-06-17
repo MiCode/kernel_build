@@ -14,6 +14,9 @@
 
 # User defined flags.
 
+# flags that control toolchains
+build --flag_alias=experimental_kernel_use_resolved_toolchains=//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains
+
 # flags that control kleaf integrity checking
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers
 build --flag_alias=allow_undeclared_modules=//build/kernel/kleaf:allow_undeclared_modules
@@ -28,6 +31,7 @@ build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=notrim=//build/kernel/kleaf/impl:force_disable_trim
 build --flag_alias=btf_debug_info=//build/kernel/kleaf:btf_debug_info
 build --flag_alias=noset_ext_modules=no//build/kernel/kleaf:set_ext_modules
+build --flag_alias=gki_build_config_fragment=//build/kernel/kleaf:gki_build_config_fragment
 
 # flags that control the distribution
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes

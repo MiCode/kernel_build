@@ -45,10 +45,11 @@ def _extracted_symbols_impl(ctx):
     srcs += in_tree_modules
 
     # external modules
-    srcs += depset(transitive = [
-        kernel_module[KernelModuleInfo].files
-        for kernel_module in ctx.attr.kernel_modules
-    ]).to_list()
+    for kernel_module in ctx.attr.kernel_modules:
+        if KernelModuleInfo in kernel_module:
+            srcs += kernel_module[KernelModuleInfo].files.to_list()
+        else:
+            srcs += kernel_module.files.to_list()
 
     inputs = [] + srcs
     transitive_inputs = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs]
@@ -122,7 +123,8 @@ extracted_symbols = rule(
         #   know the toolchain_version ahead of time.
         # - We also don't have the necessity to extract symbols from prebuilts.
         "kernel_build": attr.label(providers = [KernelEnvAndOutputsInfo, KernelBuildAbiInfo]),
-        "kernel_modules": attr.label_list(providers = [KernelModuleInfo]),
+        # KernelModuleInfo
+        "kernel_modules": attr.label_list(allow_files = True),
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),
