@@ -446,6 +446,12 @@ def kernel_build(
         "//conditions:default": "default",
     })
 
+    if defconfig_fragments == None:
+        defconfig_fragments = []
+    defconfig_fragments.append(
+        Label("//build/kernel/kleaf:defconfig_fragment"),
+    )
+
     toolchain_constraints = []
     if toolchain_version != None:
         toolchain_constraint = "//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)
