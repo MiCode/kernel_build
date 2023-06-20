@@ -253,6 +253,18 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "btf_debug_info_is_enabled",
+    flag_values = {":btf_debug_info": "enable"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "btf_debug_info_is_disabled",
+    flag_values = {":btf_debug_info": "disable"},
+    visibility = ["//visibility:public"],
+)
+
 # Use the resolved toolchains for building kernel_* rules.
 # See https://bazel.build/extending/toolchains for how toolchains are resolved.
 bool_flag(

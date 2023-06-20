@@ -57,6 +57,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
+load(":file_selector.bzl", "file_selector")
 load(":file.bzl", "file")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config.bzl", "kernel_config")
@@ -449,7 +450,9 @@ def kernel_build(
     })
 
     defconfig_fragments = _get_defconfig_fragments(
+        kernel_build_name = name,
         kernel_build_defconfig_fragments = defconfig_fragments,
+        **internal_kwargs
     )
 
     toolchain_constraints = []
@@ -665,12 +668,34 @@ def kernel_build(
     )
 
 def _get_defconfig_fragments(
-        kernel_build_defconfig_fragments):
+        kernel_build_name,
+        kernel_build_defconfig_fragments,
+        **internal_kwargs):
     # Use a separate list to avoid .append on the provided object directly.
     # kernel_build_defconfig_fragments could be a list or a select() expression.
     additional_fragments = [
         Label("//build/kernel/kleaf:defconfig_fragment"),
     ]
+
+    btf_debug_info_target = kernel_build_name + "_defconfig_fragment_btf_debug_info"
+    file_selector(
+        name = btf_debug_info_target,
+        first_selector = select({
+            Label("//build/kernel/kleaf:btf_debug_info_is_enabled"): "enable",
+            Label("//build/kernel/kleaf:btf_debug_info_is_disabled"): "disable",
+            # TODO(b/229662633): Add kernel_build.btf_debug_info. After that, this should be
+            #   `kernel_build_btf_debug_info or "enable"`.
+            "//conditions:default": "default",
+        }),
+        files = {
+            Label("//build/kernel/kleaf/impl/defconfig:btf_debug_info_enabled_defconfig"): "enable",
+            Label("//build/kernel/kleaf/impl/defconfig:btf_debug_info_disabled_defconfig"): "disable",
+            # If --btf_debug_info=default, do not apply any defconfig fragments
+            Label("//build/kernel/kleaf/impl:empty_filegroup"): "default",
+        },
+        **internal_kwargs
+    )
+    additional_fragments.append(btf_debug_info_target)
 
     if kernel_build_defconfig_fragments == None:
         kernel_build_defconfig_fragments = []

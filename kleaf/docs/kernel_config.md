@@ -156,6 +156,8 @@ defconfig fragments are applied on `.config`, and checked after `.config` is
 built. It is recommended to use these common flags instead of defining your
 own defconfig fragments to avoid fragmentation in the ecosystem (pun intended).
 
+*   `--btf_debug_info`
+
 ### User-defined flags
 
 To control `kernel_build.defconfig_fragments` with command line flags,
