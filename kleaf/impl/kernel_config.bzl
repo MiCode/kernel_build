@@ -25,6 +25,8 @@ load(
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
+    "KernelEnvMakeGoalsInfo",
+    "KernelToolchainInfo",
 )
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
@@ -79,7 +81,7 @@ def _determine_local_path(ctx, file_name, file_attr):
 def _determine_raw_symbollist_path(ctx):
     """A local action that stores the path to `abi_symbollist.raw` to a file object."""
 
-    return _determine_local_path(ctx, "abi_symbollist.raw", ctx.file.raw_kmi_symbol_list)
+    return _determine_local_path(ctx, "abi_symbollist.raw", ctx.files.raw_kmi_symbol_list[0])
 
 def _determine_module_signing_key_path(ctx):
     """A local action that stores the path to `signing_key.pem` to a file object."""
@@ -176,10 +178,19 @@ def _config_trim(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    if trim_nonlisted_kmi_utils.get_value(ctx) and not ctx.file.raw_kmi_symbol_list:
+    if trim_nonlisted_kmi_utils.get_value(ctx) and not ctx.files.raw_kmi_symbol_list:
         fail("{}: trim_nonlisted_kmi is set but raw_kmi_symbol_list is empty.".format(ctx.label))
 
+    if len(ctx.files.raw_kmi_symbol_list) > 1:
+        fail("{}: raw_kmi_symbol_list must only provide at most one file".format(ctx.label))
+
     if not trim_nonlisted_kmi_utils.get_value(ctx):
+        return struct(configs = [], deps = [])
+
+    if ctx.attr._kgdb[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Symbol trimming \
+              IGNORED because --kgdb is set!".format(this_label = ctx.label))
         return struct(configs = [], deps = [])
 
     raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
@@ -313,6 +324,8 @@ def _reconfig(ctx):
     """.format(configs = " ".join(configs)), deps = deps)
 
 def _kernel_config_impl(ctx):
+    localversion_file = stamp.write_localversion(ctx)
+
     inputs = [
         s
         for s in ctx.files.srcs
@@ -328,14 +341,14 @@ def _kernel_config_impl(ctx):
 
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     outputs = [out_dir]
-    localversion_file_path = out_dir.path + "/localversion"
 
-    write_localversion_step = stamp.write_localversion_step(ctx, localversion_file_path)
-    inputs += write_localversion_step.deps
     reconfig = _reconfig(ctx)
     inputs += reconfig.deps
 
-    tools = [] + ctx.attr.env[KernelEnvInfo].dependencies
+    tools = []
+
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+    transitive_tools = [ctx.attr.env[KernelEnvInfo].tools]
 
     cache_dir_step = cache_dir.get_step(
         ctx = ctx,
@@ -360,7 +373,7 @@ def _kernel_config_impl(ctx):
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
           rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
-          rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
+          rsync -r -aL ${{OUT_DIR}}/include/ {out_dir}/include/
 
         # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
           sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
@@ -369,24 +382,20 @@ def _kernel_config_impl(ctx):
         # re-built. See b/263415662
           echo "include/config/auto.conf: FORCE" >> {out_dir}/include/config/auto.conf.cmd
 
-        # Infer localversion.
-          {write_localversion_cmd}
-
           {cache_dir_post_cmd}
         """.format(
         out_dir = out_dir.path,
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         reconfig_cmd = reconfig.cmd,
-        write_localversion_cmd = write_localversion_step.cmd,
     )
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelConfig",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = outputs,
-        tools = tools,
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating kernel config {}{}".format(
             ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
             ctx.label,
@@ -395,31 +404,31 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    post_setup_deps = [out_dir]
+    post_setup_deps = [out_dir, localversion_file]
     post_setup = """
            [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
-           rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
-           rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
-           rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
+           rsync --no-perms -L {out_dir}/.config ${{OUT_DIR}}/.config
+           rsync --no-perms -r -L --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+           rsync --no-perms -L --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
     """.format(
         out_dir = out_dir.path,
+        localversion_file = localversion_file.path,
     )
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
-        post_setup_deps.append(ctx.file.raw_kmi_symbol_list)
+        post_setup_deps += ctx.files.raw_kmi_symbol_list  # This is 0 or 1 file
 
     env_and_outputs_info = KernelEnvAndOutputsInfo(
         get_setup_script = _env_and_outputs_get_setup_script,
-        # TODO(b/263385781): Split KernelEnvInfo.dependencies
-        tools = depset(),
-        inputs = depset(ctx.attr.env[KernelEnvInfo].dependencies + post_setup_deps),
+        tools = ctx.attr.env[KernelEnvInfo].tools,
+        inputs = depset(post_setup_deps, transitive = [ctx.attr.env[KernelEnvInfo].inputs]),
         data = struct(
             pre_setup = ctx.attr.env[KernelEnvInfo].setup,
             post_setup = post_setup,
@@ -431,6 +440,8 @@ def _kernel_config_impl(ctx):
     return [
         env_and_outputs_info,
         ctx.attr.env[KernelEnvAttrInfo],
+        ctx.attr.env[KernelEnvMakeGoalsInfo],
+        ctx.attr.env[KernelToolchainInfo],
         KernelBuildOriginalEnvInfo(
             env_info = ctx.attr.env[KernelEnvInfo],
         ),
@@ -474,37 +485,26 @@ def _get_config_script(ctx, inputs):
     script += kernel_utils.set_src_arch_cmd()
 
     script += """
-          menucommand="${1:-savedefconfig}"
-          if ! [[ "${menucommand}" =~ .*config ]]; then
-            echo "Invalid command $menucommand. Must be *config." >&2
-            exit 1
-          fi
+            menucommand="${1:-savedefconfig}"
+            if ! [[ "${menucommand}" =~ .*config ]]; then
+                echo "Invalid command $menucommand. Must be *config." >&2
+                exit 1
+            fi
 
-          # The script is executed under <execroot>/, where defconfig is a
-          # symlink to the source file. However, `make savedefconfig` overwrites the
-          # symlink with the new defconfig. Restore the symlink on exit so that
-          # the next `bazel run X_config` can infer the source file properly.
+            # Pre-defconfig commands
+            set -x
+            eval ${PRE_DEFCONFIG_CMDS}
+            set +x
+            # Actual defconfig
+            make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
 
-          DEFCONFIG_SYMLINK=${ROOT_DIR}/${KERNEL_DIR}/arch/${SRCARCH}/configs/${DEFCONFIG}
-          DEFCONFIG_REAL=$(readlink -e ${DEFCONFIG_SYMLINK})
-          trap "ln -sf ${DEFCONFIG_REAL} ${DEFCONFIG_SYMLINK}" EXIT
+            # Show UI
+            menuconfig ${menucommand}
 
-          # This needs to be in a sub-shell, otherwise trap doesn't work.
-          (
-              # Pre-defconfig commands
-                eval ${PRE_DEFCONFIG_CMDS}
-              # Actual defconfig
-                make -C ${KERNEL_DIR} ${TOOL_ARGS} O=${OUT_DIR} ${DEFCONFIG}
-
-              # Show UI
-                menuconfig ${menucommand}
-
-              # Post-defconfig commands
-                eval ${POST_DEFCONFIG_CMDS}
-
-              mv ${DEFCONFIG_SYMLINK} ${DEFCONFIG_REAL}
-              echo "Updated ${DEFCONFIG_REAL}"
-          )
+            # Post-defconfig commands
+            set -x
+            eval ${POST_DEFCONFIG_CMDS}
+            set +x
     """
 
     ctx.actions.write(
@@ -513,7 +513,13 @@ def _get_config_script(ctx, inputs):
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(ctx.attr.env[KernelEnvInfo].run_env.dependencies + inputs)
+    runfiles = ctx.runfiles(
+        files = inputs,
+        transitive_files = depset(transitive = [
+            ctx.attr.env[KernelEnvInfo].run_env.inputs,
+            ctx.attr.env[KernelEnvInfo].run_env.tools,
+        ]),
+    )
 
     return struct(
         executable = executable,
@@ -535,13 +541,18 @@ kernel_config = rule(
     attrs = {
         "env": attr.label(
             mandatory = True,
-            providers = [KernelEnvInfo, KernelEnvAttrInfo],
+            providers = [
+                KernelEnvInfo,
+                KernelEnvAttrInfo,
+                KernelEnvMakeGoalsInfo,
+                KernelToolchainInfo,
+            ],
             doc = "environment target that defines the kernel build environment",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "raw_kmi_symbol_list": attr.label(
-            doc = "Label to abi_symbollist.raw.",
-            allow_single_file = True,
+            doc = "Label to abi_symbollist.raw. Must be 0 or 1 file.",
+            allow_files = True,
         ),
         "module_signing_key": attr.label(
             doc = "Label to module signing key.",

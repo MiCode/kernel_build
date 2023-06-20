@@ -242,18 +242,20 @@ class BuildozerCommandBuilder(object):
         if key in self.existing:
             existing_kind = isinstance_or_die(self.existing[key], TargetValue).kind
 
-        if existing_kind is InfoValue.MISSING:
+        if load_from:
             self.out_file.write(f"""
                 fix movePackageToTop|{new_target_pkg}
                 new_load {load_from} {kind}|{new_target_pkg}
+            """)
+
+        if existing_kind is InfoValue.MISSING:
+            self.out_file.write(f"""
                 new {kind} {name}|{new_target_pkg}
             """)
             self.existing[key] = TargetValue(kind=kind)
         elif existing_kind != kind:
             logging.warning(f"Forcefully setting {new_target} from {existing_kind} to {kind}")
             self.out_file.write(f"""
-                fix movePackageToTop|{new_target_pkg}
-                new_load {load_from} {kind}|{new_target_pkg}
                 set kind {kind}|{new_target}
             """)
             self.existing[key] = TargetValue(kind=kind)

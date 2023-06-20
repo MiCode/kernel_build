@@ -39,24 +39,12 @@ hermetic_tools(
         exclude = ["**/python*"],
     ) + [
         "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(VARS["CLANG_VERSION"]),
-    ] + (
-        [
-            "//prebuilts/rust/linux-x86/{}:bin/rustc".format(VARS.get("RUSTC_VERSION", "")),
-            "//prebuilts/clang-tools:linux-x86/bin/bindgen",
-            "//prebuilts/rust/linux-x86/{}:bin/cargo".format(VARS.get("RUSTC_VERSION", "")),
-        ] if "RUSTC_VERSION" in VARS else []
-    ),
+    ],
     host_tools = [
         "bash",
-        "install",
         "perl",
         "rsync",
         "sh",
-        "tar",
-    ],
-    py2_outs = [
-        "python2",
-        "python2.7",
     ],
     py3_outs = [
         "python",

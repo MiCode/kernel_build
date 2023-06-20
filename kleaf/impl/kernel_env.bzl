@@ -15,6 +15,7 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
@@ -23,6 +24,9 @@ load(
     ":common_providers.bzl",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
+    "KernelEnvMakeGoalsInfo",
+    "KernelEnvToolchainsInfo",
+    "KernelToolchainInfo",
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
@@ -32,6 +36,21 @@ load(":kgdb.bzl", "kgdb")
 load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
 load(":utils.bzl", "utils")
+
+def _toolchains_transition_impl(_settings, attr):
+    return {
+        "//command_line_option:platforms": str(attr.target_platform),
+        "//command_line_option:host_platform": str(attr.exec_platform),
+    }
+
+_toolchains_transition = transition(
+    implementation = _toolchains_transition_impl,
+    inputs = [],
+    outputs = [
+        "//command_line_option:platforms",
+        "//command_line_option:host_platform",
+    ],
+)
 
 def _get_kbuild_symtypes(ctx):
     if ctx.attr.kbuild_symtypes == "auto":
@@ -43,6 +62,71 @@ def _get_kbuild_symtypes(ctx):
 
     # Should not reach
     fail("{}: kernel_env has unknown value for kbuild_symtypes: {}".format(ctx.attr.label, ctx.attr.kbuild_symtypes))
+
+def _get_toolchains(ctx):
+    return ctx.attr._toolchains[0][KernelEnvToolchainsInfo]
+
+def _get_check_arch_cmd(ctx):
+    toolchains = _get_toolchains(ctx)
+    expected_arch = toolchains.target_arch
+    if expected_arch == "riscv64":
+        expected_arch = "riscv"
+
+    level = "WARNING"
+    exit_cmd = ""
+    if ctx.attr._kernel_use_resolved_toolchains[BuildSettingInfo].value:
+        level = "ERROR"
+        exit_cmd = "exit 1"
+
+    return """
+        if [[ "$ARCH" != "{expected_arch}" ]]; then
+            echo '{level}: {label} must specify arch = "${{ARCH/riscv/riscv64}}".' >&2
+            {exit_cmd}
+        fi
+    """.format(
+        level = level,
+        label = ctx.label,
+        expected_arch = expected_arch,
+        exit_cmd = exit_cmd,
+    )
+
+def _get_make_goals(ctx):
+    # Fallback to goals from build.config
+    make_goals = ["${MAKE_GOALS}"]
+    if ctx.attr.make_goals:
+        # This is a basic sanitization of the input.
+        for goal in ctx.attr.make_goals:
+            if " " in goal or ";" in goal:
+                fail("ERROR {}: '{}' is not a valid item of make_goals.".format(ctx.label, goal))
+        make_goals = list(ctx.attr.make_goals)
+    make_goals += force_add_vmlinux_utils.additional_make_goals(ctx)
+    make_goals += kgdb.additional_make_goals(ctx)
+    make_goals += compile_commands_utils.additional_make_goals(ctx)
+    return make_goals
+
+def _get_make_goals_deprecation_warning(ctx):
+    # Omit the warning if the goals have been set
+    if ctx.attr.make_goals:
+        return ""
+
+    msg = """
+          # Warning about MAKE_GOALS deprecation.
+          if [[ -n ${{MAKE_GOALS}} ]] ; then
+            KLEAF_MAKE_TARGETS=$(echo "${{MAKE_GOALS% }}" | sed '/^$/d' | sed 's/\\S*/  "&",/g')
+            #  Omit when empty.
+            if [[ -z ${{KLEAF_MAKE_TARGETS}} ]]; then
+              echo "WARNING: Empty MAKE_GOALS detected. Ensure all targets are listed explicitly."
+            else
+              echo "WARNING: MAKE_GOALS from build.config is being deprecated, use make_goals in kernel_build;" >&2
+              echo "Consider adding:\n\nmake_goals = [\n${{KLEAF_MAKE_TARGETS}}" >&2
+              echo "],\n\nto {build_target} kernel." >&2
+            fi
+            unset KLEAF_MAKE_TARGETS
+          fi
+    """.format(
+        build_target = str(ctx.label).removesuffix("_env"),
+    )
+    return msg
 
 def _kernel_env_impl(ctx):
     srcs = [
@@ -73,6 +157,8 @@ def _kernel_env_impl(ctx):
         ctx.file._build_utils_sh,
         preserve_env,
     ]
+
+    toolchains = _get_toolchains(ctx)
 
     command = ""
     command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
@@ -119,9 +205,19 @@ def _kernel_env_impl(ctx):
     command += set_source_date_epoch_ret.cmd
     inputs += set_source_date_epoch_ret.deps
 
-    additional_make_goals = force_add_vmlinux_utils.additional_make_goals(ctx)
-    additional_make_goals += kgdb.additional_make_goals(ctx)
-    additional_make_goals += compile_commands_utils.additional_make_goals(ctx)
+    make_goals = _get_make_goals(ctx)
+    make_goals_deprecation_warning = _get_make_goals_deprecation_warning(ctx)
+
+    if ctx.attr._rust_tools:
+        rustc = utils.find_file("rustc", ctx.files._rust_tools, "rust tools", required = True)
+        bindgen = utils.find_file("bindgen", ctx.files._rust_tools, "rust tools", required = True)
+        command += """
+            RUST_PREBUILT_BIN={quoted_rust_bin}
+            CLANGTOOLS_PREBUILT_BIN={quoted_clangtools_bin}
+        """.format(
+            quoted_rust_bin = shell.quote(rustc.dirname),
+            quoted_clangtools_bin = shell.quote(bindgen.dirname),
+        )
 
     command += """
         # create a build environment
@@ -129,8 +225,11 @@ def _kernel_env_impl(ctx):
           export BUILD_CONFIG={build_config}
           {set_localversion_cmd}
           source {setup_env}
-        # Add to MAKE_GOALS if necessary
-          export MAKE_GOALS="${{MAKE_GOALS}} {additional_make_goals}"
+          {check_arch_cmd}
+        # Variables from resolved toolchain
+          {toolchains_setup_env_var_cmd}
+        # TODO(b/236012223) Remove the warning after deprecation.
+          {make_goals_deprecation_warning}
         # Add a comment with config_tags for debugging
           cp -p {config_tags_comment_file} {out}
           chmod +w {out}
@@ -141,7 +240,9 @@ def _kernel_env_impl(ctx):
         build_config = build_config.path,
         set_localversion_cmd = stamp.set_localversion_cmd(ctx),
         setup_env = setup_env.path,
-        additional_make_goals = " ".join(additional_make_goals),
+        check_arch_cmd = _get_check_arch_cmd(ctx),
+        toolchains_setup_env_var_cmd = toolchains.setup_env_var_cmd,
+        make_goals_deprecation_warning = make_goals_deprecation_warning,
         preserve_env = preserve_env.path,
         out = out_file.path,
         config_tags_comment_file = config_tags_comment_file.path,
@@ -214,21 +315,26 @@ def _kernel_env_impl(ctx):
         set_up_jobs_cmd = set_up_jobs_cmd,
     )
 
-    dependencies = []
-    dependencies += ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    dependencies += [
-        out_file,
+    setup_tools = [
         ctx.file._build_utils_sh,
+    ]
+    setup_tools += ctx.files._rust_tools
+    setup_tools += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    setup_transitive_tools = [toolchains.all_files]
+
+    setup_inputs = [
+        out_file,
         ctx.version_file,
     ]
     if kconfig_ext:
-        dependencies.append(kconfig_ext)
-    dependencies += dtstree_srcs
+        setup_inputs.append(kconfig_ext)
+    setup_inputs += dtstree_srcs
 
     run_env = _get_run_env(ctx, srcs)
 
     env_info = KernelEnvInfo(
-        dependencies = dependencies,
+        inputs = depset(setup_inputs),
+        tools = depset(setup_tools, transitive = setup_transitive_tools),
         setup = setup,
         run_env = run_env,
     )
@@ -238,6 +344,12 @@ def _kernel_env_impl(ctx):
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
             common_config_tags = common_config_tags,
+        ),
+        KernelEnvMakeGoalsInfo(
+            make_goals = make_goals,
+        ),
+        KernelToolchainInfo(
+            toolchain_version = toolchains.compiler_version,
         ),
         DefaultInfo(files = depset([out_file])),
     ]
@@ -284,6 +396,8 @@ def _get_run_env(ctx, srcs):
     - It doesn't set `KCONFIG_EXT_PREFIX` or `dtstree`
     - It doesn't set `SOURCE_DATE_EPOCH` or scmversion properly
     """
+
+    toolchains = _get_toolchains(ctx)
     setup = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         setup += debug.trap()
@@ -302,38 +416,33 @@ def _get_run_env(ctx, srcs):
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
     )
-    dependencies = srcs + ctx.files._tools + ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+    setup += ctx.attr._hermetic_tools[HermeticToolsInfo].run_additional_setup
+    tools = [
         ctx.file.setup_env,
         ctx.file._build_utils_sh,
+    ]
+    tools += ctx.files._rust_tools
+    tools += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    transitive_tools = [toolchains.all_files]
+    inputs = srcs + [
         ctx.file.build_config,
     ]
+
     return KernelEnvInfo(
         setup = setup,
-        dependencies = dependencies,
+        inputs = depset(inputs),
+        tools = depset(tools, transitive = transitive_tools),
     )
 
-def _get_tools(toolchain_version, rust_toolchain_version):
-    if toolchain_version.startswith("//build/kernel/kleaf/tests/"):
-        # Using a test toolchain
-        clang_binaries = toolchain_version
-    else:
-        clang_binaries = "//prebuilts/clang/host/linux-x86/clang-%s:binaries" % toolchain_version
+def _get_rust_tools(rust_toolchain_version):
+    if not rust_toolchain_version:
+        return []
 
-    rust_binaries = None
-    if rust_toolchain_version:
-        if rust_toolchain_version.startswith("//build/kernel/kleaf/tests/"):
-            # Using a test toolchain
-            rust_binaries = rust_toolchain_version
-        else:
-            rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
+    rust_binaries = "//prebuilts/rust/linux-x86/%s:binaries" % rust_toolchain_version
 
-    ret = [clang_binaries]
-    if rust_toolchain_version:
-        ret.append(rust_binaries)
-    return [
-        Label(e)
-        for e in ret
-    ]
+    bindgen = "//prebuilts/clang-tools:linux-x86/bin/bindgen"
+
+    return [Label(rust_binaries), Label(bindgen)]
 
 def _kernel_env_additional_attrs():
     return dicts.add(
@@ -384,10 +493,6 @@ kernel_env = rule(
             doc = "the version of the rust toolchain to use for this environment",
             default = VARS.get("RUSTC_VERSION", ""),
         ),
-        "toolchain_version": attr.string(
-            doc = "the toolchain to use for this environment",
-            default = VARS["CLANG_VERSION"],
-        ),
         "kconfig_ext": attr.label(
             allow_single_file = True,
             doc = "an external Kconfig.ext file sourced by the base kernel",
@@ -401,12 +506,33 @@ kernel_env = rule(
             default = "auto",
             values = ["true", "false", "auto"],
         ),
-        "_tools": attr.label_list(default = _get_tools),
+        "make_goals": attr.string_list(doc = "`MAKE_GOALS`"),
+        "target_platform": attr.label(
+            mandatory = True,
+            doc = """Target platform that describes characteristics of the target device.
+
+                See https://bazel.build/extending/platforms.
+            """,
+        ),
+        "exec_platform": attr.label(
+            mandatory = True,
+            doc = """Execution platform, where the build is executed.
+
+                See https://bazel.build/extending/platforms.
+            """,
+        ),
+        "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
         "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils"),
             cfg = "exec",
+        ),
+        "_toolchains": attr.label(
+            doc = "Provides all toolchains that the kernel build needs.",
+            default = "//build/kernel/kleaf/impl:kernel_toolchains",
+            providers = [KernelEnvToolchainsInfo],
+            cfg = _toolchains_transition,
         ),
         "_debug_annotate_scripts": attr.label(
             default = "//build/kernel/kleaf:debug_annotate_scripts",
@@ -416,5 +542,11 @@ kernel_env = rule(
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
+        "_kernel_use_resolved_toolchains": attr.label(
+            default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     } | _kernel_env_additional_attrs(),
 )

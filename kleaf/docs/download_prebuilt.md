@@ -16,7 +16,7 @@ In particular, look out for these places:
 * `kernel_build()`: `base_kernel`
 * Any target: `kernel_build`
 * `copy_to_dist_dir`: `data`
-* `kernel_build_abi_dist`: `data`
+* `kernel_abi_dist`: `data`
 
 See Pixel 2021 mainline for an example (search for `//common:kernel_aarch64`):
 

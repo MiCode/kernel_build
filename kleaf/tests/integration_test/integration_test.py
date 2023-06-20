@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Integration tests for Kleaf.
 
 The rest of the arguments are passed to absltest.
@@ -45,7 +44,7 @@ import pathlib
 import tempfile
 import textwrap
 import unittest
-from typing import Callable
+from typing import Callable, Iterable
 
 from absl.testing import absltest
 from build.kernel.kleaf.analysis.inputs import analyze_inputs
@@ -68,12 +67,18 @@ _INTEGRATION_TEST_BAZEL_RC = "out/bazel/integration_test.bazelrc"
 
 
 def load_arguments():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--bazel-arg", action="append", dest="bazel_args", default=[],
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--bazel-arg",
+                        action="append",
+                        dest="bazel_args",
+                        default=[],
                         help="arg to bazel build calls")
-    parser.add_argument("--bazel-wrapper-arg", action="append", dest="bazel_wrapper_args",
-                        default=[], help="arg to bazel.py wrapper")
+    parser.add_argument("--bazel-wrapper-arg",
+                        action="append",
+                        dest="bazel_wrapper_args",
+                        default=[],
+                        help="arg to bazel.py wrapper")
     return parser.parse_known_args()
 
 
@@ -81,6 +86,7 @@ arguments = None
 
 
 class Exec(object):
+
     @staticmethod
     def check_call(args: list[str], **kwargs) -> None:
         """Executes a shell command."""
@@ -95,9 +101,24 @@ class Exec(object):
         sys.stderr.write(f"+ {' '.join(args)}\n")
         return subprocess.check_output(args, **kwargs)
 
+    @staticmethod
+    def popen(args: list[str], **kwargs) -> subprocess.Popen:
+        """Executes a shell command.
+
+        Returns:
+            the Popen object
+        """
+        kwargs.setdefault("text", True)
+        sys.stderr.write(f"+ {' '.join(args)}\n")
+        popen = subprocess.Popen(args, **kwargs)
+        return popen
+
 
 class KleafIntegrationTestBase(unittest.TestCase):
-    def _check_call(self, command: str, command_args: list[str],
+
+    def _check_call(self,
+                    command: str,
+                    command_args: list[str],
                     startup_options=(),
                     **kwargs) -> None:
         """Executes a bazel command."""
@@ -113,18 +134,30 @@ class KleafIntegrationTestBase(unittest.TestCase):
         """Executes a bazel build command."""
         self._check_call("build", command_args, **kwargs)
 
-    def _check_output(self, command: str, command_args: list[str], **kwargs) -> str:
+    def _check_output(self, command: str, command_args: list[str],
+                      **kwargs) -> str:
         """Returns output of a bazel command."""
-        return Exec.check_output([str(_BAZEL),
-                                  f"--bazelrc={self._bazel_rc.name}",
-                                  command,
-                                  ] + command_args, **kwargs)
+        return Exec.check_output([
+            str(_BAZEL),
+            f"--bazelrc={self._bazel_rc.name}",
+            command,
+        ] + command_args, **kwargs)
+
+    def _popen(self, command: str, command_args: list[str], **kwargs) \
+            -> subprocess.Popen:
+        return Exec.popen([
+            str(_BAZEL),
+            f"--bazelrc={self._bazel_rc.name}",
+            command,
+        ] + command_args, **kwargs)
 
     def setUp(self) -> None:
         self.assertTrue(os.environ.get("BUILD_WORKSPACE_DIRECTORY"),
                         "BUILD_WORKSPACE_DIRECTORY is not set")
         os.chdir(os.environ["BUILD_WORKSPACE_DIRECTORY"])
-        sys.stderr.write(f"BUILD_WORKSPACE_DIRECTORY={os.environ['BUILD_WORKSPACE_DIRECTORY']}\n")
+        sys.stderr.write(
+            f"BUILD_WORKSPACE_DIRECTORY={os.environ['BUILD_WORKSPACE_DIRECTORY']}\n"
+        )
 
         self.assertTrue(_BAZEL.is_file())
 
@@ -147,13 +180,38 @@ class KleafIntegrationTestBase(unittest.TestCase):
 
         self.addCleanup(cleanup)
 
-    def filter_lines(self, path: pathlib.Path | str, pred: Callable[[str], bool]):
+    def filter_lines(
+        self,
+        path: pathlib.Path | str,
+        pred: Callable[[str], bool],
+    ):
         """Filters lines in a file."""
         output_file_obj = tempfile.NamedTemporaryFile(mode="w", delete=False)
         with open(path) as input_file:
             with output_file_obj as output_file:
                 for line in input_file:
                     if pred(line):
+                        output_file.write(line)
+        shutil.move(output_file.name, path)
+
+    def replace_lines(
+        self,
+        path: pathlib.Path | str,
+        pred: Callable[[str], bool],
+        replacements: Iterable[str],
+    ):
+        """Replaces lines in a file."""
+        output_file_obj = tempfile.NamedTemporaryFile(mode="w", delete=False)
+        it = iter(replacements)
+        with open(path) as input_file:
+            with output_file_obj as output_file:
+                for line in input_file:
+                    if pred(line):
+                        replaced_line = next(it)
+                        output_file.write(replaced_line)
+                        if not replaced_line.endswith("\n"):
+                            output_file.write("\n")
+                    else:
                         output_file.write(line)
         shutil.move(output_file.name, path)
 
@@ -182,10 +240,13 @@ class KleafIntegrationTestBase(unittest.TestCase):
         """Returns the common package."""
         return "common"
 
+
 class KleafIntegrationTest(KleafIntegrationTestBase):
+
     def test_simple_modules_prepare_local(self):
         """Tests that fixdep is not needed."""
-        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] + _FASTEST)
+        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] +
+                    _FASTEST)
 
     def test_simple_incremental(self):
         self._build([f"//{self._common()}:kernel_dist"] + _FASTEST)
@@ -204,7 +265,8 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
         """
         modules_prepare_archive = \
             f"bazel-bin/{self._common()}/kernel_aarch64_modules_prepare/modules_prepare_outdir.tar.gz"
-        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] + _FASTEST)
+        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] +
+                    _FASTEST)
         first_hash = self._sha256(modules_prepare_archive)
 
         old_modules_archive = tempfile.NamedTemporaryFile()
@@ -212,14 +274,16 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
 
         self._touch_core_kernel_file()
 
-        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] + _FASTEST)
+        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] +
+                    _FASTEST)
         second_hash = self._sha256(modules_prepare_archive)
 
         if first_hash != second_hash:
             old_modules_archive.delete = False
 
-        self.assertEqual(first_hash, second_hash,
-                         textwrap.dedent(f"""\
+        self.assertEqual(
+            first_hash, second_hash,
+            textwrap.dedent(f"""\
                              Check their content here:
                              old: {old_modules_archive.name}
                              new: {modules_prepare_archive}"""))
@@ -233,16 +297,20 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
         ]).splitlines()
         self.assertTrue(vd_modules)
 
-        print(f"+ build/kernel/kleaf/analysis/inputs.py 'mnemonic(\"KernelModule.*\", {vd_modules[0]})'")
-        input_to_module = analyze_inputs(aquery_args=[
-                                                         f'mnemonic("KernelModule.*", {vd_modules[0]})'
-                                                     ] + _FASTEST).keys()
-        self.assertFalse(
-            [path for path in input_to_module if pathlib.Path(path).name == "vmlinux"],
-            "An external module must not depend on vmlinux")
-        self.assertFalse(
-            [path for path in input_to_module if pathlib.Path(path).name == "System.map"],
-            "An external module must not depend on System.map")
+        print(
+            f"+ build/kernel/kleaf/analysis/inputs.py 'mnemonic(\"KernelModule.*\", {vd_modules[0]})'"
+        )
+        input_to_module = analyze_inputs(
+            aquery_args=[f'mnemonic("KernelModule.*", {vd_modules[0]})'] +
+            _FASTEST).keys()
+        self.assertFalse([
+            path
+            for path in input_to_module if pathlib.Path(path).name == "vmlinux"
+        ], "An external module must not depend on vmlinux")
+        self.assertFalse([
+            path for path in input_to_module
+            if pathlib.Path(path).name == "System.map"
+        ], "An external module must not depend on System.map")
 
     def test_incremental_switch_to_local(self):
         """Tests that switching from non-local to local works."""
@@ -259,18 +327,17 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
 
         See b/257288175."""
         self._build([f"//{self._common()}:kernel_dist"] + _LOCAL + _LTO_NONE)
-        self._build([f"//{self._common()}:kernel_dist"] + _LOCAL + [
-            "--lto=thin"
-        ])
+        self._build([f"//{self._common()}:kernel_dist"] + _LOCAL +
+                    ["--lto=thin"])
 
     def test_change_lto_to_none_when_local(self):
         """Tests that, with --config=local, changing from --lto=thin to --lto=local works.
 
         See b/257288175."""
-        self._check_call("build", [f"//{self._common()}:kernel_dist"] + _LOCAL + [
-            "--lto=thin"
-        ])
-        self._check_call("build", [f"//{self._common()}:kernel_dist"] + _LOCAL + _LTO_NONE)
+        self._check_call("build", [f"//{self._common()}:kernel_dist"] +
+                         _LOCAL + ["--lto=thin"])
+        self._check_call("build", [f"//{self._common()}:kernel_dist"] +
+                         _LOCAL + _LTO_NONE)
 
     def test_override_javatmp(self):
         """Tests that out/bazel/javatmp can be overridden.
@@ -283,10 +350,12 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
             shutil.rmtree(default_java_tmp)
         except FileNotFoundError:
             pass
-        self._check_call(
-            startup_options=[f"--host_jvm_args=-Djava.io.tmpdir={new_java_tmp.name}"],
-            command="build",
-            command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
+        self._check_call(startup_options=[
+            f"--host_jvm_args=-Djava.io.tmpdir={new_java_tmp.name}"
+        ],
+                         command="build",
+                         command_args=["//build/kernel/kleaf:empty_test"] +
+                         _FASTEST)
         self.assertFalse(default_java_tmp.exists())
 
     def test_override_absolute_out_dir(self):
@@ -300,15 +369,15 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
             shutil.rmtree(default_out)
         except FileNotFoundError:
             pass
-        self._check_call(
-            command="build",
-            command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
+        self._check_call(command="build",
+                         command_args=["//build/kernel/kleaf:empty_test"] +
+                         _FASTEST)
         self.assertTrue(default_out.exists())
         shutil.rmtree(default_out)
-        self._check_call(
-            startup_options=[f"--output_root={new_out.name}"],
-            command="build",
-            command_args=["//build/kernel/kleaf:empty_test"] + _FASTEST)
+        self._check_call(startup_options=[f"--output_root={new_out.name}"],
+                         command="build",
+                         command_args=["//build/kernel/kleaf:empty_test"] +
+                         _FASTEST)
         self.assertFalse(default_out.exists())
 
     def test_config_uapi_header_test(self):
@@ -331,36 +400,109 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
                 gki_defconfig = f"{self._common()}/arch/{srcarch}/configs/gki_defconfig"
                 self.restore_file_after_test(gki_defconfig)
 
-                self._check_call("run",
-                                 [f"//{self._common()}:kernel_{arch}_config", "--", "olddefconfig"]
-                                 + _FASTEST)
+                self._check_call("run", [
+                    f"//{self._common()}:kernel_{arch}_config", "--",
+                    "olddefconfig"
+                ] + _FASTEST)
 
                 with open(gki_defconfig) as f:
                     new_gki_defconfig_content = f.read()
-                self.assertTrue("CONFIG_UAPI_HEADER_TEST=y" in new_gki_defconfig_content.splitlines(),
-                                f"gki_defconfig should still have CONFIG_UAPI_HEADER_TEST=y after "
-                                f"`bazel run //{self._common()}:kernel_aarch64_config "
-                                f"-- olddefconfig`, but got\n{new_gki_defconfig_content}")
+                self.assertTrue(
+                    "CONFIG_UAPI_HEADER_TEST=y"
+                    in new_gki_defconfig_content.splitlines(),
+                    f"gki_defconfig should still have CONFIG_UAPI_HEADER_TEST=y after "
+                    f"`bazel run //{self._common()}:kernel_aarch64_config "
+                    f"-- olddefconfig`, but got\n{new_gki_defconfig_content}")
 
-                # It should be fine to call the same command subsequently. This tests that the
-                # symlink in execroot is properly restored.
-                self._check_call("run",
-                                 [f"//{self._common()}:kernel_{arch}_config", "--", "olddefconfig"]
-                                 + _FASTEST)
+                # It should be fine to call the same command subsequently.
+                self._check_call("run", [
+                    f"//{self._common()}:kernel_{arch}_config", "--",
+                    "olddefconfig"
+                ] + _FASTEST)
+
+    def test_menuconfig_merge(self):
+        """Test that menuconfig works with a raw merge_config.sh in PRE_DEFCONFIG_CMDS.
+
+        See `menuconfig_merge_test/` for details.
+
+        See b/276889737 and b/274878805."""
+
+        args = [
+            "//build/kernel/kleaf/tests/integration_test/menuconfig_merge_test:menuconfig_merge_test_config",
+        ] + _FASTEST
+
+        output = self._check_output("run", args)
+
+        matching_line = lambda line: re.match(
+            r"^Updating .*common/arch/arm64/configs/menuconfig_test_defconfig$",
+            line)
+        self.assertTrue(
+            any([matching_line(line) for line in output.splitlines()]))
+
+        # It should be fine to call the same command subsequently.
+        self._check_call("run", args)
+
+    def test_menuconfig_fragment(self):
+        """Test that menuconfig works with a FRAGMENT_CONFIG defined.
+
+        See `menuconfig_fragment_test/` for details.
+
+        See b/276889737 and b/274878805."""
+
+        args = [
+            "//build/kernel/kleaf/tests/integration_test/menuconfig_fragment_test:menuconfig_fragment_test_config",
+        ] + _FASTEST
+
+        output = self._check_output("run", args)
+
+        expected_line = f"Updated {os.environ['BUILD_WORKSPACE_DIRECTORY']}/build/kernel/kleaf/tests/integration_test/menuconfig_fragment_test/defconfig.fragment"
+        self.assertTrue(expected_line, output.splitlines())
+
+        # It should be fine to call the same command subsequently.
+        self._check_call("run", args)
+
+    def test_ddk_defconfig_must_present(self):
+        """Test that for ddk_module, items in defconfig must be in the final .config.
+
+        See b/279105294.
+        """
+
+        args = [
+            "//build/kernel/kleaf/tests/integration_test/ddk_negative_test:defconfig_must_present_test_module_config",
+        ] + _FASTEST
+        popen = self._popen("build",
+                            args,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+        _, stderr = popen.communicate()
+        self.assertNotEqual(popen.returncode, 0)
+        self.assertIn(
+            "CONFIG_DELETED_SET: actual '', expected 'CONFIG_DELETED_SET=y'.",
+            stderr)
+        self.assertIn(
+            "CONFIG_DELETED_UNSET: actual '', expected '# CONFIG_DELETED_UNSET is not set'.",
+            stderr)
+        self.assertNotIn("DECLARED_SET", stderr)
+        self.assertNotIn("DECLARED_UNSET", stderr)
 
 
 class ScmversionIntegrationTest(KleafIntegrationTestBase):
+
     def setUp(self) -> None:
         super().setUp()
 
         self.strings = "bazel-bin/build/kernel/hermetic-tools/llvm-strings"
-        self.uname_pattern_prefix = re.compile(r"^Linux version [0-9]+[.][0-9]+[.][0-9]+(\S*)")
+        self.uname_pattern_prefix = re.compile(
+            r"^Linux version [0-9]+[.][0-9]+[.][0-9]+(\S*)")
 
         self.build_config_common_path = f"{self._common()}/build.config.common"
         self.restore_file_after_test(self.build_config_common_path)
 
         self.gki_defconfig_path = f"{self._common()}/arch/arm64/configs/gki_defconfig"
         self.restore_file_after_test(self.gki_defconfig_path)
+
+        self.makefile_path = f"{self._common()}/Makefile"
+        self.restore_file_after_test(self.makefile_path)
 
     def _setup_mainline(self):
         with open(self.build_config_common_path, "a") as f:
@@ -374,9 +516,15 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         with open(self.build_config_gki_aarch64_path, "a") as f:
             f.write("POST_DEFCONFIG_CMDS=true\n")
 
+        extraversion_pattern = re.compile(r"^EXTRAVERSION\s*=")
+        self.replace_lines(self.makefile_path,
+                           lambda x: re.search(extraversion_pattern, x),
+                           ["EXTRAVERSION = -rc999"])
+
     def _setup_release_branch(self):
         with open(self.build_config_common_path, "a") as f:
-            f.write(textwrap.dedent("""\
+            f.write(
+                textwrap.dedent("""\
                 BRANCH=android99-100.110
                 KMI_GENERATION=56
             """))
@@ -384,11 +532,14 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         localversion_pattern = re.compile(r"^CONFIG_LOCALVERSION=")
         self.filter_lines(self.gki_defconfig_path,
                           lambda x: not re.search(localversion_pattern, x))
+        extraversion_pattern = re.compile(r"^EXTRAVERSION\s*=")
+        self.replace_lines(self.makefile_path,
+                           lambda x: re.search(extraversion_pattern, x),
+                           ["EXTRAVERSION ="])
 
     def _get_vmlinux_scmversion(self):
         strings_output = Exec.check_output([
-            self.strings,
-            f"bazel-bin/{self._common()}/kernel_aarch64/vmlinux"
+            self.strings, f"bazel-bin/{self._common()}/kernel_aarch64/vmlinux"
         ])
         ret = []
         for line in strings_output.splitlines():
@@ -399,65 +550,97 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         print(f"scmversion = {ret}")
         return ret
 
+    @staticmethod
+    def _env_without_build_number():
+        env = dict(os.environ)
+        env.pop("BUILD_NUMBER", None)
+        return env
+
+    @staticmethod
+    def _env_with_build_number(build_number):
+        env = dict(os.environ)
+        env["BUILD_NUMBER"] = str(build_number)
+        return env
+
     def test_mainline_no_stamp(self):
         self._setup_mainline()
-        self._check_call("build", _FASTEST + [
-            f"//{self._common()}:kernel_aarch64",
-        ])
+        self._check_call(
+            "build",
+            _FASTEST + [
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
         for scmversion in self._get_vmlinux_scmversion():
-            self.assertEqual("-mainline-maybe-dirty", scmversion)
+            self.assertEqual("-rc999-mainline-maybe-dirty", scmversion)
 
     def test_mainline_stamp(self):
         self._setup_mainline()
-        self._check_call("build", _FASTEST + [
-            "--config=stamp",
-            f"//{self._common()}:kernel_aarch64",
-        ])
-        scmversion_pat = re.compile(r"-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?")
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
+        scmversion_pat = re.compile(
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
     def test_mainline_ab(self):
         self._setup_mainline()
-        self._check_call("build", _FASTEST + [
-            "--config=stamp",
-            f"//{self._common()}:kernel_aarch64",
-        ], env=os.environ | {
-            "BUILD_NUMBER": "123456"
-        })
-        scmversion_pat = re.compile(r"-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456")
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_with_build_number("123456"))
+        scmversion_pat = re.compile(
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456$"
+        )
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
     def test_release_branch_no_stamp(self):
         self._setup_release_branch()
-        self._check_call("build", _FASTEST + [
-            f"//{self._common()}:kernel_aarch64",
-        ])
+        self._check_call(
+            "build",
+            _FASTEST + [
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
         for scmversion in self._get_vmlinux_scmversion():
             self.assertEqual("-android99-56-maybe-dirty", scmversion)
 
     def test_release_branch_stamp(self):
         self._setup_release_branch()
-        self._check_call("build", _FASTEST + [
-            "--config=stamp",
-            f"//{self._common()}:kernel_aarch64",
-        ])
-        scmversion_pat = re.compile(r"-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?")
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
+        scmversion_pat = re.compile(
+            r"^-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
     def test_release_branch_ab(self):
         self._setup_release_branch()
-        self._check_call("build", _FASTEST + [
-            "--config=stamp",
-            f"//{self._common()}:kernel_aarch64",
-        ], env=os.environ | {
-            "BUILD_NUMBER": "123456"
-        })
-        scmversion_pat = re.compile(r"-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456")
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            env=ScmversionIntegrationTest._env_with_build_number("123456"))
+        scmversion_pat = re.compile(
+            r"^-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
+
 
 if __name__ == "__main__":
     arguments, unknown = load_arguments()

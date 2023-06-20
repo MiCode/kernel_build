@@ -19,12 +19,6 @@ build:hermetic_cc --incompatible_enable_cc_toolchain_resolution
 # Do not use host toolchain
 build:hermetic_cc --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
-# Register the hermetic toolchains
-build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:android_arm64_clang_toolchain
-build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:android_x86_64_clang_toolchain
-build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:android_riscv64_clang_toolchain
-build:hermetic_cc --extra_toolchains=//prebuilts/clang/host/linux-x86/kleaf:linux_x86_64_clang_toolchain
-
 build:hermetic_cc --//build/kernel/kleaf:config_hermetic_cc
 
 # Always use the hermetic CC toolchain for CC rules.

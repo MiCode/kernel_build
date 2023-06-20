@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Defines repositories in a Kleaf workspace.
+"""
+
 load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
 load(
     "//build/kernel/kleaf:constants.bzl",
@@ -20,8 +24,10 @@ load(
 )
 load("//build/kernel/kleaf:download_repo.bzl", "download_artifacts_repo")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
-def define_kleaf_workspace(common_kernel_package = None):
+# buildifier: disable=unnamed-macro
+def define_kleaf_workspace(common_kernel_package = None, include_remote_java_tools_repo = False):
     """Common macro for defining repositories in a Kleaf workspace.
 
     **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
@@ -31,13 +37,29 @@ def define_kleaf_workspace(common_kernel_package = None):
     called, it must be called after `define_kleaf_workspace` is called.
 
     Args:
-      common_kernel_package: The path to the common kernel source tree. By
-        default, it is `"common"`.
+      common_kernel_package: Default is `"@//common"`. The package to the common
+        kernel source tree.
+
+        As a legacy behavior, if the provided string does not start with
+        `@` or `//`, it is prepended with `@//`.
 
         Do not provide the trailing `/`.
+      include_remote_java_tools_repo: Default is `False`. Whether to vendor two extra
+        repositories: remote_java_tools and remote_java_tools_linux.
+
+        These respositories should exist under `//prebuilts/bazel/`
     """
     if common_kernel_package == None:
-        common_kernel_package = "common"
+        common_kernel_package = "@//common"
+    if not common_kernel_package.startswith("@") and not common_kernel_package.startswith("//"):
+        common_kernel_package = "@//" + common_kernel_package
+
+        # buildifier: disable=print
+        print("""
+WARNING: define_kleaf_workspace() should be called with common_kernel_package={}.
+    This will become an error in the future.""".format(
+            repr(common_kernel_package),
+        ))
 
     import_external_repositories(
         # keep sorted
@@ -56,7 +78,7 @@ def define_kleaf_workspace(common_kernel_package = None):
 
     key_value_repo(
         name = "kernel_toolchain_info",
-        srcs = ["//{}:build.config.constants".format(common_kernel_package)],
+        srcs = ["{}:build.config.constants".format(common_kernel_package)],
         additional_values = {
             "common_kernel_package": common_kernel_package,
         },
@@ -78,11 +100,34 @@ def define_kleaf_workspace(common_kernel_package = None):
         target = "kernel_aarch64",
     )
 
-    # Fake local_jdk to avoid fetching rules_java for any exec targets.
-    # See build/kernel/kleaf/impl/fake_local_jdk/README.md.
+    # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
     native.local_repository(
+        name = "rules_python",
+        path = "build/bazel_common_rules/rules/python/stubs",
+    )
+
+    # The following 2 repositories contain prebuilts that are necessary to the Java Rules.
+    # They are vendored locally to avoid the need for CI bots to download them.
+    if include_remote_java_tools_repo:
+        native.local_repository(
+            name = "remote_java_tools",
+            path = "prebuilts/bazel/common/remote_java_tools",
+        )
+
+        native.local_repository(
+            name = "remote_java_tools_linux",
+            path = "prebuilts/bazel/linux-x86_64/remote_java_tools_linux",
+        )
+
+    # Use checked-in JDK from prebuilts as local_jdk
+    #   Needed for stardoc
+    # Note: This was not added directly to avoid conflicts with roboleaf,
+    #   see https://android-review.googlesource.com/c/platform/build/bazel/+/2457390
+    #   for more details.
+    native.new_local_repository(
         name = "local_jdk",
-        path = "build/kernel/kleaf/impl/fake_local_jdk",
+        path = "prebuilts/jdk/jdk11/linux-x86",
+        build_file = "build/kernel/kleaf/jdk11.BUILD",
     )
 
     # Fake rules_cc to avoid fetching it for any py_binary targets.
@@ -97,6 +142,20 @@ def define_kleaf_workspace(common_kernel_package = None):
         path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
     )
 
+    # Stub out @rules_java required for stardoc.
+    native.local_repository(
+        name = "rules_java",
+        path = "build/bazel_common_rules/rules/java/rules_java",
+    )
+
+    # Use checked-in JDK from prebuilts as local_jdk
+    #   Needed for stardoc
+    native.register_toolchains(
+        "@local_jdk//:all",
+    )
+
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
     )
+
+    register_clang_toolchains()

@@ -14,8 +14,14 @@
 
 """Utility functions to handle scmversion."""
 
-load(":status.bzl", "status")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(
+    ":common_providers.bzl",
+    "KernelBuildOriginalEnvInfo",
+    "KernelEnvInfo",
+)
+load(":status.bzl", "status")
 
 def _get_scmversion_cmd(srctree, scmversion):
     """Return a shell script that sets up .scmversion file in the source tree conditionally.
@@ -44,27 +50,45 @@ def _get_scmversion_cmd(srctree, scmversion):
         scmversion = scmversion,
     )
 
-def _write_localversion_step(ctx, out_path):
-    """Return command and inputs to set up scmversion.
+def _get_status_at_path(ctx, status_name, quoted_src_path):
+    # {path}:{scmversion} {path}:{scmversion} ...
+
+    cmd = """extract_git_metadata "$({stable_status_cmd})" {quoted_src_path}""".format(
+        stable_status_cmd = status.get_stable_status_cmd(ctx, status_name),
+        quoted_src_path = quoted_src_path,
+    )
+    return cmd
+
+def _write_localversion(ctx):
+    """Sets up scmversion.
+
+    This creates a separate action to set up scmversion to avoid direct
+    dependency on stable-status.txt which contains metadata of all git
+    projects in the repository, so that changes in unrelated projects does not
+    trigger a rebuild.
 
     Args:
-        ctx: [ctx](https://bazel.build/rules/lib/ctx)
-        out_path: output path of localversion file
+        ctx: [ctx](https://bazel.build/rules/lib/ctx) of `kernel_config`
+    Returns:
+        output localversion file
     """
 
     # workspace_status.py does not prepend BRANCH and KMI_GENERATION before
     # STABLE_SCMVERSION because their values aren't known at that point.
     # Emulate the logic in setlocalversion to prepend them.
 
+    out_file = ctx.actions.declare_file(ctx.attr.name + "/localversion")
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        deps = [ctx.info_file]
-        stable_scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION")
+        inputs = [ctx.info_file]
+        stable_scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", '"${KERNEL_DIR}"')
     else:
-        deps = []
+        inputs = []
         stable_scmversion_cmd = "echo '-maybe-dirty'"
 
-    # TODO(b/227520025): Remove the following logic in setlocalversion.
-    cmd = """
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+    tools = ctx.attr.env[KernelEnvInfo].tools
+
+    cmd = ctx.attr.env[KernelEnvInfo].setup + """
         (
             # Extract the Android release version. If there is no match, then return 255
             # and clear the variable $android_release
@@ -97,11 +121,20 @@ def _write_localversion_step(ctx, out_path):
         ) > {out_path}
     """.format(
         stable_scmversion_cmd = stable_scmversion_cmd,
-        out_path = out_path,
+        out_path = out_file.path,
     )
-    return struct(deps = deps, cmd = cmd)
 
-def _get_ext_mod_scmversion(ctx, ext_mod):
+    ctx.actions.run_shell(
+        inputs = depset(inputs, transitive = transitive_inputs),
+        outputs = [out_file],
+        tools = tools,
+        command = cmd,
+        progress_message = "Determining scmversion {}".format(ctx.label),
+        mnemonic = "KernelConfigScmversion",
+    )
+    return out_file
+
+def _ext_mod_write_localversion(ctx, ext_mod):
     """Return command and inputs to get the SCM version for an external module.
 
     Args:
@@ -109,23 +142,43 @@ def _get_ext_mod_scmversion(ctx, ext_mod):
         ext_mod: Defines the directory of the external module
     """
     if not ctx.attr._config_is_stamp[BuildSettingInfo].value:
-        return struct(deps = [], cmd = "")
+        cmd = """
+            rm -f ${OUT_DIR}/localversion
+        """
+        return struct(deps = [], cmd = cmd)
 
-    # {ext_mod}:{scmversion} {ext_mod}:{scmversion} ...
-    scmversion_cmd = status.get_stable_status_cmd(ctx, "STABLE_SCMVERSION_EXT_MOD")
-    scmversion_cmd += """ | sed -n 's|.*\\<{ext_mod}:\\(\\S\\+\\).*|\\1|p'""".format(ext_mod = ext_mod)
+    inputs = [ctx.info_file]
+    transitive_inputs = [ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.inputs]
+    tools = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.tools
 
-    # workspace_status.py does not set STABLE_SCMVERSION if setlocalversion
-    # should not run on KERNEL_DIR. However, for STABLE_SCMVERSION_EXT_MOD,
-    # we may have a missing item if setlocalversion should not run in
-    # a certain directory. Hence, be lenient about failures.
-    scmversion_cmd += " || true"
+    # This creates a separate action to set up scmversion to avoid direct
+    # dependency on stable-status.txt which contains metadata of all git
+    # projects in the repository, so that changes in unrelated projects does not
+    # trigger a rebuild.
+    localversion_file = ctx.actions.declare_file(ctx.label.name + "/localversion")
+    scmversion_cmd = _get_status_at_path(ctx, "STABLE_SCMVERSIONS", shell.quote(ext_mod))
+    cmd = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.setup + """
+        ( {scmversion_cmd} ) > {localversion_file}
+    """.format(
+        scmversion_cmd = scmversion_cmd,
+        localversion_file = localversion_file.path,
+    )
+    ctx.actions.run_shell(
+        inputs = depset(inputs, transitive = transitive_inputs),
+        outputs = [localversion_file],
+        tools = tools,
+        command = cmd,
+        progress_message = "Determining scmversion for module {}".format(ctx.label),
+        mnemonic = "KernelModuleScmversion",
+    )
 
-    cmd = """
-        ( {scmversion_cmd} ) > ${{OUT_DIR}}/localversion
-    """.format(scmversion_cmd = scmversion_cmd)
+    ret_cmd = """
+        rsync -aL --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
+    """.format(
+        localversion_file = localversion_file.path,
+    )
 
-    return struct(deps = [ctx.info_file], cmd = cmd)
+    return struct(deps = [localversion_file], cmd = ret_cmd)
 
 def _set_source_date_epoch(ctx):
     """Return command and inputs to set the value of `SOURCE_DATE_EPOCH`.
@@ -134,9 +187,19 @@ def _set_source_date_epoch(ctx):
         ctx: [ctx](https://bazel.build/rules/lib/ctx)
     """
     if ctx.attr._config_is_stamp[BuildSettingInfo].value:
+        # SOURCE_DATE_EPOCH needs to be set before calling _setup_env.sh to
+        # avoid calling into git. However, determining the correct SOURCE_DATE_EPOCH
+        # from SOURCE_DATE_EPOCHS needs KERNEL_DIR, which is set by
+        # _setup_env.sh. Hence, set a separate variable
+        # KLEAF_SOURCE_DATE_EPOCHS so _setup_env.sh can use it to determine
+        # SOURCE_DATE_EPOCH.
+        # We can't put the reading of ctx.info_file in a separate action because
+        # KERNEL_DIR is not known without source _setup_env.sh. This is okay
+        # because kernel_env executes relatively quickly, and only the final
+        # result (SOURCE_DATE_EPOCH) is emitted in *_env.sh.
         return struct(deps = [ctx.info_file], cmd = """
-              export SOURCE_DATE_EPOCH=$({source_date_epoch_cmd})
-        """.format(source_date_epoch_cmd = status.get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCH")))
+              export KLEAF_SOURCE_DATE_EPOCHS=$({source_date_epoch_cmd})
+        """.format(source_date_epoch_cmd = status.get_stable_status_cmd(ctx, "STABLE_SOURCE_DATE_EPOCHS")))
     else:
         return struct(deps = [], cmd = """
               export SOURCE_DATE_EPOCH=0
@@ -156,8 +219,8 @@ def _set_localversion_cmd(_ctx):
     """
 
 stamp = struct(
-    write_localversion_step = _write_localversion_step,
-    get_ext_mod_scmversion = _get_ext_mod_scmversion,
+    write_localversion = _write_localversion,
+    ext_mod_write_localversion = _ext_mod_write_localversion,
     set_source_date_epoch = _set_source_date_epoch,
     set_localversion_cmd = _set_localversion_cmd,
 )

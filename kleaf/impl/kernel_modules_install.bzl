@@ -19,8 +19,10 @@ load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_
 load(
     ":common_providers.bzl",
     "KernelBuildExtModuleInfo",
+    "KernelBuildInfo",
     "KernelCmdsInfo",
     "KernelEnvAndOutputsInfo",
+    "KernelImagesInfo",
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
@@ -31,14 +33,20 @@ load(
 )
 
 def _kernel_modules_install_impl(ctx):
-    kernel_build = ctx.attr.kernel_build
-    if not kernel_build and ctx.attr.kernel_modules:
-        kernel_build = ctx.attr.kernel_modules[0][KernelModuleInfo].kernel_build
+    kernel_build_infos = None
+    if ctx.attr.kernel_build:
+        kernel_build_infos = kernel_utils.create_kernel_module_kernel_build_info(ctx.attr.kernel_build)
+    elif ctx.attr.kernel_modules:
+        kernel_build_infos = ctx.attr.kernel_modules[0][KernelModuleInfo].kernel_build_infos
 
-    if not kernel_build:
+    if not kernel_build_infos:
         fail("No `kernel_build` or `kernel_modules` provided.")
 
-    kernel_utils.check_kernel_build(ctx.attr.kernel_modules, kernel_build, ctx.label)
+    kernel_utils.check_kernel_build(
+        [target[KernelModuleInfo] for target in ctx.attr.kernel_modules],
+        kernel_build_infos.label,
+        ctx.label,
+    )
 
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
@@ -52,7 +60,7 @@ def _kernel_modules_install_impl(ctx):
 
     inputs = []
     inputs.append(
-        kernel_build[KernelBuildExtModuleInfo].modules_staging_archive,
+        kernel_build_infos.ext_module_info.modules_staging_archive,
     )
 
     for input_modules_staging_dws in modules_staging_dws_list:
@@ -67,20 +75,20 @@ def _kernel_modules_install_impl(ctx):
         external_modules.append(declared_file)
 
     transitive_inputs = [
-        kernel_build[KernelBuildExtModuleInfo].module_scripts,
-        kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.inputs,
+        kernel_build_infos.ext_module_info.module_scripts,
+        kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.inputs,
     ]
 
     tools = [
         ctx.executable._check_duplicated_files_in_archives,
         ctx.executable._search_and_cp_output,
     ]
-    transitive_tools = [kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.tools]
+    transitive_tools = [kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.tools]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
-    command = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.get_setup_script(
-        data = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_install_env_and_outputs_info.data,
+    command = kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.get_setup_script(
+        data = kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.data,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """
@@ -91,7 +99,7 @@ def _kernel_modules_install_impl(ctx):
     """.format(
         modules_staging_dir = modules_staging_dws.directory.path,
         kernel_build_modules_staging_archive =
-            kernel_build[KernelBuildExtModuleInfo].modules_staging_archive.path,
+            kernel_build_infos.ext_module_info.modules_staging_archive.path,
     )
     for input_modules_staging_dws in modules_staging_dws_list:
         # Allow directories to be written because we are merging multiple directories into one.
@@ -133,7 +141,7 @@ def _kernel_modules_install_impl(ctx):
                )
     """.format(
         modules_staging_archives = " ".join(
-            [kernel_build[KernelBuildExtModuleInfo].modules_staging_archive.path] +
+            [kernel_build_infos.ext_module_info.modules_staging_archive.path] +
             [input_modules_staging_dws.directory.path for input_modules_staging_dws in modules_staging_dws_list],
         ),
         modules_staging_dir = modules_staging_dws.directory.path,
@@ -177,7 +185,7 @@ def _kernel_modules_install_impl(ctx):
     return [
         DefaultInfo(files = depset(external_modules)),
         KernelModuleInfo(
-            kernel_build = kernel_build,
+            kernel_build_infos = kernel_build_infos,
             modules_staging_dws_depset = depset([modules_staging_dws]),
             packages = depset(transitive = [
                 target[KernelModuleInfo].packages
@@ -230,6 +238,8 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
                 # Needed by KernelModuleInfo.kernel_build
                 # TODO(b/247622808): Should put the info in KernelModuleInfo directly.
                 KernelEnvAndOutputsInfo,
+                KernelBuildInfo,
+                KernelImagesInfo,
             ],
             doc = "Label referring to the `kernel_build` module. Otherwise, it" +
                   " is inferred from `kernel_modules`.",

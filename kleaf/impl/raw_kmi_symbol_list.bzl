@@ -18,11 +18,19 @@ load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
 def _raw_kmi_symbol_list_impl(ctx):
-    if not ctx.file.src:
+    if not ctx.files.src:
         return []
 
-    inputs = [ctx.file.src]
-    inputs += ctx.attr.env[KernelEnvInfo].dependencies
+    if len(ctx.files.src) > 1:
+        fail("{}: raw_kmi_symbol_list.src must only provide at most one file".format(ctx.label))
+
+    src = ctx.files.src[0]
+
+    inputs = [src]
+    transitive_inputs = [ctx.attr.env[KernelEnvInfo].inputs]
+
+    tools = [ctx.executable._flatten_symbol_list]
+    transitive_tools = [ctx.attr.env[KernelEnvInfo].tools]
 
     out_file = ctx.actions.declare_file("{}/abi_symbollist.raw".format(ctx.attr.name))
 
@@ -33,15 +41,15 @@ def _raw_kmi_symbol_list_impl(ctx):
         out_dir = out_file.dirname,
         flatten_symbol_list = ctx.executable._flatten_symbol_list.path,
         out_file = out_file.path,
-        src = ctx.file.src.path,
+        src = src.path,
     )
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "RawKmiSymbolList",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
-        tools = [ctx.executable._flatten_symbol_list],
+        tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating abi_symbollist.raw {}".format(ctx.label),
         command = command,
     )
@@ -58,8 +66,8 @@ raw_kmi_symbol_list = rule(
             doc = "environment target that defines the kernel build environment",
         ),
         "src": attr.label(
-            doc = "Label to `abi_symbollist`",
-            allow_single_file = True,
+            doc = "Label to `abi_symbollist`. Must be 0 or 1 File.",
+            allow_files = True,
         ),
         "_flatten_symbol_list": attr.label(
             default = "//build/kernel:abi_flatten_symbol_list",

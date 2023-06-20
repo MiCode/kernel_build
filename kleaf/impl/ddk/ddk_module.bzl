@@ -34,6 +34,7 @@ def ddk_module(
         copts = None,
         kconfig = None,
         defconfig = None,
+        generate_btf = None,
         **kwargs):
     """
     Defines a DDK (Driver Development Kit) module.
@@ -347,14 +348,15 @@ def ddk_module(
           - Kconfig from `kernel_build`
           - Kconfig from dependent modules, if any
           - Kconfig of this module, if any
-        defconfig: The `defconfig` file. If specified, `Kconfig` must also be
-          specified. Otherwise it is useless.
+        defconfig: The `defconfig` file.
 
           Items must already be declared in `kconfig`. An item not declared
-          in Kconfig is silently dropped.
+          in Kconfig and inherited Kconfig files is silently dropped.
 
           An item declared in `kconfig` without a specific value in `defconfig`
           uses default value specified in `kconfig`.
+        generate_btf: Allows generation of BTF type information for the module.
+          See [kernel_module.generate_btf](#kernel_module-generate_btf)
         **kwargs: Additional attributes to the internal rule.
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
@@ -366,6 +368,7 @@ def ddk_module(
         kconfig = kconfig,
         kernel_build = kernel_build,
         module_deps = deps,
+        generate_btf = generate_btf,
     )
 
     kernel_module(
@@ -375,6 +378,7 @@ def ddk_module(
         # Set it to empty list, not None, so kernel_module() doesn't fallback to {name}.ko.
         # _kernel_module_impl infers the list of outs from internal_ddk_makefiles_dir.
         outs = [],
+        generate_btf = generate_btf,
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
         # This is used in build_cleaner.
         internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
@@ -392,7 +396,8 @@ def ddk_module(
         for config, config_srcs_dict in conditional_srcs.items():
             for config_value, config_srcs in config_srcs_dict.items():
                 if type(config_value) != "bool":
-                    fail("//{package}:{name}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
+                    fail("{workspace}//{package}:{name}: expected value of config {config} must be a bool, but got {config_value} of type {value_type}".format(
+                        workspace = native.repository_name(),
                         package = native.package_name(),
                         name = name,
                         config_value = config_value,

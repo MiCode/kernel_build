@@ -163,12 +163,7 @@ fi
 # ANDROID_KP_OUT_DIR is the output directory from Android Build System perspective
 ANDROID_KP_OUT_DIR="${3:-${OUT_DIR}}"
 if [ -z "${ANDROID_KP_OUT_DIR}" ]; then
-  ANDROID_KP_OUT_DIR=out/$(
-    cd ${ROOT_DIR}
-    OUT_DIR=${TEMP_KP_OUT_DIR}
-    source build/_wrapper_common.sh
-    get_branch
-  )
+  ANDROID_KP_OUT_DIR="out/msm-kernel-${KERNEL_TARGET}-${KERNEL_VARIANT}"
 
   if [ -n "${ANDROID_BUILD_TOP}" -a -e "${ANDROID_BUILD_TOP}/${ANDROID_KP_OUT_DIR}" ] ; then
     ANDROID_KP_OUT_DIR="${ANDROID_BUILD_TOP}/${ANDROID_KP_OUT_DIR}"
@@ -200,6 +195,16 @@ fi
 set +x
 
 cp "${ROOT_DIR}/build.config" "${ANDROID_KERNEL_OUT}/build.config"
+
+# Make sure Bazel extensions are linked properly
+if [ ! -f "${ROOT_DIR}/build/msm_kernel_extensions.bzl" ] \
+      && [ -f "${ROOT_DIR}/msm-kernel/msm_kernel_extensions.bzl" ]; then
+  ln -fs "../msm-kernel/msm_kernel_extensions.bzl" "${ROOT_DIR}/build/msm_kernel_extensions.bzl"
+fi
+if [ ! -f "${ROOT_DIR}/build/abl_extensions.bzl" ] \
+      && [ -f "${ROOT_DIR}/bootable/bootloader/edk2/abl_extensions.bzl" ]; then
+  ln -fs "../bootable/bootloader/edk2/abl_extensions.bzl" "${ROOT_DIR}/build/abl_extensions.bzl"
+fi
 
 # If prepare_vendor.sh fails and nobody checked the error code, make sure the android build fails
 # by removing the kernel Image which is needed to build boot.img
@@ -251,15 +256,6 @@ if [ "${RECOMPILE_ABL}" == "1" ] && [ -n "${TARGET_BUILD_VARIANT}" ] && \
    [ "${KERNEL_TARGET}" != "autogvm" ]; then
   echo
   echo "  Recompiling edk2"
-
-    # Make sure Bazel extensions are linked properly
-    if [ ! -f "${ROOT_DIR}/build/msm_kernel_extensions.bzl" ]; then
-      ln -fs "../msm-kernel/msm_kernel_extensions.bzl" "${ROOT_DIR}/build/msm_kernel_extensions.bzl"
-    fi
-    if [ ! -f "${ROOT_DIR}/build/abl_extensions.bzl" ]; then
-      ln -fs "../bootable/bootloader/edk2/abl_extensions.bzl" "${ROOT_DIR}/build/abl_extensions.bzl"
-    fi
-
     (
       cd "${ROOT_DIR}"
 
@@ -322,6 +318,7 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   fi
 
   rm -rf ${ANDROID_KERNEL_OUT}/system_dlkm/*
+  rm -rf ${ANDROID_PRODUCT_OUT}/system_dlkm*
   system_dlkm_archive="${ANDROID_KP_OUT_DIR}/dist/system_dlkm_staging_archive.tar.gz"
   if [ -e "$system_dlkm_archive" ]; then
     mkdir -p "${ANDROID_KERNEL_OUT}/system_dlkm/"
@@ -354,6 +351,12 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   if [ -e ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.blocklist ]; then
     cp ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.blocklist \
       ${ANDROID_KERNEL_OUT}/vendor_dlkm/system_dlkm.modules.blocklist
+  fi
+
+  if [ -e "${ANDROID_KP_OUT_DIR}/dist/board_extra_cmdline_${KERNEL_TARGET}_${KERNEL_VARIANT}" ];
+  then
+    cp "${ANDROID_KP_OUT_DIR}/dist/board_extra_cmdline_${KERNEL_TARGET}_${KERNEL_VARIANT}" \
+      "${ANDROID_KERNEL_OUT}/extra_cmdline"
   fi
 
   for file in Image vmlinux System.map .config Module.symvers kernel-uapi-headers.tar.gz ; do

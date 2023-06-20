@@ -16,11 +16,13 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
     ":kernel.bzl",
     "kernel_abi",
     "kernel_abi_dist",
     "kernel_build",
+    "kernel_build_config",
     "kernel_compile_commands",
     "kernel_filegroup",
     "kernel_images",
@@ -97,6 +99,7 @@ _KERNEL_BUILD_VALID_KEYS = [
     "module_implicit_outs",
     "protected_exports_list",
     "protected_modules_list",
+    "make_goals",
 ]
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
@@ -117,6 +120,9 @@ _COLLECT_UNSTRIPPED_MODULES = True
 
 # Always strip modules for common kernels.
 _STRIP_MODULES = True
+
+# Always keep a copy of Module.symvers for common kernels.
+_KEEP_MODULE_SYMVERS = True
 
 # glob() must be executed in a BUILD thread, so this cannot be a global
 # variable.
@@ -526,6 +532,18 @@ def define_common_kernels(
     if visibility == None:
         visibility = ["//visibility:public"]
 
+    # Workaround to set KERNEL_DIR correctly and
+    #  avoid using the fallback (directory of the config).
+    set_kernel_dir_cmd = "KERNEL_DIR=\"{common_package}\"".format(
+        common_package = native.package_name(),
+    )
+    write_file(
+        name = "set_kernel_dir_build_config",
+        content = [set_kernel_dir_cmd, ""],
+        out = "set_kernel_dir_build_config/build.config",
+        visibility = visibility,
+    )
+
     default_target_configs = None  # _default_target_configs is lazily evaluated.
     if target_configs == None:
         target_configs = {}
@@ -586,6 +604,16 @@ def define_common_kernels(
             allow_unknown_keys = True,
         )
 
+        kernel_build_config(
+            name = name + "_build_config",
+            srcs = [
+                # do not sort
+                ":set_kernel_dir_build_config",
+                arch_config["build_config"],
+                Label("//build/kernel/kleaf:gki_build_config_fragment"),
+            ],
+        )
+
         kernel_build(
             name = name,
             srcs = [name + "_sources"],
@@ -598,12 +626,13 @@ def define_common_kernels(
                 "certs/signing_key.pem",
                 "certs/signing_key.x509",
             ],
-            build_config = arch_config["build_config"],
+            build_config = name + "_build_config",
             enable_interceptor = arch_config.get("enable_interceptor"),
             visibility = visibility,
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             strip_modules = _STRIP_MODULES,
             toolchain_version = toolchain_version,
+            keep_module_symvers = _KEEP_MODULE_SYMVERS,
             **kernel_build_kwargs
         )
 
@@ -632,6 +661,17 @@ def define_common_kernels(
             name = name + "_script_headers",
             kernel_build = name,
             subdirs = ["scripts"],
+        )
+
+        native.filegroup(
+            name = name + "_ddk_allowlist_headers",
+            srcs = [
+                name + "_script_headers",
+                name + "_uapi_headers",
+            ],
+            visibility = [
+                Label("//build/kernel/kleaf:__pkg__"),
+            ],
         )
 
         kernel_modules_install(
@@ -734,7 +774,7 @@ def define_common_kernels(
             name + "_modules_install",
             name + "_" + TOOLCHAIN_VERSION_FILENAME,
             # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
-            "//build/kernel:gki_certification_tools",
+            Label("//build/kernel:gki_certification_tools"),
         ]
 
         copy_to_dist_dir(
@@ -919,7 +959,7 @@ def _define_common_kernels_additional_tests(
         kernel_modules_install,
         modules,
         arch):
-    fake_modules_options = "//build/kernel/kleaf/artifact_tests:fake_modules_options.txt"
+    fake_modules_options = Label("//build/kernel/kleaf/artifact_tests:fake_modules_options.txt")
 
     kernel_images(
         name = name + "_fake_images",
@@ -955,7 +995,7 @@ def _define_common_kernels_additional_tests(
 
     device_modules_test(
         name = name + "_device_modules_test",
-        base_kernel_label = Label("//{}:{}".format(native.package_name(), kernel_build_name)),
+        base_kernel_label = Label("{}//{}:{}".format(native.repository_name(), native.package_name(), kernel_build_name)),
         base_kernel_module = min(modules) if modules else None,
         arch = arch,
     )
@@ -974,6 +1014,7 @@ def define_db845c(
         outs,
         build_config = None,
         module_outs = None,
+        make_goals = None,
         define_abi_targets = None,
         kmi_symbol_list = None,
         kmi_symbol_list_add_only = None,
@@ -994,6 +1035,8 @@ def define_db845c(
         outs: See [kernel_build.outs](#kernel_build-outs).
         module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
           in-tree kernel modules.
+        make_goals: See [kernel_build.make_goals](#kernel_build-make_goals).  A list of strings
+          defining targets for the kernel build.
         define_abi_targets: See [kernel_abi.define_abi_targets](#kernel_abi-define_abi_targets).
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
         kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](#kernel_abi-kmi_symbol_list_add_only).
@@ -1008,7 +1051,7 @@ def define_db845c(
         build_config = "build.config.db845c"
 
     if kmi_symbol_list == None:
-        kmi_symbol_list = "//common:android/abi_gki_aarch64_db845c" if define_abi_targets else None
+        kmi_symbol_list = ":android/abi_gki_aarch64_db845c" if define_abi_targets else None
 
     if kmi_symbol_list_add_only == None:
         kmi_symbol_list_add_only = True if define_abi_targets else None
@@ -1034,6 +1077,7 @@ def define_db845c(
         kmi_symbol_list = kmi_symbol_list,
         collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
         strip_modules = True,
+        make_goals = make_goals,
     )
 
     # enable ABI Monitoring

@@ -70,10 +70,12 @@ def _kernel_kythe_impl(ctx):
         compile_commands_out_dir,
         vnames_mappings_json_file,
     ]
+    tools = [ctx.executable._reconstruct_out_dir]
 
     # Use KernelBuildOriginalEnvInfo from kernel_env because we don't need anything in $OUT_DIR from
     # kernel_config or kernel_build.
-    inputs += ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.dependencies
+    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.inputs)
+    transitive_tools = [ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.tools]
     command = ctx.attr.kernel_build[KernelBuildOriginalEnvInfo].env_info.setup
     command += """
              # Copy compile_commands.json to root, resolving $ROOT_DIR to the real value,
@@ -118,7 +120,7 @@ def _kernel_kythe_impl(ctx):
         mnemonic = "KernelKythe",
         inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [all_kzip],
-        tools = [ctx.executable._reconstruct_out_dir],
+        tools = depset(tools, transitive = transitive_tools),
         command = command,
         progress_message = "Building Kythe source code index (kzip) {}".format(ctx.label),
     )

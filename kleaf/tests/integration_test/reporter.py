@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import os
+import pathlib
 import shutil
 import sys
-import pathlib
+import time
 
 with open(pathlib.Path(__file__).parent / "raw_test_result_dir_value") as f:
     raw_test_result_dir = pathlib.Path(f.read().strip())
@@ -29,5 +30,9 @@ with open(raw_test_result_dir / "exitcode.txt") as f:
 shutil.copyfile(raw_test_result_dir / "output.xml", os.environ["XML_OUTPUT_FILE"])
 
 print(f"XML_OUTPUT_FILE={os.environ['XML_OUTPUT_FILE']}")
+
+# TODO(b/272135682): Build bot fails to report results properly when a
+# bazel test command executes < 10s.
+time.sleep(10)
 
 sys.exit(exit_code)
