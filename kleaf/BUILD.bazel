@@ -15,7 +15,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
@@ -393,17 +392,6 @@ bzl_library(
     srcs = ["update_source_file.bzl"],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [":hermetic_tools_def"],
-)
-
-filegroup(
-    name = "docs_deprecated",
-    srcs = ["index.html"],
-    visibility = ["//visibility:public"],
-)
-
-copy_to_dist_dir(
-    name = "docs_deprecated_dist",
-    data = [":docs_deprecated"],
 )
 
 # Kleaf API Docs. To view them:
