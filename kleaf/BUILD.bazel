@@ -98,8 +98,29 @@ bool_flag(
 )
 
 config_setting(
-    name = "kasan_is_true",
+    name = "kasan_generic_is_true",
     flag_values = {":kasan": "1"},
+)
+
+# If true, enable kasan sw tags. This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kasan_sw_tags",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_sw_tags_is_true",
+    flag_values = {":kasan_sw_tags": "1"},
+)
+
+selects.config_setting_group(
+    name = "kasan_is_true",
+    match_any = [
+        "//build/kernel/kleaf:kasan_generic_is_true",
+        "//build/kernel/kleaf:kasan_sw_tags_is_true",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -320,6 +341,7 @@ print_flags(
     name = "print_flags",
     flags = [
         ":kasan",
+        ":kasan_sw_tags",
         ":kcsan",
         ":kbuild_symtypes",
         ":lto",

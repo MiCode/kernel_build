@@ -1972,6 +1972,13 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
               IGNORED because --kasan is set!".format(this_label = ctx.label))
         return None
 
+    # Skip for the --kasan_sw_tags targets as they are not valid GKI release targets
+    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --kasan_sw_tags is set!".format(this_label = ctx.label))
+        return None
+
     # Skip for the --kcsan targets as they are not valid GKI release targets
     if ctx.attr._kcsan[BuildSettingInfo].value:
         # buildifier: disable=print
@@ -2066,6 +2073,9 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
     # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
     # if required.
     if ctx.attr._kasan[BuildSettingInfo].value:
+        return None
+
+    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
         return None
 
     # Skip for --kcsan build as they are not valid GKI releasae configurations.
