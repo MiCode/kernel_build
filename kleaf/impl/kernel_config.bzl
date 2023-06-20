@@ -654,6 +654,11 @@ kernel_config = rule(
             cfg = "exec",
         ),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),

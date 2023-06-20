@@ -241,6 +241,13 @@ sh_binary(
 )
 
 py_binary(
+    name = "cache_dir_config_tags",
+    srcs = ["cache_dir_config_tags.py"],
+    # All kernel_* / ddk_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
     name = "ddk/analyze_inputs",
     srcs = ["ddk/analyze_inputs.py"],
     visibility = ["//visibility:public"],

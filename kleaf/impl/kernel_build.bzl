@@ -392,6 +392,11 @@ def kernel_build(
         modules_prepare_force_generate_headers: If `True` it forces generation of
           additional headers as part of modules_prepare.
         defconfig_fragments: A list of targets that are applied to the defconfig.
+
+          As a convention, files should usually be named `<prop>_defconfig`
+          (e.g. `kasan_defconfig`) or `<prop>_<value>_defconfig` (e.g. `lto_none_defconfig`)
+          to provide human-readable hints during the build. The prefix should
+          describe what the defconfig does. However, this is not a requirement.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -480,6 +485,7 @@ def kernel_build(
         make_goals = make_goals,
         target_platform = name + "_platform_target",
         exec_platform = name + "_platform_exec",
+        defconfig_fragments = defconfig_fragments,
         **internal_kwargs
     )
 
@@ -1809,6 +1815,11 @@ _kernel_build = rule(
         ),
         "_get_kmi_string": attr.label(
             default = "//build/kernel/kleaf/impl:get_kmi_string",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
             executable = True,
             cfg = "exec",
         ),

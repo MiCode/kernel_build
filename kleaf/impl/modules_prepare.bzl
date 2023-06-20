@@ -146,6 +146,11 @@ modules_prepare = rule(
             doc = "If True it forces generation of additional headers after make modules_prepare",
         ),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
     } | _modules_prepare_additional_attrs(),

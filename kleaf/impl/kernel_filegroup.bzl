@@ -183,10 +183,18 @@ def _kernel_filegroup_impl(ctx):
     images_info = KernelImagesInfo(base_kernel_label = None)
     gcov_info = GcovInfo(gcno_mapping = None)
 
-    common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
-    progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
+    # kernel_filegroup does not have any defconfig_fragments because the .config is fixed from prebuilts.
+    config_tags_out = kernel_config_settings.kernel_env_get_config_tags(
+        ctx = ctx,
+        mnemonic_prefix = "KernelFilegroup",
+        defconfig_fragments = [],
+    )
+    progress_message_note = kernel_config_settings.get_progress_message_note(
+        ctx,
+        defconfig_fragments = [],
+    )
     kernel_env_attr_info = KernelEnvAttrInfo(
-        common_config_tags = common_config_tags,
+        common_config_tags = config_tags_out.common,
         progress_message_note = progress_message_note,
     )
 
@@ -316,6 +324,11 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.""",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
     } | _kernel_filegroup_additional_attrs(),
     toolchains = [hermetic_toolchain.type],
 )

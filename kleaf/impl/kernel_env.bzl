@@ -188,19 +188,20 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
-    common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
-    config_tags = dict(common_config_tags)
-    config_tags["_target"] = str(ctx.label)
-    config_tags_json = json.encode_indent(config_tags, indent = "  ")
-    config_tags_comment_file = ctx.actions.declare_file("{}/config_tags.txt".format(ctx.label.name))
-    config_tags_comment_lines = "\n".join(["# " + line for line in config_tags_json.splitlines()]) + "\n"
-    ctx.actions.write(config_tags_comment_file, config_tags_comment_lines)
-    inputs.append(config_tags_comment_file)
+    defconfig_fragments = ctx.files.defconfig_fragments
+    config_tags_out = kernel_config_settings.kernel_env_get_config_tags(
+        ctx = ctx,
+        mnemonic_prefix = "KernelEnv",
+        defconfig_fragments = defconfig_fragments,
+    )
+    inputs.append(config_tags_out.env)
 
-    out_dir_suffix = utils.hash_hex(config_tags_json)
+    # For actions using cache_dir, OUT_DIR_SUFFIX is handled by cache_dir.bzl.
+    # For actions that do not use cache_dir, OUT_DIR_SUFFIX is useless because
+    # the action is already in a sandbox. Hence unset it.
     command += """
-          export OUT_DIR_SUFFIX={}
-    """.format(out_dir_suffix)
+          export OUT_DIR_SUFFIX=
+    """
 
     set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
     command += set_source_date_epoch_ret.cmd
@@ -246,10 +247,10 @@ def _kernel_env_impl(ctx):
         make_goals_deprecation_warning = make_goals_deprecation_warning,
         preserve_env = preserve_env.path,
         out = out_file.path,
-        config_tags_comment_file = config_tags_comment_file.path,
+        config_tags_comment_file = config_tags_out.env.path,
     )
 
-    progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
+    progress_message_note = kernel_config_settings.get_progress_message_note(ctx, defconfig_fragments)
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
@@ -345,7 +346,7 @@ def _kernel_env_impl(ctx):
         KernelEnvAttrInfo(
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
-            common_config_tags = common_config_tags,
+            common_config_tags = config_tags_out.common,
         ),
         KernelEnvMakeGoalsInfo(
             make_goals = make_goals,
@@ -483,6 +484,10 @@ kernel_env = rule(
             doc = """labels that this build config refers to, including itself.
             E.g. ["build.config.gki.aarch64", "build.config.gki"]""",
         ),
+        "defconfig_fragments": attr.label_list(
+            doc = "defconfig fragments",
+            allow_files = True,
+        ),
         "setup_env": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:_setup_env"),
@@ -549,6 +554,16 @@ kernel_env = rule(
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
         "_kernel_use_resolved_toolchains": attr.label(
             default = "//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains",
+        ),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_write_depset": attr.label(
+            default = "//build/kernel/kleaf/impl:write_depset",
+            executable = True,
+            cfg = "exec",
         ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",

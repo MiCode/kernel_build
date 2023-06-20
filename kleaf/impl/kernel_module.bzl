@@ -657,6 +657,11 @@ _kernel_module = rule(
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
         "_search_and_cp_output": attr.label(
             default = Label("//build/kernel/kleaf:search_and_cp_output"),
             cfg = "exec",
