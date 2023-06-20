@@ -29,3 +29,5 @@ build:no_internet --experimental_repository_disable_download
 # --config=internet: Relax the block on network access.
 build:internet --noexperimental_repository_disable_download
 
+# Disable internet access by default.
+build --config=no_internet
