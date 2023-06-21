@@ -15,6 +15,9 @@
 """
 Test kernel_config against options (e.g. lto).
 Require //common package.
+
+Deprecated:
+    See kernel_defconfig_fragments_test
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
