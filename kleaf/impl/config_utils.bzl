@@ -37,31 +37,43 @@ def _create_merge_dot_config_cmd(defconfig_fragments_paths_expr):
     )
     return cmd
 
-def _create_check_defconfig_cmd(module_label, defconfig_path):
+def _create_check_defconfig_cmd(label, defconfig_fragments_paths_expr):
+    """Returns a command that checks defconfig fragments are set in `$OUT_DIR/.config`
+
+    Args:
+        defconfig_fragments_paths_expr: A shell expression that evaluates
+            to a list of paths to the defconfig fragments.
+        label: label of the current target
+
+    Returns:
+        the command that checks defconfig fragments against `$OUT_DIR/.config`
+    """
     cmd = """
         (
-            config_set='s/^(CONFIG_\\w*)=.*/\\1/p'
-            config_not_set='s/^# (CONFIG_\\w*) is not set$/\\1/p'
-            configs=$(sed -n -E -e "${{config_set}}" -e "${{config_not_set}}" {defconfig_path})
-            msg=""
-            for config in ${{configs}}; do
-                defconfig_value=$(grep -w -e "${{config}}" {defconfig_path})
-                actual_value=$(grep -w -e "${{config}}" ${{OUT_DIR}}/.config || true)
-                if [[ "${{defconfig_value}}" != "${{actual_value}}" ]] ; then
-                    msg="${{msg}}
-    ${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}' from {defconfig_path}."
-                    found_unexpected=1
+            for defconfig_path in {defconfig_fragments_paths_expr}; do
+                config_set='s/^(CONFIG_\\w*)=.*/\\1/p'
+                config_not_set='s/^# (CONFIG_\\w*) is not set$/\\1/p'
+                configs=$(sed -n -E -e "${{config_set}}" -e "${{config_not_set}}" ${{defconfig_path}})
+                msg=""
+                for config in ${{configs}}; do
+                    defconfig_value=$(grep -w -e "${{config}}" ${{defconfig_path}})
+                    actual_value=$(grep -w -e "${{config}}" ${{OUT_DIR}}/.config || true)
+                    if [[ "${{defconfig_value}}" != "${{actual_value}}" ]] ; then
+                        msg="${{msg}}
+    ${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}' from ${{defconfig_path}}."
+                        found_unexpected=1
+                    fi
+                done
+                if [[ -n "${{msg}}" ]]; then
+                    echo "ERROR: {label}: ${{msg}}
+    Are they declared in Kconfig?" >&2
+                    exit 1
                 fi
             done
-            if [[ -n "${{msg}}" ]]; then
-                echo "ERROR: {module_label}: ${{msg}}
-    Are they declared in Kconfig?" >&2
-                exit 1
-            fi
         )
     """.format(
-        module_label = module_label,
-        defconfig_path = defconfig_path,
+        label = label,
+        defconfig_fragments_paths_expr = defconfig_fragments_paths_expr,
     )
     return cmd
 
