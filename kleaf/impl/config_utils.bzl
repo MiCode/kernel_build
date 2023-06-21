@@ -14,25 +14,28 @@
 
 """Utilities for *_config.bzl."""
 
-def _create_merge_dot_config_step(defconfig_depset_written):
-    cmd = """
-        if [[ -s {defconfig_depset_file} ]]; then
-            # Merge target defconfig into .config from kernel_build
-            KCONFIG_CONFIG=${{OUT_DIR}}/.config.tmp \\
-                ${{KERNEL_DIR}}/scripts/kconfig/merge_config.sh \\
-                    -m -r \\
-                    ${{OUT_DIR}}/.config \\
-                    $(cat {defconfig_depset_file}) > /dev/null
-            mv ${{OUT_DIR}}/.config.tmp ${{OUT_DIR}}/.config
-        fi
-    """.format(
-        defconfig_depset_file = defconfig_depset_written.depset_file.path,
-    )
+def _create_merge_dot_config_cmd(defconfig_fragments_paths_expr):
+    """Returns a command that merges defconfig fragments into `$OUT_DIR/.config`
 
-    return struct(
-        inputs = defconfig_depset_written.depset,
-        cmd = cmd,
+    Args:
+        defconfig_fragments_paths_expr: A shell expression that evaluates
+            to a list of paths to the defconfig fragments.
+
+    Returns:
+        the command that merges defconfig fragments into `$OUT_DIR/.config`
+    """
+    cmd = """
+        # Merge target defconfig into .config from kernel_build
+        KCONFIG_CONFIG=${{OUT_DIR}}/.config.tmp \\
+            ${{KERNEL_DIR}}/scripts/kconfig/merge_config.sh \\
+                -m -r \\
+                ${{OUT_DIR}}/.config \\
+                {defconfig_fragments_paths_expr} > /dev/null
+        mv ${{OUT_DIR}}/.config.tmp ${{OUT_DIR}}/.config
+    """.format(
+        defconfig_fragments_paths_expr = defconfig_fragments_paths_expr,
     )
+    return cmd
 
 def _create_check_defconfig_cmd(module_label, defconfig_path):
     cmd = """
@@ -63,6 +66,6 @@ def _create_check_defconfig_cmd(module_label, defconfig_path):
     return cmd
 
 config_utils = struct(
-    create_merge_dot_config_step = _create_merge_dot_config_step,
+    create_merge_dot_config_cmd = _create_merge_dot_config_cmd,
     create_check_defconfig_cmd = _create_check_defconfig_cmd,
 )
