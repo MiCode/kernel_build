@@ -223,8 +223,7 @@ Not customizable in Bazel.
 
 Reason: This is the default for Bazel builds. Its value cannot be changed.
 
-See [Ensuring hermeticity](hermeticity.md) for details about ensuring
-hermeticity.
+Hermetic toolchain is guaranteed by the `hermetic_tools()` rule.
 
 See [documentation for all rules].
 

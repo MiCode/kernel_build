@@ -17,7 +17,6 @@ Provide tools for a hermetic build.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//build/kernel/kleaf/impl:hermetic_exec.bzl",
     _hermetic_exec = "hermetic_exec",
@@ -34,33 +33,22 @@ hermetic_toolchain = _hermetic_toolchain
 
 _PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
 
-# Deprecated.
 HermeticToolsInfo = provider(
-    doc = """Legacy information provided by [hermetic_tools](#hermetic_tools).
-
-Deprecated:
-    Use `hermetic_toolchain` instead. See `build/kernel/kleaf/docs/hermeticity.md`.
-""",
+    doc = "Legacy information provided by [hermetic_tools](#hermetic_tools).",
     fields = {
-        "deps": "A list containing the hermetic tools",
+        "deps": "the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Alternative setup script that preserves original `PATH`.
+        "additional_setup": """Alternative setup script that preserves original `PATH`.
 
 After using this script, the shell environment prioritizes using hermetic tools, but falls
 back on tools from the original `PATH` if a tool cannot be found.
 
 Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
 """,
-        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-setup script to initialize the environment to only use the hermetic tools in
+        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
-        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Like `run_setup` but preserves original `PATH`.""",
+        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
@@ -69,23 +57,17 @@ _HermeticToolchainInfo = provider(
     fields = {
         "deps": "a depset containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Alternative setup script that preserves original `PATH`.
+        "additional_setup": """Alternative setup script that preserves original `PATH`.
 
 After using this script, the shell environment prioritizes using hermetic tools, but falls
 back on tools from the original `PATH` if a tool cannot be found.
 
 Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
 """,
-        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-setup script to initialize the environment to only use the hermetic tools in
+        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
-        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Like `run_setup` but preserves original `PATH`.""",
+        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
@@ -250,6 +232,14 @@ def _hermetic_tools_impl(ctx):
                 export PATH=$({path}/readlink -m {path}):$PATH
 """.format(path = paths.dirname(all_outputs[0].short_path))
 
+    hermetic_tools_info = HermeticToolsInfo(
+        deps = info_deps,
+        setup = setup,
+        additional_setup = additional_setup,
+        run_setup = run_setup,
+        run_additional_setup = run_additional_setup,
+    )
+
     hermetic_toolchain_info = _HermeticToolchainInfo(
         deps = depset(info_deps),
         setup = setup,
@@ -258,24 +248,13 @@ def _hermetic_tools_impl(ctx):
         run_additional_setup = run_additional_setup,
     )
 
-    infos = [
+    return [
         DefaultInfo(files = depset(all_outputs)),
+        hermetic_tools_info,
         platform_common.ToolchainInfo(
             hermetic_toolchain_info = hermetic_toolchain_info,
         ),
     ]
-
-    if not ctx.attr._disable_hermetic_tools_info[BuildSettingInfo].value:
-        hermetic_tools_info = HermeticToolsInfo(
-            deps = info_deps,
-            setup = setup,
-            additional_setup = additional_setup,
-            run_setup = run_setup,
-            run_additional_setup = run_additional_setup,
-        )
-        infos.append(hermetic_tools_info)
-
-    return infos
 
 _hermetic_tools = rule(
     implementation = _hermetic_tools_impl,
@@ -287,9 +266,6 @@ _hermetic_tools = rule(
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
         "tar_args": attr.string_list(),
-        "_disable_hermetic_tools_info": attr.label(
-            default = "//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info",
-        ),
     },
     toolchains = [
         config_common.toolchain_type(_PY_TOOLCHAIN_TYPE, mandatory = True),
