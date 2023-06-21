@@ -33,6 +33,7 @@ _ARCHS = (
 
 _INTERESTING_FLAGS = (
     "//build/kernel/kleaf:gcov",
+    "//build/kernel/kleaf:btf_debug_info",
 )
 
 def _flag_transition_impl(settings, attr):
@@ -168,6 +169,11 @@ def kernel_defconfig_fragments_test(name):
                 "//build/kernel/kleaf:gcov": {
                     "True": ["CONFIG_GCOV_KERNEL=y"],
                     "False": ["# CONFIG_GCOV_KERNEL is not set"],
+                },
+                "//build/kernel/kleaf:btf_debug_info": {
+                    "enable": ["CONFIG_DEBUG_INFO_BTF=y"],
+                    "disable": ["# CONFIG_DEBUG_INFO_BTF is not set"],
+                    "default": [],
                 },
             },
         )
