@@ -359,6 +359,12 @@ if [ "${COPY_NEEDED}" == "1" ]; then
       "${ANDROID_KERNEL_OUT}/extra_cmdline"
   fi
 
+  if [ -e "${ANDROID_KP_OUT_DIR}/dist/board_extra_bootconfig_${KERNEL_TARGET}_${KERNEL_VARIANT}" ];
+  then
+    cp "${ANDROID_KP_OUT_DIR}/dist/board_extra_bootconfig_${KERNEL_TARGET}_${KERNEL_VARIANT}" \
+      "${ANDROID_KERNEL_OUT}/extra_bootconfig"
+  fi
+
   for file in Image vmlinux System.map .config Module.symvers kernel-uapi-headers.tar.gz ; do
     cp ${ANDROID_KP_OUT_DIR}/dist/${file} ${ANDROID_KERNEL_OUT}/
   done
