@@ -136,6 +136,42 @@ def _transition_test(
 
             tests.append(test_name)
 
+    # flag_choices: {gcov: [True, False], ...}
+    flag_choices = {}
+    for flag, values_expected_lines in expected.items():
+        flag_choices[flag] = values_expected_lines.keys()
+
+    # Tests each possible combinations of flags. This is expensive.
+    # flag_values: {gcov: True, ...}
+    for flag_values in combinations(flag_choices):
+        expected_lines = []
+        test_name = name + "_comb"
+        for flag, value in flag_values.items():
+            expected_lines += expected[flag][value]
+            test_name += "_" + native.package_relative_label(flag).name + "_" + value
+
+        _get_config(
+            name = test_name + "_actual",
+            kernel_build = kernel_build,
+            flag_values = flag_values,
+            tags = ["manual"],
+        )
+
+        write_file(
+            name = test_name + "_expected",
+            out = test_name + "_expected/.config",
+            content = expected_lines + [""],
+            tags = ["manual"],
+        )
+
+        contain_lines_test(
+            name = test_name,
+            expected = test_name + "_expected",
+            actual = test_name + "_actual",
+        )
+
+        tests.append(test_name)
+
     native.test_suite(
         name = name,
         tests = tests,
@@ -183,3 +219,47 @@ def kernel_defconfig_fragments_test(name):
         name = name,
         tests = tests,
     )
+
+def combinations(d):
+    """Generates combinations.
+
+    Example:
+
+    ```
+    combinations({
+        "foo": [1, 2],
+        "bar": [100, 200, 300],
+    })
+    gives [
+        {"foo": 1, "bar": 100},
+        {"foo": 1, "bar": 200},
+        {"foo": 1, "bar": 300},
+        {"foo": 2, "bar": 100},
+        {"foo": 2, "bar": 200},
+        {"foo": 2, "bar": 300},
+    ]
+    ```
+
+    Args:
+        d: a dictionary such that for each `{key: value}` entry, key is the flag
+            name, and value is the list of possible values associated with
+            this key.
+
+    Returns:
+        A list of dictionaries, where each dictionary contains a combination.
+        Order is undefined but deterministic.
+    """
+
+    ret = []
+    num_combinations = 1
+    for key, values in d.items():
+        num_combinations *= len(values)
+
+    for i in range(num_combinations):
+        current_choices = {}
+        for key, values in d.items():
+            current_choices[key] = values[i % len(values)]
+            i //= len(values)
+        ret.append(current_choices)
+
+    return ret
