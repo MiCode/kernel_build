@@ -1176,9 +1176,11 @@ def _get_modinst_step(ctx, modules_staging_dir):
     if base_kernel:
         cmd += """
           # Check that `make modules_install` does not revert include/config/kernel.release
-            if diff -q {base_kernel_release} ${{OUT_DIR}}/include/config/kernel.release; then
+            if ! diff -q {base_kernel_release} ${{OUT_DIR}}/include/config/kernel.release; then
                 echo "ERROR: make modules_install modifies include/config/kernel.release." >&2
-                echo "   This is not expected; please file a bug!" >&2
+                echo "    This is not expected; please file a bug!" >&2
+                echo "    expected: $(cat {base_kernel_release})" >&2
+                echo "    actual: $(cat ${{OUT_DIR}}/include/config/kernel.release)" >&2
             fi
         """.format(
             base_kernel_release = base_kernel[KernelBuildUnameInfo].kernel_release.path,
