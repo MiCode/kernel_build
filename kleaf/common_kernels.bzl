@@ -947,7 +947,10 @@ def _define_prebuilts(target_configs, **kwargs):
 
         for config in GKI_DOWNLOAD_CONFIGS:
             target_suffix = config["target_suffix"]
-            suffixed_target_outs = config["outs"]  # outs of target named {name}_{target_suffix}
+
+            # outs of target named {name}_{target_suffix}
+            suffixed_target_outs = list(config.get("outs", []))
+            suffixed_target_outs += list(config.get("outs_mapping", {}).keys())
 
             native.filegroup(
                 name = name + "_" + target_suffix + "_downloaded",
