@@ -34,7 +34,7 @@ load(
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
 load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
-load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
+load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
@@ -879,6 +879,7 @@ def _define_prebuilts(target_configs, **kwargs):
     for name, value in CI_TARGET_MAPPING.items():
         repo_name = value["repo_name"]
         main_target_outs = value["outs"]  # outs of target named {name}
+        gki_prebuilts_outs = value["gki_prebuilts_outs"]  # outputs of _gki_prebuilts
 
         native.filegroup(
             name = name + "_downloaded",
@@ -926,6 +927,21 @@ def _define_prebuilts(target_configs, **kwargs):
                 "//conditions:default": target_configs[name].get("protected_modules_list"),
             }),
             gki_artifacts = name + "_gki_artifacts_download_or_build",
+            **kwargs
+        )
+
+        gki_artifacts_prebuilts(
+            name = name + "_gki_artifacts_downloaded",
+            srcs = [name + "_boot_img_archive_downloaded"],
+            outs = gki_prebuilts_outs,
+        )
+
+        native.filegroup(
+            name = name + "_gki_artifacts_download_or_build",
+            srcs = select({
+                ":use_prebuilt_gki_set": [name + "_gki_artifacts_downloaded"],
+                "//conditions:default": [name + "_gki_artifacts"],
+            }),
             **kwargs
         )
 

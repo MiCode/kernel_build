@@ -79,10 +79,13 @@ GKI_DOWNLOAD_CONFIGS = [
         ],
     },
     {
-        "target_suffix": "gki_artifacts",
+        "target_suffix": "boot_img_archive",
         # We only download GKI for arm64, not riscv64 or x86_64
         # TODO(b/206079661): Allow downloaded prebuilts for risc64/x86_64/debug targets.
-        "outs": GKI_ARTIFACTS_AARCH64_OUTS,
+        "outs": [
+            "boot-img.tar.gz",
+            # The others can be found by extracting the archive, see gki_artifacts_prebuilts
+        ],
     },
     {
         "target_suffix": "ddk_artifacts",
@@ -114,6 +117,7 @@ CI_TARGET_MAPPING = {
             "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
         ],
         "protected_modules": "gki_aarch64_protected_modules",
+        "gki_prebuilts_outs": GKI_ARTIFACTS_AARCH64_OUTS,
     },
 }
 
