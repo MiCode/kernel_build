@@ -88,6 +88,23 @@ GKI_DOWNLOAD_CONFIGS = [
         ],
     },
     {
+        "target_suffix": "boot_img_archive_signed",
+        # Do not fail immediately if this file cannot be downloaded, because it does not
+        # exist for unsigned builds. A build error will be emitted by gki_artifacts_prebuilts
+        # if --use_signed_prebuilts and --use_gki_prebuilts=<an unsigned build number>.
+        "mandatory": False,
+        # We only download GKI for arm64, not riscv64 or x86_64
+        # TODO(b/206079661): Allow downloaded prebuilts for risc64/x86_64/debug targets.
+        "outs_mapping": {
+            # The basename is kept boot-img.tar.gz so it works with
+            # gki_artifacts_prebuilts. It is placed under the signed/
+            # directory to avoid conflicts with boot_img_archive in
+            # download_artifacts_repo.
+            # The others can be found by extracting the archive, see gki_artifacts_prebuilts
+            "signed/boot-img.tar.gz": "signed/certified-boot-img-{build_number}.tar.gz",
+        },
+    },
+    {
         "target_suffix": "ddk_artifacts",
         "outs": [
             # _modules_prepare

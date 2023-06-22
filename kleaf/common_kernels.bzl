@@ -338,6 +338,9 @@ def define_common_kernels(
 
     This is equivalent to specifying `--use_prebuilt_gki=8077484` for all Bazel commands.
 
+    You may set `--use_signed_prebuilts` to download the signed boot images instead
+    of the unsigned one. This requires `--use_prebuilt_gki` to be set to a signed build.
+
     Args:
       branch: **Deprecated**. This attribute is ignored.
 
@@ -932,7 +935,10 @@ def _define_prebuilts(target_configs, **kwargs):
 
         gki_artifacts_prebuilts(
             name = name + "_gki_artifacts_downloaded",
-            srcs = [name + "_boot_img_archive_downloaded"],
+            srcs = select({
+                Label("//build/kernel/kleaf:use_signed_prebuilts_is_true"): [name + "_boot_img_archive_signed_downloaded"],
+                "//conditions:default": [name + "_boot_img_archive_downloaded"],
+            }),
             outs = gki_prebuilts_outs,
         )
 

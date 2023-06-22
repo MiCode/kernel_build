@@ -54,3 +54,6 @@ build --flag_alias=debug_print_scripts=//build/kernel/kleaf:debug_print_scripts
 # flags for DDK header analysis
 build --flag_alias=gen_ddk_headers_target=//build/kernel/kleaf:gen_ddk_headers_target
 build --flag_alias=gen_ddk_headers_gen_files_archives=//build/kernel/kleaf:gen_ddk_headers_gen_files_archives
+
+# flags that controls prebuilts
+build --flag_alias=use_signed_prebuilts=//build/kernel/kleaf:use_signed_prebuilts
