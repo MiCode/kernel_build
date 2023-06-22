@@ -251,6 +251,7 @@ label_flag(
 # Command-line option that adds to kernel_build.defconfig_fragments.
 # See kernel_build.defconfig_fragments for description, restrictions, and
 # conventions.
+# See kleaf/docs/kernel_config.md#defconfig-fragments.
 label_flag(
     name = "defconfig_fragment",
     build_setting_default = "//build/kernel/kleaf/impl:empty_filegroup",

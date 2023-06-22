@@ -71,6 +71,8 @@
 `--gki_build_config_fragment`:
 [Supporting GKI\_BUILD\_CONFIG\_FRAGMENT on Kleaf](docs/gki_build_config_fragment.md)
 
+`--defconfig_fragment`: [Defconfig fragments](docs/kernel_config.md#defconfig-fragments)
+
 Other flags for debugging and disabling integrity checks may be found in the
 [Debugging Kleaf](docs/debugging.md) page.
 
