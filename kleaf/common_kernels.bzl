@@ -15,6 +15,7 @@
 """Functions that are useful in the common kernel package (usually `//common`)."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
@@ -329,10 +330,10 @@ def define_common_kernels(
       - `kernel_aarch64_uapi_headers_download_or_build`
 
     Note: If a device should build against downloaded prebuilts unconditionally, set
-    `--//<package>:use_prebuilt_gki` and a fixed build number in `device.bazelrc`. For example:
+    `--use_prebuilt_gki` and a fixed build number in `device.bazelrc`. For example:
     ```
     # device.bazelrc
-    build --//common:use_prebuilt_gki
+    build --use_prebuilt_gki
     build --action_env=KLEAF_DOWNLOAD_BUILD_NUMBER_MAP="gki_prebuilts=8077484"
     ```
 
@@ -865,18 +866,33 @@ def define_common_kernels(
     _define_prebuilts(target_configs = target_configs, visibility = visibility)
 
 def _define_prebuilts(target_configs, **kwargs):
-    # Build number for GKI prebuilts
+    # Legacy flag for backwards compatibility
+    # TODO(https://github.com/bazelbuild/bazel/issues/13463): alias to bool_flag does not
+    # work. Hence we use a composite flag here.
     bool_flag(
         name = "use_prebuilt_gki",
         build_setting_default = False,
+        # emit a warning if the legacy flag is used.
+        deprecation = "Use {} or {} instead, respectively.".format(
+            Label("//build/kernel/kleaf:use_prebuilt_gki"),
+            Label("//build/kernel/kleaf:use_prebuilt_gki_is_true"),
+        ),
     )
-
-    # Matches when --use_prebuilt_gki is set.
     native.config_setting(
-        name = "use_prebuilt_gki_set",
+        name = "local_use_prebuilt_gki_set",
         flag_values = {
             ":use_prebuilt_gki": "true",
         },
+        visibility = ["//visibility:private"],
+    )
+
+    # Matches when --use_prebuilt_gki or --//<common_package>:use_prebuilt_gki is set
+    selects.config_setting_group(
+        name = "use_prebuilt_gki_set",
+        match_any = [
+            Label("//build/kernel/kleaf:use_prebuilt_gki_is_true"),
+            ":local_use_prebuilt_gki_set",
+        ],
     )
 
     for name, value in CI_TARGET_MAPPING.items():

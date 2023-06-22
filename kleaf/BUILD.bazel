@@ -274,6 +274,20 @@ config_setting(
 )
 
 bool_flag(
+    name = "use_prebuilt_gki",
+    build_setting_default = False,
+    # Visible to any package that calls define_common_kernels()
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "use_prebuilt_gki_is_true",
+    flag_values = {":use_prebuilt_gki": "1"},
+    # Visible to any package that calls define_common_kernels()
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
     name = "use_signed_prebuilts",
     build_setting_default = False,
     visibility = ["//visibility:private"],
@@ -446,6 +460,7 @@ docs(
         "@bazel_skylib//:workspace",
         "@bazel_skylib//lib:dicts",
         "@bazel_skylib//lib:paths",
+        "@bazel_skylib//lib:selects",
         "@bazel_skylib//lib:unittest",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",

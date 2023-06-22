@@ -178,7 +178,7 @@ class BazelWrapper(object):
                 self.transformed_command_args.append("--color=yes")
 
         if self.known_args.use_prebuilt_gki:
-            self.transformed_command_args.append("--//common:use_prebuilt_gki")
+            self.transformed_command_args.append("--use_prebuilt_gki")
             self.transformed_command_args.append("--config=internet")
             self.env[
                 "KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"] = f"gki_prebuilts={self.known_args.use_prebuilt_gki}"
