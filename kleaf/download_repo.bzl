@@ -127,6 +127,9 @@ def _download_from_build_number(repository_ctx, build_number):
         build_number = build_number,
     )
 
+    # If there's a "/" in the remote filename, escape
+    remote_filename = remote_filename.replace("/", "%2F")
+
     # Download the requested file
     urls = [_ARTIFACT_URL_FMT.format(
         build_number = build_number,
@@ -176,6 +179,10 @@ _download_artifact_repo = repository_rule(
     ],
 )
 
+# Avoid dependency to paths, since we do not necessary have skylib loaded yet.
+def _basename(s):
+    return s.split("/")[-1]
+
 def _alias_repo_impl(repository_ctx):
     workspace_file = """workspace(name = "{}")
 """.format(repository_ctx.name)
@@ -184,11 +191,11 @@ def _alias_repo_impl(repository_ctx):
     for local_filename, actual in repository_ctx.attr.aliases.items():
         build_file = """\
 alias(
-    name="{local_filename}",
+    name="{local_file_basename}",
     actual="{actual}",
     visibility=["//visibility:public"]
 )
-""".format(local_filename = local_filename, actual = actual)
+""".format(local_file_basename = _basename(local_filename), actual = actual)
         repository_ctx.file("{}/BUILD.bazel".format(local_filename), build_file, executable = False)
 
 _alias_repo = repository_rule(
