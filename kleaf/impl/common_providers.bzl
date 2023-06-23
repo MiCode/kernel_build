@@ -220,6 +220,9 @@ GcovInfo = provider(
     doc = """A provider providing information about --gcov.""",
     fields = {
         "gcno_mapping": "`gcno_mapping.json`",
+        "gcno_dir": """A [`File`](https://bazel.build/rules/lib/File) directory;
+        With the generated gcno files.
+        """,
     },
 )
 
