@@ -169,12 +169,27 @@ def _download_from_build_number(repository_ctx, build_number):
 _download_artifact_repo = repository_rule(
     implementation = _download_artifact_repo_impl,
     attrs = {
-        "build_number": attr.string(),
+        "build_number": attr.string(
+            doc = "the default build number to use if the environment variable is not set.",
+        ),
         "parent_repo": attr.string(doc = "Name of the parent `download_artifacts_repo`"),
-        "local_filename": attr.string(),
-        "remote_filename_fmt": attr.string(),
+        "local_filename": attr.string(
+            doc = "Filename and target name used locally to refer to the file.",
+        ),
+        "remote_filename_fmt": attr.string(
+            doc = """Format string of the filename on [ci.android.com](http://ci.android.com).
+
+            The filename on [ci.android.com](http://ci.android.com) is determined by
+            `remote_filename_fmt.format(...)`, with the following keys:
+
+            - `build_number`: the environment variable or the `build_number` attribute
+            """,
+        ),
         "target": attr.string(doc = "Name of target on [ci.android.com](http://ci.android.com), e.g. `kernel_aarch64`"),
-        "sha256": attr.string(default = ""),
+        "sha256": attr.string(
+            default = "",
+            doc = "checksum of the downloaded file",
+        ),
         "allow_fail": attr.bool(),
     },
     environ = [
