@@ -336,6 +336,48 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+# If set, debug --cache_dir conflict issues
+string_flag(
+    name = "debug_cache_dir_conflict",
+    build_setting_default = "none",
+    values = [
+        # Attempt to resolve any conflicts.
+        # Wait if there are any conflicts. Build may be slower but the conflicts
+        # should be resolved serially.
+        "resolve",
+        # Detect any conflicts.
+        # Emit a build error if there are any conflicts. This detects any
+        # possible conflicts.
+        "detect",
+        # Do not detect conflicts. If there are any conflicts, this may lead
+        # to obscure errors.
+        "none",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "debug_cache_dir_conflict_is_resolve",
+    flag_values = {":debug_cache_dir_conflict": "resolve"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
+config_setting(
+    name = "debug_cache_dir_conflict_is_detect",
+    flag_values = {":debug_cache_dir_conflict": "detect"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
+# If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
+selects.config_setting_group(
+    name = "debug_cache_dir_conflict_needs_flock",
+    match_any = [
+        ":debug_cache_dir_conflict_is_resolve",
+        ":debug_cache_dir_conflict_is_detect",
+    ],
+    visibility = ["//build/kernel:__pkg__"],
+)
+
 # Debug flag to control make verbosity
 # E (default) = Error (-s)
 # I = Info

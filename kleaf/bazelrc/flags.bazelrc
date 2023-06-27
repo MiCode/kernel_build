@@ -50,6 +50,7 @@ build --flag_alias=preserve_kbuild_output=//build/kernel/kleaf:preserve_kbuild_o
 
 # flags alias to allow passing --debug_* flags
 build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts
+build --flag_alias=debug_cache_dir_conflict=//build/kernel/kleaf:debug_cache_dir_conflict
 build --flag_alias=debug_make_verbosity=//build/kernel/kleaf:debug_make_verbosity
 build --flag_alias=debug_modpost_warn=//build/kernel/kleaf:debug_modpost_warn
 build --flag_alias=debug_print_scripts=//build/kernel/kleaf:debug_print_scripts

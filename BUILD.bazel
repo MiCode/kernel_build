@@ -54,6 +54,12 @@ hermetic_tools(
     rsync_args = [
         "--no-group",
     ],
+    symlinks = select({
+        "//build/kernel/kleaf:debug_cache_dir_conflict_needs_flock": {
+            "//prebuilts/build-tools:linux-x86/bin/toybox": "flock",
+        },
+        "//conditions:default": {},
+    }),
     tar_args = [
         "--mtime=@0",
         "--owner=0",
