@@ -651,6 +651,7 @@ def _get_config_script(ctx, inputs):
 def _kernel_config_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_config(),
+        cache_dir.attrs(),
     )
 
 kernel_config = rule(
@@ -693,13 +694,6 @@ kernel_config = rule(
             executable = True,
             cfg = "exec",
         ),
-        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
-        "_cache_dir_config_tags": attr.label(
-            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
-            executable = True,
-            cfg = "exec",
-        ),
-        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     } | _kernel_config_additional_attrs(),
