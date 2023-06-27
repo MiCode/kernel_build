@@ -111,13 +111,16 @@ Fix by one of the following:
             build_num_var = _BUILD_NUM_ENV_VAR,
         )
     build_file = """
-load("@//build/kernel/kleaf:fail.bzl", "fail_rule")
+load("{fail_bzl}", "fail_rule")
 
 fail_rule(
     name = "file",
-    message = \"\"\"{}\"\"\"
+    message = \"\"\"{msg}\"\"\"
 )
-""".format(msg)
+""".format(
+        fail_bzl = Label(":fail.bzl"),
+        msg = msg,
+    )
 
     repository_ctx.file("file/BUILD.bazel", build_file, executable = False)
 
