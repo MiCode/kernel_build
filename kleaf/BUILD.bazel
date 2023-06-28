@@ -30,35 +30,45 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# The final LTO setting is "default" (use defconfig value).
+# If --lto=default, and none of --kasan/--kcsan, LTO is default
+selects.config_setting_group(
     name = "lto_is_default",
-    flag_values = {"//build/kernel/kleaf:lto": "default"},
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default",
+        ":kasan_is_false",
+        ":kcsan_is_false",
+    ],
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "none".
 # If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
 selects.config_setting_group(
     name = "lto_is_none",
     match_any = [
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
-        "//build/kernel/kleaf/impl:lto_is_default_and_kasan_is_true",
-        "//build/kernel/kleaf/impl:lto_is_default_and_kcsan_is_true",
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kasan_is_true",
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kcsan_is_true",
     ],
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "thin".
 config_setting(
     name = "lto_is_thin",
     flag_values = {":lto": "thin"},
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "full".
 config_setting(
     name = "lto_is_full",
     flag_values = {":lto": "full"},
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "fast".
 config_setting(
     name = "lto_is_fast",
     flag_values = {":lto": "fast"},
@@ -100,6 +110,13 @@ bool_flag(
 config_setting(
     name = "kasan_generic_is_true",
     flag_values = {":kasan": "1"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_generic_is_false",
+    flag_values = {":kasan": "0"},
+    visibility = ["//visibility:public"],
 )
 
 # If true, enable kasan sw tags. This assumes --lto=none, but :print_flags only shows
@@ -113,13 +130,29 @@ bool_flag(
 config_setting(
     name = "kasan_sw_tags_is_true",
     flag_values = {":kasan_sw_tags": "1"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_sw_tags_is_false",
+    flag_values = {":kasan_sw_tags": "0"},
+    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
     name = "kasan_is_true",
     match_any = [
-        "//build/kernel/kleaf:kasan_generic_is_true",
-        "//build/kernel/kleaf:kasan_sw_tags_is_true",
+        ":kasan_generic_is_true",
+        ":kasan_sw_tags_is_true",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "kasan_is_false",
+    match_all = [
+        ":kasan_generic_is_false",
+        ":kasan_sw_tags_is_false",
     ],
     visibility = ["//visibility:public"],
 )
@@ -135,6 +168,12 @@ bool_flag(
 config_setting(
     name = "kcsan_is_true",
     flag_values = {":kcsan": "1"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kcsan_is_false",
+    flag_values = {":kcsan": "0"},
     visibility = ["//visibility:public"],
 )
 
