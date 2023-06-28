@@ -60,7 +60,7 @@ _ARCH_CONFIGS = {
     },
     "kernel_aarch64_16k": {
         "arch": "arm64",
-        "build_config": "build.config.gki.aarch64.16k",
+        "build_config": "build.config.gki.aarch64",
         "outs": DEFAULT_GKI_OUTS,
     },
     "kernel_aarch64_interceptor": {
@@ -101,6 +101,7 @@ _KERNEL_BUILD_VALID_KEYS = [
     "protected_exports_list",
     "protected_modules_list",
     "make_goals",
+    "page_size",
 ]
 
 # Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
@@ -199,6 +200,7 @@ def _default_target_configs():
         "kernel_aarch64_16k": {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.aarch64.16k
             "trim_nonlisted_kmi": False,
+            "page_size": "16k",
         },
         "kernel_aarch64_debug": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
