@@ -62,35 +62,6 @@ _COMMON_KERNEL_NAMES = [
     "kernel_x86_64_debug",
 ]
 
-# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_build.
-_KERNEL_BUILD_VALID_KEYS = [
-    "kmi_symbol_list",
-    "additional_kmi_symbol_lists",
-    "trim_nonlisted_kmi",
-    "kmi_symbol_list_strict_mode",
-    "module_implicit_outs",
-    "protected_exports_list",
-    "protected_modules_list",
-    "make_goals",
-    "page_size",
-    "arch",
-    "build_config",
-    "outs",
-]
-
-# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
-_KERNEL_ABI_VALID_KEYS = [
-    "abi_definition_stg",
-    "kmi_enforced",
-]
-
-# Valid configs of the value of the target_config argument in
-# `define_common_kernels`
-_TARGET_CONFIG_VALID_KEYS = _KERNEL_BUILD_VALID_KEYS + _KERNEL_ABI_VALID_KEYS + [
-    "build_gki_artifacts",
-    "gki_boot_img_sizes",
-]
-
 # Always collect_unstripped_modules for common kernels.
 _COLLECT_UNSTRIPPED_MODULES = True
 
@@ -210,20 +181,6 @@ def _default_target_configs():
             "trim_nonlisted_kmi": False,
         }),
     }
-
-def _filter_keys(d, valid_keys, what = "", allow_unknown_keys = False):
-    """Remove keys from `d` if the key is not in `valid_keys`.
-
-    Fail if there are unknown keys in `d`.
-    """
-    ret = {key: value for key, value in d.items() if key in valid_keys}
-    if not allow_unknown_keys and sorted(ret.keys()) != sorted(d.keys()):
-        fail("{what} contains invalid keys {invalid_keys}. Valid keys are: {valid_keys}".format(
-            what = what,
-            invalid_keys = [key for key in d.keys() if key not in valid_keys],
-            valid_keys = valid_keys,
-        ))
-    return ret
 
 # buildifier: disable=unnamed-macro
 def define_common_kernels(
@@ -545,20 +502,14 @@ def define_common_kernels(
     )
 
     default_target_configs = _default_target_configs()
-    if target_configs == None:
-        target_configs = {}
+    new_target_configs = {}
     for name in _COMMON_KERNEL_NAMES:
-        target_configs[name] = _filter_keys(
-            target_configs.get(name, {}),
-            valid_keys = _TARGET_CONFIG_VALID_KEYS,
-            what = '{label}: target_configs["{name}"]'.format(
-                label = native.package_relative_label(name),
-                name = name,
-            ),
+        new_target_configs[name] = _get_target_config(
+            name = name,
+            target_configs = target_configs,
+            default_target_configs = default_target_configs,
         )
-        for key in _TARGET_CONFIG_VALID_KEYS:
-            if key not in target_configs[name]:
-                target_configs[name][key] = default_target_configs.get(name, {}).get(key)
+    target_configs = new_target_configs
 
     native.filegroup(
         name = "common_kernel_sources",
@@ -620,6 +571,19 @@ def define_common_kernels(
     )
 
     _define_prebuilts(target_configs = target_configs, visibility = visibility)
+
+def _get_target_config(
+        name,
+        target_configs,
+        default_target_configs):
+    """Returns arguments to _define_common_kernel for a target."""
+    if target_configs == None:
+        target_configs = {}
+    target_config = dict(target_configs.get(name, {}))
+    default_target_config = default_target_configs.get(name, {})
+    for key, default_value in default_target_config.items():
+        target_config.setdefault(key, default_value)
+    return target_config
 
 def _define_common_kernel(
         name,
