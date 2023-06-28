@@ -44,6 +44,8 @@ load(
     "utils",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 def _ext_mod_env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
     # TODO(b/219112010): need to set up env and restore outputs
     script = """

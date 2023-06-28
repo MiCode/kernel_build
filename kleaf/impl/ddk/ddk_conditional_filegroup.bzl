@@ -16,6 +16,8 @@
 
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 _DDK_CONDITIONAL_TRUE = "__kleaf_ddk_conditional_srcs_true_value__"
 
 DdkConditionalFilegroupInfo = provider(

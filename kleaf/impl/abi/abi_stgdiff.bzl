@@ -19,6 +19,8 @@ Run `stgdiff` tool.
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
+visibility("//build/kernel/kleaf/...")
+
 STGDIFF_FORMATS = ["plain", "flat", "small", "short", "viz"]
 STGDIFF_CHANGE_CODE = 4
 

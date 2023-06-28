@@ -24,6 +24,8 @@ load(
 load(":srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_kythe_transition_impl(_settings, _attr):
     return {
         # Until we resolve OUT_DIR properly like in kernel_build, this needs to be executed in a

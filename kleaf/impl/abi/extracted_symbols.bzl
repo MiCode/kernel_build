@@ -24,6 +24,8 @@ load(
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _extracted_symbols_impl(ctx):
     if ctx.attr.kernel_build[KernelBuildAbiInfo].trim_nonlisted_kmi:
         fail("{}: Requires `kernel_build` {} to have `trim_nonlisted_kmi = False`.".format(

@@ -19,6 +19,8 @@ load(
     "FORCE_DISABLE_TRIM",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 _FORCE_ADD_VMLINUX_SETTING = "//build/kernel/kleaf/impl:force_add_vmlinux"
 _KBUILD_SYMTYPES_SETTING = "//build/kernel/kleaf:kbuild_symtypes"
 FORCE_IGNORE_BASE_KERNEL_SETTING = "//build/kernel/kleaf/impl:force_ignore_base_kernel"

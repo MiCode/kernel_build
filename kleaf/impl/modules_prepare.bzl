@@ -25,6 +25,8 @@ load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _modules_prepare_impl(ctx):
     inputs = []
     tools = []

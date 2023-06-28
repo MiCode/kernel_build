@@ -21,6 +21,8 @@ load(
     "KernelBuildAbiInfo",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 def _get_src_protected_exports_list_impl(ctx):
     src_protected_exports_list = ctx.attr.kernel_build[KernelBuildAbiInfo].src_protected_exports_list
     if not src_protected_exports_list:

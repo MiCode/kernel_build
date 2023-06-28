@@ -14,6 +14,8 @@
 
 """Utilities for *_config.bzl."""
 
+visibility("//build/kernel/kleaf/...")
+
 def _create_merge_dot_config_cmd(defconfig_fragments_paths_expr):
     """Returns a command that merges defconfig fragments into `$OUT_DIR/.config`
 

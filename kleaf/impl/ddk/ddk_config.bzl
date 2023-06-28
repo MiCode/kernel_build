@@ -24,6 +24,8 @@ load(":config_utils.bzl", "config_utils")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "kernel_utils", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _ddk_config_impl(ctx):
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     ddk_config_info = _create_ddk_config_info(ctx)

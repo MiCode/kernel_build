@@ -25,6 +25,8 @@ load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "kernel_utils", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _abi_dump_impl(ctx):
     kernel_utils.check_kernel_build(
         [target[KernelModuleInfo] for target in ctx.attr.kernel_modules],

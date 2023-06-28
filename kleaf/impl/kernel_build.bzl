@@ -70,6 +70,8 @@ load(":modules_prepare.bzl", "modules_prepare")
 load(":raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
 load(":utils.bzl", "kernel_utils", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 # Outputs of a kernel_build rule needed to build kernel_* that depends on it
 _kernel_build_internal_outs = [
     "Module.symvers",

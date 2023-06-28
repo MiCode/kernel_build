@@ -16,6 +16,8 @@
 Like a filegroup but for a single label.
 """
 
+visibility("//build/kernel/kleaf/...")
+
 def _file_impl(ctx):
     return DefaultInfo(files = depset(ctx.files.src))
 

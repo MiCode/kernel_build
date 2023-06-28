@@ -37,6 +37,8 @@ load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _toolchains_transition_impl(_settings, attr):
     return {
         "//command_line_option:platforms": str(attr.target_platform),

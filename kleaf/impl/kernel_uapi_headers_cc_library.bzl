@@ -3,6 +3,8 @@
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_unarchived_uapi_headers_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     uapi_headers = ctx.attr.kernel_build[KernelBuildUapiInfo].kernel_uapi_headers.to_list()

@@ -28,6 +28,8 @@ load(":common_providers.bzl", "KernelBuildAbiInfo")
 load(":hermetic_exec.bzl", "hermetic_exec")
 load(":kernel_build.bzl", "kernel_build")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kmi_symbol_checks_impl(ctx):
     kmi_strict_mode_out = ctx.attr.kernel_build[KernelBuildAbiInfo].kmi_strict_mode_out
     kmi_strict_mode_out = depset([kmi_strict_mode_out]) if kmi_strict_mode_out else None

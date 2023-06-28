@@ -45,6 +45,8 @@ load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def kernel_module(
         name,
         kernel_build,

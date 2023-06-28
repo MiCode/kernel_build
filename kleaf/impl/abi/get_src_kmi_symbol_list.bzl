@@ -19,6 +19,8 @@ load(
     "KernelBuildAbiInfo",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 def _get_src_kmi_symbol_list_impl(ctx):
     return DefaultInfo(files = depset([
         ctx.attr.kernel_build[KernelBuildAbiInfo].src_kmi_symbol_list,

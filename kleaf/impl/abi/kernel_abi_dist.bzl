@@ -19,6 +19,8 @@ load("//build/bazel_common_rules/exec:exec.bzl", "exec_rule")
 load(":hermetic_exec.bzl", "hermetic_exec", "hermetic_exec_target")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 
+visibility("//build/kernel/kleaf/...")
+
 _kernel_abi_dist_exec = exec_rule(
     cfg = with_vmlinux_transition,
     attrs = {

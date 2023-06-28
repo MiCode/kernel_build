@@ -32,6 +32,8 @@ load(
     "utils",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_modules_install_impl(ctx):
     kernel_build_infos = None
     if ctx.attr.kernel_build:

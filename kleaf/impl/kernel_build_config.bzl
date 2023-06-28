@@ -17,6 +17,8 @@
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":debug.bzl", "debug")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_build_config_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + ".generated")
     hermetic_tools = hermetic_toolchain.get(ctx)

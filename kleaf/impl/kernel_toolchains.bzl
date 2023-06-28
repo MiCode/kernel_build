@@ -23,6 +23,8 @@ load(
 )
 load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 
+visibility("//build/kernel/kleaf/...")
+
 def _quote_prepend_cwd(value):
     """Prepends $PWD to value.
 

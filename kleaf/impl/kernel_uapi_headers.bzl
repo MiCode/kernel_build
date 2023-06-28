@@ -18,6 +18,8 @@ load(":common_providers.bzl", "KernelEnvAndOutputsInfo")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_uapi_headers_impl(ctx):
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.label.name))
 

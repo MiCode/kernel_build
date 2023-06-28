@@ -16,6 +16,8 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
+visibility("//build/kernel/kleaf/...")
+
 DdkHeadersInfo = provider(
     "Information for a target that provides DDK headers to a dependent target.",
     fields = {

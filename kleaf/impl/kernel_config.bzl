@@ -36,6 +36,8 @@ load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _determine_local_path(ctx, file_name, file_attr):
     """A local action that stores the path to sandboxed file to a file object"""
 

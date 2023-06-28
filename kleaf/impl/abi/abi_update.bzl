@@ -16,6 +16,8 @@
 
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
+visibility("//build/kernel/kleaf/...")
+
 def _abi_update_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
 

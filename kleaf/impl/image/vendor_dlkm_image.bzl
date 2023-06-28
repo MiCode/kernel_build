@@ -25,6 +25,8 @@ load(
     "image_utils",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_img = ctx.actions.declare_file("{}/vendor_dlkm.img".format(ctx.label.name))
     vendor_dlkm_modules_load = ctx.actions.declare_file("{}/vendor_dlkm.modules.load".format(ctx.label.name))

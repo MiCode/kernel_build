@@ -21,6 +21,8 @@ load(
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_unstripped_modules_archive_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
 

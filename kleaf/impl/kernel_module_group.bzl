@@ -25,6 +25,8 @@ load(
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl")
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_module_group_impl(ctx):
     targets = ctx.attr.srcs
     default_info = DefaultInfo(

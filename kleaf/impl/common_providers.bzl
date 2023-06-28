@@ -14,6 +14,8 @@
 
 """Providers that are provided by multiple rules in different extensions."""
 
+visibility("//build/kernel/kleaf/...")
+
 KernelCmdsInfo = provider(
     doc = """Provides a directory of `.cmd` files.""",
     fields = {

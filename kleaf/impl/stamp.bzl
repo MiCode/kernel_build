@@ -23,6 +23,8 @@ load(
 )
 load(":status.bzl", "status")
 
+visibility("//build/kernel/kleaf/...")
+
 def _get_status_at_path(ctx, status_name, quoted_src_path):
     # {path}:{scmversion} {path}:{scmversion} ...
 

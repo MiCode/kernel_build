@@ -21,6 +21,8 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
 load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _get_module_staging_dir_impl(ctx):
     modules_staging_dws_list = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws_depset.to_list()
     if len(modules_staging_dws_list) != 1:

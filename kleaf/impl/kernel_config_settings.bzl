@@ -42,6 +42,8 @@ load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_ATTR_NAME")
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":kgdb.bzl", "kgdb")
 
+visibility("//build/kernel/kleaf/...")
+
 def _trim_attrs_raw():
     return [TRIM_NONLISTED_KMI_ATTR_NAME]
 
