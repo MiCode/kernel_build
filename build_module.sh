@@ -279,11 +279,19 @@ for EXT_MOD in ${EXT_MODULES}; do
     fi
   done
 
+  if [ $TARGET_PRODUCT == "msmnile_au" ]; then
+     btgt="gen3auto"
+  elif [ $TARGET_PRODUCT == "sm6150_au" ]; then
+     btgt="sdmsteppeauto"
+  else
+     btgt=${TARGET_PRODUCT}
+  fi
+
   # Query for a target that matches the pattern for module distribution
   if [ "$ENABLE_DDK_BUILD" = "true" ] \
      && [ -n "$pkg_path" ] \
      && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
-          "filter('${TARGET_PRODUCT/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
+          "filter('${btgt/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
      && [ -n "$build_target" ]
   then
 
