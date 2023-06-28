@@ -582,248 +582,13 @@ def define_common_kernels(
     )
 
     for name, arch_config in _ARCH_CONFIGS.items():
-        native.alias(
-            name = name + "_sources",
-            actual = ":common_kernel_sources",
-        )
-
         target_config = target_configs[name]
-
-        all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
-        all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
-
-        # Add user KMI symbol lists to additional lists
-        target_config["additional_kmi_symbol_lists"] = all_kmi_symbol_lists + [
-            "//build/kernel/kleaf:user_kmi_symbol_lists",
-        ]
-
-        if target_config.get("kmi_symbol_list"):
-            all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
-        native.filegroup(
-            name = name + "_all_kmi_symbol_lists",
-            srcs = all_kmi_symbol_lists,
-        )
-
-        print_debug(
-            name = name + "_print_configs",
-            content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
-            tags = ["manual"],
-        )
-
-        kernel_build_kwargs = _filter_keys(
-            target_config,
-            valid_keys = _KERNEL_BUILD_VALID_KEYS,
-            allow_unknown_keys = True,
-        )
-
-        kernel_build_config(
-            name = name + "_build_config",
-            srcs = [
-                # do not sort
-                ":set_kernel_dir_build_config",
-                arch_config["build_config"],
-                Label("//build/kernel/kleaf:gki_build_config_fragment"),
-            ],
-        )
-
-        kernel_build(
+        _define_common_kernel(
             name = name,
-            srcs = [name + "_sources"],
-            outs = arch_config["outs"],
-            arch = arch_config["arch"],
-            implicit_outs = [
-                # Kernel build time module signining utility and keys
-                # Only available during GKI builds
-                # Device fragments need to add: '# CONFIG_MODULE_SIG_ALL is not set'
-                "scripts/sign-file",
-                "certs/signing_key.pem",
-                "certs/signing_key.x509",
-            ],
-            build_config = name + "_build_config",
-            enable_interceptor = arch_config.get("enable_interceptor"),
-            visibility = visibility,
-            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
-            strip_modules = _STRIP_MODULES,
+            arch_config = arch_config,
+            target_config = target_config,
             toolchain_version = toolchain_version,
-            keep_module_symvers = _KEEP_MODULE_SYMVERS,
-            **kernel_build_kwargs
-        )
-
-        kernel_abi_kwargs = _filter_keys(
-            target_config,
-            valid_keys = _KERNEL_ABI_VALID_KEYS,
-            allow_unknown_keys = True,
-        )
-
-        kernel_abi(
-            name = name + "_abi",
-            kernel_build = name,
             visibility = visibility,
-            define_abi_targets = bool(target_config.get("kmi_symbol_list")),
-            # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
-            module_grouping = None,
-            **kernel_abi_kwargs
-        )
-
-        if arch_config.get("enable_interceptor"):
-            continue
-
-        # A subset of headers in OUT_DIR that only contains scripts/. This is useful
-        # for DDK headers interpolation.
-        out_headers_allowlist_archive(
-            name = name + "_script_headers",
-            kernel_build = name,
-            subdirs = ["scripts"],
-        )
-
-        native.filegroup(
-            name = name + "_ddk_allowlist_headers",
-            srcs = [
-                name + "_script_headers",
-                name + "_uapi_headers",
-            ],
-            visibility = [
-                Label("//build/kernel/kleaf:__pkg__"),
-            ],
-        )
-
-        kernel_modules_install(
-            name = name + "_modules_install",
-            # The GKI target does not have external modules. GKI modules goes
-            # into the in-tree kernel module list, aka kernel_build.module_implicit_outs.
-            # Hence, this is empty.
-            kernel_modules = [],
-            kernel_build = name,
-        )
-
-        kernel_unstripped_modules_archive(
-            name = name + "_unstripped_modules_archive",
-            kernel_build = name,
-        )
-
-        kernel_images(
-            name = name + "_images",
-            kernel_build = name,
-            kernel_modules_install = name + "_modules_install",
-            # Sync with GKI_DOWNLOAD_CONFIGS, "images"
-            build_system_dlkm = True,
-            # Keep in sync with build.config.gki* MODULES_LIST
-            modules_list = "android/gki_system_dlkm_modules",
-        )
-
-        if target_config.get("build_gki_artifacts"):
-            gki_artifacts(
-                name = name + "_gki_artifacts",
-                kernel_build = name,
-                boot_img_sizes = target_config.get("gki_boot_img_sizes", {}),
-                arch = arch_config["arch"],
-            )
-        else:
-            native.filegroup(
-                name = name + "_gki_artifacts",
-                srcs = [],
-            )
-
-        # toolchain_version from <name>
-        native.filegroup(
-            name = name + "_" + TOOLCHAIN_VERSION_FILENAME,
-            srcs = [name],
-            output_group = TOOLCHAIN_VERSION_FILENAME,
-        )
-
-        # module_staging_archive from <name>
-        native.filegroup(
-            name = name + "_modules_staging_archive",
-            srcs = [name],
-            output_group = "modules_staging_archive",
-        )
-
-        # All GKI modules
-        native.filegroup(
-            name = name + "_modules",
-            srcs = [
-                "{}/{}".format(name, module)
-                for module in (target_config["module_implicit_outs"] or [])
-            ],
-        )
-
-        # The purpose of this target is to allow device kernel build to include reasonable
-        # defaults of artifacts from GKI. Hence, this target includes everything in name + "_dist",
-        # excluding the following:
-        # - UAPI headers, because device-specific external kernel modules may install different
-        #   headers.
-        # - DDK; see _ddk_artifacts below.
-        # - toolchain_version: avoid conflict with device kernel's kernel_build() in dist dir.
-        native.filegroup(
-            name = name + "_additional_artifacts",
-            srcs = [
-                # Sync with additional_artifacts_items
-                name + "_headers",
-                name + "_images",
-                name + "_kmi_symbol_list",
-                name + "_gki_artifacts",
-            ],
-        )
-
-        # Everything in name + "_dist" for the DDK.
-        # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
-        # development. Hence they are also added to kernel_*_dist so they can be downloaded.
-        # Note: This poke into details of kernel_build!
-        native.filegroup(
-            name = name + "_ddk_artifacts",
-            srcs = [
-                name + "_modules_prepare",
-                name + "_modules_staging_archive",
-            ],
-        )
-
-        dist_targets = [
-            name,
-            name + "_uapi_headers",
-            name + "_unstripped_modules_archive",
-            name + "_additional_artifacts",
-            name + "_ddk_artifacts",
-            name + "_modules",
-            name + "_modules_install",
-            name + "_" + TOOLCHAIN_VERSION_FILENAME,
-            # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
-            Label("//build/kernel:gki_certification_tools"),
-        ]
-
-        copy_to_dist_dir(
-            name = name + "_dist",
-            data = dist_targets,
-            flat = True,
-            dist_dir = "out/{name}/dist".format(name = name),
-            log = "info",
-        )
-
-        kernel_abi_dist(
-            name = name + "_abi_dist",
-            kernel_abi = name + "_abi",
-            kernel_build_add_vmlinux = True,
-            data = dist_targets,
-            flat = True,
-            dist_dir = "out_abi/{name}/dist".format(name = name),
-            log = "info",
-        )
-
-        _define_common_kernels_additional_tests(
-            name = name + "_additional_tests",
-            kernel_build_name = name,
-            kernel_modules_install = name + "_modules_install",
-            modules = (target_config.get("module_outs") or []) +
-                      (target_config.get("module_implicit_outs") or []),
-            arch = arch_config["arch"],
-        )
-
-        native.test_suite(
-            name = name + "_tests",
-            tests = [
-                name + "_additional_tests",
-                name + "_test",
-                name + "_modules_test",
-            ],
         )
 
     native.alias(
@@ -866,6 +631,255 @@ def define_common_kernels(
     )
 
     _define_prebuilts(target_configs = target_configs, visibility = visibility)
+
+def _define_common_kernel(
+        name,
+        arch_config,
+        target_config,
+        toolchain_version,
+        visibility):
+    native.alias(
+        name = name + "_sources",
+        actual = ":common_kernel_sources",
+    )
+
+    all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
+    all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
+
+    # Add user KMI symbol lists to additional lists
+    target_config["additional_kmi_symbol_lists"] = all_kmi_symbol_lists + [
+        "//build/kernel/kleaf:user_kmi_symbol_lists",
+    ]
+
+    if target_config.get("kmi_symbol_list"):
+        all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
+
+    native.filegroup(
+        name = name + "_all_kmi_symbol_lists",
+        srcs = all_kmi_symbol_lists,
+    )
+
+    print_debug(
+        name = name + "_print_configs",
+        content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
+        tags = ["manual"],
+    )
+
+    kernel_build_kwargs = _filter_keys(
+        target_config,
+        valid_keys = _KERNEL_BUILD_VALID_KEYS,
+        allow_unknown_keys = True,
+    )
+
+    kernel_build_config(
+        name = name + "_build_config",
+        srcs = [
+            # do not sort
+            ":set_kernel_dir_build_config",
+            arch_config["build_config"],
+            Label("//build/kernel/kleaf:gki_build_config_fragment"),
+        ],
+    )
+
+    kernel_build(
+        name = name,
+        srcs = [name + "_sources"],
+        outs = arch_config["outs"],
+        arch = arch_config["arch"],
+        implicit_outs = [
+            # Kernel build time module signing utility and keys
+            # Only available during GKI builds
+            # Device fragments need to add: '# CONFIG_MODULE_SIG_ALL is not set'
+            "scripts/sign-file",
+            "certs/signing_key.pem",
+            "certs/signing_key.x509",
+        ],
+        build_config = name + "_build_config",
+        enable_interceptor = arch_config.get("enable_interceptor"),
+        visibility = visibility,
+        collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+        strip_modules = _STRIP_MODULES,
+        toolchain_version = toolchain_version,
+        keep_module_symvers = _KEEP_MODULE_SYMVERS,
+        **kernel_build_kwargs
+    )
+
+    kernel_abi_kwargs = _filter_keys(
+        target_config,
+        valid_keys = _KERNEL_ABI_VALID_KEYS,
+        allow_unknown_keys = True,
+    )
+
+    kernel_abi(
+        name = name + "_abi",
+        kernel_build = name,
+        visibility = visibility,
+        define_abi_targets = bool(target_config.get("kmi_symbol_list")),
+        # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
+        module_grouping = None,
+        **kernel_abi_kwargs
+    )
+
+    if arch_config.get("enable_interceptor"):
+        return
+
+    # A subset of headers in OUT_DIR that only contains scripts/. This is useful
+    # for DDK headers interpolation.
+    out_headers_allowlist_archive(
+        name = name + "_script_headers",
+        kernel_build = name,
+        subdirs = ["scripts"],
+    )
+
+    native.filegroup(
+        name = name + "_ddk_allowlist_headers",
+        srcs = [
+            name + "_script_headers",
+            name + "_uapi_headers",
+        ],
+        visibility = [
+            Label("//build/kernel/kleaf:__pkg__"),
+        ],
+    )
+
+    kernel_modules_install(
+        name = name + "_modules_install",
+        # The GKI target does not have external modules. GKI modules goes
+        # into the in-tree kernel module list, aka kernel_build.module_implicit_outs.
+        # Hence, this is empty.
+        kernel_modules = [],
+        kernel_build = name,
+    )
+
+    kernel_unstripped_modules_archive(
+        name = name + "_unstripped_modules_archive",
+        kernel_build = name,
+    )
+
+    kernel_images(
+        name = name + "_images",
+        kernel_build = name,
+        kernel_modules_install = name + "_modules_install",
+        # Sync with GKI_DOWNLOAD_CONFIGS, "images"
+        build_system_dlkm = True,
+        # Keep in sync with build.config.gki* MODULES_LIST
+        modules_list = "android/gki_system_dlkm_modules",
+    )
+
+    if target_config.get("build_gki_artifacts"):
+        gki_artifacts(
+            name = name + "_gki_artifacts",
+            kernel_build = name,
+            boot_img_sizes = target_config.get("gki_boot_img_sizes", {}),
+            arch = arch_config["arch"],
+        )
+    else:
+        native.filegroup(
+            name = name + "_gki_artifacts",
+            srcs = [],
+        )
+
+    # toolchain_version from <name>
+    native.filegroup(
+        name = name + "_" + TOOLCHAIN_VERSION_FILENAME,
+        srcs = [name],
+        output_group = TOOLCHAIN_VERSION_FILENAME,
+    )
+
+    # module_staging_archive from <name>
+    native.filegroup(
+        name = name + "_modules_staging_archive",
+        srcs = [name],
+        output_group = "modules_staging_archive",
+    )
+
+    # All GKI modules
+    native.filegroup(
+        name = name + "_modules",
+        srcs = [
+            "{}/{}".format(name, module)
+            for module in (target_config["module_implicit_outs"] or [])
+        ],
+    )
+
+    # The purpose of this target is to allow device kernel build to include reasonable
+    # defaults of artifacts from GKI. Hence, this target includes everything in name + "_dist",
+    # excluding the following:
+    # - UAPI headers, because device-specific external kernel modules may install different
+    #   headers.
+    # - DDK; see _ddk_artifacts below.
+    # - toolchain_version: avoid conflict with device kernel's kernel_build() in dist dir.
+    native.filegroup(
+        name = name + "_additional_artifacts",
+        srcs = [
+            # Sync with additional_artifacts_items
+            name + "_headers",
+            name + "_images",
+            name + "_kmi_symbol_list",
+            name + "_gki_artifacts",
+        ],
+    )
+
+    # Everything in name + "_dist" for the DDK.
+    # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
+    # development. Hence they are also added to kernel_*_dist so they can be downloaded.
+    # Note: This poke into details of kernel_build!
+    native.filegroup(
+        name = name + "_ddk_artifacts",
+        srcs = [
+            name + "_modules_prepare",
+            name + "_modules_staging_archive",
+        ],
+    )
+
+    dist_targets = [
+        name,
+        name + "_uapi_headers",
+        name + "_unstripped_modules_archive",
+        name + "_additional_artifacts",
+        name + "_ddk_artifacts",
+        name + "_modules",
+        name + "_modules_install",
+        name + "_" + TOOLCHAIN_VERSION_FILENAME,
+        # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
+        Label("//build/kernel:gki_certification_tools"),
+    ]
+
+    copy_to_dist_dir(
+        name = name + "_dist",
+        data = dist_targets,
+        flat = True,
+        dist_dir = "out/{name}/dist".format(name = name),
+        log = "info",
+    )
+
+    kernel_abi_dist(
+        name = name + "_abi_dist",
+        kernel_abi = name + "_abi",
+        kernel_build_add_vmlinux = True,
+        data = dist_targets,
+        flat = True,
+        dist_dir = "out_abi/{name}/dist".format(name = name),
+        log = "info",
+    )
+
+    _define_common_kernels_additional_tests(
+        name = name + "_additional_tests",
+        kernel_build_name = name,
+        kernel_modules_install = name + "_modules_install",
+        modules = (target_config.get("module_outs") or []) +
+                  (target_config.get("module_implicit_outs") or []),
+        arch = arch_config["arch"],
+    )
+
+    native.test_suite(
+        name = name + "_tests",
+        tests = [
+            name + "_additional_tests",
+            name + "_test",
+            name + "_modules_test",
+        ],
+    )
 
 def _define_prebuilts(target_configs, **kwargs):
     # Legacy flag for backwards compatibility
