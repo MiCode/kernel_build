@@ -168,9 +168,8 @@ def _default_target_configs():
             "enable_interceptor": True,
         },
         "kernel_aarch64_debug": dicts.add(aarch64_common, {
-            "build_config": "build.config.gki-debug.aarch64",
-            # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
             "trim_nonlisted_kmi": False,
+            "kmi_symbol_list_strict_mode": False,
         }),
         "kernel_riscv64": dicts.add(riscv64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.riscv64
@@ -178,9 +177,8 @@ def _default_target_configs():
         }),
         "kernel_x86_64": x86_64_common,
         "kernel_x86_64_debug": dicts.add(x86_64_common, {
-            "build_config": "build.config.gki-debug.x86_64",
-            # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.x86_64
             "trim_nonlisted_kmi": False,
+            "kmi_symbol_list_strict_mode": False,
         }),
     }
 
