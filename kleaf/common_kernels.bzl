@@ -52,15 +52,17 @@ load(
 )
 load(":print_debug.bzl", "print_debug")
 
-_COMMON_KERNEL_NAMES = [
-    "kernel_aarch64",
-    "kernel_aarch64_16k",
-    "kernel_aarch64_interceptor",
-    "kernel_aarch64_debug",
-    "kernel_riscv64",
-    "kernel_x86_64",
-    "kernel_x86_64_debug",
-]
+# keys: name of common kernels
+# values: list of keys in target_configs to look up
+_COMMON_KERNEL_NAMES = {
+    "kernel_aarch64": ["kernel_aarch64"],
+    "kernel_aarch64_16k": ["kernel_aarch64_16k", "kernel_aarch64"],
+    "kernel_aarch64_interceptor": ["kernel_aarch64_interceptor", "kernel_aarch64"],
+    "kernel_aarch64_debug": ["kernel_aarch64_debug", "kernel_aarch64"],
+    "kernel_riscv64": ["kernel_riscv64"],
+    "kernel_x86_64": ["kernel_x86_64"],
+    "kernel_x86_64_debug": ["kernel_x86_64_debug", "kernel_x86_64"],
+}
 
 # Always collect_unstripped_modules for common kernels.
 _COLLECT_UNSTRIPPED_MODULES = True
@@ -503,9 +505,10 @@ def define_common_kernels(
 
     default_target_configs = _default_target_configs()
     new_target_configs = {}
-    for name in _COMMON_KERNEL_NAMES:
+    for name, target_configs_names in _COMMON_KERNEL_NAMES.items():
         new_target_configs[name] = _get_target_config(
             name = name,
+            target_configs_names = target_configs_names,
             target_configs = target_configs,
             default_target_configs = default_target_configs,
         )
@@ -574,12 +577,17 @@ def define_common_kernels(
 
 def _get_target_config(
         name,
+        target_configs_names,
         target_configs,
         default_target_configs):
     """Returns arguments to _define_common_kernel for a target."""
     if target_configs == None:
         target_configs = {}
-    target_config = dict(target_configs.get(name, {}))
+    target_config = {}
+    for target_configs_name in target_configs_names:
+        if target_configs_name in target_configs:
+            target_config = dict(target_configs[target_configs_name])
+            break
     default_target_config = default_target_configs.get(name, {})
     for key, default_value in default_target_config.items():
         target_config.setdefault(key, default_value)
