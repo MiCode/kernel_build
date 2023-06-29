@@ -90,11 +90,23 @@ def _default_target_configs():
     aarch64_abi_definition_stg = native.glob(["android/abi_gki_aarch64.stg"])
     aarch64_abi_definition_stg = aarch64_abi_definition_stg[0] if aarch64_abi_definition_stg else None
 
-    # Common configs for aarch64 and aarch64_debug
+    # Common configs for aarch64*
     aarch64_common = {
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64",
         "outs": DEFAULT_GKI_OUTS,
+    }
+
+    gki_boot_img_sizes = {
+        # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
+        "": "67108864",
+        # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
+        "lz4": "53477376",
+        # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
+        "gz": "47185920",
+    }
+
+    aarch64_abi = {
         # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
         # for build.config.gki.aarch64
         "kmi_symbol_list": aarch64_kmi_symbol_list,
@@ -103,16 +115,6 @@ def _default_target_configs():
         "protected_modules_list": aarch64_protected_modules_list,
         "abi_definition_stg": aarch64_abi_definition_stg,
         "kmi_enforced": bool(aarch64_abi_definition_stg),
-        # Assume BUILD_GKI_ARTIFACTS=1
-        "build_gki_artifacts": True,
-        "gki_boot_img_sizes": {
-            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
-            "": "67108864",
-            # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
-            "lz4": "53477376",
-            # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
-            "gz": "47185920",
-        },
     }
 
     # Common configs for riscv64
@@ -122,14 +124,7 @@ def _default_target_configs():
         "outs": DEFAULT_GKI_OUTS,
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
-        "gki_boot_img_sizes": {
-            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
-            "": "67108864",
-            # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
-            "lz4": "53477376",
-            # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
-            "gz": "47185920",
-        },
+        "gki_boot_img_sizes": gki_boot_img_sizes,
     }
 
     # Common configs for x86_64 and x86_64_debug
@@ -146,30 +141,30 @@ def _default_target_configs():
     }
 
     return {
-        "kernel_aarch64": dicts.add(aarch64_common, {
+        "kernel_aarch64": dicts.add(aarch64_common, aarch64_abi, {
             # In build.config.gki.aarch64:
             # - If there are symbol lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
             # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
             "trim_nonlisted_kmi": aarch64_trim_and_check,
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+            # Assume BUILD_GKI_ARTIFACTS=1
+            "build_gki_artifacts": True,
+            "gki_boot_img_sizes": gki_boot_img_sizes,
         }),
-        "kernel_aarch64_16k": {
-            "arch": "arm64",
-            "build_config": "build.config.gki.aarch64",
-            "outs": DEFAULT_GKI_OUTS,
+        "kernel_aarch64_16k": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.aarch64.16k
             "trim_nonlisted_kmi": False,
             "page_size": "16k",
-        },
-        "kernel_aarch64_interceptor": {
-            "arch": "arm64",
-            "build_config": "build.config.gki.aarch64",
-            "outs": DEFAULT_GKI_OUTS,
+        }),
+        "kernel_aarch64_interceptor": dicts.add(aarch64_common, {
             "enable_interceptor": True,
-        },
-        "kernel_aarch64_debug": dicts.add(aarch64_common, {
+        }),
+        "kernel_aarch64_debug": dicts.add(aarch64_common, aarch64_abi, {
             "trim_nonlisted_kmi": False,
             "kmi_symbol_list_strict_mode": False,
+            # Assume BUILD_GKI_ARTIFACTS=1
+            "build_gki_artifacts": True,
+            "gki_boot_img_sizes": gki_boot_img_sizes,
         }),
         "kernel_riscv64": dicts.add(riscv64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.riscv64
