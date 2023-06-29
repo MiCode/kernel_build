@@ -18,6 +18,7 @@
 # rules and macros. The implementations stays in sub-extensions,
 # which is not expected to be loaded directly by users.
 
+load("//build/kernel/kleaf/impl:gki_artifacts.bzl", _gki_artifacts = "gki_artifacts", _gki_artifacts_prebuilts = "gki_artifacts_prebuilts")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", _kernel_module_test = "kernel_module_test")
 load("//build/kernel/kleaf/impl:abi/extracted_symbols.bzl", _extract_symbols = "extracted_symbols")
 load("//build/kernel/kleaf/impl:abi/kernel_abi.bzl", _kernel_abi = "kernel_abi")
@@ -46,6 +47,8 @@ ddk_headers = _ddk_headers
 ddk_module = _ddk_module
 ddk_submodule = _ddk_submodule
 extract_symbols = _extract_symbols
+gki_artifacts = _gki_artifacts
+gki_artifacts_prebuilts = _gki_artifacts_prebuilts
 kernel_abi = _kernel_abi
 kernel_abi_dist = _kernel_abi_dist
 kernel_build = _kernel_build_macro
