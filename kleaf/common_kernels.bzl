@@ -537,33 +537,9 @@ def define_common_kernels(
         actual = ":kernel_aarch64_dist",
     )
 
-    kernel_compile_commands(
-        name = "kernel_aarch64_compile_commands",
-        kernel_build = ":kernel_aarch64",
-    )
-
-    kernel_compile_commands(
-        name = "kernel_x86_64_compile_commands",
-        kernel_build = ":kernel_x86_64",
-    )
-
     string_flag(
         name = "kernel_kythe_corpus",
         build_setting_default = "",
-    )
-
-    kernel_kythe(
-        name = "kernel_aarch64_kythe",
-        kernel_build = ":kernel_aarch64",
-        corpus = ":kernel_kythe_corpus",
-    )
-
-    copy_to_dist_dir(
-        name = "kernel_aarch64_kythe_dist",
-        data = [
-            ":kernel_aarch64_kythe",
-        ],
-        flat = True,
     )
 
     _define_prebuilts(target_configs = target_configs, visibility = visibility)
@@ -869,6 +845,25 @@ def _define_common_kernel(
             name + "_test",
             name + "_modules_test",
         ],
+    )
+
+    kernel_compile_commands(
+        name = name + "_compile_commands",
+        kernel_build = name,
+    )
+
+    kernel_kythe(
+        name = name + "_kythe",
+        kernel_build = name,
+        corpus = ":kernel_kythe_corpus",
+    )
+
+    copy_to_dist_dir(
+        name = name + "_kythe_dist",
+        data = [
+            name + "_kythe",
+        ],
+        flat = True,
     )
 
 def _define_prebuilts(target_configs, **kwargs):
