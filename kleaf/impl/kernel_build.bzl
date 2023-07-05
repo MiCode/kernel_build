@@ -448,10 +448,8 @@ def kernel_build(
         "//conditions:default": "default",
     })
 
-    if defconfig_fragments == None:
-        defconfig_fragments = []
-    defconfig_fragments.append(
-        Label("//build/kernel/kleaf:defconfig_fragment"),
+    defconfig_fragments = _get_defconfig_fragments(
+        kernel_build_defconfig_fragments = defconfig_fragments,
     )
 
     toolchain_constraints = []
@@ -665,6 +663,22 @@ def kernel_build(
         modules = (real_outs.get("module_outs") or []) + (real_outs.get("module_implicit_outs") or []),
         **kwargs
     )
+
+def _get_defconfig_fragments(
+        kernel_build_defconfig_fragments):
+    # Use a separate list to avoid .append on the provided object directly.
+    # kernel_build_defconfig_fragments could be a list or a select() expression.
+    additional_fragments = [
+        Label("//build/kernel/kleaf:defconfig_fragment"),
+    ]
+
+    if kernel_build_defconfig_fragments == None:
+        kernel_build_defconfig_fragments = []
+
+    # Do not call kernel_build_defconfig_fragments += ... to avoid
+    # modifying the incoming object from kernel_build.defconfig_fragments.
+    defconfig_fragments = kernel_build_defconfig_fragments + additional_fragments
+    return defconfig_fragments
 
 def _uniq(lst):
     """Deduplicates items in lst."""
