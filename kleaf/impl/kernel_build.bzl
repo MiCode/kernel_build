@@ -113,6 +113,7 @@ def kernel_build(
         system_trusted_key = None,
         modules_prepare_force_generate_headers = None,
         defconfig_fragments = None,
+        page_size = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -400,6 +401,12 @@ def kernel_build(
           (e.g. `kasan_defconfig`) or `<prop>_<value>_defconfig` (e.g. `lto_none_defconfig`)
           to provide human-readable hints during the build. The prefix should
           describe what the defconfig does. However, this is not a requirement.
+        page_size: Default is `"default"`. Page size of the kernel build.
+
+          Value may be one of `"default"`, `"4k"`, `"16k"` or `"64k"`. If
+          `"default"`, the defconfig is left as-is.
+
+          16k / 64k page size is only supported on `arch = "arm64"`.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -453,6 +460,7 @@ def kernel_build(
         kernel_build_name = name,
         kernel_build_defconfig_fragments = defconfig_fragments,
         kernel_build_arch = arch,
+        kernel_build_page_size = page_size,
         **internal_kwargs
     )
 
@@ -672,6 +680,7 @@ def _get_defconfig_fragments(
         kernel_build_name,
         kernel_build_defconfig_fragments,
         kernel_build_arch,
+        kernel_build_page_size,
         **internal_kwargs):
     # Use a separate list to avoid .append on the provided object directly.
     # kernel_build_defconfig_fragments could be a list or a select() expression.
@@ -706,8 +715,12 @@ def _get_defconfig_fragments(
             Label("//build/kernel/kleaf:page_size_4k"): "4k",
             Label("//build/kernel/kleaf:page_size_16k"): "16k",
             Label("//build/kernel/kleaf:page_size_64k"): "64k",
-            "//conditions:default": "default",
+            # If --page_size=default, use kernel_build.page_size; If kernel_build.page_size
+            # is also unset, use "default".
+            "//conditions:default": None,
         }),
+        second_selector = kernel_build_page_size,
+        third_selector = "default",
         files = {
             Label("//build/kernel/kleaf/impl/defconfig:{}_4k_defconfig".format(kernel_build_arch)): "4k",
             Label("//build/kernel/kleaf/impl/defconfig:{}_16k_defconfig".format(kernel_build_arch)): "16k",
