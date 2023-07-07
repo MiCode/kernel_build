@@ -85,6 +85,15 @@ def kernel_toolchain_test(name):
         )
 
         write_file(
+            name = filegroup_name + "_gki_info",
+            out = filegroup_name + "_gki_info/gki-info.txt",
+            content = [
+                "KERNEL_RELEASE=99.98.97",
+                "",
+            ],
+        )
+
+        write_file(
             name = filegroup_name + "_toolchain_version",
             out = filegroup_name + "/toolchain_version",
             content = [clang_version],
@@ -98,6 +107,7 @@ def kernel_toolchain_test(name):
                 filegroup_name + "_staging_archive",
             ],
             module_outs_file = filegroup_name + "_module_outs_file",
+            gki_artifacts = filegroup_name + "_gki_info",
             tags = ["manual"],
         )
 

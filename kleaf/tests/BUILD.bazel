@@ -20,6 +20,7 @@ test_suite(
         "//build/kernel/kleaf/tests/cc_testing",
         "//build/kernel/kleaf/tests/ddk_test",
         "//build/kernel/kleaf/tests/debug_test",
+        "//build/kernel/kleaf/tests/hermetic_test",
         "//build/kernel/kleaf/tests/kernel_build_config_test",
         "//build/kernel/kleaf/tests/kernel_build_test",
         "//build/kernel/kleaf/tests/kernel_config_test",

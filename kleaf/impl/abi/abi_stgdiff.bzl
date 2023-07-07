@@ -16,19 +16,19 @@
 Run `stgdiff` tool.
 """
 
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 STGDIFF_FORMATS = ["plain", "flat", "small", "short", "viz"]
 STGDIFF_CHANGE_CODE = 4
 
 def _stgdiff_impl(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
     inputs = [
         ctx.file._stgdiff,
         ctx.file.baseline,
         ctx.file.new,
     ]
-    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
     output_dir = ctx.actions.declare_directory("{}/abi_stgdiff".format(ctx.attr.name))
     error_msg_file = ctx.actions.declare_file("{}/error_msg_file.txt".format(ctx.attr.name))
@@ -48,7 +48,7 @@ def _stgdiff_impl(ctx):
         ext = ext,
     ) for ext in STGDIFF_FORMATS])
 
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    command = hermetic_tools.setup + """
         set +e
         {stgdiff}  --stg {baseline} {new} {outputs} > {error_msg_file} 2>&1
         rc=$?
@@ -97,6 +97,7 @@ EOF
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = command_outputs,
+        tools = hermetic_tools.deps,
         command = command,
         mnemonic = "KernelDiffAbiStg",
         progress_message = "[stg] Comparing Kernel ABI {}".format(ctx.label),
@@ -152,10 +153,6 @@ stgdiff = rule(
         "baseline": attr.label(allow_single_file = True),
         "new": attr.label(allow_single_file = True),
         "kmi_enforced": attr.bool(),
-        "_hermetic_tools": attr.label(
-            default = "//build/kernel:hermetic-tools",
-            providers = [HermeticToolsInfo],
-        ),
         "_stgdiff": attr.label(
             default = "//prebuilts/kernel-build-tools:linux-x86/bin/stgdiff",
             allow_single_file = True,
@@ -165,4 +162,5 @@ stgdiff = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
     executable = True,
+    toolchains = [hermetic_toolchain.type],
 )

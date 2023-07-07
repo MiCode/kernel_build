@@ -136,6 +136,7 @@ def _create_one_device_modules_test(
     kernel_build(
         name = name + "_kernel_build",
         tags = ["manual"],
+        arch = arch,
         build_config = name + "_build_config",
         outs = [],
         base_kernel = base_kernel_label,

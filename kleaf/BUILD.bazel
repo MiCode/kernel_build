@@ -15,6 +15,7 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
@@ -36,12 +37,13 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# If --lto=none, or if --kasan, LTO should be set to none.
+# If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
 selects.config_setting_group(
     name = "lto_is_none",
     match_any = [
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
         "//build/kernel/kleaf/impl:lto_is_default_and_kasan_is_true",
+        "//build/kernel/kleaf/impl:lto_is_default_and_kcsan_is_true",
     ],
     visibility = ["//visibility:public"],
 )
@@ -99,6 +101,20 @@ bool_flag(
 config_setting(
     name = "kasan_is_true",
     flag_values = {":kasan": "1"},
+    visibility = ["//visibility:public"],
+)
+
+# If true, enable kcsan. This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kcsan",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kcsan_is_true",
+    flag_values = {":kcsan": "1"},
     visibility = ["//visibility:public"],
 )
 
@@ -261,6 +277,7 @@ print_flags(
     name = "print_flags",
     flags = [
         ":kasan",
+        ":kcsan",
         ":kbuild_symtypes",
         ":lto",
     ] + [":config_" + value for value in _config_values],
@@ -358,7 +375,10 @@ bzl_library(
     name = "hermetic_tools_def",
     srcs = ["hermetic_tools.bzl"],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
-    deps = ["@bazel_skylib//lib:paths"],
+    deps = [
+        "//build/kernel/kleaf/impl:hermetic_tools_deps",
+        "@bazel_skylib//lib:paths",
+    ],
 )
 
 bzl_library(
@@ -368,9 +388,19 @@ bzl_library(
     deps = [":hermetic_tools_def"],
 )
 
-# Docs. To view them:
-#   bazel run //build/kernel/kleaf:docs_server
+filegroup(
+    name = "docs_deprecated",
+    srcs = ["index.html"],
+    visibility = ["//visibility:public"],
+)
 
+copy_to_dist_dir(
+    name = "docs_deprecated_dist",
+    data = [":docs_deprecated"],
+)
+
+# Kleaf API Docs. To view them:
+#   Refer to kleaf/docs/api_reference.md
 docs(
     name = "docs",
     srcs = [
@@ -449,6 +479,7 @@ test_suite(
         ":check_declared_output_list_test",
         ":empty_test",
         "//build/bazel_common_rules/exec/tests",
+        "//build/kernel/kleaf/impl:get_kmi_string_test",
         "//build/kernel/kleaf/tests",
         "//prebuilts/build-tools/tests",
     ],

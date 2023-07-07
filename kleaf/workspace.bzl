@@ -86,7 +86,10 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
 
     gki_prebuilts_files = []
     gki_prebuilts_optional_files = []
+
+    # TODO: Make this architecture agnostic.
     gki_prebuilts_files += CI_TARGET_MAPPING["kernel_aarch64"]["outs"]
+    gki_prebuilts_optional_files.append(CI_TARGET_MAPPING["kernel_aarch64"]["protected_modules"])
     for config in GKI_DOWNLOAD_CONFIGS:
         if config.get("mandatory", True):
             gki_prebuilts_files += config["outs"]
@@ -156,6 +159,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
 
     native.register_toolchains(
         "//prebuilts/build-tools:py_toolchain",
+        "//build/kernel:hermetic_tools_toolchain",
     )
 
     register_clang_toolchains()

@@ -209,6 +209,13 @@ files required to build `KBUILD_MIXED_TREE` for the device kernel.""",
     },
 )
 
+KernelBuildUnameInfo = provider(
+    doc = """A provider providing `kernel.release` of a `kernel_build`.""",
+    fields = {
+        "kernel_release": "The file `kernel.release`.",
+    },
+)
+
 GcovInfo = provider(
     doc = """A provider providing information about --gcov.""",
     fields = {

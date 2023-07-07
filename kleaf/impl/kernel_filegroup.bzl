@@ -15,7 +15,6 @@
 """A target that mimics [`kernel_build`](#kernel_build) from a list of prebuilt files."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
     "GcovInfo",
@@ -24,6 +23,7 @@ load(
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
+    "KernelBuildUnameInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelImagesInfo",
@@ -36,6 +36,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(
     ":utils.bzl",
@@ -68,7 +69,40 @@ def _get_toolchain_version_info(ctx, all_deps):
     toolchain_version_file = utils.find_file(name = TOOLCHAIN_VERSION_FILENAME, files = all_deps, what = ctx.label)
     return KernelToolchainInfo(toolchain_version_file = toolchain_version_file)
 
+def _get_kernel_release(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
+    gki_info = utils.find_file(
+        name = "gki-info.txt",
+        files = ctx.files.gki_artifacts,
+        what = "{} gki_artifacts".format(ctx.label),
+        required = True,
+    )
+    kernel_release = ctx.actions.declare_file("{}/kernel.release".format(ctx.label.name))
+    command = hermetic_tools.setup + """
+        kernel_release=$(cat {gki_info} | sed -nE 's/^kernel_release=(.*)$/\\1/p')
+        if [[ -z "${{kernel_release}}" ]]; then
+            echo "ERROR: Unable to determine kernel_release from {gki_info}" >&2
+            exit 1
+        fi
+        echo "${{kernel_release}}" > {kernel_release_file}
+    """.format(
+        gki_info = gki_info.path,
+        kernel_release_file = kernel_release.path,
+    )
+    debug.print_scripts(ctx, command, what = "kernel.release")
+    ctx.actions.run_shell(
+        command = command,
+        inputs = [gki_info],
+        outputs = [kernel_release],
+        tools = hermetic_tools.deps,
+        progress_message = "Extracting kernel.release {}".format(ctx.label),
+        mnemonic = "KernelFilegroupKernelRelease",
+    )
+    return kernel_release
+
 def _kernel_filegroup_impl(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
     all_deps = ctx.files.srcs + ctx.files.deps
 
     modules_prepare_out_dir_tar_gz = utils.find_file("modules_prepare_outdir.tar.gz", all_deps, what = ctx.label)
@@ -109,7 +143,7 @@ def _kernel_filegroup_impl(ctx):
         # Reverse of kernel_unstripped_modules_archive
         unstripped_modules_archive = utils.find_file("unstripped_modules.tar.gz", all_deps, what = ctx.label, required = True)
         unstripped_dir = ctx.actions.declare_directory("{}/unstripped".format(ctx.label.name))
-        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        command = hermetic_tools.setup + """
             tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
         """.format(
             unstripped_modules_archive = unstripped_modules_archive.path,
@@ -118,10 +152,11 @@ def _kernel_filegroup_impl(ctx):
         debug.print_scripts(ctx, command, what = "unstripped_modules_archive")
         ctx.actions.run_shell(
             command = command,
-            inputs = ctx.attr._hermetic_tools[HermeticToolsInfo].deps + [
+            inputs = [
                 unstripped_modules_archive,
             ],
             outputs = [unstripped_dir],
+            tools = hermetic_tools.deps,
             progress_message = "Extracting unstripped_modules_archive {}".format(ctx.label),
             mnemonic = "KernelFilegroupUnstrippedModulesArchive",
         )
@@ -129,8 +164,17 @@ def _kernel_filegroup_impl(ctx):
             directories = depset([unstripped_dir], order = "postorder"),
         )
 
+    protected_modules_list = None
+    if ctx.files.protected_modules_list:
+        if len(ctx.files.protected_modules_list) != 1:
+            fail("{}: protected_modules_list {} produces multiple files, expected 0 or 1".format(
+                ctx.label,
+                ctx.attr.protected_modules_list,
+            ))
+        protected_modules_list = ctx.files.protected_modules_list[0]
+
     abi_info = KernelBuildAbiInfo(
-        src_protected_modules_list = ctx.file.protected_modules_list,
+        src_protected_modules_list = protected_modules_list,
         module_outs_file = ctx.file.module_outs_file,
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
     )
@@ -148,10 +192,12 @@ def _kernel_filegroup_impl(ctx):
 
     srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
     mixed_tree_files = depset(transitive = [_get_mixed_tree_files(target) for target in ctx.attr.srcs])
+    kernel_release = _get_kernel_release(ctx)
 
     return [
         DefaultInfo(files = srcs_depset),
         KernelBuildMixedTreeInfo(files = mixed_tree_files),
+        KernelBuildUnameInfo(kernel_release = kernel_release),
         kernel_module_dev_info,
         # TODO(b/219112010): implement KernelEnvAndOutputsInfo properly for kernel_filegroup
         uapi_info,
@@ -171,7 +217,13 @@ def _kernel_filegroup_additional_attrs():
 
 kernel_filegroup = rule(
     implementation = _kernel_filegroup_impl,
-    doc = """Specify a list of kernel prebuilts.
+    doc = """**EXPERIMENTAL.** The API of `kernel_filegroup` rapidly changes and
+is not backwards compatible with older builds. The usage of `kernel_filegroup`
+is limited to the implementation detail of Kleaf (in particular,
+[`define_common_kernels`](#define_common_kernels)). Do not use
+`kernel_filegroup` directly. See `download_prebuilt.md` for details.
+
+Specify a list of kernel prebuilts.
 
 This is similar to [`filegroup`](https://docs.bazel.build/versions/main/be/general.html#filegroup)
 that gives a convenient name to a collection of targets, which can be referenced from other rules.
@@ -258,8 +310,12 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             allow_files = True,
             doc = """A label providing files similar to a [`kernel_images`](#kernel_images) target.""",
         ),
-        "protected_modules_list": attr.label(allow_single_file = True),
+        "protected_modules_list": attr.label(allow_files = True),
+        "gki_artifacts": attr.label(
+            allow_files = True,
+            doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.""",
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     } | _kernel_filegroup_additional_attrs(),
+    toolchains = [hermetic_toolchain.type],
 )

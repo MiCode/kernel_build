@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Merge `kernel-uapi-headers.tar.gz`."""
+
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     ":common_providers.bzl",
     "KernelBuildUapiInfo",
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "utils")
 
 def _merged_kernel_uapi_headers_impl(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
     kernel_build = ctx.attr.kernel_build
 
     # srcs and dws_srcs are the list of sources to merge.
@@ -32,7 +36,7 @@ def _merged_kernel_uapi_headers_impl(ctx):
     # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
     dws_srcs = depset(transitive = [kernel_module[KernelModuleInfo].kernel_uapi_headers_dws_depset for kernel_module in ctx.attr.kernel_modules]).to_list()
 
-    inputs = srcs + ctx.attr._hermetic_tools[HermeticToolsInfo].deps
+    inputs = [] + srcs
 
     for dws_src in dws_srcs:
         inputs += dws.files(dws_src)
@@ -40,8 +44,7 @@ def _merged_kernel_uapi_headers_impl(ctx):
     out_file = ctx.actions.declare_file("{}/kernel-uapi-headers.tar.gz".format(ctx.attr.name))
     intermediates_dir = utils.intermediates_dir(ctx)
 
-    command = ""
-    command += ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    command = hermetic_tools.setup
     command += """
         mkdir -p {intermediates_dir}
     """.format(
@@ -78,6 +81,7 @@ def _merged_kernel_uapi_headers_impl(ctx):
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [out_file],
+        tools = hermetic_tools.deps,
         progress_message = "Merging kernel-uapi-headers.tar.gz {}".format(ctx.label),
         command = command,
         mnemonic = "MergedKernelUapiHeaders",
@@ -107,7 +111,7 @@ the list have higher priority:
             doc = """A list of external `kernel_module`s to merge `kernel-uapi-headers.tar.gz`""",
             providers = [KernelModuleInfo],
         ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
+    toolchains = [hermetic_toolchain.type],
 )
