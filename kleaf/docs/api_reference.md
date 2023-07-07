@@ -22,7 +22,7 @@ this branch is different to other branches in three regards:
 1.  It register the above repositories as part of the WORKSPACE setup:
     *   `define_kleaf_workspace(include_remote_java_tools_repo = True)`
     *   See
-        [kleaf/bazel.kleaf-docs.WORKSPACE](https://android.git.corp.google.com/kernel/build/+/refs/heads/master/kleaf/bazel.kleaf-docs.WORKSPACE)
+        [kleaf/bazel.kleaf-docs.WORKSPACE](https://android.git.corp.google.com/kernel/build/+/refs/heads/main/kleaf/bazel.kleaf-docs.WORKSPACE)
         for reference.
 
 **Note**: Only the last two points are needed for your local docs.

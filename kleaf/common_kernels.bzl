@@ -1138,7 +1138,7 @@ def define_db845c(
 
     # enable ABI Monitoring
     # based on the instructions here:
-    # https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/docs/abi_device.md
+    # https://android.googlesource.com/kernel/build/+/refs/heads/main/kleaf/docs/abi_device.md
     # https://android-review.googlesource.com/c/kernel/build/+/2308912
     kernel_abi(
         name = name + "_abi",

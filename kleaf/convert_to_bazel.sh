@@ -68,7 +68,7 @@ function determine_targets_internal() (
         cat >&2 <<EOF
 WARNING: Unable to determine package of build.config. Please migrate to Bazel.
 See
-    https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/README.md
+    https://android.googlesource.com/kernel/build/+/refs/heads/main/kleaf/README.md
 EOF
         exit 1
     fi
