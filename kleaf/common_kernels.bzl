@@ -652,6 +652,37 @@ def _define_common_kernel(
         build_gki_artifacts = None,
         gki_boot_img_sizes = None,
         page_size = None):
+    json_target_config = dict(
+        name = name,
+        outs = outs,
+        arch = arch,
+        build_config = build_config,
+        toolchain_version = toolchain_version,
+        visibility = visibility,
+        enable_interceptor = enable_interceptor,
+        kmi_symbol_list = kmi_symbol_list,
+        additional_kmi_symbol_lists = additional_kmi_symbol_lists,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
+        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
+        module_implicit_outs = module_implicit_outs,
+        protected_exports_list = protected_exports_list,
+        protected_modules_list = protected_modules_list,
+        make_goals = make_goals,
+        abi_definition_stg = abi_definition_stg,
+        kmi_enforced = kmi_enforced,
+        build_gki_artifacts = build_gki_artifacts,
+        gki_boot_img_sizes = gki_boot_img_sizes,
+        page_size = page_size,
+    )
+    json_target_config = json.encode_indent(json_target_config, indent = "    ")
+    json_target_config = json_target_config.replace("null", "None")
+
+    print_debug(
+        name = name + "_print_configs",
+        content = "_define_common_kernel(**{})".format(json_target_config),
+        tags = ["manual"],
+    )
+
     native.alias(
         name = name + "_sources",
         actual = ":common_kernel_sources",
@@ -671,35 +702,6 @@ def _define_common_kernel(
     native.filegroup(
         name = name + "_all_kmi_symbol_lists",
         srcs = all_kmi_symbol_lists,
-    )
-
-    json_target_config = dict(
-        name = name,
-        outs = outs,
-        arch = arch,
-        build_config = build_config,
-        toolchain_version = toolchain_version,
-        enable_interceptor = enable_interceptor,
-        kmi_symbol_list = kmi_symbol_list,
-        additional_kmi_symbol_lists = additional_kmi_symbol_lists,
-        trim_nonlisted_kmi = trim_nonlisted_kmi,
-        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
-        module_implicit_outs = module_implicit_outs,
-        protected_exports_list = protected_exports_list,
-        protected_modules_list = protected_modules_list,
-        make_goals = make_goals,
-        abi_definition_stg = abi_definition_stg,
-        kmi_enforced = kmi_enforced,
-        build_gki_artifacts = build_gki_artifacts,
-        gki_boot_img_sizes = gki_boot_img_sizes,
-        page_size = page_size,
-    )
-    json_target_config = json.encode_indent(json_target_config, indent = "    ")
-
-    print_debug(
-        name = name + "_print_configs",
-        content = json_target_config.replace("null", "None"),
-        tags = ["manual"],
     )
 
     kernel_build_config(
