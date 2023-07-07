@@ -158,6 +158,9 @@ own defconfig fragments to avoid fragmentation in the ecosystem (pun intended).
 
 *   `--btf_debug_info`
 *   `--debug`
+*   `--kasan`
+*   `--kasan_sw_tags`
+*   `--kcsan`
 *   `--page_size`
 
 ### User-defined flags

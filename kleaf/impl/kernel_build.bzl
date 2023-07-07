@@ -687,6 +687,9 @@ def _get_defconfig_fragments(
     additional_fragments = [
         Label("//build/kernel/kleaf:defconfig_fragment"),
         Label("//build/kernel/kleaf/impl/defconfig:debug"),
+        Label("//build/kernel/kleaf/impl/defconfig:kasan_any_mode"),
+        Label("//build/kernel/kleaf/impl/defconfig:{}_kasan_sw_tags".format(kernel_build_arch)),
+        Label("//build/kernel/kleaf/impl/defconfig:kcsan"),
     ]
 
     btf_debug_info_target = kernel_build_name + "_defconfig_fragment_btf_debug_info"
