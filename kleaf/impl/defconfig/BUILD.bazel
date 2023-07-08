@@ -12,9 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//build/kernel/kleaf:fail.bzl", "fail_action")
+
 # Used by all packages that uses kernel_build
 exports_files([
     # keep sorted
+    "arm64_16k_defconfig",
+    "arm64_4k_defconfig",
+    "arm64_64k_defconfig",
     "btf_debug_info_disabled_defconfig",
     "btf_debug_info_enabled_defconfig",
 ])
+
+[[
+    filegroup(
+        name = "{}_4k_defconfig".format(arch),
+        srcs = [],
+        visibility = ["//visibility:public"],
+    ),
+    # Intentionally fail for 16k and 64k
+    # so build will fail if --page_size=16k or 64k for non-arm64 architectures
+    fail_action(
+        name = "{}_16k_defconfig".format(arch),
+        message = "ERROR: 16k pages not supported on {}.".format(arch),
+        visibility = ["//visibility:public"],
+    ),
+    fail_action(
+        name = "{}_64k_defconfig".format(arch),
+        message = "ERROR: 64k pages not supported on {}.".format(arch),
+        visibility = ["//visibility:public"],
+    ),
+] for arch in [
+    # keep sorted
+    "arm",
+    "i386",
+    "riscv64",
+    "x86_64",
+]]

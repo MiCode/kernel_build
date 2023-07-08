@@ -265,6 +265,37 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# Flag to control page size
+string_flag(
+    name = "page_size",
+    build_setting_default = "default",
+    values = [
+        "default",  # Respect value in defconfig
+        "4k",
+        "16k",
+        "64k",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "page_size_4k",
+    flag_values = {":page_size": "4k"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "page_size_16k",
+    flag_values = {":page_size": "16k"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "page_size_64k",
+    flag_values = {":page_size": "64k"},
+    visibility = ["//visibility:public"],
+)
+
 # Use the resolved toolchains for building kernel_* rules.
 # See https://bazel.build/extending/toolchains for how toolchains are resolved.
 bool_flag(
