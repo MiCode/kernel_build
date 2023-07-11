@@ -47,6 +47,7 @@ def _get_step(ctx, common_config_tags, symlink_name):
             fail("--config=local requires --cache_dir.")
 
         tools.append(ctx.executable._cache_dir_config_tags)
+        inputs.append(common_config_tags)
 
         cache_dir_cmd = """
             KLEAF_CONFIG_TAGS_TMP=$(mktemp kleaf_config_tags.json.XXXXXX)
