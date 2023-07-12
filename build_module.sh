@@ -191,15 +191,6 @@ if [ ! -e "${KERNEL_KIT}/.config" ]; then
   exit 1
 fi
 
-# Set the LTO based on the .config
-if grep -q "CONFIG_LTO_NONE=y" "${KERNEL_KIT}/.config"; then
-  LTO=none
-elif grep -q "CONFIG_LTO_.*_THIN=y" "${KERNEL_KIT}/.config"; then
-  LTO=thin
-else
-  LTO=full
-fi
-
 if [ ! -e "${OUT_DIR}/Makefile" -o -z "${EXT_MODULES}" ]; then
   echo "========================================================"
   echo " Prepare to compile modules from ${KERNEL_KIT}"
@@ -288,7 +279,8 @@ for EXT_MOD in ${EXT_MODULES}; do
      && [ -n "$build_target" ]
   then
 
-    build_flags=("--lto=${LTO:-full}")
+    build_flags=($(xargs -a "${KERNEL_KIT}/build_opts.txt"))
+
     if [ "$ALLOW_UNSAFE_DDK_HEADERS" = "true" ]; then
       build_flags+=("--allow_ddk_unsafe_headers")
     fi
