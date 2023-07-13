@@ -55,18 +55,19 @@ class PresetResult(PathCollectible):
 @dataclasses.dataclass
 class LocalversionResult(PathPopen):
     """Consists of results of localversion."""
-    removed_prefix: str
+    removed_prefix: str | None
     suffix: str | None
 
     def collect(self) -> str:
         ret = super().collect()
-        ret = ret.removeprefix(self.removed_prefix)
+        if self.removed_prefix:
+            ret = ret.removeprefix(self.removed_prefix)
         if self.suffix:
             ret += self.suffix
         return ret
 
 
-def get_localversion(bin: pathlib.Path | None, project: pathlib.Path, *args) \
+def get_localversion_from_script(bin: pathlib.Path | None, project: pathlib.Path, *args) \
         -> PathCollectible | None:
     """Call setlocalversion.
 
@@ -106,6 +107,47 @@ def get_localversion(bin: pathlib.Path | None, project: pathlib.Path, *args) \
     return None
 
 
+def get_localversion_from_git(project: pathlib.Path) -> PathCollectible | None:
+    """Calculate localversion without calling setlocalversion script.
+
+    Args:
+      project: relative path to the project
+    Return:
+      A PathCollectible object that resolves to the result, or None if bin or
+      project does not exist.
+    """
+
+    if not project.is_dir():
+        return None
+
+    # Note: To ensure hermeticity as much as possible, only get git from
+    # host, then clear PATH.
+    script = """
+        GIT=$(command -v git)
+        PATH=
+        if head=$($GIT rev-parse --verify --short=12 HEAD 2>/dev/null); then
+            echo -n -g"$head"
+        fi
+        if {
+            $GIT --no-optional-locks status -uno --porcelain 2>/dev/null ||
+            $GIT diff-index --name-only HEAD
+        } | read placeholder; then
+            echo -n -dirty
+        fi
+    """
+    popen = subprocess.Popen(script, shell=True, text=True,
+                             stdout=subprocess.PIPE, cwd=project)
+    suffix = None
+    if os.environ.get("BUILD_NUMBER"):
+        suffix = "-ab" + os.environ["BUILD_NUMBER"]
+    return LocalversionResult(
+        path=project,
+        popen=popen,
+        removed_prefix=None,
+        suffix=suffix
+    )
+
+
 def list_projects() -> list[pathlib.Path]:
     """Lists projects in the repository.
 
@@ -120,7 +162,7 @@ def list_projects() -> list[pathlib.Path]:
         output = subprocess.check_output(["repo", "list", "-f"], text=True)
         return parse_repo_list(output)
     except (subprocess.SubprocessError, FileNotFoundError) as e:
-        logging.warning("Unable to execute repo manifest -r: %s", e)
+        logging.warning("Unable to execute repo list -f: %s", e)
         return []
 
 
@@ -185,6 +227,8 @@ class Stamp(object):
     def __init__(self):
         self.ignore_missing_projects = os.environ.get(
             "KLEAF_IGNORE_MISSING_PROJECTS") == "true"
+        self.use_kleaf_localversion = os.environ.get(
+            "KLEAF_USE_KLEAF_LOCALVERSION") == "true"
         self.projects = list_projects()
         self.init_for_dot_source_date_epoch_dir()
 
@@ -215,6 +259,9 @@ class Stamp(object):
 
     def find_setlocalversion(self) -> None:
         self.setlocalversion = None
+
+        if self.use_kleaf_localversion:
+            return
 
         all_projects = []
         if self.kernel_dir:
@@ -255,11 +302,17 @@ class Stamp(object):
                     project)
                 sys.exit(1)
 
-            path_popen = get_localversion(self.setlocalversion, project)
+            path_popen = self.get_localversion(project)
             if path_popen:
                 scmversion_map[project] = path_popen
 
         return scmversion_map
+
+    def get_localversion(self, project: pathlib.Path) -> PathCollectible | None:
+        if not self.use_kleaf_localversion:
+            return get_localversion_from_script(self.setlocalversion, project)
+
+        return get_localversion_from_git(project)
 
     def get_ext_modules(self) -> list[pathlib.Path]:
         if not self.setlocalversion:

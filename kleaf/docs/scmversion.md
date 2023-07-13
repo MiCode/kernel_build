@@ -57,6 +57,13 @@ one containing the `kernel_build`. Usually, the file can be found in
 kernel source tree under `common/`. (This requirement may not be necessary in
 the future.)
 
+### --kleaf_localversion flag
+
+If `--kleaf_localversion` is set, Kleaf uses an embedded script to determine
+localversion instead of calling `scripts/setlocalversion`. The script is
+not branch-specific and does not include the 5-digit number of patches beyond
+the tag.
+
 ### Testing
 
 To ensure the artifact `vmlinux` contains SCM version properly, you may check

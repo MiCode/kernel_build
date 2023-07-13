@@ -148,6 +148,8 @@ includes:
 * `tools/bazel` that points to `build/kernel/kleaf/bazel.sh`
 * `build/kernel/kleaf/workspace_status.sh`, which uses `git` from the
   host machine.
+  * The script may also use `printf` etc. from the host machine if
+    `--kleaf_localversion` is not set. See `scripts/setlocalversion`.
 
 All `ctx.actions.run_shell` uses a shell defined by Bazel, which is usually
 `/bin/bash`.

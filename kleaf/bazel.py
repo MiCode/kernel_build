@@ -151,6 +151,20 @@ class BazelWrapper(object):
                  """missing from the workspace""",
         )
         parser.add_argument(
+            "--kleaf_localversion",
+            help=textwrap.dedent("""\
+                Use Kleaf's logic to determine localversion, not
+                scripts/setlocalversion. This removes the unstable patch number
+                from scmversion.
+                """),
+            action="store_true",
+        )
+        parser.add_argument(
+            "--nokleaf_localversion",
+            dest="kleaf_localversion",
+            action="store_false",
+        )
+        parser.add_argument(
             "--user_clang_toolchain",
             help="Absolute path to a custom clang toolchain",
             type=_require_absolute_path,
@@ -191,6 +205,9 @@ class BazelWrapper(object):
 
         if self.known_args.ignore_missing_projects:
             self.env["KLEAF_IGNORE_MISSING_PROJECTS"] = "true"
+
+        if self.known_args.kleaf_localversion:
+            self.env["KLEAF_USE_KLEAF_LOCALVERSION"] = "true"
 
         if self.known_args.user_clang_toolchain is not None:
             self.env["KLEAF_USER_CLANG_TOOLCHAIN_PATH"] = self.known_args.user_clang_toolchain
