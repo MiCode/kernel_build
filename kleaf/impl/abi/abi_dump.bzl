@@ -84,7 +84,7 @@ def _abi_dump_full_stg(ctx):
     # Collect all modules from all directories
     all_modules = ""
     for unstripped_dir in unstripped_dirs:
-        all_modules += "{dir_path}/*.ko ".format(
+        all_modules += "$(find {dir_path} -name '*.ko') ".format(
             dir_path = unstripped_dir.path,
         )
 
