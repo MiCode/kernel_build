@@ -101,6 +101,7 @@ def _kernel_kythe_impl(ctx):
                export KYTHE_CORPUS={quoted_corpus}
                export KYTHE_VNAMES=$(realpath {vnames_mappings_json_file})
                export KYTHE_KZIP_ENCODING=PROTO
+               export KYTHE_BUILD_CONFIG={kernel_build_name}
              # Generate kzips
                runextractor compdb -extractor $(which cxx_extractor)
 
@@ -121,6 +122,7 @@ def _kernel_kythe_impl(ctx):
         extracted_kzip_dir = extracted_kzip_dir,
         quoted_corpus = shell.quote(ctx.attr.corpus[BuildSettingInfo].value),
         all_kzip = all_kzip.path,
+        kernel_build_name = ctx.attr.kernel_build.label.name,
     )
     ctx.actions.run_shell(
         mnemonic = "KernelKythe",
