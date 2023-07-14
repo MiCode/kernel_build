@@ -503,10 +503,14 @@ def kernel_config_option_test_suite(name):
         name: name of the test.
     """
     for arch in _ARCHS:
+        kernel_build_arch = arch
+        if kernel_build_arch == "aarch64":
+            kernel_build_arch = "arm64"
+
         kernel_build(
             name = name + "_kernel_{}".format(arch),
             srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = arch,
+            arch = kernel_build_arch,
             build_config = "//common:build.config.gki.{}".format(arch),
             outs = [],
             tags = ["manual"],
@@ -515,7 +519,7 @@ def kernel_config_option_test_suite(name):
         kernel_build(
             name = name + "_kernel_{}_trim".format(arch),
             srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = arch,
+            arch = kernel_build_arch,
             build_config = "//common:build.config.gki.{}".format(arch),
             trim_nonlisted_kmi = True,
             kmi_symbol_list = "data/fake_kmi_symbol_list",
@@ -526,7 +530,7 @@ def kernel_config_option_test_suite(name):
         kernel_build(
             name = name + "_kernel_{}_notrim".format(arch),
             srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = arch,
+            arch = kernel_build_arch,
             build_config = "//common:build.config.gki.{}".format(arch),
             trim_nonlisted_kmi = False,
             kmi_symbol_list = "data/fake_kmi_symbol_list",

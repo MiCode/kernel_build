@@ -187,11 +187,15 @@ def kernel_defconfig_fragments_test(name):
     tests = []
 
     for arch in _ARCHS:
+        kernel_build_arch = arch
+        if kernel_build_arch == "aarch64":
+            kernel_build_arch = "arm64"
+
         name_arch = "{}_{}".format(name, arch)
         kernel_build(
             name = name_arch + "_kernel_build",
             srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = arch,
+            arch = kernel_build_arch,
             build_config = "//common:build.config.gki.{}".format(arch),
             outs = [],
             make_goals = ["Image"],
