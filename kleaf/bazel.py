@@ -208,11 +208,13 @@ class BazelWrapper(object):
         group.add_argument(
             "--kleaf_localversion",
             help=textwrap.dedent("""\
+                Default is true.
                 Use Kleaf's logic to determine localversion, not
                 scripts/setlocalversion. This removes the unstable patch number
                 from scmversion.
                 """),
             action="store_true",
+            default=True,
         )
         group.add_argument(
             "--nokleaf_localversion",
