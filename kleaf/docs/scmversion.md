@@ -50,6 +50,10 @@ in the build environment. This is uncommon.
 
 ### `setlocalversion` requirements
 
+By default, `--kleaf_localversion` is set, so `scripts/setlocalversion` does
+not need to exist.
+
+If `--nokleaf_localversion`,
 `scripts/setlocalversion` needs to exist in some git repository managed by the
 repo manifest. It is not necessary that the git repository is the same as the
 one containing the `kernel_build`. Usually, the file can be found in
