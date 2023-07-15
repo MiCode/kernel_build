@@ -184,7 +184,8 @@ def collect(popen_obj: subprocess.Popen) -> str:
 class Stamp(object):
 
     def __init__(self):
-        self.ignore_missing_projects = os.environ.get("KLEAF_IGNORE_MISSING_PROJECTS", "false") == "true"
+        self.ignore_missing_projects = os.environ.get(
+            "KLEAF_IGNORE_MISSING_PROJECTS") == "true"
         self.projects = list_projects()
         self.init_for_dot_source_date_epoch_dir()
 
