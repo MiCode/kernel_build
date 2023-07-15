@@ -21,7 +21,6 @@ import subprocess
 import sys
 import xml.dom.minidom
 import xml.parsers.expat
-from typing import Optional
 
 _FAKE_KERNEL_VERSION = "99.99.99"
 
@@ -57,7 +56,7 @@ class PresetResult(PathCollectible):
 class LocalversionResult(PathPopen):
     """Consists of results of localversion."""
     removed_prefix: str
-    suffix: Optional[str]
+    suffix: str | None
 
     def collect(self) -> str:
         ret = super().collect()
@@ -67,8 +66,8 @@ class LocalversionResult(PathPopen):
         return ret
 
 
-def get_localversion(bin: Optional[str], project: str, *args) \
-        -> Optional[PathCollectible]:
+def get_localversion(bin: str | None, project: str, *args) \
+        -> PathCollectible | None:
     """Call setlocalversion.
 
     Args:
