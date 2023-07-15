@@ -28,9 +28,10 @@ visibility("//build/kernel/kleaf/...")
 def _get_status_at_path(ctx, status_name, quoted_src_path):
     # {path}:{scmversion} {path}:{scmversion} ...
 
-    cmd = """extract_git_metadata "$({stable_status_cmd})" {quoted_src_path}""".format(
+    cmd = """extract_git_metadata "$({stable_status_cmd})" {quoted_src_path} {status_name}""".format(
         stable_status_cmd = status.get_stable_status_cmd(ctx, status_name),
         quoted_src_path = quoted_src_path,
+        status_name = status_name,
     )
     return cmd
 
