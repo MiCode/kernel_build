@@ -83,15 +83,13 @@ def _write_localversion(ctx):
             fi
             scmversion=""
             stable_scmversion=$({stable_scmversion_cmd})
-            if [[ -n "$stable_scmversion" ]]; then
-                scmversion_prefix=
-                if [[ -n "$android_release" ]] && [[ -n "$KMI_GENERATION" ]]; then
-                    scmversion_prefix="-$android_release-$KMI_GENERATION"
-                elif [[ -n "$android_release" ]]; then
-                    scmversion_prefix="-$android_release"
-                fi
-                scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
+            scmversion_prefix=
+            if [[ -n "$android_release" ]] && [[ -n "$KMI_GENERATION" ]]; then
+                scmversion_prefix="-$android_release-$KMI_GENERATION"
+            elif [[ -n "$android_release" ]]; then
+                scmversion_prefix="-$android_release"
             fi
+            scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
             echo $scmversion
         ) > {out_path}
     """.format(
