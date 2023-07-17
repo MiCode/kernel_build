@@ -87,7 +87,7 @@ class KernelSbom:
 
   def _checksum(self, file_path: pathlib.Path) -> str:
     with file_path.open("rb") as f:
-      return f'SHA1 :{hashlib.file_digest(f, "sha1").hexdigest()}'
+      return str(hashlib.file_digest(f, "sha1").hexdigest())
 
   def _generate_package_verification_code(self, files: list[File]) -> str:
     hash = hashlib.sha1()
