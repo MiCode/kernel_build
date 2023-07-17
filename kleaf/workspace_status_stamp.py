@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import dataclasses
+import json
 import logging
 import os
 import pathlib
@@ -379,16 +380,16 @@ class Stamp(object):
         scmversion_result_map: dict[pathlib.Path, str],
         source_date_epoch_result_map: dict[pathlib.Path, str],
     ) -> None:
-        stable_source_date_epochs = " ".join(
-            "{}:{}".format(path, result)
-            for path, result in sorted(source_date_epoch_result_map.items()))
+        stable_source_date_epochs = json.dumps({
+            str(key): value for key, value in source_date_epoch_result_map.items()
+        }, sort_keys=True)
         print("STABLE_SOURCE_DATE_EPOCHS", stable_source_date_epochs)
 
         # If the list is empty, this prints "STABLE_SCMVERSIONS", and is
         # filtered by Bazel.
-        stable_scmversions = " ".join(
-            "{}:{}".format(path, result)
-            for path, result in sorted(scmversion_result_map.items()))
+        stable_scmversions = json.dumps({
+            str(key): value for key, value in scmversion_result_map.items()
+        }, sort_keys=True)
         print("STABLE_SCMVERSIONS", stable_scmversions)
 
 

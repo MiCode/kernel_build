@@ -756,7 +756,13 @@ function extract_git_metadata() {
   local git_project_candidate=$2
   local what=$3
   while [[ "${git_project_candidate}" != "." ]]; do
-    value_candidate=$(echo "${map}" | sed -E -n 's;(^|.*\s)'"${git_project_candidate}"':(\S+).*;\2;p' || true)
+    value_candidate=$(python3 -c '
+import sys, json
+js = json.load(sys.stdin)
+key = sys.argv[1]
+if key in js:
+    print(js[key])
+' "${git_project_candidate}" <<< "${map}")
     if [[ -n "${value_candidate}" ]]; then
         break
     fi
