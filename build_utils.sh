@@ -14,18 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(b/266980402): remove it
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
-  echo "WARNING: rel_path is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
-  ${ROOT_DIR}/build/kernel/build-tools/path/linux-x86/realpath "$1" --relative-to="$2"
-}
-
-# TODO(b/266980402): remove it
-# rel_path2 <to> <from>
-# Generate relative directory path to reach directory <to> from <from>
-function rel_path2() {
-  echo "ERROR: rel_path2 is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
+  echo "ERROR: rel_path is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
   exit 1
 }
 
