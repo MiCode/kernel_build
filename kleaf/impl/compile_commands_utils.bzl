@@ -47,7 +47,7 @@ def _kernel_build_step(ctx):
         )
         outputs += [out_dir, compile_commands_with_vars]
         cmd = """
-            rsync -a --no-group --prune-empty-dirs \\
+            rsync -a --prune-empty-dirs \\
                 --include '*/' \\
                 --include '*.c' \\
                 --include '*.h' \\

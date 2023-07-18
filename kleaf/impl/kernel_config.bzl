@@ -372,8 +372,8 @@ def _kernel_config_impl(ctx):
         # HACK: run syncconfig to avoid re-triggerring kernel_build
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} syncconfig
         # Grab outputs
-          rsync -aL --no-group ${{OUT_DIR}}/.config {out_dir}/.config
-          rsync -r -aL --no-group ${{OUT_DIR}}/include/ {out_dir}/include/
+          rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
+          rsync -r -aL ${{OUT_DIR}}/include/ {out_dir}/include/
 
         # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
           sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
@@ -409,9 +409,9 @@ def _kernel_config_impl(ctx):
            [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
-           rsync --no-group -L {out_dir}/.config ${{OUT_DIR}}/.config
-           rsync --no-group -r -L --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
-           rsync --no-group -L --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
+           rsync --no-perms -L {out_dir}/.config ${{OUT_DIR}}/.config
+           rsync --no-perms -r -L --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+           rsync --no-perms -L --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd

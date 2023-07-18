@@ -173,7 +173,7 @@ def _ext_mod_write_localversion(ctx, ext_mod):
     )
 
     ret_cmd = """
-        rsync -aL --no-group --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
+        rsync -aL --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
     """.format(
         localversion_file = localversion_file.path,
     )

@@ -458,7 +458,7 @@ def _kernel_module_impl(ctx):
              # Grab *.cmd
                {grab_cmd_cmd}
              # Move Module.symvers
-               rsync -aL --no-group ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
+               rsync -aL ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
 
                {drop_modules_order_cmd}
                """.format(
@@ -558,7 +558,7 @@ def _kernel_module_impl(ctx):
                ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
              # Restore Modules.symvers
                mkdir -p $(dirname ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name})
-               rsync -aL --no-group {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name}
+               rsync -aL {module_symvers} ${{OUT_DIR}}/${{ext_mod_rel}}/{internal_module_symvers_name}
              # New shell ends
                )
     """.format(
