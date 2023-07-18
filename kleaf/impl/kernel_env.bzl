@@ -291,9 +291,6 @@ def _kernel_env_impl(ctx):
          # source the build environment
            source {env}
            {set_up_jobs_cmd}
-         # re-setup the PATH to also include the hermetic tools, because env completely overwrites
-         # PATH with HERMETIC_TOOLCHAIN=1
-           {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
          # Set up KCONFIG_EXT
@@ -311,7 +308,6 @@ def _kernel_env_impl(ctx):
              export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
            fi
            """.format(
-        hermetic_tools_additional_setup = hermetic_tools.additional_setup,
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,

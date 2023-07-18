@@ -44,6 +44,7 @@ Deprecated:
     fields = {
         "deps": "A list containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
+        # TODO(b/250646733): Delete this field
         "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
 
 Alternative setup script that preserves original `PATH`.
@@ -69,15 +70,6 @@ _HermeticToolchainInfo = provider(
     fields = {
         "deps": "a depset containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Alternative setup script that preserves original `PATH`.
-
-After using this script, the shell environment prioritizes using hermetic tools, but falls
-back on tools from the original `PATH` if a tool cannot be found.
-
-Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
-""",
         "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
 
 setup script to initialize the environment to only use the hermetic tools in
@@ -314,6 +306,8 @@ def _hermetic_tools_impl(ctx):
 
     setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
+                # Ensure _setup_env.sh keeps the original items in PATH
+                export KLEAF_INTERNAL_BUILDTOOLS_PREBUILT_BIN={path}
 """.format(path = all_outputs[0].dirname)
     additional_setup = """
                 export PATH=$({path}/readlink -m {path}):$PATH
@@ -328,7 +322,6 @@ def _hermetic_tools_impl(ctx):
     hermetic_toolchain_info = _HermeticToolchainInfo(
         deps = depset(info_deps),
         setup = setup,
-        additional_setup = additional_setup,
         run_setup = run_setup,
         run_additional_setup = run_additional_setup,
     )
