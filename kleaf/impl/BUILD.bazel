@@ -74,6 +74,7 @@ bzl_library(
         "kernel_module_group.bzl",
         "kernel_modules_install.bzl",
         "kernel_platform_toolchain.bzl",
+        "kernel_sbom.bzl",
         "kernel_toolchains.bzl",
         "kernel_uapi_headers.bzl",
         "kernel_uapi_headers_cc_library.bzl",

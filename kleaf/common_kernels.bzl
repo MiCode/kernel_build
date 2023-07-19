@@ -36,6 +36,7 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
 load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
+load("//build/kernel/kleaf/impl:kernel_sbom.bzl", "kernel_sbom")
 load("//build/kernel/kleaf/impl:merge_kzip.bzl", "merge_kzip")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
 load(
@@ -838,6 +839,14 @@ def _define_common_kernel(
         # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
         Label("//build/kernel:gki_certification_tools"),
     ]
+
+    kernel_sbom(
+        name = name + "_sbom",
+        srcs = dist_targets,
+        kernel = name,
+    )
+
+    dist_targets.append(name + "_sbom")
 
     copy_to_dist_dir(
         name = name + "_dist",

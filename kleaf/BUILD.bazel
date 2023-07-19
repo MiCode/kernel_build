@@ -515,6 +515,13 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+# Utility to create a Kernel SBOM
+py_binary(
+    name = "kernel_sbom",
+    srcs = ["kernel_sbom.py"],
+    visibility = ["//visibility:public"],
+)
+
 # Analyze DDK targets
 
 # Usage:
