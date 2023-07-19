@@ -140,7 +140,7 @@ bool_setting(
     visibility = ["//visibility:public"],
 )
 
-# Helper setting to forcefully disable trimming.
+# If set, disables trimming.
 bool_flag(
     name = "force_disable_trim",
     build_setting_default = False,
@@ -211,6 +211,8 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
+# If true, //build/kernel:hermetic-tools and other hermetic_tools
+# targets no longer emits HermeticToolsInfo.
 bool_flag(
     name = "incompatible_disable_hermetic_tools_info",
     build_setting_default = False,

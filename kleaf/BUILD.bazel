@@ -23,6 +23,7 @@ load(":print_flags.bzl", "print_flags")
 
 # Build flags
 
+# LTO setting. Values can be one of default, none, fast, thin, full
 string_flag(
     name = "lto",
     build_setting_default = "default",
@@ -99,7 +100,8 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-# If true, enable kasan. This assumes --lto=none, but :print_flags only shows
+# If true, enable kasan.
+# This assumes --lto=none, but :print_flags only shows
 # values from the command line.
 bool_flag(
     name = "kasan",
@@ -119,7 +121,8 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# If true, enable kasan sw tags. This assumes --lto=none, but :print_flags only shows
+# If true, enable kasan sw tags.
+# This assumes --lto=none, but :print_flags only shows
 # values from the command line.
 bool_flag(
     name = "kasan_sw_tags",
@@ -157,7 +160,8 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
-# If true, enable kcsan. This assumes --lto=none, but :print_flags only shows
+# If true, enable kcsan.
+# This assumes --lto=none, but :print_flags only shows
 # values from the command line.
 bool_flag(
     name = "kcsan",
@@ -227,6 +231,7 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+# If true, kmi_symbol_list_violations_check is enabled.
 # If false, kmi_symbol_list_violations_check is disabled.
 bool_flag(
     name = "kmi_symbol_list_violations_check",
@@ -241,7 +246,8 @@ label_flag(
     visibility = ["//visibility:public"],
 )
 
-# Flag to enable/disable BTF debug information
+# Flag to enable/disable BTF debug information.
+# Value is one of the following: default, enable, disable
 string_flag(
     name = "btf_debug_info",
     build_setting_default = "default",
@@ -265,7 +271,8 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# Flag to control page size
+# Flag to control page size.
+# Value is one of default, 4k, 16k, 64k.
 string_flag(
     name = "page_size",
     build_setting_default = "default",
@@ -306,12 +313,15 @@ bool_flag(
 
 # Debug options
 
+# Runs all script invocations with `set -x`
+# and a trap that executes `date` after every command.
 bool_flag(
     name = "debug_annotate_scripts",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )
 
+# Prints the content of the (generated) command scripts during rule execution.
 bool_flag(
     name = "debug_print_scripts",
     build_setting_default = False,
@@ -390,6 +400,7 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# If set, download signed prebuilts from ci.android.com.
 bool_flag(
     name = "use_signed_prebuilts",
     build_setting_default = False,
@@ -488,11 +499,14 @@ gen_ddk_headers(
     target = ":gen_ddk_headers_target",
 )
 
+# Target to analyze and generate DDK headers from.
 label_flag(
     name = "gen_ddk_headers_target",
     build_setting_default = ":gen_ddk_headers_target_unspecified",
 )
 
+# Label of allowlist of DDK header archives.
+# This is usually //{common}:kernel_aarch64_ddk_allowlist_headers
 label_flag(
     name = "gen_ddk_headers_gen_files_archives",
     build_setting_default = ":gen_ddk_headers_target_unspecified",
