@@ -59,7 +59,7 @@ _VARIANT_OF_RELATIONSHIP = "VARIANT_OF"
 _SPDX_REF = "SPDXRef"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(order=True)
 class File:
   id: str
   name: str
@@ -74,15 +74,17 @@ class KernelSbom:
   ):
     self._android_kernel_version = android_kernel_version
     self._upstream_kernel_version = android_kernel_version.split("-")[0]
-    self._files = [
-        File(
-            id=f"{_SPDX_REF}-{file.name}",
-            name=file.name,
-            path=file,
-            checksum=self._checksum(file),
-        )
-        for file in file_list
-    ]
+    self._files = sorted(
+        [
+            File(
+                id=f"{_SPDX_REF}-{file.name}",
+                name=file.name,
+                path=file,
+                checksum=self._checksum(file),
+            )
+            for file in file_list
+        ]
+    )
     self._sbom_doc = self._generate_sbom()
 
   def _checksum(self, file_path: pathlib.Path) -> str:
