@@ -193,6 +193,7 @@ def _kernel_modules_install_impl(ctx):
                 target[KernelModuleInfo].packages
                 for target in ctx.attr.kernel_modules
             ]),
+            label = ctx.label,
         ),
         cmds_info,
     ]
