@@ -542,6 +542,17 @@ def define_common_kernels(
         build_setting_default = "",
     )
 
+    native.alias(
+        name = "kernel_kythe",
+        actual = ":kernel_aarch64_kythe",
+    )
+
+    copy_to_dist_dir(
+        name = "kernel_kythe_dist",
+        data = [":kernel_kythe"],
+        flat = True,
+    )
+
     _define_prebuilts(target_configs = target_configs, visibility = visibility)
 
 def _get_target_config(
