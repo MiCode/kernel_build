@@ -14,7 +14,8 @@
 
 # Flags used to control Network access.
 
-# Block external downloads
+# --config=no_internet: Block external downloads
+
 # NOTE: To ensure a strict no external access policy, the following three flags
 #   need to be set/unset, see https://github.com/bazelbuild/bazel/discussions/18281
 #   for more details about this.
@@ -25,6 +26,6 @@ build:no_internet --distdir=
 # If set, downloading using ctx.download{,_and_extract} is not allowed during repository fetching.
 build:no_internet --experimental_repository_disable_download
 
-# If requested relax the block on network access.
+# --config=internet: Relax the block on network access.
 build:internet --noexperimental_repository_disable_download
 

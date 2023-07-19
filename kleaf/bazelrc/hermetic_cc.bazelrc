@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# --config=hermetic_cc: Use hermetic CC toolchain. This is the default.
+
 # Use --platforms to select toolchains, not the legacy --cpu --cross_top --compiler.
 # See https://bazel.build/concepts/platforms#cxx
 build:hermetic_cc --incompatible_enable_cc_toolchain_resolution

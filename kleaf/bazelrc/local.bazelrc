@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Various configs for disabling as many sandboxes as possible.
+# --config=local: Disable as many sandboxes as possible.
+# See build/kernel/kleaf/docs/sandbox.md
 
 # Let rules know what configs we are using now
 build:local --//build/kernel/kleaf:config_local

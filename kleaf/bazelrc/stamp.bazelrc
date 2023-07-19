@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# --config=stamp: Stamp the build.
+# See build/kernel/kleaf/docs/scmversion.md
+
 # Let rules know what configs we are using now
 build:stamp --//build/kernel/kleaf:config_stamp
 
