@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import argparse
+import dataclasses
 import os
 import pathlib
+import re
 import shlex
 import shutil
 import sys
@@ -24,6 +26,15 @@ from typing import Tuple, Optional
 _BAZEL_REL_PATH = "prebuilts/bazel/linux-x86_64/bazel"
 _BAZEL_JDK_REL_PATH = "prebuilts/jdk/jdk11/linux-x86"
 _BAZEL_RC_NAME = "build/kernel/kleaf/common.bazelrc"
+_FLAGS_BAZEL_RC = "build/kernel/kleaf/bazelrc/flags.bazelrc"
+
+_FLAG_PATTERN = re.compile(
+    r"build --flag_alias=(?P<short_name>[a-z_]+)=(?P<is_negated>no)?(?P<label>[a-zA-Z/:_-]+)$")
+
+_FLAG_COMMENT_PATTERN = re.compile(
+    r'(?P<comment>((#\s*.*)\n)*)(?P<rule>[a-z_]+)\(\s*name\s*=\s*"(?P<name>[a-zA-Z-_]+)"',
+    flags=re.MULTILINE
+)
 
 
 def _require_absolute_path(p: str) -> pathlib.Path:
@@ -331,6 +342,9 @@ class BazelWrapper(object):
         )
 
         self._add_command_args_to_parser(parser)
+        bazelrc_parser = FlagsBazelrcParser(
+            f"{self.root_dir}/{_FLAGS_BAZEL_RC}")
+        bazelrc_parser.add_to(parser, root_dir=self.root_dir)
 
         parser.add_argument_group(
             title="Target patterns",
@@ -343,7 +357,7 @@ class BazelWrapper(object):
         print("===============================")
 
         show_kleaf_help_menu = self.command == "help" and self.transformed_command_args and \
-                self.transformed_command_args[0] == "kleaf"
+            self.transformed_command_args[0] == "kleaf"
 
         if show_kleaf_help_menu:
             print("Kleaf help menu:")
@@ -380,6 +394,152 @@ class BazelWrapper(object):
             asyncio.run(run(final_args, self.env, filter_regex))
         else:
             os.execve(path=self.bazel_path, argv=final_args, env=self.env)
+
+
+class BazelrcSection(object):
+    def __init__(self):
+        self.comments: list[str] = []
+
+    def add_comment(self, comment_line: str):
+        self.comments.append(comment_line)
+
+    def handle_line(self, line):
+        pass
+
+    def add_to(self, parser_or_group, root_dir: str):
+        raise NotImplementedError
+
+
+class BazelrcParser(object):
+    def __init__(self, path: pathlib.Path):
+        with open(path) as f:
+            cur_section = self.new_section()
+            self.sections = [cur_section]
+            for line in f:
+                line = line.strip()
+                if not line:
+                    cur_section = self.new_section()
+                    self.sections.append(cur_section)
+                    continue
+                if line.startswith("#"):
+                    cur_section.add_comment(line.removeprefix("#").strip())
+                else:
+                    cur_section.handle_line(line)
+
+    def new_section(self) -> BazelrcSection:
+        raise NotImplementedError
+
+    def add_to(self, parser_or_group, root_dir: str):
+        parser_or_group.add_argument_group("Args - Kleaf flags")
+
+        for section in self.sections:
+            section.add_to(parser_or_group, root_dir=root_dir)
+
+
+@dataclasses.dataclass
+class FlagAlias(object):
+    short_name: str
+    label: str
+    is_negated: bool
+
+    _build_file_cache = {}
+
+    def read_flag_comment(self, root_dir: str):
+        # TODO(b/256052600): Use buildozer
+        build_file_rel = self.label.removeprefix('//')
+        build_file_rel = build_file_rel[:build_file_rel.index(":")]
+        label_name = self.label[self.label.index(":") + 1:]
+        build_file = f"{root_dir}/{build_file_rel}/BUILD.bazel"
+
+        self._rule = None
+        self._description = ""
+
+        if build_file not in FlagAlias._build_file_cache:
+            with open(build_file) as f:
+                FlagAlias._build_file_cache[build_file] = {}
+                for mo in _FLAG_COMMENT_PATTERN.finditer(f.read()):
+                    FlagAlias._build_file_cache[build_file][mo.group("name")] = {
+                        "rule": mo.group("rule"),
+                        "comment": mo.group("comment"),
+                    }
+
+        parsed_build_file = FlagAlias._build_file_cache[build_file]
+        if label_name in parsed_build_file:
+            self._rule = parsed_build_file[label_name]["rule"]
+            comment = parsed_build_file[label_name]["comment"]
+            if self.is_negated:
+                self._description = "Negates the following flag: \n"
+            else:
+                self._description = ""
+            self._description += "\n".join(
+                line.removeprefix("#").strip() for line in comment.split("\n")
+            )
+
+    def add_to_group(self, group, root_dir: str):
+        self.read_flag_comment(root_dir=root_dir)
+
+        kwargs = {
+            "help": self._description,
+        }
+        if self._rule == "bool_flag":
+            kwargs["action"] = "store_true"
+        elif self._rule == "label_flag":
+            kwargs["metavar"] = "LABEL"
+        else:
+            kwargs["metavar"] = "VAL"
+
+        group.add_argument(
+            f"--{self.short_name}",
+            **kwargs
+        )
+
+
+class FlagsSection(BazelrcSection):
+    def __init__(self):
+        super().__init__()
+        self.flags: list[FlagAlias] = []
+
+    def handle_line(self, line):
+        mo = _FLAG_PATTERN.match(line)
+        if not mo:
+            return
+        self.flags.append(FlagAlias(
+            short_name=mo.group("short_name"),
+            is_negated=mo.group("is_negated") == "no",
+            label=mo.group("label")
+        ))
+
+    def add_to(self, parser: argparse.ArgumentParser, root_dir: str):
+        if not self.flags:
+            # Skip for license header
+            return
+
+        title = None
+        description = None
+        if self.comments:
+            title = self.comments[0]
+            if len(self.comments) > 1:
+                description = "\n".join(self.comments[1:])
+
+        title = "Args - " + title
+
+        group = parser.add_argument_group(
+            title=title,
+            description=description,
+        )
+
+        for alias in self.flags:
+            try:
+                alias.add_to_group(group, root_dir=root_dir)
+            except argparse.ArgumentError:
+                # For flags like --use_prebuilt_gki, its help is already printed by the wrapper.
+                # Skip them.
+                pass
+
+
+class FlagsBazelrcParser(BazelrcParser):
+    def new_section(self):
+        return FlagsSection()
 
 
 async def output_filter(input_stream, output_stream, filter_regex):
