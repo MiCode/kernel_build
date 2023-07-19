@@ -36,6 +36,7 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
 load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
+load("//build/kernel/kleaf/impl:merge_kzip.bzl", "merge_kzip")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
@@ -549,9 +550,15 @@ def define_common_kernels(
         build_setting_default = "",
     )
 
-    native.alias(
+    kythe_candidates = [
+        "kernel_aarch64",
+        "kernel_x86_64",
+        "kernel_riscv64",
+    ]
+
+    merge_kzip(
         name = "kernel_kythe",
-        actual = ":kernel_aarch64_kythe",
+        srcs = [name + "_kythe" for name in kythe_candidates if name in target_configs],
     )
 
     copy_to_dist_dir(

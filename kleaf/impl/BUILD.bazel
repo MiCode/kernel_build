@@ -80,6 +80,7 @@ bzl_library(
         "kernel_unstripped_modules_archive.bzl",
         "kgdb.bzl",
         "kmi_symbol_list.bzl",
+        "merge_kzip.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
         "out_headers_allowlist_archive.bzl",
