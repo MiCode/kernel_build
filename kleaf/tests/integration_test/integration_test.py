@@ -135,13 +135,17 @@ class KleafIntegrationTestBase(unittest.TestCase):
         self._check_call("build", command_args, **kwargs)
 
     def _check_output(self, command: str, command_args: list[str],
+                      use_bazelrc=True,
                       **kwargs) -> str:
         """Returns output of a bazel command."""
-        return Exec.check_output([
-            str(_BAZEL),
-            f"--bazelrc={self._bazel_rc.name}",
-            command,
-        ] + command_args, **kwargs)
+
+        args = [str(_BAZEL)]
+        if use_bazelrc:
+            args.append(f"--bazelrc={self._bazel_rc.name}")
+        args.append(command)
+        args += command_args
+
+        return Exec.check_output(args, **kwargs)
 
     def _popen(self, command: str, command_args: list[str], **kwargs) \
             -> subprocess.Popen:
@@ -353,9 +357,9 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
         self._check_call(startup_options=[
             f"--host_jvm_args=-Djava.io.tmpdir={new_java_tmp.name}"
         ],
-                         command="build",
-                         command_args=["//build/kernel/kleaf:empty_test"] +
-                         _FASTEST)
+            command="build",
+            command_args=["//build/kernel/kleaf:empty_test"] +
+            _FASTEST)
         self.assertFalse(default_java_tmp.exists())
 
     def test_override_absolute_out_dir(self):
@@ -433,7 +437,7 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
 
         output = self._check_output("run", args)
 
-        matching_line = lambda line: re.match(
+        def matching_line(line): return re.match(
             r"^Updating .*common/arch/arm64/configs/menuconfig_test_defconfig$",
             line)
         self.assertTrue(
@@ -505,6 +509,19 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
             f"//{self._common()}:kernel",
         ] + _LTO_NONE
         self._build(args)
+
+    def test_dash_dash_help(self):
+        """Test that `bazel --help` works."""
+        self._check_output("--help", [], use_bazelrc=False)
+
+    def test_help(self):
+        """Test that `bazel help` works."""
+        self._check_output("help", [])
+
+    def test_help_kleaf(self):
+        """Test that `bazel help kleaf` works."""
+        self._check_output("help", ["kleaf"])
+
 
 class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
