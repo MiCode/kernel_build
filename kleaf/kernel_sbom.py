@@ -87,9 +87,28 @@ class KernelSbom:
     )
     self._sbom_doc = self._generate_sbom()
 
+  # replacement for 3.11 hashlib.file_digest(), adopted from upstream CPython
+  def _file_digest(self, fileobj, algorithm: str):
+    digestobj = hashlib.new(algorithm)
+
+    # We only support binary file objects
+    buf = bytearray(2**18)  # Reusable buffer to reduce allocations.
+    view = memoryview(buf)
+    while True:
+      size = fileobj.readinto(buf)
+      if size == 0:
+        break  # EOF
+      digestobj.update(view[:size])
+
+    return digestobj
+
   def _checksum(self, file_path: pathlib.Path) -> str:
     with file_path.open("rb") as f:
-      return str(hashlib.file_digest(f, "sha1").hexdigest())
+      if hasattr(hashlib, "file_digest"):
+        digest = hashlib.file_digest(f, "sha1")
+      else:
+        digest = self._file_digest(f, "sha1")
+      return str(digest.hexdigest())
 
   def _generate_package_verification_code(self, files: list[File]) -> str:
     hash = hashlib.sha1()
