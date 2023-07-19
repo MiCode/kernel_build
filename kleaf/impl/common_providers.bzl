@@ -26,6 +26,13 @@ KernelCmdsInfo = provider(
     },
 )
 
+KernelBuildConfigInfo = provider(
+    doc = """Provides build config dependencies""",
+    fields = {
+        "deps": "additional dependencies",
+    },
+)
+
 KernelEnvInfo = provider(
     doc = """Describe a generic environment setup with some dependencies and a setup script.""",
     fields = {

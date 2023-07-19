@@ -21,6 +21,7 @@ load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
     ":common_providers.bzl",
+    "KernelBuildConfigInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelEnvMakeGoalsInfo",
@@ -155,6 +156,12 @@ def _kernel_env_impl(ctx):
         build_config,
     ]
     inputs += srcs
+
+    transitive_inputs = []
+    for target in [ctx.attr.build_config] + ctx.attr.srcs:
+        if KernelBuildConfigInfo in target:
+            transitive_inputs.append(target[KernelBuildConfigInfo].deps)
+
     tools = [
         setup_env,
         ctx.file._build_utils_sh,
@@ -257,7 +264,7 @@ def _kernel_env_impl(ctx):
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelEnv",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
         tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),

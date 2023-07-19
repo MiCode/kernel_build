@@ -14,6 +14,7 @@
 
 """Create a build.config file by concatenating build config fragments."""
 
+load(":common_providers.bzl", "KernelBuildConfigInfo")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":debug.bzl", "debug")
 
@@ -37,7 +38,13 @@ def _kernel_build_config_impl(ctx):
         command = command,
         progress_message = "Generating build config {}".format(ctx.label),
     )
-    return DefaultInfo(files = depset([out_file]))
+
+    deps_depset = depset(transitive = [target.files for target in ctx.attr.deps])
+
+    return [
+        DefaultInfo(files = depset([out_file])),
+        KernelBuildConfigInfo(deps = deps_depset),
+    ]
 
 kernel_build_config = rule(
     implementation = _kernel_build_config_impl,
@@ -61,6 +68,14 @@ kernel_build_config(
 )
 ```
 
+""",
+        ),
+        "deps": attr.label_list(
+            allow_files = True,
+            doc = """Additional build config dependencies.
+
+These include build configs that are indirectly `source`d by items
+in `srcs`. Unlike `srcs`, they are not be emitted in the output.
 """,
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
