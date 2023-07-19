@@ -26,6 +26,7 @@ from typing import Tuple, Optional
 _BAZEL_REL_PATH = "prebuilts/bazel/linux-x86_64/bazel"
 _BAZEL_JDK_REL_PATH = "prebuilts/jdk/jdk11/linux-x86"
 _BAZEL_RC_NAME = "build/kernel/kleaf/common.bazelrc"
+_BAZEL_RC_DIR = "build/kernel/kleaf/bazelrc"
 _FLAGS_BAZEL_RC = "build/kernel/kleaf/bazelrc/flags.bazelrc"
 
 _FLAG_PATTERN = re.compile(
@@ -34,6 +35,10 @@ _FLAG_PATTERN = re.compile(
 _FLAG_COMMENT_PATTERN = re.compile(
     r'(?P<comment>((#\s*.*)\n)*)(?P<rule>[a-z_]+)\(\s*name\s*=\s*"(?P<name>[a-zA-Z-_]+)"',
     flags=re.MULTILINE
+)
+
+_CONFIG_PATTERN = re.compile(
+    r"^--config=(?P<config>[a-z_]+):\s*(?P<description>.*)$"
 )
 
 
@@ -346,6 +351,14 @@ class BazelWrapper(object):
             f"{self.root_dir}/{_FLAGS_BAZEL_RC}")
         bazelrc_parser.add_to(parser, root_dir=self.root_dir)
 
+        config_group = parser.add_argument_group(
+            title="Args - configs"
+        )
+        for f in os.listdir(f"{self.root_dir}/{_BAZEL_RC_DIR}"):
+            bazelrc_parser = ConfigBazelrcParser(
+                f"{self.root_dir}/{_BAZEL_RC_DIR}/{f}")
+            bazelrc_parser.add_to(config_group, root_dir=self.root_dir)
+
         parser.add_argument_group(
             title="Target patterns",
             description="$ bazel help target-syntax"
@@ -540,6 +553,31 @@ class FlagsSection(BazelrcSection):
 class FlagsBazelrcParser(BazelrcParser):
     def new_section(self):
         return FlagsSection()
+
+
+class ConfigSection(BazelrcSection):
+    def add_to(self, group, root_dir: str):
+        if not self.comments:
+            return
+        mo = _CONFIG_PATTERN.match(self.comments[0])
+        if not mo:
+            return
+
+        config = mo.group("config")
+        description_first_line = mo.group("description").strip()
+        description = []
+        if description_first_line:
+            description.append(description_first_line)
+        description += self.comments[1:]
+        description = "\n".join(description)
+        group.add_argument(f"--config={config}",
+                            help=description,
+                            action="store_true")
+
+
+class ConfigBazelrcParser(BazelrcParser):
+    def new_section(self):
+        return ConfigSection()
 
 
 async def output_filter(input_stream, output_stream, filter_regex):
