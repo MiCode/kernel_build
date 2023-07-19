@@ -91,6 +91,28 @@ class BazelWrapper(object):
         self._parse_startup_options()
         self._parse_command_args()
 
+    def _add_startup_option_to_parser(self, parser):
+        group = parser.add_argument_group(
+            title="Startup options - Wrapper flags",
+            description="Startup options known by the Kleaf Bazel wrapper.",)
+        group.add_argument(
+            "--output_root",
+            metavar="PATH",
+            type=_require_absolute_path,
+            default=_require_absolute_path(f"{self.root_dir}/out"),
+            help="Absolute path to output directory",
+        )
+        group.add_argument(
+            "--output_user_root",
+            metavar="PATH",
+            type=_require_absolute_path,
+            help="Passthrough flag to bazel if specified",
+        )
+        group.add_argument(
+            "-h", "--help", action="store_true",
+            help="show this help message and exit"
+        )
+
     def _parse_startup_options(self):
         """Parses the given list of startup_options.
 
@@ -101,20 +123,93 @@ class BazelWrapper(object):
         """
 
         parser = argparse.ArgumentParser(add_help=False)
-        parser.add_argument("--output_root",
-                            type=_require_absolute_path,
-                            default=_require_absolute_path(f"{self.root_dir}/out"))
-        parser.add_argument("--output_user_root",
-                            type=_require_absolute_path)
-        known_startup_options, user_startup_options = parser.parse_known_args(self.startup_options)
-        self.absolute_out_dir = known_startup_options.output_root
-        self.absolute_user_root = known_startup_options.output_user_root or \
-                                  f"{self.absolute_out_dir}/bazel/output_user_root"
-        self.transformed_startup_options = [
-            f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
-        ]
+        self._add_startup_option_to_parser(parser)
+
+        self.known_startup_options, user_startup_options = parser.parse_known_args(
+            self.startup_options)
+
+        self.absolute_out_dir = self.known_startup_options.output_root
+        self.absolute_user_root = self.known_startup_options.output_user_root or \
+            f"{self.absolute_out_dir}/bazel/output_user_root"
+
+        if self.known_startup_options.help:
+            self.transformed_startup_options = [
+                "--help"
+            ]
+
+        if not self.known_startup_options.help:
+            self.transformed_startup_options = [
+                f"--host_jvm_args=-Djava.io.tmpdir={self.absolute_out_dir}/bazel/javatmp",
+            ]
+
         self.transformed_startup_options += user_startup_options
-        self.transformed_startup_options.append(f"--output_user_root={self.absolute_user_root}")
+
+        if not self.known_startup_options.help:
+            self.transformed_startup_options.append(
+                f"--output_user_root={self.absolute_user_root}")
+
+    def _add_command_args_to_parser(self, parser):
+        absolute_cache_dir = f"{self.absolute_out_dir}/cache"
+        group = parser.add_argument_group(
+            title="Args - Bazel wrapper flags",
+            description="Args known by the Kleaf Bazel wrapper.")
+
+        # Arguments known by this bazel wrapper.
+        group.add_argument(
+            "--use_prebuilt_gki",
+            metavar="BUILD_NUMBER",
+            help="Use prebuilt GKI downloaded from ci.android.com")
+        group.add_argument(
+            "--experimental_strip_sandbox_path",
+            action="store_true",
+            help=textwrap.dedent("""\
+                Deprecated; use --strip_execroot.
+                Strip sandbox path from output.
+                """))
+        group.add_argument(
+            "--strip_execroot", action="store_true",
+            help="Strip execroot from output.")
+        group.add_argument(
+            "--make_jobs", metavar="JOBS", type=int, default=None,
+            help="--jobs to Kbuild")
+        group.add_argument(
+            "--cache_dir", metavar="PATH",
+            type=_require_absolute_path,
+            default=absolute_cache_dir,
+            help="Cache directory for --config=local.")
+        group.add_argument(
+            "--repo_manifest", metavar="<manifest.xml>",
+            help="""Absolute path to repo manifest file, generated with """
+                 """`repo manifest -r`.""",
+            type=_require_absolute_path,
+        )
+        group.add_argument(
+            "--ignore_missing_projects",
+            action='store_true',
+            help="""ignore projects defined in the repo manifest, but """
+                 """missing from the workspace""",
+        )
+        group.add_argument(
+            "--kleaf_localversion",
+            help=textwrap.dedent("""\
+                Use Kleaf's logic to determine localversion, not
+                scripts/setlocalversion. This removes the unstable patch number
+                from scmversion.
+                """),
+            action="store_true",
+        )
+        group.add_argument(
+            "--nokleaf_localversion",
+            dest="kleaf_localversion",
+            action="store_false",
+            help="Equivalent to --kleaf_localversion=false",
+        )
+        group.add_argument(
+            "--user_clang_toolchain",
+            metavar="PATH",
+            help="Absolute path to a custom clang toolchain",
+            type=_require_absolute_path,
+        )
 
     def _parse_command_args(self):
         """Parses the given list of command_args.
@@ -126,55 +221,15 @@ class BazelWrapper(object):
         - env: A dictionary containing the new environment variables for the subprocess.
         """
 
-        absolute_cache_dir = f"{self.absolute_out_dir}/cache"
-
-        # Arguments known by this bazel wrapper.
         parser = argparse.ArgumentParser(add_help=False)
-        parser.add_argument("--use_prebuilt_gki")
-        parser.add_argument("--experimental_strip_sandbox_path",
-                            action='store_true')
-        parser.add_argument("--strip_execroot", action='store_true')
-        parser.add_argument("--make_jobs", type=int, default=None)
-        parser.add_argument("--cache_dir",
-                            type=_require_absolute_path,
-                            default=absolute_cache_dir)
-        parser.add_argument(
-            "--repo_manifest",
-            help="""Absolute path to repo manifest file, generated with """
-                 """`repo manifest -r`.""",
-            type=_require_absolute_path,
-        )
-        parser.add_argument(
-            "--ignore_missing_projects",
-            action='store_true',
-            help="""ignore projects defined in the repo manifest, but """
-                 """missing from the workspace""",
-        )
-        parser.add_argument(
-            "--kleaf_localversion",
-            help=textwrap.dedent("""\
-                Use Kleaf's logic to determine localversion, not
-                scripts/setlocalversion. This removes the unstable patch number
-                from scmversion.
-                """),
-            action="store_true",
-        )
-        parser.add_argument(
-            "--nokleaf_localversion",
-            dest="kleaf_localversion",
-            action="store_false",
-        )
-        parser.add_argument(
-            "--user_clang_toolchain",
-            help="Absolute path to a custom clang toolchain",
-            type=_require_absolute_path,
-        )
+        self._add_command_args_to_parser(parser)
 
         # known_args: List of arguments known by this bazel wrapper. These
         #   are stripped from the final bazel invocation.
         # remaining_command_args: the rest of the arguments
         # Skip startup options (before command) and target_patterns (after --)
-        self.known_args, self.transformed_command_args = parser.parse_known_args(self.command_args)
+        self.known_args, self.transformed_command_args = parser.parse_known_args(
+            self.command_args)
 
         if self.known_args.experimental_strip_sandbox_path:
             sys.stderr.write(
@@ -218,7 +273,10 @@ class BazelWrapper(object):
             f.write(textwrap.dedent(f"""\
                 build --//build/kernel/kleaf:cache_dir={shlex.quote(str(self.known_args.cache_dir))}
             """))
-        self.transformed_startup_options.append(f"--bazelrc={cache_dir_bazel_rc}")
+
+        if not self.known_startup_options.help:
+            self.transformed_startup_options.append(
+                f"--bazelrc={cache_dir_bazel_rc}")
 
     def _build_final_args(self) -> list[str]:
         """Builds the final arguments for the subprocess."""
@@ -226,10 +284,13 @@ class BazelWrapper(object):
         # bazel [startup_options] [additional_startup_options] command [transformed_command_args] -- [target_patterns]
 
         bazel_jdk_path = f"{self.root_dir}/{_BAZEL_JDK_REL_PATH}"
-        final_args = [self.bazel_path] + self.transformed_startup_options + [
-            f"--server_javabase={bazel_jdk_path}",
-            f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
-        ]
+        final_args = [self.bazel_path] + self.transformed_startup_options
+
+        if not self.known_startup_options.help:
+            final_args += [
+                f"--server_javabase={bazel_jdk_path}",
+                f"--bazelrc={self.root_dir}/{_BAZEL_RC_NAME}",
+            ]
         if self.command is not None:
             final_args.append(self.command)
         final_args += self.transformed_command_args
@@ -246,15 +307,76 @@ class BazelWrapper(object):
 
         return final_args
 
+    def _print_kleaf_help(self):
+        parser = argparse.ArgumentParser(
+            prog="bazel",
+            add_help=False,
+            usage="bazel [<startup options>] <command> [<args>] [--] [<target patterns>]",
+            formatter_class=argparse.RawTextHelpFormatter,
+        )
+
+        parser.add_argument_group(
+            title="Startup options",
+            description=textwrap.dedent("""\
+                Consists of "Wrapper flags" and "Native flags".
+                """))
+        self._add_startup_option_to_parser(parser)
+        parser.add_argument_group(
+            title="Startup options - Native flags",
+            description="$ bazel help startup_options")
+
+        parser.add_argument_group(
+            title="Command",
+            description="""$ bazel help""",
+        )
+
+        self._add_command_args_to_parser(parser)
+
+        parser.add_argument_group(
+            title="Target patterns",
+            description="$ bazel help target-syntax"
+        )
+
+        parser.print_help()
+
+    def _print_help(self):
+        print("===============================")
+
+        show_kleaf_help_menu = self.command == "help" and self.transformed_command_args and \
+                self.transformed_command_args[0] == "kleaf"
+
+        if show_kleaf_help_menu:
+            print("Kleaf help menu:")
+            self._print_kleaf_help()
+        else:
+            print("Kleaf help menu:")
+            print("  $ bazel help kleaf")
+
+        print()
+        print("===============================")
+
+        if show_kleaf_help_menu:
+            print("Native bazel help menu:")
+            print("  $ bazel help")
+            sys.exit(0)
+        else:
+            print("Native bazel help menu:")
+
     def run(self):
         final_args = self._build_final_args()
+
+        if self.known_startup_options.help or self.command == "help":
+            self._print_help()
+
         if self.known_args.strip_execroot:
             import asyncio
             import re
             if self.absolute_user_root.is_relative_to(self.absolute_out_dir):
-                filter_regex = re.compile(self.absolute_out_dir + r"/\S+?/execroot/__main__/")
+                filter_regex = re.compile(
+                    self.absolute_out_dir + r"/\S+?/execroot/__main__/")
             else:
-                filter_regex = re.compile(f"{self.absolute_user_root}" + r"/\S+?/execroot/__main__/")
+                filter_regex = re.compile(
+                    f"{self.absolute_user_root}" + r"/\S+?/execroot/__main__/")
             asyncio.run(run(final_args, self.env, filter_regex))
         else:
             os.execve(path=self.bazel_path, argv=final_args, env=self.env)
@@ -286,4 +408,5 @@ async def run(command, env, filter_regex):
 
 
 if __name__ == "__main__":
-    BazelWrapper(root_dir=sys.argv[1], bazel_args=sys.argv[2:], env=os.environ).run()
+    BazelWrapper(root_dir=sys.argv[1],
+                 bazel_args=sys.argv[2:], env=os.environ).run()

@@ -54,6 +54,12 @@
 
 ### Flags
 
+For a full list of flags, run
+
+```sh
+$ tools/bazel help kleaf
+```
+
 `--gcov`: [Keep GCOV files](docs/gcov.md)
 
 `--kasan`: [kasan](docs/kasan.md)
