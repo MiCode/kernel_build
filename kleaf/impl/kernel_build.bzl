@@ -1157,6 +1157,9 @@ def _get_grab_kbuild_output_step(ctx):
         kbuild_output_target = ctx.actions.declare_directory("{name}/kbuild_output".format(name = ctx.label.name))
         outputs.append(kbuild_output_target)
         grab_kbuild_output_cmd = """
+            if [[ -L ${{OUT_DIR}}/source ]]; then
+                rm -f ${{OUT_DIR}}/source
+            fi
             rsync -a --prune-empty-dirs --include '*/' ${{OUT_DIR}}/ {kbuild_output_target}/
         """.format(
             kbuild_output_target = kbuild_output_target.path,
