@@ -70,8 +70,7 @@ def _create_kconfig_ext_step(ctx, kconfig_depset_file):
         mkdir -p {intermediates_dir}
 
         # Copy all Kconfig files to our new KCONFIG_EXT directory
-        # TODO(b/281706135): rsync source files cannot chgrp in sandbox
-        rsync --no-perms -L -r --no-group --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
+        rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} {intermediates_dir}/
 
         KCONFIG_EXT_PREFIX=$(realpath {intermediates_dir} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
 
