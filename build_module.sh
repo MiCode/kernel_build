@@ -279,7 +279,7 @@ for EXT_MOD in ${EXT_MODULES}; do
      && [ -n "$build_target" ]
   then
 
-    build_flags=($(xargs -a "${KERNEL_KIT}/build_opts.txt"))
+    build_flags=($(cat "${KERNEL_KIT}/build_opts.txt" | xargs))
 
     if [ "$ALLOW_UNSAFE_DDK_HEADERS" = "true" ]; then
       build_flags+=("--allow_ddk_unsafe_headers")
