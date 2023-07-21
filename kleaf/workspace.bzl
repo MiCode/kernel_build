@@ -24,6 +24,7 @@ load(
 )
 load("//build/kernel/kleaf:download_repo.bzl", "download_artifacts_repo")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_repo")
 load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
 # buildifier: disable=unnamed-macro
@@ -66,6 +67,16 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         bazel_skylib = True,
         io_abseil_py = True,
         io_bazel_stardoc = True,
+    )
+
+    kleaf_host_tools_repo(
+        name = "kleaf_host_tools",
+        host_tools = [
+            "bash",
+            "perl",
+            "rsync",
+            "sh",
+        ],
     )
 
     # The prebuilt NDK does not support Bazel.

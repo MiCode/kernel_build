@@ -80,6 +80,7 @@ bzl_library(
         "kernel_uapi_headers_cc_library.bzl",
         "kernel_unstripped_modules_archive.bzl",
         "kgdb.bzl",
+        "kleaf_host_tools_repo.bzl",
         "kmi_symbol_list.bzl",
         "merge_kzip.bzl",
         "merged_kernel_uapi_headers.bzl",
