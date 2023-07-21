@@ -499,12 +499,19 @@ def define_common_kernels(
     default_target_configs = _default_target_configs()
     new_target_configs = {}
     for name, target_configs_names in _COMMON_KERNEL_NAMES.items():
-        new_target_configs[name] = _get_target_config(
+        new_target_config = _get_target_config(
             name = name,
             target_configs_names = target_configs_names,
             target_configs = target_configs,
             default_target_configs = default_target_configs,
         )
+
+        # On android14-5.15, riscv64 is not supported. However,
+        # default_target_configs still contains riscv64 unconditionally.
+        # Filter it out.
+        if not native.glob([new_target_config["build_config"]]):
+            continue
+        new_target_configs[name] = new_target_config
     target_configs = new_target_configs
 
     native.filegroup(
