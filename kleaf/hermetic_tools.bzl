@@ -332,6 +332,9 @@ def _hermetic_tools_impl(ctx):
         platform_common.ToolchainInfo(
             hermetic_toolchain_info = hermetic_toolchain_info,
         ),
+        OutputGroupInfo(
+            **{file.basename: depset([file]) for file in all_outputs}
+        ),
     ]
 
     if not ctx.attr._disable_hermetic_tools_info[BuildSettingInfo].value:
@@ -379,6 +382,7 @@ def hermetic_tools(
         rsync_args = None,
         py3_outs = None,
         symlinks = None,
+        aliases = None,
         **kwargs):
     """Provide tools for a hermetic build.
 
@@ -400,11 +404,23 @@ def hermetic_tools(
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
         tar_args: List of fixed arguments provided to `tar` commands.
         rsync_args: List of fixed arguments provided to `rsync` commands.
+        aliases: [nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
+
+          List of aliases to create to refer to a single tool.
+
+          For example, if `aliases = ["cp"],` then `<name>/cp` refers to a
+          `cp`.
+
+          **Note**: Items in `srcs`, `host_tools` and `py3_outs` already have
+          `<name>/<tool>` target created.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common
     """
+
+    if aliases == None:
+        aliases = []
 
     if host_tools:
         host_tools = ["{}/{}".format(name, tool) for tool in host_tools]
@@ -431,3 +447,13 @@ def hermetic_tools(
         symlinks = symlinks,
         **kwargs
     )
+
+    alias_kwargs = kwargs
+
+    for alias in aliases:
+        native.filegroup(
+            name = name + "/" + alias,
+            srcs = [name],
+            output_group = alias,
+            **alias_kwargs
+        )
