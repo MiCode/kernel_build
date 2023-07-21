@@ -28,6 +28,20 @@ filegroup(
     ],
 )
 
+# DO NOT ADD MORE TO THIS LIST.
+# The duplication of items in this list and other fields in hermetic-tools is
+# intentional. These aliases are deprecated but kept for backwards
+# compatibility.
+# Existing users of individual tools are advised to migrate to
+# hermetic_toolchain or hermetic_genrule.
+_DEPRECATED_DO_NOT_ADD_MORE_ALIASES = [
+    # keep sorted
+    "bash",
+    "perl",
+    "rsync",
+    "sh",
+]
+
 hermetic_tools(
     name = "hermetic-tools",
     srcs = glob(
@@ -41,25 +55,27 @@ hermetic_tools(
     ) + [
         "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(VARS["CLANG_VERSION"]),
     ],
-    host_tools = [
-        "bash",
-        "perl",
-        "rsync",
-        "sh",
-    ],
+    aliases = _DEPRECATED_DO_NOT_ADD_MORE_ALIASES,
     py3_outs = [
         "python",
         "python3",
-    ],
-    rsync_args = [
-        "--no-group",
     ],
     symlinks = select({
         "//build/kernel/kleaf:debug_cache_dir_conflict_needs_flock": {
             "//prebuilts/build-tools:linux-x86/bin/toybox": "flock",
         },
         "//conditions:default": {},
-    }),
+    }) | {
+        # Host tools
+        "@kleaf_host_tools//:bash": "bash",
+        "@kleaf_host_tools//:sh": "sh",
+        "@kleaf_host_tools//:perl": "perl",
+
+        # Real rsync that shouldn't be used directly
+        "@kleaf_host_tools//:rsync": "kleaf_internal_do_not_use/rsync",
+        # Embed additional args that calls kleaf_internal_do_not_use/rsync
+        "build-tools/kleaf_internal_do_not_use_path/linux-x86/rsync": "rsync",
+    },
     tar_args = [
         "--mtime=@0",
         "--owner=0",
