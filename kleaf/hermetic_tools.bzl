@@ -222,7 +222,8 @@ def _handle_hermetic_symlinks(ctx):
                     tool_name,
                 ),
             )
-            hermetic_symlinks_dict[tool_name] = target_file
+            hermetic_symlinks_dict[tool_name] = out
+
     return hermetic_symlinks_dict
 
 def _handle_host_tools(ctx, hermetic_base, deps):
