@@ -1,0 +1,8 @@
+#!/bin/sh
+
+${0%/*}/kleaf_internal_do_not_use/tar "$@" \
+    --mtime=@0 \
+    --owner=0 \
+    --group=0 \
+    --numeric-owner \
+    --sort=name
