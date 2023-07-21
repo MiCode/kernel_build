@@ -411,7 +411,10 @@ def hermetic_tools(
 
     outs = None
     if srcs:
-        outs = ["{}/{}".format(name, paths.basename(src)) for src in srcs]
+        outs = ["{}/{}".format(
+            name,
+            paths.basename(native.package_relative_label(src).name),
+        ) for src in srcs]
 
     if py3_outs:
         py3_outs = ["{}/{}".format(name, paths.basename(py3_name)) for py3_name in py3_outs]
