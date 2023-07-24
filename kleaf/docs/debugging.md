@@ -4,23 +4,34 @@
 
 This is a non exhaustive list of options to help debugging compilation issues:
 
-* Customise Kleaf:
-  * `--debug_annotate_scripts`: Runs all script invocations with `set -x` and a
- trap that executes `date` after every command.
+*   Customise Kleaf:
 
-  * `--debug_print_scripts`: Prints the content of the (generated) command scripts during rule execution.
+    *   `--debug_annotate_scripts`: Runs all script invocations with `set -x`
+        and a trap that executes `date` after every command.
 
-* Customise Kbuild:
-  * `--debug_make_verbosity`: Controls verbosity of `make` executions `E (default)
-= Error, I = Info, D = Debug`
+    *   `--debug_print_scripts`: Prints the content of the (generated) command
+        scripts during rule execution.
 
-  * `--debug_modpost_warn`: Sets [`KBUILD_MODPOST_WARN=1`](https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-modpost-warn). TL; DR. can be set to avoid errors in case of undefined symbols in the final module linking stage. It changes such errors into warnings.
+*   Customise Kbuild:
 
-* Customise Bazel:
-  * `--sandbox_debug`: Enables debugging features for the [sandboxing feature](https://bazel.build/docs/sandboxing).
-  * `--verbose_failures`: If a command fails, print out the full command line.
-  * `--jobs`: This option, which takes an integer argument, specifies a limit on the number of jobs that should be executed concurrently during the execution phase of the build.
-  * For a complete list see https://bazel.build/docs/user-manual
+    *   `--debug_make_verbosity`: Controls verbosity of `make` executions `E
+        (default) = Error, I = Info, D = Debug`
+
+    *   `--debug_modpost_warn`: Sets
+        [`KBUILD_MODPOST_WARN=1`](https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-modpost-warn).
+        TL; DR. can be set to avoid errors in case of undefined symbols in the
+        final module linking stage. It changes such errors into warnings.
+
+*   Customise Bazel:
+
+    *   `--sandbox_debug`: Enables debugging features for the
+        [sandboxing feature](https://bazel.build/docs/sandboxing).
+    *   `--verbose_failures`: If a command fails, print out the full command
+        line.
+    *   `--jobs`: This option, which takes an integer argument, specifies a
+        limit on the number of jobs that should be executed concurrently during
+        the execution phase of the build.
+    *   For a complete list see https://bazel.build/docs/user-manual
 
 ## Disabling checks
 
@@ -28,17 +39,18 @@ This is a list of options to disable checks in Kleaf due to various reasons. For
 example, some checks may be disabled during device bring-up for a quick
 development cycle. Usually, these flags should not be set on a release build.
 
-* `--allow_ddk_unsafe_headers`: Allow DDK modules to also use the unsafe header
-  list in the common package.
-* `--allow_undeclared_modules`: Allow modules to be undeclared in
-  `kernel_build.module_outs` and `kernel_build.module_implicit_outs`. If modules
-  are built but not declared in these lists, Kleaf emits a warning unless
-  `--nowarn_undeclared_modules` is set.
-* `--nowarn_undeclared_modules`: Allow modules to be undeclared in
-  `kernel_build.module_outs` and `kernel_build.module_implicit_outs`.
-  No warnings are generated.
-* `--nokmi_symbol_list_strict_mode`: Disable KMI symbol list check.
-* `--nokmi_symbol_list_violations_check`: Disable KMI symbol list violations check.
+*   `--allow_ddk_unsafe_headers`: Allow DDK modules to also use the unsafe
+    header list in the common package.
+*   `--allow_undeclared_modules`: Allow modules to be undeclared in
+    `kernel_build.module_outs` and `kernel_build.module_implicit_outs`. If
+    modules are built but not declared in these lists, Kleaf emits a warning
+    unless `--nowarn_undeclared_modules` is set.
+*   `--nowarn_undeclared_modules`: Allow modules to be undeclared in
+    `kernel_build.module_outs` and `kernel_build.module_implicit_outs`. No
+    warnings are generated.
+*   `--nokmi_symbol_list_strict_mode`: Disable KMI symbol list check.
+*   `--nokmi_symbol_list_violations_check`: Disable KMI symbol list violations
+    check.
 
 ## Debugging incremental build issues
 
@@ -78,9 +90,9 @@ $ build/kernel/kleaf/analysis/inputs.py -- "${FLAGS}" \
 $ diff out/hash_1.txt out/hash_2.txt
 ```
 
-Positional arguments to `build/kernel/kleaf/analysis/inputs.py` are fed directly to
-`tools/bazel aquery`. Visit [Action Graph Query](https://bazel.build/query/aquery) for the
-query language.
+Positional arguments to `build/kernel/kleaf/analysis/inputs.py` are fed directly
+to `tools/bazel aquery`. Visit
+[Action Graph Query](https://bazel.build/query/aquery) for the query language.
 
 ## Debugging dependencies on external repositories
 
@@ -98,8 +110,8 @@ ERROR: <...>:24:22: While resolving toolchains for target <...>: invalid registe
 In this example, the error message suggests that `@bazel_tools//tools/jdk:all`
 has a dependency on `@rules_python`.
 
-If this error is unexpected, you may try these commands to diagnose issues
-with external repositories:
+If this error is unexpected, you may try these commands to diagnose issues with
+external repositories:
 
 ```sh
 rm -rf /tmp/temp_repo_cache && mkdir -p /tmp/temp_repo_cache
@@ -107,4 +119,25 @@ bazel clean --expunge
 bazel query @bazel_tools//tools/jdk:all \
   --repository_cache=/tmp/temp_repo_cache \
   --experimental_repository_disable_download
+```
+
+## Debugging target `providers`
+
+Inspecting the information exposed by bazel targets via
+[providers](https://bazel.build/extending/rules#providers) is possible following
+[Defining the output format using Starlark](https://bazel.build/query/cquery#output-format-definition)
+docs.
+
+Here is an example used in
+[CL:2615849](https://android-review.googlesource.com/c/kernel/build/+/2615849)
+to inspect the information exposed by `KernelBuildAbiInfo` from
+`//common:kernel_aarch64_download_or_build` target.
+
+```sh
+$ tools/bazel cquery //common:kernel_aarch64_download_or_build --use_prebuilt_gki=10283028  --output=starlark --starlark:expr='providers(target)["//build/kernel/kleaf/impl:common_providers.bzl%KernelBuildAbiInfo"]'
+
+...
+struct(module_outs_file = <source file file/kernel_aarch64_modules>, modules_staging_archive = <source file file/modules_staging_dir.tar.gz>, src_protected_modules_list = <source file file/gki_aarch64_protected_modules>)
+...
+
 ```

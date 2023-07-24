@@ -89,14 +89,27 @@ bzl_library(
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
+        ":hermetic_tools_deps",
         "//build/kernel/kleaf:directory_with_structure_def",
-        "//build/kernel/kleaf:hermetic_tools_def",
         "//build/kernel/kleaf:update_source_file_def",
         "@bazel_skylib//lib:collections",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//lib:sets",
         "@bazel_skylib//lib:shell",
         "@bazel_skylib//rules:common_settings",
+    ],
+)
+
+bzl_library(
+    name = "hermetic_tools_deps",
+    srcs = [
+        "hermetic_exec.bzl",
+        "hermetic_genrule.bzl",
+        "hermetic_toolchain.bzl",
+    ],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [
+        "//build/bazel_common_rules/exec",
     ],
 )
 
@@ -174,6 +187,16 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+selects.config_setting_group(
+    name = "lto_is_default_and_kcsan_is_true",
+    match_all = [
+        "//build/kernel/kleaf:lto_is_default",
+        "//build/kernel/kleaf:kcsan_is_true",
+    ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
 py_binary(
     name = "ddk/gen_makefiles",
     srcs = ["ddk/gen_makefiles.py"],
@@ -181,6 +204,13 @@ py_binary(
     deps = [
         "@io_abseil_py//absl/flags:argparse_flags",
     ],
+)
+
+py_binary(
+    name = "get_kmi_string",
+    srcs = ["get_kmi_string.py"],
+    # All kernel_* / ddk_* from different packages can see this
+    visibility = ["//visibility:public"],
 )
 
 py_binary(
@@ -217,6 +247,17 @@ py_binary(
     ],
 )
 
+py_test(
+    name = "get_kmi_string_test",
+    timeout = "short",
+    srcs = ["get_kmi_string_test.py"],
+    main = "get_kmi_string_test.py",
+    deps = [
+        ":get_kmi_string",
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
 kernel_platform_toolchain(
     name = "kernel_toolchain_target",
 )
@@ -245,6 +286,15 @@ platform(
     ],
 )
 
+# 32-bit
+platform(
+    name = "android_arm",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm",
+    ],
+)
+
 platform(
     name = "android_arm64",
     constraint_values = [
@@ -254,10 +304,10 @@ platform(
 )
 
 platform(
-    name = "android_x86_64",
+    name = "android_i386",
     constraint_values = [
         "@platforms//os:android",
-        "@platforms//cpu:x86_64",
+        "@platforms//cpu:i386",
     ],
 )
 
@@ -266,5 +316,13 @@ platform(
     constraint_values = [
         "@platforms//os:android",
         "@platforms//cpu:riscv64",
+    ],
+)
+
+platform(
+    name = "android_x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
     ],
 )

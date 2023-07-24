@@ -12,12 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Define various platforms
+"""Utilities for using `//build/kernel:hermetic_tools_toolchain_type`."""
 
-build:android_arm --platforms=//build/kernel/kleaf/impl:android_arm
-build:android_arm64 --platforms=//build/kernel/kleaf/impl:android_arm64
-build:android_i386 --platforms=//build/kernel/kleaf/impl:android_i386
-build:android_riscv64 --platforms=//build/kernel/kleaf/impl:android_riscv64
-build:android_x86_64 --platforms=//build/kernel/kleaf/impl:android_x86_64
+_TOOLCHAIN_TYPE = Label("//build/kernel:hermetic_tools_toolchain_type")
 
-# --config=hermetic_cc is already the default.
+def _get(ctx):
+    """Returns the resolved toolchain information.
+
+    Args:
+        ctx: ctx. The rule must contain
+            ```
+            toolchains = [
+                hermetic_toolchain.type,
+            ]
+            ```
+
+    Returns:
+        _HermeticToolchainInfo (see hermetic_tools.bzl).
+    """
+    return ctx.toolchains[_TOOLCHAIN_TYPE].hermetic_toolchain_info
+
+hermetic_toolchain = struct(
+    type = _TOOLCHAIN_TYPE,
+    get = _get,
+)

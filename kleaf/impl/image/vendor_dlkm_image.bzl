@@ -21,6 +21,7 @@ load(
     ":image/image_utils.bzl",
     "SYSTEM_DLKM_MODULES_LOAD_NAME",
     "SYSTEM_DLKM_STAGING_ARCHIVE_NAME",
+    "VENDOR_DLKM_STAGING_ARCHIVE_NAME",
     "image_utils",
 )
 
@@ -32,6 +33,10 @@ def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_staging_dir = modules_staging_dir + "/vendor_dlkm_staging"
     vendor_dlkm_fs_type = ctx.attr.vendor_dlkm_fs_type
     vendor_dlkm_etc_files = " ".join([f.path for f in ctx.files.vendor_dlkm_etc_files])
+
+    vendor_dlkm_staging_archive = None
+    if ctx.attr.vendor_dlkm_archive:
+        vendor_dlkm_staging_archive = ctx.actions.declare_file("{}/{}".format(ctx.label.name, VENDOR_DLKM_STAGING_ARCHIVE_NAME))
 
     command = ""
     additional_inputs = []
@@ -62,11 +67,14 @@ def _vendor_dlkm_image_impl(ctx):
                 VENDOR_DLKM_ETC_FILES={quoted_vendor_dlkm_etc_files}
                 VENDOR_DLKM_FS_TYPE={vendor_dlkm_fs_type}
                 VENDOR_DLKM_STAGING_DIR={vendor_dlkm_staging_dir}
-                build_vendor_dlkm
+                build_vendor_dlkm {vendor_dlkm_archive}
               )
             # Move output files into place
               mv "${{DIST_DIR}}/vendor_dlkm.img" {vendor_dlkm_img}
               mv "${{DIST_DIR}}/vendor_dlkm.modules.load" {vendor_dlkm_modules_load}
+              if [[ -f "${{DIST_DIR}}/vendor_dlkm_staging_archive.tar.gz" ]]; then
+                mv "${{DIST_DIR}}/vendor_dlkm_staging_archive.tar.gz" {vendor_dlkm_staging_archive}
+              fi
               if [[ -f "${{DIST_DIR}}/vendor_dlkm.modules.blocklist" ]]; then
                 mv "${{DIST_DIR}}/vendor_dlkm.modules.blocklist" {vendor_dlkm_modules_blocklist}
               else
@@ -82,14 +90,19 @@ def _vendor_dlkm_image_impl(ctx):
         vendor_dlkm_img = vendor_dlkm_img.path,
         vendor_dlkm_modules_load = vendor_dlkm_modules_load.path,
         vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist.path,
+        vendor_dlkm_archive = "1" if ctx.attr.vendor_dlkm_archive else "",
+        vendor_dlkm_staging_archive = vendor_dlkm_staging_archive.path if ctx.attr.vendor_dlkm_archive else None,
     )
 
     additional_inputs += ctx.files.vendor_dlkm_etc_files
+    outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist]
+    if ctx.attr.vendor_dlkm_archive:
+        outputs.append(vendor_dlkm_staging_archive)
 
     return image_utils.build_modules_image_impl_common(
         ctx = ctx,
         what = "vendor_dlkm",
-        outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist],
+        outputs = outputs,
         build_command = command,
         modules_staging_dir = modules_staging_dir,
         set_ext_modules = True,
@@ -157,6 +170,7 @@ When included in a `copy_to_dist_dir` rule, this rule copies a `vendor_dlkm.img`
 
 Modules listed in this file is stripped away from the `vendor_dlkm` image.""",
         ),
+        "vendor_dlkm_archive": attr.bool(doc = "Whether to archive the `vendor_dlkm` modules"),
         "vendor_dlkm_fs_type": attr.string(doc = """vendor_dlkm.img fs type""", values = ["ext4", "erofs"]),
         "vendor_dlkm_modules_list": attr.label(allow_single_file = True),
         "vendor_dlkm_etc_files": attr.label_list(allow_files = True),

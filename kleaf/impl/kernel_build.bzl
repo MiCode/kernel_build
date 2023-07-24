@@ -19,7 +19,6 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_build_test",
@@ -40,6 +39,7 @@ load(
     "KernelBuildMixedTreeInfo",
     "KernelBuildOriginalEnvInfo",
     "KernelBuildUapiInfo",
+    "KernelBuildUnameInfo",
     "KernelCmdsInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
@@ -58,6 +58,7 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":file.bzl", "file")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config.bzl", "kernel_config")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "kernel_env")
@@ -147,7 +148,12 @@ def kernel_build(
         arch: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
           Target architecture. Default is `arm64`.
 
-          Value should be one of `arm64`, `x86_64` or `riscv64`.
+          Value should be one of:
+          * `arm64`
+          * `x86_64`
+          * `riscv64`
+          * `arm` (for 32-bit, uncommon)
+          * `i386` (for 32-bit, uncommon)
 
           This must be consistent to `ARCH` in build configs if the latter
           is specified. Otherwise, a warning / error may be raised.
@@ -662,6 +668,7 @@ def _progress_message_suffix(ctx):
 
 def _create_kbuild_mixed_tree(ctx):
     """Adds actions that creates the `KBUILD_MIXED_TREE`."""
+    hermetic_tools = hermetic_toolchain.get(ctx)
     base_kernel_files = depset()
     outputs = []
     kbuild_mixed_tree = None
@@ -674,7 +681,7 @@ def _create_kbuild_mixed_tree(ctx):
         kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
         outputs = [kbuild_mixed_tree]
         base_kernel_files = base_kernel_utils.get_base_kernel(ctx)[KernelBuildMixedTreeInfo].files
-        kbuild_mixed_tree_command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        kbuild_mixed_tree_command = hermetic_tools.setup + """
           # Restore GKI artifacts for mixed build
             export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
             rm -rf ${{KBUILD_MIXED_TREE}}
@@ -689,8 +696,9 @@ def _create_kbuild_mixed_tree(ctx):
         debug.print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildKbuildMixedTree",
-            inputs = depset(ctx.attr._hermetic_tools[HermeticToolsInfo].deps, transitive = [base_kernel_files]),
+            inputs = depset(transitive = [base_kernel_files]),
             outputs = [kbuild_mixed_tree],
+            tools = hermetic_tools.deps,
             progress_message = "Creating KBUILD_MIXED_TREE {}".format(_progress_message_suffix(ctx)),
             command = kbuild_mixed_tree_command,
         )
@@ -1104,12 +1112,83 @@ def _get_copy_module_symvers_step(ctx):
         """.format(
             module_symvers_copy = module_symvers_copy.path,
         )
-
     return struct(
         inputs = [],
         tools = [],
         cmd = copy_module_symvers_cmd,
         outputs = outputs,
+    )
+
+def _get_modinst_step(ctx, modules_staging_dir):
+    module_strip_flag = "INSTALL_MOD_STRIP="
+    if ctx.attr.strip_modules:
+        module_strip_flag += "1"
+
+    base_kernel = base_kernel_utils.get_base_kernel(ctx)
+
+    cmd = ""
+    inputs = []
+    tools = []
+
+    if base_kernel:
+        cmd += """
+          # Check that base_kernel has the same KMI as the current kernel_build
+            (
+                base_release=$(cat {base_kernel_release_file})
+                base_kmi=$({get_kmi_string} --keep_sublevel ${{base_release}})
+                my_release=$(cat ${{OUT_DIR}}/include/config/kernel.release)
+                my_kmi=$({get_kmi_string} --keep_sublevel ${{my_release}})
+                if [[ "${{base_kmi}}" != "${{my_kmi}}" ]]; then
+                    echo "ERROR: KMI or sublevel mismatch before running make modules_install:" >&2
+                    echo "  {label}: ${{my_kmi}} (from ${{my_release}})" >&2
+                    echo "  {base_kernel_label}: ${{base_kmi}} (from ${{base_release}})" >&2
+                fi
+            )
+
+          # Fix up kernel.release to be the one from {base_kernel_label} before installing modules
+            cp -L {base_kernel_release_file} ${{OUT_DIR}}/include/config/kernel.release
+        """.format(
+            get_kmi_string = ctx.executable._get_kmi_string.path,
+            label = ctx.label,
+            base_kernel_label = base_kernel.label,
+            base_kernel_release_file = base_kernel[KernelBuildUnameInfo].kernel_release.path,
+        )
+        inputs.append(base_kernel[KernelBuildUnameInfo].kernel_release)
+        tools.append(ctx.executable._get_kmi_string)
+
+    cmd += """
+         # Set variables and create dirs for modules
+           mkdir -p {modules_staging_dir}
+         # Install modules
+           if grep -q "\\bmodules\\b" <<< "{make_goals}" ; then
+               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
+           else
+               # Workaround as this file is required, hence just produce a placeholder.
+               touch {internal_outs_under_out_dir}
+           fi
+    """.format(
+        modules_staging_dir = modules_staging_dir,
+        internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
+        module_strip_flag = module_strip_flag,
+        make_goals = ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals,
+    )
+
+    if base_kernel:
+        cmd += """
+          # Check that `make modules_install` does not revert include/config/kernel.release
+            if diff -q {base_kernel_release} ${{OUT_DIR}}/include/config/kernel.release; then
+                echo "ERROR: make modules_install modifies include/config/kernel.release." >&2
+                echo "   This is not expected; please file a bug!" >&2
+            fi
+        """.format(
+            base_kernel_release = base_kernel[KernelBuildUnameInfo].kernel_release.path,
+        )
+
+    return struct(
+        inputs = inputs,
+        tools = tools,
+        cmd = cmd,
+        outputs = [],
     )
 
 def _build_main_action(
@@ -1158,6 +1237,10 @@ def _build_main_action(
         common_config_tags = ctx.attr.config[KernelEnvAttrInfo].common_config_tags,
         symlink_name = "build",
     )
+    modinst_step = _get_modinst_step(
+        ctx = ctx,
+        modules_staging_dir = modules_staging_dir,
+    )
     grab_intree_modules_step = _get_grab_intree_modules_step(
         ctx = ctx,
         has_any_modules = bool(all_output_names.modules),
@@ -1186,6 +1269,7 @@ def _build_main_action(
     steps = (
         interceptor_step,
         cache_dir_step,
+        modinst_step,
         grab_intree_modules_step,
         grab_unstripped_modules_step,
         grab_symtypes_step,
@@ -1198,10 +1282,6 @@ def _build_main_action(
         check_remaining_modules_step,
     )
 
-    module_strip_flag = "INSTALL_MOD_STRIP="
-    if ctx.attr.strip_modules:
-        module_strip_flag += "1"
-
     # Build the command for the main action.
     command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
         data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
@@ -1213,15 +1293,8 @@ def _build_main_action(
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
            {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
-         # Set variables and create dirs for modules
-           mkdir -p {modules_staging_dir}
          # Install modules
-           if grep -q "\\bmodules\\b" <<< "{make_goals}" ; then
-               make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
-           else
-               # Workaround as this file is required, hence just produce a placeholder.
-               touch {internal_outs_under_out_dir}
-           fi
+           {modinst_cmd}
          # Archive headers in OUT_DIR
            find ${{OUT_DIR}} -name *.h -print0                          \
                | tar czf {out_dir_kernel_headers_tar}                   \
@@ -1267,8 +1340,8 @@ def _build_main_action(
         kbuild_mixed_tree_arg = kbuild_mixed_tree_ret.arg,
         dtstree_arg = "--srcdir ${OUT_DIR}/${dtstree}",
         ruledir = ruledir,
-        internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         all_output_names_minus_modules = " ".join(all_output_names.non_modules),
+        modinst_cmd = modinst_step.cmd,
         grab_intree_modules_cmd = grab_intree_modules_step.cmd,
         grab_unstripped_intree_modules_cmd = grab_unstripped_modules_step.cmd,
         grab_symtypes_cmd = grab_symtypes_step.cmd,
@@ -1280,7 +1353,6 @@ def _build_main_action(
         check_remaining_modules_cmd = check_remaining_modules_step.cmd,
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
-        module_strip_flag = module_strip_flag,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
         interceptor_command_prefix = interceptor_step.command_prefix,
         label = ctx.label,
@@ -1442,6 +1514,9 @@ def _create_infos(
         interceptor_output = main_action_ret.interceptor_output,
         compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
         compile_commands_out_dir = main_action_ret.compile_commands_out_dir,
+    )
+
+    kernel_build_uname_info = KernelBuildUnameInfo(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
@@ -1576,6 +1651,8 @@ def _create_infos(
     default_info_files.extend(main_action_ret.gcno_outputs)
     if kmi_symbol_list_violations_check_out:
         default_info_files.append(kmi_symbol_list_violations_check_out)
+    if ctx.file.src_protected_modules_list:
+        default_info_files.append(ctx.file.src_protected_modules_list)
     default_info = DefaultInfo(
         files = depset(default_info_files),
         # For kernel_build_test
@@ -1590,6 +1667,7 @@ def _create_infos(
         kernel_build_info,
         kernel_build_module_info,
         kernel_build_uapi_info,
+        kernel_build_uname_info,
         kernel_build_abi_info,
         kernel_unstripped_modules_info,
         in_tree_modules_info,
@@ -1724,7 +1802,11 @@ _kernel_build = rule(
             executable = True,
             cfg = "exec",
         ),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
+        "_get_kmi_string": attr.label(
+            default = "//build/kernel/kleaf/impl:get_kmi_string",
+            executable = True,
+            cfg = "exec",
+        ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
@@ -1748,6 +1830,7 @@ _kernel_build = rule(
         "src_protected_modules_list": attr.label(allow_single_file = True),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
     } | _kernel_build_additional_attrs(),
+    toolchains = [hermetic_toolchain.type],
 )
 
 def _kernel_build_check_toolchain(ctx):
@@ -1758,6 +1841,8 @@ def _kernel_build_check_toolchain(ctx):
         checks toolchain version at execution phase when it is built. If it is an empty list,
         no checks need to be performed at execution phase.
     """
+
+    hermetic_tools = hermetic_toolchain.get(ctx)
 
     base_kernel = base_kernel_utils.get_base_kernel(ctx)
     if not base_kernel:
@@ -1812,7 +1897,7 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
             base_kernel = base_kernel.label,
             base_toolchain = base_toolchain,
         )
-        command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+        command = hermetic_tools.setup + """
                 # Check toolchain_version against base kernel
                   if ! diff <(cat {base_toolchain_file}) <(echo "{this_toolchain}") > /dev/null; then
                     echo "{msg}" >&2
@@ -1829,8 +1914,9 @@ ERROR: `toolchain_version` is "{this_toolchain}" for "{this_label}", but
         debug.print_scripts(ctx, command, what = "check_toolchain")
         ctx.actions.run_shell(
             mnemonic = "KernelBuildCheckToolchain",
-            inputs = [base_toolchain_file] + ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+            inputs = [base_toolchain_file],
             outputs = [out],
+            tools = hermetic_tools.deps,
             command = command,
             progress_message = "Checking toolchain version against base kernel {}".format(_progress_message_suffix(ctx)),
         )
@@ -1862,6 +1948,13 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         # buildifier: disable=print
         print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
               IGNORED because --kasan is set!".format(this_label = ctx.label))
+        return None
+
+    # Skip for the --kcsan targets as they are not valid GKI release targets
+    if ctx.attr._kcsan[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --kcsan is set!".format(this_label = ctx.label))
         return None
 
     if not ctx.attr.kmi_symbol_list_strict_mode:
@@ -1946,6 +2039,13 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
     if ctx.attr._kasan[BuildSettingInfo].value:
         return None
 
+    # Skip for --kcsan build as they are not valid GKI releasae configurations.
+    # Downstreams are expect to build kernel+modules+vendor modules locally
+    # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
+    # if required.
+    if ctx.attr._kcsan[BuildSettingInfo].value:
+        return None
+
     # Skip for the --kgdb targets as they are not valid GKI release targets
     if ctx.attr._kgdb[BuildSettingInfo].value:
         # buildifier: disable=print
@@ -2014,6 +2114,7 @@ def _repack_modules_staging_archive(
             in `_build_main_action`.
         all_module_basenames_file: Complete list of base names.
     """
+    hermetic_tools = hermetic_toolchain.get(ctx)
     if not base_kernel_utils.get_base_kernel(ctx):
         # No need to repack.
         if not modules_staging_archive_self.basename == MODULES_STAGING_ARCHIVE:
@@ -2031,7 +2132,7 @@ def _repack_modules_staging_archive(
     # Re-package module_staging_dir to also include the one from base_kernel.
     # Pick ko files only from base_kernel, while keeping all depmod files from self.
     modules_staging_dir = modules_staging_archive.dirname + "/staging"
-    cmd = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    cmd = hermetic_tools.setup + """
         mkdir -p {modules_staging_dir}
         tar xf {self_archive} -C {modules_staging_dir}
 
@@ -2062,7 +2163,7 @@ def _repack_modules_staging_archive(
             all_module_basenames_file,
         ],
         outputs = [modules_staging_archive],
-        tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        tools = hermetic_tools.deps,
         progress_message = "Repackaging module_staging_archive {}".format(_progress_message_suffix(ctx)),
         command = cmd,
     )

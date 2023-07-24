@@ -19,12 +19,12 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
 load("//build/kernel/kleaf/impl:ddk/makefiles.bzl", "makefiles")
 load("//build/kernel/kleaf/impl:ddk/ddk_conditional_filegroup.bzl", "ddk_conditional_filegroup")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "ModuleSymversInfo")
+load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
@@ -148,7 +148,8 @@ def _bad_test_make(
 def _get_top_level_file_impl(ctx):
     out = ctx.actions.declare_file(paths.join(ctx.attr.name, ctx.attr.filename))
     src = paths.join(ctx.file.target.path, ctx.attr.filename)
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    hermetic_tools = hermetic_toolchain.get(ctx)
+    command = hermetic_tools.setup + """
         if [[ -f {src} ]]; then
             cp -pl {src} {out}
         else
@@ -161,7 +162,7 @@ def _get_top_level_file_impl(ctx):
     ctx.actions.run_shell(
         outputs = [out],
         inputs = [ctx.file.target],
-        tools = ctx.attr._hermetic_tools[HermeticToolsInfo].deps,
+        tools = hermetic_tools.deps,
         command = command,
     )
     return DefaultInfo(
@@ -175,8 +176,8 @@ get_top_level_file = rule(
     attrs = {
         "target": attr.label(allow_single_file = True),
         "filename": attr.string(),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     },
+    toolchains = [hermetic_toolchain.type],
 )
 
 def _create_makefiles_artifact_test(

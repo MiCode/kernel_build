@@ -1,4 +1,4 @@
-# Copyright (C) 2022 The Android Open Source Project
+# Copyright (C) 2023 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":kasan_test.bzl", "kasan_test")
-load(":kcsan_test.bzl", "kcsan_test")
-load(":kernel_config_option_test.bzl", "kernel_config_option_test_suite")
+"""Tests for get_kmi_string."""
 
-# Analysis test
+import doctest
+from absl.testing import absltest
 
-kasan_test(name = "kasan_test")
+def load_tests(_loader, tests, _ignore):
+    tests.addTests(doctest.DocTestSuite("get_kmi_string"))
+    return tests
 
-kcsan_test(name = "kcsan_test")
-
-# Quick test on artifacts.
-
-kernel_config_option_test_suite(name = "kernel_config_option_test_suite")
-
-test_suite(
-    name = "kernel_config_test",
-    tests = None,  # All tests in this package
-)
+if __name__ == "__main__":
+    absltest.main()
