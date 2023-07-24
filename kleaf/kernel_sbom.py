@@ -236,20 +236,24 @@ def get_args():
       type=pathlib.Path,
       help="The generated SBOM file in SPDX format.",
   )
-  input_group = parser.add_mutually_exclusive_group(required=True)
-  input_group.add_argument(
+  dist_group = parser.add_mutually_exclusive_group(required=True)
+  dist_group.add_argument(
       "--dist_dir",
       type=pathlib.Path,
       help="Directory containing generated artifacts.",
   )
-  input_group.add_argument(
+  dist_group.add_argument(
       "--files",
       nargs="+",
       type=pathlib.Path,
       help="Explicit list of files to consider for SBOM generation.",
   )
-  parser.add_argument(
-      "--version", required=True, help="The android kernel version."
+  version_group = parser.add_mutually_exclusive_group(required=True)
+  version_group.add_argument("--version", help="The android kernel version.")
+  version_group.add_argument(
+      "--version_file",
+      type=pathlib.Path,
+      help="path to the kernel.release file",
   )
   return parser.parse_args()
 
@@ -263,10 +267,16 @@ def get_file_list(dist_dir: pathlib.Path) -> Iterable[pathlib.Path]:
     )
 
 
+def read_version_from_file(version_file: pathlib.Path):
+  with version_file.open() as f:
+    return f.read().strip()
+
+
 def main():
   args = get_args()
   files = args.files or get_file_list(args.dist_dir)
-  sbom = KernelSbom(args.version, files)
+  version = args.version or read_version_from_file(args.version_file)
+  sbom = KernelSbom(version, files)
   sbom.write_sbom_file(args.output_file)
 
 
