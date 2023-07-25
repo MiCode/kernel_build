@@ -74,6 +74,7 @@ def _write_localversion(ctx):
             else
                 android_release=$(echo "$BRANCH" | sed -e '/android[0-9]\\{{2,\\}}/!{{q255}}; s/^\\(android[0-9]\\{{2,\\}}\\)-.*/\\1/')
                 if [[ $? -ne 0 ]]; then
+                    echo "WARNING: Cannot extract android_release from BRANCH ${{BRANCH}}." >&2
                     android_release=
                 fi
             fi
