@@ -16,6 +16,12 @@ load("//build/kernel/kleaf:workspace.bzl", "define_kleaf_workspace")
 
 define_kleaf_workspace(include_remote_java_tools_repo = True)
 
+# The vendored rules_java repository.
+local_repository(
+    name = "rules_java",
+    path = "external/bazelbuild-rules_java",
+)
+
 # Optional epilog for analysis testing.
 load("//build/kernel/kleaf:workspace_epilog.bzl", "define_kleaf_workspace_epilog")
 

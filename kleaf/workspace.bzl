@@ -148,12 +148,6 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
     )
 
-    # Stub out @rules_java required for stardoc.
-    native.local_repository(
-        name = "rules_java",
-        path = "build/bazel_common_rules/rules/java/rules_java",
-    )
-
     # Use checked-in JDK from prebuilts as local_jdk
     #   Needed for stardoc
     native.register_toolchains(
