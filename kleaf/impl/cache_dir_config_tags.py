@@ -36,6 +36,7 @@ def load_json(path: pathlib.Path):
 def dump_json(object, fp):
     """Dumps object to file-like object fp."""
     json.dump(object, fp, sort_keys=True, indent=4)
+    fp.write("\n")
 
 
 def comment_json(object, fp):
@@ -43,6 +44,7 @@ def comment_json(object, fp):
     lines = json.dumps(object, sort_keys=True, indent=4).splitlines()
     lines = [f"# {line}" for line in lines]
     fp.write("\n".join(lines))
+    fp.write("\n")
 
 
 def main(

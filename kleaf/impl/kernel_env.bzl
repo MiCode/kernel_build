@@ -244,6 +244,7 @@ def _kernel_env_impl(ctx):
         # Add a comment with config_tags for debugging
           cp -p {config_tags_comment_file} {out}
           chmod +w {out}
+          echo >> {out}
         # capture it as a file to be sourced in downstream rules
           {preserve_env} >> {out}
         """.format(
