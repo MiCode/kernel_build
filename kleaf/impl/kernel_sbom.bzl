@@ -16,32 +16,30 @@
 
 load(":common_providers.bzl", "KernelBuildUnameInfo")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_sbom_impl(ctx):
-    out_file = ctx.actions.declare_file("{}/kernel_sbom.spdx.json".format(ctx.label.name))
-    kernel_release = ctx.attr.kernel[KernelBuildUnameInfo].kernel_release
+    output_file = ctx.actions.declare_file("{}/kernel_sbom.spdx.json".format(ctx.label.name))
+    kernel_release = ctx.attr.kernel_build[KernelBuildUnameInfo].kernel_release
 
-    command = """{kernel_sbom}                         \
-                   --output_file {out_file}            \
-                   --files {srcs}                      \
-                   --version_file {kernel_release}
-        """.format(
-        kernel_sbom = ctx.executable._kernel_sbom.path,
-        out_file = out_file.path,
-        srcs = " ".join([f.path for f in ctx.files.srcs]),
-        kernel_release = kernel_release.path,
-    )
+    srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
 
-    ctx.actions.run_shell(
+    args = ctx.actions.args()
+    args.add("--output_file", output_file)
+    args.add_all("--files", srcs_depset)
+    args.add("--version_file", kernel_release)
+
+    ctx.actions.run(
         mnemonic = "KernelSbom",
-        inputs = ctx.files.srcs + [kernel_release],
-        tools = [ctx.executable._kernel_sbom],
-        outputs = [out_file],
-        progress_message = "Generating Kernel SBOM %s" % ctx.attr.name,
-        command = command,
+        inputs = depset([kernel_release], transitive = [srcs_depset]),
+        outputs = [output_file],
+        executable = ctx.executable._kernel_sbom,
+        arguments = [args],
+        progress_message = "Generating Kernel SBOM {}".format(ctx.label),
     )
 
     return [
-        DefaultInfo(files = depset([out_file])),
+        DefaultInfo(files = depset([output_file])),
     ]
 
 kernel_sbom = rule(
@@ -49,7 +47,7 @@ kernel_sbom = rule(
     doc = """Generate an SPDX SBOM for kernels.""",
     attrs = {
         "srcs": attr.label_list(mandatory = True, allow_files = True),
-        "kernel": attr.label(
+        "kernel_build": attr.label(
             mandatory = True,
             providers = [KernelBuildUnameInfo],
         ),

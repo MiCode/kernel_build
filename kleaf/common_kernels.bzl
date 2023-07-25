@@ -843,7 +843,7 @@ def _define_common_kernel(
     kernel_sbom(
         name = name + "_sbom",
         srcs = dist_targets,
-        kernel = name,
+        kernel_build = name,
     )
 
     dist_targets.append(name + "_sbom")
