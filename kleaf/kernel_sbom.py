@@ -49,10 +49,11 @@ _SPDX_VERSION = "SPDX-2.3"
 _DATA_LICENSE = "CC0-1.0"
 _GOOGLE_ORGANIZATION_NAME = "Google"
 _LINUX_ORGANIZATION_NAME = "The Linux Kernel Organization"
-_LINUX_UPSTREAM_WEBSITE = "kernel.org"
+_LINUX_UPSTREAM_WEBSITE = "https://www.kernel.org"
 _NAMESPACE_PREFIX = "https://www.google.com/sbom/spdx/android/kernel/"
 _MAIN_PACKAGE_NAME = "kernel"
 _SOURCE_CODE_PACKAGE_NAME = "KernelSourceCode"
+_SOURCE_CODE_DOWNLOAD_LOCATION = "https://source.android.com"
 _LINUX_UPSTREAM_PACKAGE_NAME = "LinuxUpstreamPackage"
 _GENERATED_FROM_RELATIONSHIP = "GENERATED_FROM"
 _VARIANT_OF_RELATIONSHIP = "VARIANT_OF"
@@ -139,9 +140,9 @@ class KernelSbom:
       self,
       version: str,
       package_name: str,
-      file_list: list[File] | None = None,
-      organization: str = _GOOGLE_ORGANIZATION_NAME,
-      download_location: str | None = None,
+      file_list: list[File],
+      organization: str,
+      download_location: str,
   ) -> dict[str, Any]:
     package_dict: dict[str, Any] = {
         "name": package_name,
@@ -185,15 +186,23 @@ class KernelSbom:
     sbom = self._generate_doc_headers()
     sbom["packages"] = [
         self._generate_package_dict(
-            self._android_kernel_version, _MAIN_PACKAGE_NAME, self._files
+            self._android_kernel_version,
+            _MAIN_PACKAGE_NAME,
+            self._files,
+            _GOOGLE_ORGANIZATION_NAME,
+            _SOURCE_CODE_DOWNLOAD_LOCATION,
         ),
         self._generate_package_dict(
-            self._android_kernel_version, _SOURCE_CODE_PACKAGE_NAME
+            self._android_kernel_version,
+            _SOURCE_CODE_PACKAGE_NAME,
+            [],
+            _GOOGLE_ORGANIZATION_NAME,
+            _SOURCE_CODE_DOWNLOAD_LOCATION,
         ),
         self._generate_package_dict(
             self._upstream_kernel_version,
             _LINUX_UPSTREAM_PACKAGE_NAME,
-            None,
+            [],
             _LINUX_ORGANIZATION_NAME,
             _LINUX_UPSTREAM_WEBSITE,
         ),
