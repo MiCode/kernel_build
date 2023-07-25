@@ -213,6 +213,7 @@ def initramfs_test(name):
         kernel_modules_install = name + "modules_install",
         build_initramfs = True,
         kernel_build = name + "build",
+        unpack_ramdisk = False,
         avb_sign_boot_img = True,
         avb_boot_partition_size = 512,
         avb_boot_key = "//tools/mkbootimg:gki/testdata/testkey_rsa4096.pem",
@@ -224,6 +225,7 @@ def initramfs_test(name):
         name = name + "sign_avb_image_test",
         target_under_test = name + "sign_avb_image_boot_images",
         expected_env_values = [
+            "SKIP_UNPACKING_RAMDISK=1",
             "AVB_SIGN_BOOT_IMG=1",
             "AVB_BOOT_PARTITION_SIZE=512",
             "AVB_BOOT_KEY=",
