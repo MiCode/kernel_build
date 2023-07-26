@@ -273,7 +273,7 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
                     _FASTEST)
         first_hash = self._sha256(modules_prepare_archive)
 
-        old_modules_archive = tempfile.NamedTemporaryFile()
+        old_modules_archive = tempfile.NamedTemporaryFile(delete = False)
         shutil.copyfile(modules_prepare_archive, old_modules_archive.name)
 
         self._touch_core_kernel_file()
@@ -282,8 +282,8 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
                     _FASTEST)
         second_hash = self._sha256(modules_prepare_archive)
 
-        if first_hash != second_hash:
-            old_modules_archive.delete = False
+        if first_hash == second_hash:
+            os.unlink(old_modules_archive.name)
 
         self.assertEqual(
             first_hash, second_hash,
