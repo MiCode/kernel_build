@@ -305,20 +305,30 @@ def _hermetic_tools_impl(ctx):
            set -o pipefail
     """
 
+    hermetic_base = paths.join(
+        ctx.bin_dir.path,
+        paths.dirname(ctx.build_file_path),
+        ctx.attr.name,
+    )
+    hermetic_base_short = paths.join(
+        paths.dirname(ctx.build_file_path),
+        ctx.attr.name,
+    )
+
     setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
                 # Ensure _setup_env.sh keeps the original items in PATH
                 export KLEAF_INTERNAL_BUILDTOOLS_PREBUILT_BIN={path}
-""".format(path = all_outputs[0].dirname)
+""".format(path = hermetic_base)
     additional_setup = """
                 export PATH=$({path}/readlink -m {path}):$PATH
-""".format(path = all_outputs[0].dirname)
+""".format(path = hermetic_base)
     run_setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
-""".format(path = paths.dirname(all_outputs[0].short_path))
+""".format(path = hermetic_base_short)
     run_additional_setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path}):$PATH
-""".format(path = paths.dirname(all_outputs[0].short_path))
+""".format(path = hermetic_base_short)
 
     hermetic_toolchain_info = _HermeticToolchainInfo(
         deps = depset(info_deps),
