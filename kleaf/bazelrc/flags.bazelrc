@@ -21,6 +21,8 @@ build --flag_alias=incompatible_kernel_use_resolved_toolchains=//build/kernel/kl
 build --flag_alias=noincompatible_kernel_use_resolved_toolchains=no//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains
 build --flag_alias=incompatible_disable_hermetic_tools_info=//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info
 build --flag_alias=noincompatible_disable_hermetic_tools_info=no//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info
+build --flag_alias=incompatible_disable_hermetic_tools_symlink_source=//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source
+build --flag_alias=noincompatible_disable_hermetic_tools_symlink_source=no//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source
 
 # flags that control kleaf integrity checking
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers

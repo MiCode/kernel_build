@@ -299,6 +299,13 @@ def _hermetic_tools_impl(ctx):
     info_deps = deps + ctx.outputs.host_tools
     info_deps += py3.info_deps
 
+    if ctx.attr._disable_symlink_source[BuildSettingInfo].value:
+        transitive_deps = []
+    else:
+        transitive_deps = [target.files for target in ctx.attr.symlinks]
+
+    info_deps = depset(info_deps, transitive = transitive_deps)
+
     fail_hard = """
          # error on failures
            set -e
@@ -334,7 +341,7 @@ def _hermetic_tools_impl(ctx):
 """.format(path = hermetic_base_short)
 
     hermetic_toolchain_info = _HermeticToolchainInfo(
-        deps = depset(info_deps),
+        deps = info_deps,
         setup = setup,
         run_setup = run_setup,
         run_additional_setup = run_additional_setup,
@@ -352,7 +359,7 @@ def _hermetic_tools_impl(ctx):
 
     if not ctx.attr._disable_hermetic_tools_info[BuildSettingInfo].value:
         hermetic_tools_info = HermeticToolsInfo(
-            deps = info_deps,
+            deps = info_deps.to_list(),
             setup = setup,
             additional_setup = additional_setup,
             run_setup = run_setup,
@@ -378,6 +385,9 @@ _hermetic_tools = rule(
         ),
         "_disable_hermetic_tools_info": attr.label(
             default = "//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info",
+        ),
+        "_disable_symlink_source": attr.label(
+            default = "//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source",
         ),
         "rsync_args": attr.string_list(),
     },
