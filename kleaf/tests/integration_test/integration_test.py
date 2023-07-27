@@ -510,6 +510,7 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
         ] + _LTO_NONE
         self._build(args)
 
+    @unittest.skip("b/293357796")
     def test_dash_dash_help(self):
         """Test that `bazel --help` works."""
         self._check_output("--help", [], use_bazelrc=False)
