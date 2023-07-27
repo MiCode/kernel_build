@@ -220,14 +220,7 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
   # shellcheck disable=SC2086
   "${ROOT_DIR}/build_with_bazel.py" \
     -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $LTO_KBUILD_ARG $EXTRA_KBUILD_ARGS \
-    --out_dir "${ANDROID_KP_OUT_DIR}" && ret="$?" || ret="$?"
-
-  # Modify the output directory's permissions so cleanup can occur later
-  find "${ROOT_DIR}/out/bazel" -type d -exec chmod 0755 {} +
-
-  if [ "$ret" -ne 0 ]; then
-    exit "$ret"
-  fi
+    --out_dir "${ANDROID_KP_OUT_DIR}"
 
   COPY_NEEDED=1
 fi
@@ -262,14 +255,7 @@ if [ "${RECOMPILE_ABL}" == "1" ] && [ -n "${TARGET_BUILD_VARIANT}" ] && \
       ./tools/bazel run \
         --"//bootable/bootloader/edk2:target_build_variant=${TARGET_BUILD_VARIANT}" \
         "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
-        -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist" && ret="$?" || ret="$?"
-
-      # Modify the output directory's permissions so cleanup can occur later
-      find out/bazel -type d -exec chmod 0755 {} +
-
-      if [ "$ret" -ne 0 ]; then
-        exit "$ret"
-      fi
+        -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist"
     )
 
   COPY_ABL_NEEDED=1
