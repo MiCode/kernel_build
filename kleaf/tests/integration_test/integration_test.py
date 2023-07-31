@@ -589,6 +589,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         self._check_call(
             "build",
             _FASTEST + [
+                "--config=local",
                 f"//{self._common()}:kernel_aarch64",
             ],
             env=ScmversionIntegrationTest._env_without_build_number())
@@ -601,6 +602,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             "build",
             _FASTEST + [
                 "--config=stamp",
+                "--config=local",
                 f"//{self._common()}:kernel_aarch64",
             ],
             env=ScmversionIntegrationTest._env_without_build_number())
@@ -615,6 +617,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             "build",
             _FASTEST + [
                 "--config=stamp",
+                "--config=local",
                 f"//{self._common()}:kernel_aarch64",
             ],
             env=ScmversionIntegrationTest._env_with_build_number("123456"))
@@ -629,6 +632,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         self._check_call(
             "build",
             _FASTEST + [
+                "--config=local",
                 f"//{self._common()}:kernel_aarch64",
             ],
             env=ScmversionIntegrationTest._env_without_build_number())
@@ -641,6 +645,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             "build",
             _FASTEST + [
                 "--config=stamp",
+                "--config=local",
                 f"//{self._common()}:kernel_aarch64",
             ],
             env=ScmversionIntegrationTest._env_without_build_number())
@@ -655,6 +660,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             "build",
             _FASTEST + [
                 "--config=stamp",
+                "--config=local",
                 f"//{self._common()}:kernel_aarch64",
             ],
             env=ScmversionIntegrationTest._env_with_build_number("123456"))
