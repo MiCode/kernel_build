@@ -168,8 +168,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
             for arg in arguments.bazel_args:
                 f.write(f"build {shlex.quote(arg)}\n")
 
-        self._check_call("clean", [])
-
     def restore_file_after_test(self, path: pathlib.Path | str):
         with open(path) as file:
             old_content = file.read()
