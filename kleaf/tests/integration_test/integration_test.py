@@ -32,7 +32,6 @@ Example:
 """
 
 import argparse
-import functools
 import hashlib
 import os
 import re
@@ -52,7 +51,6 @@ from build.kernel.kleaf.analysis.inputs import analyze_inputs
 _BAZEL = pathlib.Path("tools/bazel")
 
 # See local.bazelrc
-_NOLOCAL = ["--no//build/kernel/kleaf:config_local"]
 _LOCAL = ["--//build/kernel/kleaf:config_local"]
 
 _LTO_NONE = [
@@ -62,8 +60,6 @@ _LTO_NONE = [
 
 # Handy arguments to build as fast as possible.
 _FASTEST = _LOCAL + _LTO_NONE
-
-_INTEGRATION_TEST_BAZEL_RC = "out/bazel/integration_test.bazelrc"
 
 
 def load_arguments():
