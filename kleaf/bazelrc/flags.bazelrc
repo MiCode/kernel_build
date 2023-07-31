@@ -37,6 +37,7 @@ build --flag_alias=kasan_sw_tags=//build/kernel/kleaf:kasan_sw_tags
 build --flag_alias=kcsan=//build/kernel/kleaf:kcsan
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=notrim=//build/kernel/kleaf/impl:force_disable_trim
+build --flag_alias=debug=//build/kernel/kleaf:debug
 build --flag_alias=btf_debug_info=//build/kernel/kleaf:btf_debug_info
 build --flag_alias=noset_ext_modules=no//build/kernel/kleaf:set_ext_modules
 build --flag_alias=gki_build_config_fragment=//build/kernel/kleaf:gki_build_config_fragment

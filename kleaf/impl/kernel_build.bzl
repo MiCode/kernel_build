@@ -686,6 +686,7 @@ def _get_defconfig_fragments(
     # kernel_build_defconfig_fragments could be a list or a select() expression.
     additional_fragments = [
         Label("//build/kernel/kleaf:defconfig_fragment"),
+        Label("//build/kernel/kleaf/impl/defconfig:debug"),
     ]
 
     btf_debug_info_target = kernel_build_name + "_defconfig_fragment_btf_debug_info"
