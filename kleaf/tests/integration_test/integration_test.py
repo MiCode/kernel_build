@@ -255,7 +255,7 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
                     _FASTEST)
         first_hash = self._sha256(modules_prepare_archive)
 
-        old_modules_archive = tempfile.NamedTemporaryFile(delete = False)
+        old_modules_archive = tempfile.NamedTemporaryFile(delete=False)
         shutil.copyfile(modules_prepare_archive, old_modules_archive.name)
 
         self._touch_core_kernel_file()
@@ -298,32 +298,19 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
             if pathlib.Path(path).name == "System.map"
         ], "An external module must not depend on System.map")
 
-    def test_incremental_switch_to_local(self):
-        """Tests that switching from non-local to local works."""
-        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE)
-        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
+    def test_incremental_switch_local_and_lto(self):
+        """Tests the following:
 
-    def test_incremental_switch_to_non_local(self):
-        """Tests that switching from local to non-local works."""
-        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
-        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE)
-
-    def test_change_lto_to_thin_when_local(self):
-        """Tests that, with --config=local, changing from --lto=none to --lto=thin works.
+        - switching from non-local to local and back works
+        - with --config=local, changing from --lto=none to --lto=thin and back works
 
         See b/257288175."""
-        self._build([f"//{self._common()}:kernel_dist"] + _LOCAL + _LTO_NONE)
-        self._build([f"//{self._common()}:kernel_dist"] + _LOCAL +
-                    ["--lto=thin"])
-
-    def test_change_lto_to_none_when_local(self):
-        """Tests that, with --config=local, changing from --lto=thin to --lto=local works.
-
-        See b/257288175."""
-        self._check_call("build", [f"//{self._common()}:kernel_dist"] +
-                         _LOCAL + ["--lto=thin"])
-        self._check_call("build", [f"//{self._common()}:kernel_dist"] +
-                         _LOCAL + _LTO_NONE)
+        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
+        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE)
+        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
+        self._build([f"//{self._common()}:kernel_dist"] +
+                    ["--lto=thin"] + _LOCAL)
+        self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
 
     def test_override_javatmp(self):
         """Tests that out/bazel/javatmp can be overridden.
