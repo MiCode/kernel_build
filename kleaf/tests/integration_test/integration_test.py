@@ -592,12 +592,18 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
     def _env_without_build_number():
         env = dict(os.environ)
         env.pop("BUILD_NUMBER", None)
+        # Fix this error to execute `repo` properly:
+        #  ModuleNotFoundError: No module named 'color'
+        env.pop("PYTHONSAFEPATH", None)
         return env
 
     @staticmethod
     def _env_with_build_number(build_number):
         env = dict(os.environ)
         env["BUILD_NUMBER"] = str(build_number)
+        # Fix this error to execute `repo` properly:
+        #  ModuleNotFoundError: No module named 'color'
+        env.pop("PYTHONSAFEPATH", None)
         return env
 
     def test_mainline_no_stamp(self):
