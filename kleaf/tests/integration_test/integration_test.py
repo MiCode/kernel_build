@@ -242,22 +242,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
 
 
 class KleafIntegrationTest(KleafIntegrationTestBase):
-
-    def test_simple_modules_prepare_local(self):
-        """Tests that fixdep is not needed."""
-        self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] +
-                    _FASTEST)
-
-    def test_simple_incremental(self):
-        self._build([f"//{self._common()}:kernel_dist"] + _FASTEST)
-        self._build([f"//{self._common()}:kernel_dist"] + _FASTEST)
-
-    def test_incremental_core_kernel_file_modified(self):
-        """Tests incremental build with a core kernel file modified."""
-        self._build([f"//{self._common()}:kernel_dist"] + _FASTEST)
-        self._touch_core_kernel_file()
-        self._build([f"//{self._common()}:kernel_dist"] + _FASTEST)
-
     def test_change_to_core_kernel_does_not_affect_modules_prepare(self):
         """Tests that, with a small change to the core kernel, modules_prepare does not change.
 
@@ -265,6 +249,8 @@ class KleafIntegrationTest(KleafIntegrationTestBase):
         """
         modules_prepare_archive = \
             f"bazel-bin/{self._common()}/kernel_aarch64_modules_prepare/modules_prepare_outdir.tar.gz"
+
+        # This also tests that fixdep is not needed.
         self._build([f"//{self._common()}:kernel_aarch64_modules_prepare"] +
                     _FASTEST)
         first_hash = self._sha256(modules_prepare_archive)
