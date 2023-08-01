@@ -100,6 +100,33 @@ function rel_path() {
 ROOT_DIR=$($(dirname $(readlink -f $0))/../gettop.sh)
 echo "  kernel platform root: $ROOT_DIR"
 
+# Merge vendor devicetree overlays
+
+if [ "$1" == "dtb-only" ]; then
+  if [ -z "$2" ]; then
+    echo "Please mention the target ..."
+    exit 1
+  fi
+
+  TARGET=$2
+
+  BASE_DT=${ROOT_DIR}/../device/qcom/${TARGET}-kernel
+  TECHPACK_DT="${ROOT_DIR}/../out/target/product/${TARGET}/obj/DLKM_OBJ"
+
+  if [ ! -e "${BASE_DT}" ] || [ ! -e "${TECHPACK_DT}" ]; then
+    echo "Either base dt or techpack dt is missing ..."
+    exit 1
+  fi
+
+  cd "${ROOT_DIR}"
+  echo "  Merging vendor devicetree overlays"
+  ./build/android/merge_dtbs.sh \
+      "${BASE_DT}"/kp-dtbs \
+      "${TECHPACK_DT}" \
+      "${BASE_DT}"/dtbs
+  exit 0
+fi
+
 ################################################################################
 # Discover where to put Android output
 if [ -z "${ANDROID_KERNEL_OUT}" ]; then
