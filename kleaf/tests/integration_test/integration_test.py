@@ -17,17 +17,17 @@ The rest of the arguments are passed to absltest.
 
 Example:
 
-    bazel run //build/kernel/kleaf/tests/integration_test
+    tools/bazel run //build/kernel/kleaf/tests/integration_test
 
-    bazel run //build/kernel/kleaf/tests/integration_test \\
-      -- --bazel_arg=--verbose_failures --bazel_arg=--announce_rc
+    tools/bazel run //build/kernel/kleaf/tests/integration_test \\
+      -- --bazel-arg=--verbose_failures --bazel-arg=--announce_rc
 
-    bazel run //build/kernel/kleaf/tests/integration_test \\
-      -- KleafIntegrationTest.test_simple_incremental
+    tools/bazel run //build/kernel/kleaf/tests/integration_test \\
+      -- QuickIntegrationTest.test_menuconfig_merge
 
-    bazel run //build/kernel/kleaf/tests/integration_test \\
-      -- --bazel_arg=--verbose_failures --bazel_arg=--announce_rc \\
-         KleafIntegrationTest.test_simple_incremental \\
+    tools/bazel run //build/kernel/kleaf/tests/integration_test \\
+      -- --bazel-arg=--verbose_failures --bazel-arg=--announce_rc \\
+         QuickIntegrationTest.test_menuconfig_merge \\
          --verbosity=2
 """
 
