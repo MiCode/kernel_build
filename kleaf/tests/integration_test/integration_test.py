@@ -29,6 +29,10 @@ Example:
       -- --bazel-arg=--verbose_failures --bazel-arg=--announce_rc \\
          QuickIntegrationTest.test_menuconfig_merge \\
          --verbosity=2
+
+    tools/bazel run //build/kernel/kleaf/tests/integration_test \\
+      -- --bazel-arg=--verbose_failures --include-abi-tests \\
+      KleafIntegrationTestAbiTest.test_non_exported_symbol_fails
 """
 
 import argparse
@@ -75,6 +79,11 @@ def load_arguments():
                         dest="bazel_wrapper_args",
                         default=[],
                         help="arg to bazel.py wrapper")
+    parser.add_argument("--include-abi-tests",
+                        action="store_true",
+                        dest="include_abi_tests",
+                        help="Include ABI Monitoring related tests." +
+                        "NOTE: It requires a branch with ABI monitoring enabled.")
     return parser.parse_known_args()
 
 
@@ -109,6 +118,13 @@ class Exec(object):
         popen = subprocess.Popen(args, **kwargs)
         return popen
 
+    @staticmethod
+    def check_errors(args: list[str], **kwargs) -> str:
+        """Returns errors of a shell command"""
+        kwargs.setdefault("text", True)
+        sys.stderr.write(f"+ {' '.join(args)}\n")
+        return subprocess.run(
+            args, check = False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout
 
 class KleafIntegrationTestBase(unittest.TestCase):
 
@@ -142,6 +158,19 @@ class KleafIntegrationTestBase(unittest.TestCase):
         args += command_args
 
         return Exec.check_output(args, **kwargs)
+
+    def _check_errors(self, command: str, command_args: list[str],
+                      use_bazelrc=True,
+                      **kwargs) -> str:
+        """Returns errors of a bazel command."""
+
+        args = [str(_BAZEL)]
+        if use_bazelrc:
+            args.append(f"--bazelrc={self._bazel_rc.name}")
+        args.append(command)
+        args += command_args
+
+        return Exec.check_errors(args, **kwargs)
 
     def _popen(self, command: str, command_args: list[str], **kwargs) \
             -> subprocess.Popen:
@@ -238,9 +267,41 @@ class KleafIntegrationTestBase(unittest.TestCase):
         """Returns the common package."""
         return "common"
 
+
+# NOTE: It requires a branch with ABI monitoring enabled.
+#   Include these using the flag --include-abi-tests
+class KleafIntegrationTestAbiTest(KleafIntegrationTestBase):
+
+    def test_non_exported_symbol_fails(self):
+        """Tests the following:
+
+        - Validates a non-exported symbol makes the build fail.
+          For this particular example use db845c mixed build.
+
+        This test requires a branch with ABI monitoring enabled.
+        """
+
+        if not arguments.include_abi_tests:
+          self.skipTest("Skipping test_non_exported_symbol_fails test.")
+
+        # Select an arbitrary driver and unexport a symbols.
+        self.driver_file = f"{self._common()}/drivers/i2c/i2c-core-base.c"
+        self.restore_file_after_test(self.driver_file)
+        self.replace_lines(self.driver_file,
+                           lambda x: re.search("EXPORT_SYMBOL_GPL\(i2c_adapter_type\);", x),
+                           [""])
+
+        # Check for errors in the logs.
+        output = self._check_errors("build", [f"//{self._common()}:db845c", "--config=fast"])
+
+        def matching_line(line): return re.match(
+             r"^ERROR: modpost: \"i2c_adapter_type\" \[.*\] undefined!$",
+             line)
+        self.assertTrue(
+             any([matching_line(line) for line in output.splitlines()]))
+
+
 # Slow integration tests belong to their own shard.
-
-
 class KleafIntegrationTestShard1(KleafIntegrationTestBase):
 
     def test_incremental_switch_local_and_lto(self):
