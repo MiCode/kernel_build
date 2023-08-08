@@ -167,6 +167,12 @@ def _default_target_configs():
             # Assume BUILD_GKI_ARTIFACTS=1
             "build_gki_artifacts": True,
             "gki_boot_img_sizes": gki_boot_img_sizes,
+            "deprecation": """
+    Consider building {main_target} with:
+        * --notrim to disable trimming, or
+        * --debug to enable additional debug options.""".format(
+                main_target = native.package_relative_label("kernel_aarch64"),
+            ),
         }),
         "kernel_riscv64": dicts.add(riscv64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.riscv64
@@ -176,6 +182,12 @@ def _default_target_configs():
         "kernel_x86_64_debug": dicts.add(x86_64_common, {
             "trim_nonlisted_kmi": False,
             "kmi_symbol_list_strict_mode": False,
+            "deprecation": """
+    Consider building {main_target} with:
+        * --notrim to disable trimming, or
+        * --debug to enable additional debug options.""".format(
+                main_target = native.package_relative_label("kernel_x86_64"),
+            ),
         }),
     }
 
@@ -609,7 +621,8 @@ def _define_common_kernel(
         kmi_enforced = None,
         build_gki_artifacts = None,
         gki_boot_img_sizes = None,
-        page_size = None):
+        page_size = None,
+        deprecation = None):
     json_target_config = dict(
         name = name,
         outs = outs,
@@ -631,6 +644,7 @@ def _define_common_kernel(
         build_gki_artifacts = build_gki_artifacts,
         gki_boot_img_sizes = gki_boot_img_sizes,
         page_size = page_size,
+        deprecation = deprecation,
     )
     json_target_config = json.encode_indent(json_target_config, indent = "    ")
     json_target_config = json_target_config.replace("null", "None")
@@ -701,6 +715,7 @@ def _define_common_kernel(
         protected_modules_list = protected_modules_list,
         make_goals = make_goals,
         page_size = page_size,
+        deprecation = deprecation,
     )
 
     kernel_abi(
@@ -713,6 +728,7 @@ def _define_common_kernel(
         abi_definition_stg = abi_definition_stg,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+        deprecation = deprecation,
     )
 
     if enable_interceptor:
