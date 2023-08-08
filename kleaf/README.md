@@ -42,6 +42,8 @@
 
 [Toolchain resolution](docs/toolchains.md)
 
+[Checkpatch](docs/checkpatch.md)
+
 ### Configurations
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
