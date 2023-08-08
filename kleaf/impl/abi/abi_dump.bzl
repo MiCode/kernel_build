@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Rules for ABI extraction."""
 
-load("//build/kernel/kleaf:hermetic_tools.bzl", "HermeticToolsInfo")
+load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
@@ -21,8 +22,8 @@ load(
     "KernelUnstrippedModulesInfo",
 )
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "kernel_utils", "utils")
-load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 
 def _abi_dump_impl(ctx):
     kernel_utils.check_kernel_build(
@@ -70,13 +71,13 @@ def _find_vmlinux(ctx):
     )
 
 def _abi_dump_full_stg(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
     full_abi_out_file = ctx.actions.declare_file("{}/abi-full.stg".format(ctx.attr.name))
     vmlinux = _find_vmlinux(ctx)
     unstripped_dirs = _unstripped_dirs(ctx)
 
     inputs = [vmlinux, ctx.file._stg]
     inputs += unstripped_dirs
-    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
 
     # Collect all modules from all directories
     all_modules = ""
@@ -85,7 +86,7 @@ def _abi_dump_full_stg(ctx):
             dir_path = unstripped_dir.path,
         )
 
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup + """
+    command = hermetic_tools.setup + """
         {stg} --output {full_abi_out_file} --elf {vmlinux} {all_modules}
     """.format(
         stg = ctx.file._stg.path,
@@ -97,6 +98,7 @@ def _abi_dump_full_stg(ctx):
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [full_abi_out_file],
+        tools = hermetic_tools.deps,
         command = command,
         mnemonic = "AbiDumpFullStg",
         progress_message = "[stg] Extracting ABI {}".format(ctx.label),
@@ -104,11 +106,11 @@ def _abi_dump_full_stg(ctx):
     return full_abi_out_file
 
 def _abi_dump_filtered_stg(ctx, full_abi_out_file):
+    hermetic_tools = hermetic_toolchain.get(ctx)
     abi_out_file = ctx.actions.declare_file("{}/abi.stg".format(ctx.attr.name))
     combined_abi_symbollist = ctx.attr.kernel_build[KernelBuildAbiInfo].combined_abi_symbollist
     inputs = [full_abi_out_file]
-    inputs += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    command = ctx.attr._hermetic_tools[HermeticToolsInfo].setup
+    command = hermetic_tools.setup
 
     if combined_abi_symbollist:
         inputs += [
@@ -135,6 +137,7 @@ def _abi_dump_filtered_stg(ctx, full_abi_out_file):
     ctx.actions.run_shell(
         inputs = inputs,
         outputs = [abi_out_file],
+        tools = hermetic_tools.deps,
         command = command,
         mnemonic = "AbiDumpFilteredStg",
         progress_message = "[stg] Filtering ABI dump {}".format(ctx.label),
@@ -147,7 +150,6 @@ abi_dump = rule(
     attrs = {
         "kernel_build": attr.label(providers = [KernelBuildAbiInfo, KernelUnstrippedModulesInfo]),
         "kernel_modules": attr.label_list(providers = [KernelUnstrippedModulesInfo]),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -160,4 +162,5 @@ abi_dump = rule(
         ),
     },
     cfg = with_vmlinux_transition,
+    toolchains = [hermetic_toolchain.type],
 )

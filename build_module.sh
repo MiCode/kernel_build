@@ -191,15 +191,6 @@ if [ ! -e "${KERNEL_KIT}/.config" ]; then
   exit 1
 fi
 
-# Set the LTO based on the .config
-if grep -q "CONFIG_LTO_NONE=y" "${KERNEL_KIT}/.config"; then
-  LTO=none
-elif grep -q "CONFIG_LTO_.*_THIN=y" "${KERNEL_KIT}/.config"; then
-  LTO=thin
-else
-  LTO=full
-fi
-
 if [ ! -e "${OUT_DIR}/Makefile" -o -z "${EXT_MODULES}" ]; then
   echo "========================================================"
   echo " Prepare to compile modules from ${KERNEL_KIT}"
@@ -279,23 +270,17 @@ for EXT_MOD in ${EXT_MODULES}; do
     fi
   done
 
-  if [ $TARGET_PRODUCT == "msmnile_au" ]; then
-     btgt="gen3auto"
-  elif [ $TARGET_PRODUCT == "sm6150_au" ]; then
-     btgt="sdmsteppeauto"
-  else
-     btgt=${TARGET_PRODUCT}
-  fi
-
   # Query for a target that matches the pattern for module distribution
   if [ "$ENABLE_DDK_BUILD" = "true" ] \
      && [ -n "$pkg_path" ] \
+     && [ -n "$TARGET_BOARD_PLATFORM" ] \
      && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
-          "filter('${btgt/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
+          "filter('${TARGET_BOARD_PLATFORM/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
      && [ -n "$build_target" ]
   then
 
-    build_flags=("--lto=${LTO:-full}")
+    build_flags=($(cat "${KERNEL_KIT}/build_opts.txt" | xargs))
+
     if [ "$ALLOW_UNSAFE_DDK_HEADERS" = "true" ]; then
       build_flags+=("--allow_ddk_unsafe_headers")
     fi
@@ -313,7 +298,7 @@ for EXT_MOD in ${EXT_MODULES}; do
 
     # The Module.symvers file is named "<target>_<variant>_Modules.symvers, but other modules are
     # looking for just "Module.symvers". Concatenate any of them into one Module.symvers file.
-    cat "${OUT_DIR}/${EXT_MOD_REL}/${TARGET_PRODUCT}_${VARIANT}"_*_Module.symvers \
+    cat "${OUT_DIR}/${EXT_MOD_REL}/${TARGET_BOARD_PLATFORM}_${VARIANT}"_*_Module.symvers \
       > "${OUT_DIR}/${EXT_MOD_REL}/Module.symvers"
 
     # Intermediate directories aren't generated automatically, so we need to create them manually

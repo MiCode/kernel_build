@@ -624,6 +624,7 @@ def define_common_kernels(
             name = name,
             srcs = [name + "_sources"],
             outs = arch_config["outs"],
+            arch = arch_config["arch"],
             implicit_outs = [
                 # Kernel build time module signining utility and keys
                 # Only available during GKI builds
@@ -834,10 +835,14 @@ def define_common_kernels(
         kernel_build = ":kernel_aarch64",
     )
 
+    kernel_compile_commands(
+        name = "kernel_x86_64_compile_commands",
+        kernel_build = ":kernel_x86_64",
+    )
+
     string_flag(
         name = "kernel_kythe_corpus",
-        # TODO(b/201801372): Remove the default value once build bots are configured properly.
-        build_setting_default = "android.googlesource.com/kernel/superproject//common-android-mainline",
+        build_setting_default = "",
     )
 
     kernel_kythe(
@@ -916,7 +921,11 @@ def _define_prebuilts(target_configs, **kwargs):
                 ":use_prebuilt_gki_set": "@{}//{}{}".format(repo_name, name, MODULE_OUTS_FILE_SUFFIX),
                 "//conditions:default": ":" + name + "_module_outs_file",
             }),
-            protected_modules_list = target_configs[name].get("protected_modules_list"),
+            protected_modules_list = select({
+                ":use_prebuilt_gki_set": "@{}//{}".format(repo_name, value["protected_modules"]),
+                "//conditions:default": target_configs[name].get("protected_modules_list"),
+            }),
+            gki_artifacts = name + "_gki_artifacts_download_or_build",
             **kwargs
         )
 
@@ -980,10 +989,10 @@ def _define_common_kernels_additional_tests(
         expected_modules_options = fake_modules_options,
     )
 
-    native.genrule(
+    write_file(
         name = name + "_empty_modules_options",
-        outs = [name + "_empty_modules_options/modules.options"],
-        cmd = ": > $@",
+        out = name + "_empty_modules_options/modules.options",
+        content = [],
     )
 
     kernel_images(

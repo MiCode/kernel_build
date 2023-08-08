@@ -365,9 +365,17 @@ if [ "${COPY_NEEDED}" == "1" ]; then
       "${ANDROID_KERNEL_OUT}/extra_bootconfig"
   fi
 
-  for file in Image vmlinux System.map .config Module.symvers kernel-uapi-headers.tar.gz ; do
-    cp ${ANDROID_KP_OUT_DIR}/dist/${file} ${ANDROID_KERNEL_OUT}/
-  done
+  files=(
+    "Image"
+    "vmlinux"
+    "System.map"
+    ".config"
+    "Module.symvers"
+    "kernel-uapi-headers.tar.gz"
+    "build_opts.txt"
+  )
+
+  cp "${files[@]/#/${ANDROID_KP_OUT_DIR}/dist/}" ${ANDROID_KERNEL_OUT}/
 
   rm -rf ${ANDROID_KERNEL_OUT}/kp-dtbs
   mkdir ${ANDROID_KERNEL_OUT}/kp-dtbs

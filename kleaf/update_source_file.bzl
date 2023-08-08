@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":hermetic_tools.bzl", "HermeticToolsInfo")
+"""Upon `bazel run`, updates a source file."""
+
+load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 
 def _update_source_file_impl(ctx):
     # --copy-links because src is a symlink inside the sandbox. We need to copy
     # the referent.
     # --no-perms because generated files usually have exec bit set, which
     # we don't want in source files.
-    script = ctx.attr._hermetic_tools[HermeticToolsInfo].run_setup + """
+    hermetic_tools = hermetic_toolchain.get(ctx)
+    script = hermetic_tools.run_setup + """
         rsync --copy-links --no-perms --times {src} $(readlink -m {dst})
     """.format(
         src = ctx.file.src.short_path,
@@ -35,15 +38,14 @@ def _update_source_file_impl(ctx):
         ctx.file.src,
         ctx.file.dst,
     ]
-    runfiles += ctx.attr._hermetic_tools[HermeticToolsInfo].deps
-    return [DefaultInfo(runfiles = ctx.runfiles(files = runfiles))]
+    return [DefaultInfo(runfiles = ctx.runfiles(files = runfiles, transitive_files = hermetic_tools.deps))]
 
 update_source_file = rule(
     implementation = _update_source_file_impl,
     attrs = {
         "src": attr.label(allow_single_file = True),
         "dst": attr.label(allow_single_file = True),
-        "_hermetic_tools": attr.label(default = "//build/kernel:hermetic-tools", providers = [HermeticToolsInfo]),
     },
     executable = True,
+    toolchains = [hermetic_toolchain.type],
 )
