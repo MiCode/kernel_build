@@ -81,7 +81,8 @@ while [[ $# -gt 0 ]]; do
     echo "      Git SHA1 to check patch on. Default is HEAD if applied.prop is"
     echo "      not provided, otherwise default is value from applied.prop."
     echo "  [--ignored_checks <checkpatch_ignorelist>]"
-    echo "      List of ignored checks. See checkpatch() for defaults."
+    echo "      List of ignored checks. See checkpatch() rule for defaults."
+    echo "      If relative, it is interpreted against Bazel workspace root."
     echo
     echo "Flags set by Kleaf and not allowed in command line:"
     echo "  --checkpatch_pl <checkpatch.pl>"
@@ -177,11 +178,17 @@ fi
 PATCH_DIR=${CHECKPATCH_TMP}/checkpatch/patches
 
 # Update ignorelist.
-if [[ -f "${IGNORELIST_FILE}" ]]; then
-  IGNORED_ERRORS=$(grep -v '^#' ${IGNORELIST_FILE} | paste -s -d,)
-  if [[ -n "${IGNORED_ERRORS}" ]]; then
-    CHECKPATCH_ARGS+=(--ignore)
-    CHECKPATCH_ARGS+=("${IGNORED_ERRORS}")
+if [[ -n "${IGNORELIST_FILE}" ]]; then
+  IGNORELIST_FILE=$(resolve_path "${IGNORELIST_FILE}")
+  if [[ -f "${IGNORELIST_FILE}" ]]; then
+    IGNORED_ERRORS=$(grep -v '^#' ${IGNORELIST_FILE} | paste -s -d,)
+    if [[ -n "${IGNORED_ERRORS}" ]]; then
+      CHECKPATCH_ARGS+=(--ignore)
+      CHECKPATCH_ARGS+=("${IGNORED_ERRORS}")
+    fi
+  else
+    echo "ERROR: --ignored_checks is not a file: ${IGNORELIST_FILE}" >&2
+    exit 1
   fi
 fi
 
