@@ -190,7 +190,7 @@ if [[ -n "${IGNORELIST_FILE}" ]]; then
 fi
 
 echo "========================================================"
-echo " Running static analysis on ${DIR} ..."
+echo " Running static analysis on ${DIR} (${GIT_SHA1}) ..."
 echo "========================================================"
 
 pushd ${ABS_DIR} > /dev/null
@@ -247,7 +247,7 @@ if [[ ${CLEANUP_CHECKPATCH_RESULTS} == 1 ]]; then
 fi
 
 echo "========================================================"
-echo "Finished running static analysis on ${DIR} ."
+echo "Finished running static analysis on ${DIR}."
 echo "========================================================"
 popd > /dev/null
 exit ${CHECKPATCH_RC}
