@@ -278,14 +278,21 @@ for EXT_MOD in ${EXT_MODULES}; do
      btgt="$TARGET_BOARD_PLATFORM"
   fi
 
+  filter_regex="${btgt/_/-}_${VARIANT/_/-}_${SUBTARGET_REGEX:-.*}_dist$"
+
   # Query for a target that matches the pattern for module distribution
   if [ "$ENABLE_DDK_BUILD" = "true" ] \
      && [ -n "$pkg_path" ] \
      && [ -n "$btgt" ] \
      && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
-          "filter('${btgt/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
+          "filter('${filter_regex}', //${pkg_path}/...)") \
      && [ -n "$build_target" ]
   then
+    if [ "$(printf "%s\n" "$build_target" | wc -l)" -gt 1 ]; then
+      printf "error - multiple targets found matching \"%s\":\n%s\n" \
+        "$filter_regex" "$build_target"
+      exit 1
+    fi
 
     build_flags=($(cat "${KERNEL_KIT}/build_opts.txt" | xargs))
 
