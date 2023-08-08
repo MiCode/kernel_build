@@ -15,3 +15,10 @@
 exports_files([
     "checkpatch_ignorelist",
 ])
+
+py_binary(
+    name = "checkpatch_presubmit",
+    srcs = ["checkpatch_presubmit_bazel.py"],
+    main = "checkpatch_presubmit_bazel.py",
+    visibility = ["//visibility:private"],
+)
