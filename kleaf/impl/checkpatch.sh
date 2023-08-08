@@ -85,12 +85,10 @@ while [[ $# -gt 0 ]]; do
     echo "      If relative, it is interpreted against Bazel workspace root."
     echo
     echo "Flags set by Kleaf and not allowed in command line:"
-    echo "  --checkpatch_pl <checkpatch.pl>"
-    echo "      location to checkpatch.pl"
-    echo "      If relative, it is interpreted against execroot."
-    echo "      This should be set in BUILD as an attribute to checkpatch()."
-    echo "  [--git <git>]"
-    echo "      Location of Git binary, if it should not be found in PATH"
+    echo "  --checkpatch_pl </path/to/checkpatch.pl>"
+    echo "      Absolute path to checkpatch.pl."
+    echo "  [--git </path/to/git>]"
+    echo "      Absolute path to Git binary, if it should not be found in PATH"
     exit 0
     ;;
   *)
@@ -131,7 +129,6 @@ if [[ -z ${CHECKPATCH_PL_PATH} ]]; then
   echo "ERROR: --checkpatch_pl is required" >&2
   exit 1
 fi
-CHECKPATCH_PL_PATH="${PWD}/${CHECKPATCH_PL_PATH}"
 
 CHECKPATCH_TMP=$(mktemp -d /tmp/.tmp.checkpatch.XXXXXX)
 trap "rm -rf ${CHECKPATCH_TMP}" EXIT

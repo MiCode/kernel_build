@@ -31,7 +31,7 @@ def _checkpatch_impl(ctx):
             --ignored_checks $(realpath -e {ignorelist}) \\
             --dir {dir} \\
             "$@" \\
-            --checkpatch_pl {checkpatch_pl} \\
+            --checkpatch_pl $(realpath -e {checkpatch_pl}) \\
             --git ${{GIT}}
     """.format(
         run_setup = hermetic_tools.run_setup,
