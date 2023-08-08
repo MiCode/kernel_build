@@ -97,6 +97,7 @@ def _default_target_configs():
         "arch": "arm64",
         "build_config": "build.config.gki.aarch64",
         "outs": DEFAULT_GKI_OUTS,
+        "gki_system_dlkm_modules": "android/gki_system_dlkm_modules_arm64",
     }
 
     gki_boot_img_sizes = {
@@ -127,6 +128,7 @@ def _default_target_configs():
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": gki_boot_img_sizes,
+        "gki_system_dlkm_modules": "android/gki_system_dlkm_modules_riscv64",
     }
 
     # Common configs for x86_64 and x86_64_debug
@@ -140,6 +142,7 @@ def _default_target_configs():
             # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
             "": "67108864",
         },
+        "gki_system_dlkm_modules": "android/gki_system_dlkm_modules_x86_64",
     }
 
     return {
@@ -616,6 +619,7 @@ def _define_common_kernel(
         module_implicit_outs = None,
         protected_exports_list = None,
         protected_modules_list = None,
+        gki_system_dlkm_modules = None,
         make_goals = None,
         abi_definition_stg = None,
         kmi_enforced = None,
@@ -638,6 +642,7 @@ def _define_common_kernel(
         module_implicit_outs = module_implicit_outs,
         protected_exports_list = protected_exports_list,
         protected_modules_list = protected_modules_list,
+        gki_system_dlkm_modules = gki_system_dlkm_modules,
         make_goals = make_goals,
         abi_definition_stg = abi_definition_stg,
         kmi_enforced = kmi_enforced,
@@ -774,7 +779,7 @@ def _define_common_kernel(
         # Sync with GKI_DOWNLOAD_CONFIGS, "images"
         build_system_dlkm = True,
         # Keep in sync with build.config.gki* MODULES_LIST
-        modules_list = "android/gki_system_dlkm_modules",
+        modules_list = gki_system_dlkm_modules,
     )
 
     if build_gki_artifacts:
