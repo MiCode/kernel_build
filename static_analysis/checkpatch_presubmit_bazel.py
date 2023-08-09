@@ -22,6 +22,7 @@ tools/bazel run //build/kernel/static_analysis:checkpatch_presubmit -- \\
 """
 
 import argparse
+import collections
 import logging
 import os
 import pathlib
@@ -84,14 +85,16 @@ def _find_checkpatch_targets(path: pathlib.Path) -> list[str]:
 
 def _run_checkpatch(
     target: str,
-    dist_dir: pathlib.Path,
+    git_sha1: str,
+    log: pathlib.Path,
     checkpatch_args: list[str],
 ) -> int:
     args = [_BAZEL, "run", "--show_result=0"]
     args += _SILENT_ARGS
     args += [target, "--"]
     args += checkpatch_args
-    args += ["--dist_dir", dist_dir]
+    args += ["--log", log]
+    args += ["--git_sha1", git_sha1]
     _log_command(args)
     return subprocess.run(
         args,
@@ -111,33 +114,46 @@ def main(
             logging.info("Did not identify a presubmit build. Exiting.")
             return 0
     applied_prop = dist_dir / "applied.prop"
-    paths: list[pathlib.Path] = []
+    applied_prop_dict: dict[pathlib.Path, list[str]] = \
+        collections.defaultdict(list)
     with open(applied_prop) as applied_prop_file:
         for line in applied_prop_file:
             line = line.strip()
             if not line:
                 continue
-            path, _ = line.split(maxsplit=2)
-            paths.append(pathlib.Path(path))
+            path, git_sha1 = line.split(maxsplit=2)
+            applied_prop_dict[pathlib.Path(path)].append(git_sha1)
 
-    targets: list[str] = []
-    for path in paths:
+    targets: list[(list[str], str)] = []
+    for path, git_sha1_list in applied_prop_dict.items():
+        if len(git_sha1_list) > 1:
+            logging.error("Multiple git sha1 found in %s for %s",
+                          applied_prop, path)
+            return 1
         path_targets = _find_checkpatch_targets(path)
         if not path_targets:
             logging.info(
                 "Skipping %s because no checkpatch() target is found.", path)
             continue
-        targets += path_targets
+        targets.append((path_targets, git_sha1_list[0]))
 
+    checkpatch_log = dist_dir / "checkpatch.log"
+    os.unlink(checkpatch_log)
     return_codes = []
-    for target in targets:
-        return_codes.append(_run_checkpatch(
-            target=target,
-            dist_dir=dist_dir,
-            checkpatch_args=checkpatch_args,
-        ))
+    for path_targets, git_sha1 in targets:
+        for target in path_targets:
+            return_codes.append(_run_checkpatch(
+                target=target,
+                git_sha1=git_sha1,
+                log=checkpatch_log,
+                checkpatch_args=checkpatch_args,
+            ))
 
     success = sum(return_codes) == 0
+
+    if not success:
+        logging.info("See %s for complete output.", checkpatch_log.name)
+
     return 0 if success else 1
 
 

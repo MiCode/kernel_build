@@ -26,14 +26,14 @@ CHECKPATCH_ARGS=(--show-types)
 GIT_SHA1=""
 CHECKPATCH_PL_PATH=""
 IGNORELIST_FILE=""
-DIST_DIR=""
+RESULTS_PATH=""
 DIR=""
 GIT="git"
 while [[ $# -gt 0 ]]; do
   next="$1"
   case ${next} in
-  --dist_dir)
-    DIST_DIR="$2"
+  --log)
+    RESULTS_PATH="$2"
     shift
     ;;
   --git_sha1)
@@ -64,11 +64,9 @@ while [[ $# -gt 0 ]]; do
     echo "  --dir <dir>"
     echo "      directory to run checkpatch"
     echo "      If relative, it is interpreted against Bazel workspace root."
-    echo "  [--dist_dir <DIST_DIR>]"
-    echo "      Distribution directory. If specified. it is used to find"
-    echo "      applied.prop and store checkpatch.log."
-    echo "      If relative, it is interpreted as a relative path to the Bazel "
-    echo "      workspace root."
+    echo "  [--log <checkpatch.log>]"
+    echo "      Location to *append* logs. If unspecified, use temp file."
+    echo "      If relative, it is interpreted against Bazel workspace root."
     echo "  [--git_sha1 <GIT_SHA1>]"
     echo "      Git SHA1 to check patch on. Default is HEAD if applied.prop is"
     echo "      not provided, otherwise default is value from applied.prop."
@@ -115,25 +113,12 @@ fi
 CHECKPATCH_TMP=$(mktemp -d /tmp/.tmp.checkpatch.XXXXXX)
 trap "rm -rf ${CHECKPATCH_TMP}" EXIT
 
-if [[ -n ${DIST_DIR} ]]; then
-  DIST_DIR=$(resolve_path "${DIST_DIR}")
-
-  applied_prop_path=${DIST_DIR}/applied.prop
-  if [[ -f ${applied_prop_path} ]]; then
-    if [[ -n ${GIT_SHA1} ]]; then
-      echo "WARNING: applied.prop is found under --dist_dir, and --git_sha1 is specified."
-      echo "    Using --git_sha1 instead." >&2
-    else
-      GIT_SHA1=$(sed -nE "s:^${DIR} .*([0-9a-f]{40}).*:\\1:p" "${applied_prop_path}")
-
-      if [[ -z ${GIT_SHA1} ]]; then
-        # There's applied.prop file (we are on build bots), but no changes
-        # detected in the given directory. Just exit quietly.
-        echo "INFO: No changes applied to ${DIR}"
-        exit 0
-      fi
-    fi
-  fi
+if [[ -n ${RESULTS_PATH} ]]; then
+  RESULTS_PATH=$(resolve_path "${RESULTS_PATH}")
+  MY_RESULTS_PATH=$(mktemp /tmp/.tmp.checkpatch.log.XXXXXX)
+else
+  RESULTS_PATH=$(mktemp /tmp/.tmp.checkpatch.log.XXXXXX)
+  MY_RESULTS_PATH="${RESULTS_PATH}"
 fi
 
 if [[ -z ${GIT_SHA1} ]]; then
@@ -187,15 +172,9 @@ if ! $(stat -t ${PATCH_FILE} >/dev/null 2>&1); then
   exit 0
 fi
 
-CLEANUP_CHECKPATCH_RESULTS=0
-if [[ -n ${DIST_DIR} ]]; then
-  RESULTS_PATH=${DIST_DIR}/checkpatch.log
-  RESULTS_PATH_PRETTY=$(basename "${RESULTS_PATH}")
-else
-  RESULTS_PATH=$(mktemp -p "${CHECKPATCH_TMP}" checkpatch.log.XXXXXX)
-  RESULTS_PATH_PRETTY="${RESULTS_PATH}"
-  CLEANUP_CHECKPATCH_RESULTS=1
-fi
+echo "========================================================" >> "${MY_RESULTS_PATH}"
+echo "${DIR}: ${GIT_SHA1}" >> "${MY_RESULTS_PATH}"
+echo "========================================================" >> "${MY_RESULTS_PATH}"
 
 # Delay exit on non-zero checkpatch.pl return code so we can finish logging.
 
@@ -208,7 +187,7 @@ fi
 # unconditionally.
 
 set +e
-"${CHECKPATCH_PL_PATH}" ${CHECKPATCH_ARGS[*]} $PATCH_FILE > "${RESULTS_PATH}"
+"${CHECKPATCH_PL_PATH}" ${CHECKPATCH_ARGS[*]} $PATCH_FILE >> "${MY_RESULTS_PATH}"
 CHECKPATCH_RC=$?
 set -e
 
@@ -218,14 +197,19 @@ if [[ $CHECKPATCH_RC -ne 0 ]]; then
   echo "" >&2
   echo "Summary:" >&2
   echo "" >&2
-  { grep -r -h -E -A1 "^(ERROR|WARNING):" "${RESULTS_PATH}" 1>&2; } || true
+  { grep -r -h -E -A1 "^(ERROR|WARNING):" "${MY_RESULTS_PATH}" 1>&2; } || true
   echo "" >&2
-  echo "See ${RESULTS_PATH_PRETTY} for complete output." >&2
+  echo "See ${MY_RESULTS_PATH} for complete output." >&2
   CLEANUP_CHECKPATCH_RESULTS=0
 fi
 
-if [[ ${CLEANUP_CHECKPATCH_RESULTS} == 1 ]]; then
-  rm -f ${RESULTS_PATH}
+# Append my results to --log
+if [[ "${MY_RESULTS_PATH}" != "${RESULTS_PATH}" ]]; then
+  cat "${MY_RESULTS_PATH}" >> "${RESULTS_PATH}"
+fi
+
+if [[ "${CLEANUP_CHECKPATCH_RESULTS}" == 1 ]]; then
+  rm -f "${MY_RESULTS_PATH}"
 fi
 
 echo "========================================================"
