@@ -453,7 +453,7 @@ def kernel_build(
         Label("//build/kernel/kleaf:lto_is_full"): "full",
         Label("//build/kernel/kleaf:lto_is_fast"): "fast",
         # TODO(b/229662633): Allow kernel_build() macro to set this value.
-        "//conditions:default": "default",
+        Label("//build/kernel/kleaf:lto_is_default"): "default",
     })
 
     defconfig_fragments = _get_defconfig_fragments(
