@@ -138,7 +138,8 @@ def main(
         targets.append((path_targets, git_sha1_list[0]))
 
     checkpatch_log = dist_dir / "checkpatch.log"
-    os.unlink(checkpatch_log)
+    if checkpatch_log.exists():
+        os.unlink(checkpatch_log)
     return_codes = []
     for path_targets, git_sha1 in targets:
         for target in path_targets:
