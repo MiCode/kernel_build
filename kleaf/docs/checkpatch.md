@@ -66,9 +66,7 @@ checkpatch targets in the workspace, and run all of them. Example script:
 ```sh
 (
     tools/bazel query '
-        let all_checkpatch = kind("^checkpatch rule$", //...:all) in
-        let out_checkpatch = filter(//out/.*, $all_checkpatch) in
-        $all_checkpatch except $out_checkpatch
+        kind("^checkpatch rule$", //...:all) except //out/...
     ' -k 2>/dev/null || true
 ) | \
 while read -r target ; do
