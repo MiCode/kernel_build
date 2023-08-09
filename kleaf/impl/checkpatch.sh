@@ -189,7 +189,7 @@ echo "========================================================"
 echo " Running static analysis on ${DIR} ..."
 echo "========================================================"
 
-pushd ${ABS_DIR}
+pushd ${ABS_DIR} > /dev/null
 
 "${GIT}" format-patch --quiet -o "${PATCH_DIR}" "${GIT_SHA1}^1..${GIT_SHA1}" -- \
   ':!android/abi*' ':!BUILD.bazel'
@@ -209,7 +209,6 @@ else
   RESULTS_PATH_PRETTY="${RESULTS_PATH}"
   CLEANUP_CHECKPATCH_RESULTS=1
 fi
-echo RESULTS_PATH_PRETTY=${RESULTS_PATH_PRETTY}
 
 # Delay exit on non-zero checkpatch.pl return code so we can finish logging.
 
@@ -245,5 +244,5 @@ fi
 echo "========================================================"
 echo "Finished running static analysis on ${DIR} ."
 echo "========================================================"
-popd
+popd > /dev/null
 exit ${CHECKPATCH_RC}
