@@ -50,6 +50,10 @@ def load_arguments() -> dict[str, Any]:
         required=True,
         help="DIST_DIR. If relative, resolve against workspace root.",
     )
+    parser.add_argument(
+        "--bid",
+        help="Build ID. If specified, it is used to skip the check on post-submit.",
+    )
     return parser.parse_known_args()
 
 
@@ -99,7 +103,13 @@ def _run_checkpatch(
 def main(
         checkpatch_args: list[str],
         dist_dir: pathlib.Path,
+        bid: str | None,
 ) -> int:
+    if bid:
+        # Skip checkpatch for postsubmit (b/35390488).
+        if not bid.startswith("P"):
+            logging.info("Did not identify a presubmit build. Exiting.")
+            return 0
     applied_prop = dist_dir / "applied.prop"
     paths: list[pathlib.Path] = []
     with open(applied_prop) as applied_prop_file:
