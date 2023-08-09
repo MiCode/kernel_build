@@ -22,7 +22,6 @@
 # the check for post-submit.
 
 # Parse flags.
-BUILD_NUMBER=""
 CHECKPATCH_ARGS=(--show-types)
 GIT_SHA1=""
 CHECKPATCH_PL_PATH=""
@@ -33,10 +32,6 @@ GIT="git"
 while [[ $# -gt 0 ]]; do
   next="$1"
   case ${next} in
-  --bid)
-    BUILD_NUMBER="$2"
-    shift
-    ;;
   --dist_dir)
     DIST_DIR="$2"
     shift
@@ -69,9 +64,6 @@ while [[ $# -gt 0 ]]; do
     echo "  --dir <dir>"
     echo "      directory to run checkpatch"
     echo "      If relative, it is interpreted against Bazel workspace root."
-    echo "  [--bid <BUILD_NUMBER>]"
-    echo "      Build ID. If specified, it is used to skip the check on"
-    echo "      post-submit."
     echo "  [--dist_dir <DIST_DIR>]"
     echo "      Distribution directory. If specified. it is used to find"
     echo "      applied.prop and store checkpatch.log."
@@ -108,16 +100,6 @@ function resolve_path() {
     echo "${BUILD_WORKSPACE_DIRECTORY}/${path}"
   fi
 }
-
-# Skip checkpatch for postsubmit (b/35390488).
-if [[ -n "${BUILD_NUMBER}" ]]; then
-  return_code=0
-  echo "${BUILD_NUMBER}" | grep -qE "^P[0-9]+" || return_code=$?
-  if [[ "${return_code}" != 0 ]]; then
-    echo "Did not identify a presubmit build. Exiting."
-    exit 0
-  fi
-fi
 
 if [[ -z ${DIR} ]]; then
   echo "ERROR: --dir is required" >&2
