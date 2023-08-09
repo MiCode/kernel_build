@@ -73,6 +73,8 @@ while [[ $# -gt 0 ]]; do
     echo "  [--ignored_checks <checkpatch_ignorelist>]"
     echo "      List of ignored checks. See checkpatch() rule for defaults."
     echo "      If relative, it is interpreted against Bazel workspace root."
+    echo "  <args for checkpatch.pl>"
+    echo "      Other arguments are forwarded to checkpatch.pl."
     echo
     echo "Flags set by Kleaf and not allowed in command line:"
     echo "  --checkpatch_pl </path/to/checkpatch.pl>"
