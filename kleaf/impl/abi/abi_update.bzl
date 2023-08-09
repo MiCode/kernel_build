@@ -73,6 +73,7 @@ def _abi_update_impl(ctx):
         runfiles = runfiles,
     )
 
+# Sync with kleaf/bazel.py
 abi_update = rule(
     implementation = _abi_update_impl,
     attrs = {

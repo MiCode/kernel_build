@@ -1864,6 +1864,7 @@ def _kernel_build_additional_attrs():
         cache_dir.attrs(),
     )
 
+# Sync with kleaf/bazel.py
 _kernel_build = rule(
     implementation = _kernel_build_impl,
     doc = "Defines a kernel build target.",

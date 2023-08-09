@@ -284,6 +284,8 @@ def _define_abi_targets(
         kernel_modules_exclude_list = kernel_modules_exclude_list,
         **private_kwargs
     )
+
+    # Sync with kleaf/bazel.py
     update_source_file(
         name = name + "_update_symbol_list",
         src = name + "_extracted_symbols",
