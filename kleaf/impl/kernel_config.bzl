@@ -297,7 +297,6 @@ def _config_kasan(ctx):
         _config.enable("KASAN"),
         _config.enable("KASAN_INLINE"),
         _config.enable("KCOV"),
-        _config.enable("PANIC_ON_WARN_DEFAULT_ENABLE"),
         _config.disable("RANDOMIZE_BASE"),
         _config.disable("KASAN_OUTLINE"),
         _config.set_val("FRAME_WARN", 0),
@@ -333,7 +332,6 @@ def _config_kasan_sw_tags(ctx):
         _config.enable("KASAN"),
         _config.enable("KASAN_SW_TAGS"),
         _config.enable("KASAN_OUTLINE"),
-        _config.enable("PANIC_ON_WARN_DEFAULT_ENABLE"),
         _config.disable("KASAN_HW_TAGS"),
         _config.set_val("FRAME_WARN", 0),
     ]
@@ -369,7 +367,6 @@ def _config_kcsan(ctx):
         _config.enable("PROVE_LOCKING"),
         _config.disable("KASAN"),
         _config.disable("KASAN_STACK"),
-        _config.enable("PANIC_ON_WARN_DEFAULT_ENABLE"),
         _config.disable("RANDOMIZE_BASE"),
         _config.set_val("FRAME_WARN", 0),
         _config.disable("KASAN_HW_TAGS"),
