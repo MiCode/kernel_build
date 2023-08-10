@@ -35,6 +35,9 @@ _INTERESTING_FLAGS = (
     "//build/kernel/kleaf:gcov",
     "//build/kernel/kleaf:btf_debug_info",
     "//build/kernel/kleaf:debug",
+    "//build/kernel/kleaf:kasan",
+    "//build/kernel/kleaf:kasan_sw_tags",
+    "//build/kernel/kleaf:kcsan",
 )
 
 def _flag_transition_impl(settings, attr):
@@ -101,82 +104,91 @@ _get_config = rule(
     toolchains = [hermetic_toolchain.type],
 )
 
+def _transition_test_for_flag_values_configs(
+        name,
+        kernel_build,
+        flag_values_configs):
+    flag_values = {
+        flag_value.flag: flag_value.value
+        for flag_value in flag_values_configs.flag_values
+    }
+
+    _get_config(
+        name = name + "_actual",
+        kernel_build = kernel_build,
+        flag_values = flag_values,
+        tags = ["manual"],
+    )
+
+    write_file(
+        name = name + "_expected",
+        out = name + "_expected/.config",
+        content = flag_values_configs.configs + [""],
+        tags = ["manual"],
+    )
+
+    contain_lines_test(
+        name = name,
+        expected = name + "_expected",
+        actual = name + "_actual",
+    )
+
 def _transition_test(
         name,
         kernel_build,
         expected):
     tests = []
 
-    for flag, values_expected_lines in expected.items():
-        for value, expected_lines in values_expected_lines.items():
-            test_name = name + "_" + native.package_relative_label(flag).name + "_" + value
-
-            flag_values = {
-                flag: value,
-            }
-
-            _get_config(
-                name = test_name + "_actual",
-                kernel_build = kernel_build,
-                flag_values = flag_values,
-                tags = ["manual"],
-            )
-
-            write_file(
-                name = test_name + "_expected",
-                out = test_name + "_expected/.config",
-                content = expected_lines + [""],
-                tags = ["manual"],
-            )
-
-            contain_lines_test(
+    for expected_value_list in expected:
+        for flag_values_configs in expected_value_list:
+            test_name = name + _get_test_name_suffix(flag_values_configs)
+            _transition_test_for_flag_values_configs(
                 name = test_name,
-                expected = test_name + "_expected",
-                actual = test_name + "_actual",
+                kernel_build = kernel_build,
+                flag_values_configs = flag_values_configs,
             )
-
             tests.append(test_name)
 
-    # flag_choices: {gcov: [True, False], ...}
-    flag_choices = {}
-    for flag, values_expected_lines in expected.items():
-        flag_choices[flag] = values_expected_lines.keys()
+    native.test_suite(
+        name = name + "_single",
+        tests = tests,
+    )
 
-    # Tests each possible combinations of flags. This is expensive.
-    # flag_values: {gcov: True, ...}
-    for flag_values in combinations(flag_choices):
-        expected_lines = []
-        test_name = name + "_comb"
-        for flag, value in flag_values.items():
-            expected_lines += expected[flag][value]
-            test_name += "_" + native.package_relative_label(flag).name + "_" + value
-
-        _get_config(
-            name = test_name + "_actual",
-            kernel_build = kernel_build,
-            flag_values = flag_values,
-            tags = ["manual"],
-        )
-
-        write_file(
-            name = test_name + "_expected",
-            out = test_name + "_expected/.config",
-            content = expected_lines + [""],
-            tags = ["manual"],
-        )
-
-        contain_lines_test(
+    comb_tests = []
+    for flag_values_configs in _combinations(expected):
+        # flag_values_configs: list[_FlagValueConfig]
+        test_name = name + "_comb_" + _get_test_name_suffix(flag_values_configs)
+        _transition_test_for_flag_values_configs(
             name = test_name,
-            expected = test_name + "_expected",
-            actual = test_name + "_actual",
+            kernel_build = kernel_build,
+            flag_values_configs = flag_values_configs,
         )
+        comb_tests.append(test_name)
 
-        tests.append(test_name)
+    native.test_suite(
+        name = name + "_comb",
+        tests = comb_tests,
+    )
 
     native.test_suite(
         name = name,
-        tests = tests,
+        tests = [
+            name + "_single",
+            name + "_comb",
+        ],
     )
+
+# buildifier: disable=name-conventions
+_FlagValue = provider("flag value tuple", fields = ["flag", "value"])
+
+# buildifier: disable=name-conventions
+_FlagValuesConfigs = provider("Tuple of _FlagValue and configs", fields = ["flag_values", "configs"])
+
+def _get_test_name_suffix(flag_values_configs):
+    ret = []
+    for flag_value in flag_values_configs.flag_values:
+        ret.append(native.package_relative_label(flag_value.flag).name + "_" + flag_value.value)
+    return "_".join(ret)
 
 def kernel_defconfig_fragments_test(name):
     """Tests for various flags on `kernel_config`.
@@ -189,8 +201,19 @@ def kernel_defconfig_fragments_test(name):
 
     for arch in _ARCHS:
         kernel_build_arch = arch
+        kasan_sw_tags_flag_values_configs_list = []
         if kernel_build_arch == "aarch64":
             kernel_build_arch = "arm64"
+            kasan_sw_tags_flag_values_configs_list = [
+                _FlagValuesConfigs(
+                    flag_values = [
+                        _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
+                        _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "True"),
+                        _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
+                    ],
+                    configs = ["CONFIG_KASAN_SW_TAGS=y"],
+                ),
+            ]
 
         name_arch = "{}_{}".format(name, arch)
         kernel_build(
@@ -206,21 +229,69 @@ def kernel_defconfig_fragments_test(name):
         _transition_test(
             name = name_arch + "_test",
             kernel_build = name_arch + "_kernel_build",
-            expected = {
-                "//build/kernel/kleaf:gcov": {
-                    "True": ["CONFIG_GCOV_KERNEL=y"],
-                    "False": ["# CONFIG_GCOV_KERNEL is not set"],
-                },
-                "//build/kernel/kleaf:btf_debug_info": {
-                    "enable": ["CONFIG_DEBUG_INFO_BTF=y"],
-                    "disable": ["# CONFIG_DEBUG_INFO_BTF is not set"],
-                    "default": [],
-                },
-                "//build/kernel/kleaf:debug": {
-                    "True": ["CONFIG_DEBUG_BUGVERBOSE=y"],
-                    "False": [],
-                },
-            },
+            expected = [
+                [
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:gcov", value = "True")],
+                        configs = ["CONFIG_GCOV_KERNEL=y"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:gcov", value = "False")],
+                        configs = ["# CONFIG_GCOV_KERNEL is not set"],
+                    ),
+                ],
+                [
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:btf_debug_info", value = "enable")],
+                        configs = ["CONFIG_DEBUG_INFO_BTF=y"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:btf_debug_info", value = "disable")],
+                        configs = ["# CONFIG_DEBUG_INFO_BTF is not set"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:btf_debug_info", value = "default")],
+                        configs = [],
+                    ),
+                ],
+                [
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:debug", value = "True")],
+                        configs = ["CONFIG_DEBUG_BUGVERBOSE=y"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [_FlagValue(flag = "//build/kernel/kleaf:debug", value = "False")],
+                        configs = [],
+                    ),
+                ],
+                # --k*san are mutually exclusive
+                [
+                    _FlagValuesConfigs(
+                        flag_values = [
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "True"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
+                        ],
+                        configs = ["CONFIG_KASAN=y"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "True"),
+                        ],
+                        configs = ["CONFIG_KCSAN=y"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
+                        ],
+                        configs = [],
+                    ),
+                ] + kasan_sw_tags_flag_values_configs_list,
+            ],
         )
         tests.append(name_arch + "_test")
 
@@ -229,46 +300,33 @@ def kernel_defconfig_fragments_test(name):
         tests = tests,
     )
 
-def combinations(d):
-    """Generates combinations.
-
-    Example:
-
-    ```
-    combinations({
-        "foo": [1, 2],
-        "bar": [100, 200, 300],
-    })
-    gives [
-        {"foo": 1, "bar": 100},
-        {"foo": 1, "bar": 200},
-        {"foo": 1, "bar": 300},
-        {"foo": 2, "bar": 100},
-        {"foo": 2, "bar": 200},
-        {"foo": 2, "bar": 300},
-    ]
-    ```
+def _combinations(arr):
+    """Generates combinations for _FlagValuesConfigs.
 
     Args:
-        d: a dictionary such that for each `{key: value}` entry, key is the flag
-            name, and value is the list of possible values associated with
-            this key.
+        arr: a 2-D array of _FlagValuesConfigs
 
     Returns:
-        A list of dictionaries, where each dictionary contains a combination.
+        An array of _FlagValuesConfigs, where each _FlagValuesConfigs represents a combination.
         Order is undefined but deterministic.
     """
 
     ret = []
     num_combinations = 1
-    for key, values in d.items():
-        num_combinations *= len(values)
+    for row in arr:
+        num_combinations *= len(row)
 
     for i in range(num_combinations):
-        current_choices = {}
-        for key, values in d.items():
-            current_choices[key] = values[i % len(values)]
-            i //= len(values)
+        current_choices = _FlagValuesConfigs(flag_values = [], configs = [])
+        for row in arr:
+            current_choices = _add(current_choices, row[i % len(row)])
+            i //= len(row)
         ret.append(current_choices)
 
     return ret
+
+def _add(flag_values_configs_1, flag_values_configs_2):
+    return _FlagValuesConfigs(
+        flag_values = flag_values_configs_1.flag_values + flag_values_configs_2.flag_values,
+        configs = flag_values_configs_1.configs + flag_values_configs_2.configs,
+    )
