@@ -70,9 +70,15 @@ filegroup(
     name = "kasan_any_mode",
     srcs = select({
         "//build/kernel/kleaf:kasan_any_mode_is_true": ["kasan_any_mode_defconfig"],
-        "//conditions:default": [],
+        "//build/kernel/kleaf:kasan_any_mode_is_false": [],
+        "//conditions:default": [":fail_kasan_any_mode_lto"],
     }),
     visibility = ["//visibility:public"],
+)
+
+fail_rule(
+    name = "fail_kasan_any_mode_lto",
+    message = "--kasan requires --lto=none or default.",
 )
 
 # --kasan_sw_tags is arm64 only. See lib/Kconfig.kasan in kernel tree.
@@ -80,7 +86,8 @@ filegroup(
     name = "arm64_kasan_sw_tags",
     srcs = select({
         "//build/kernel/kleaf:kasan_sw_tags_is_true": ["arm64_kasan_sw_tags_defconfig"],
-        "//conditions:default": [],
+        "//build/kernel/kleaf:kasan_sw_tags_is_false": [],
+        "//conditions:default": [":fail_kasan_sw_tags_lto"],
     }),
     visibility = ["//visibility:public"],
 )
@@ -96,7 +103,8 @@ fail_rule(
         name = "{}_kasan_sw_tags".format(arch),
         srcs = select({
             "//build/kernel/kleaf:kasan_sw_tags_is_true": [":kasan_sw_tags_not_supported"],
-            "//conditions:default": [],
+            "//build/kernel/kleaf:kasan_sw_tags_is_false": [],
+            "//conditions:default": [":fail_kasan_sw_tags_lto"],
         }),
         visibility = ["//visibility:public"],
     )
@@ -109,11 +117,24 @@ fail_rule(
     ]
 ]
 
+fail_rule(
+    name = "fail_kasan_sw_tags_lto",
+    message = "--kasan_sw_tags requires --lto=none or default.",
+    visibility = ["//visibility:private"],
+)
+
 filegroup(
     name = "kcsan",
     srcs = select({
         "//build/kernel/kleaf:kcsan_is_true": ["kcsan_defconfig"],
-        "//conditions:default": [],
+        "//build/kernel/kleaf:kcsan_is_false": [],
+        "//conditions:default": [":fail_kcsan_lto"],
     }),
     visibility = ["//visibility:public"],
+)
+
+fail_rule(
+    name = "fail_kcsan_lto",
+    message = "--kcsan requires --lto=none or default.",
+    visibility = ["//visibility:private"],
 )

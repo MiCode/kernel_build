@@ -32,7 +32,7 @@ string_flag(
 )
 
 # The final LTO setting is "default" (use defconfig value).
-# If --lto=default, and none of --kasan/--kcsan, LTO is default
+# If --lto=default, and none of --kasan/--kcsan/--kasan_sw_tags/--debug, LTO is default
 selects.config_setting_group(
     name = "lto_is_default",
     match_all = [
@@ -45,13 +45,11 @@ selects.config_setting_group(
 )
 
 # The final LTO setting is "none".
-# If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
+# If --lto=none, or if --lto=default AND --kasan/--kcsan/--kasan_sw_tags/--debug, LTO should be set to none.
 selects.config_setting_group(
     name = "lto_is_none",
     match_any = [
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
-        "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kasan_is_true",
-        "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kcsan_is_true",
         "//build/kernel/kleaf/impl:lto_is_set_to_default_but_lto_should_be_none",
     ],
     visibility = ["//visibility:public"],
@@ -102,7 +100,7 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-# If true, enable kasan.
+# If true, enable kasan (any mode).
 # This assumes --lto=none, but :print_flags only shows
 # values from the command line.
 bool_flag(
@@ -111,12 +109,21 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# KASAN (any mode) is enabled in the final build.
+# One of the following:
+# --kasan --lto=default
+# --kasan --lto=none
+selects.config_setting_group(
     name = "kasan_any_mode_is_true",
-    flag_values = {":kasan": "1"},
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_or_none",
+        "//build/kernel/kleaf/impl:kasan_generic_is_set_to_true",
+    ],
+    # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
 
+# --kasan=false
 config_setting(
     name = "kasan_any_mode_is_false",
     flag_values = {":kasan": "0"},
@@ -148,18 +155,28 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# KASAN (Software Tag-based) is enabled in the final build.
+# One of the following:
+# --kasan_sw_tags --lto=default
+# --kasan_sw_tags --lto=none
+selects.config_setting_group(
     name = "kasan_sw_tags_is_true",
-    flag_values = {":kasan_sw_tags": "1"},
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_or_none",
+        "//build/kernel/kleaf/impl:kasan_sw_tags_is_set_to_true",
+    ],
+    # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
 
+# --kasan_sw_tags=false
 config_setting(
     name = "kasan_sw_tags_is_false",
     flag_values = {":kasan_sw_tags": "0"},
     visibility = ["//visibility:public"],
 )
 
+# Either kasan or kasan_sw_tags is enabled in the final build.
 selects.config_setting_group(
     name = "kasan_is_true",
     match_any = [
@@ -169,6 +186,7 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
+# Neither kasan nor kasan_sw_tags is enabled in the final build
 selects.config_setting_group(
     name = "kasan_is_false",
     match_all = [
@@ -187,12 +205,21 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# KCSAN is enabled in the final build.
+# One of the following:
+# --kcsan --lto=default
+# --kcsan --lto=none
+selects.config_setting_group(
     name = "kcsan_is_true",
-    flag_values = {":kcsan": "1"},
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_or_none",
+        "//build/kernel/kleaf/impl:kcsan_is_set_to_true",
+    ],
+    # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
 
+# --kcsan=false
 config_setting(
     name = "kcsan_is_false",
     flag_values = {":kcsan": "0"},

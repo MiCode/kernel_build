@@ -256,7 +256,6 @@ def _config_kasan(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto = ctx.attr.lto
     kasan = ctx.attr.kasan[BuildSettingInfo].value
 
     if not kasan:
@@ -264,9 +263,6 @@ def _config_kasan(ctx):
 
     if ctx.attr.kasan_sw_tags[BuildSettingInfo].value:
         fail("{}: cannot have both --kasan and --kasan_sw_tags simultaneously".format(ctx.label))
-
-    if lto != "none":
-        fail("{}: --kasan requires --lto=none or default, but --lto is {}".format(ctx.label, lto))
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         fail("{}: --kasan requires trimming to be disabled".format(ctx.label))
@@ -282,7 +278,6 @@ def _config_kasan_sw_tags(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto = ctx.attr.lto
     kasan_sw_tags = ctx.attr.kasan_sw_tags[BuildSettingInfo].value
 
     if not kasan_sw_tags:
@@ -290,9 +285,6 @@ def _config_kasan_sw_tags(ctx):
 
     if ctx.attr.kasan[BuildSettingInfo].value:
         fail("{}: cannot have both --kasan and --kasan_sw_tags simultaneously".format(ctx.label))
-
-    if lto != "none":
-        fail("{}: --kasan_sw_tags requires --lto=none or default, but --lto is {}".format(ctx.label, lto))
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         fail("{}: --kasan_sw_tags requires trimming to be disabled".format(ctx.label))
@@ -308,14 +300,10 @@ def _config_kcsan(ctx):
         A struct, where `configs` is a list of arguments to `scripts/config`,
         and `deps` is a list of input files.
     """
-    lto = ctx.attr.lto
     kcsan = ctx.attr.kcsan[BuildSettingInfo].value
 
     if not kcsan:
         return struct(configs = [], deps = [])
-
-    if lto != "none":
-        fail("{}: --kcsan requires --lto=none or default, but --lto is {}".format(ctx.label, lto))
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         fail("{}: --kcsan requires trimming to be disabled".format(ctx.label))

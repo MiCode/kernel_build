@@ -212,37 +212,26 @@ selects.config_setting_group(
     visibility = ["//visibility:public"],
 )
 
-selects.config_setting_group(
-    name = "lto_is_set_to_default_and_kasan_is_true",
-    match_all = [
-        ":lto_is_set_to_default",
-        "//build/kernel/kleaf:kasan_is_true",
-    ],
-    # All kernel_* from different packages can see this
-    visibility = ["//visibility:public"],
-)
-
-selects.config_setting_group(
-    name = "lto_is_set_to_default_and_kcsan_is_true",
-    match_all = [
-        ":lto_is_set_to_default",
-        "//build/kernel/kleaf:kcsan_is_true",
-    ],
-    # All kernel_* from different packages can see this
-    visibility = ["//visibility:public"],
-)
-
 # LTO should be none due to other flags. One of the following:
 # * --debug
+# * --kasan
+# * --kasan_sw_tags
+# * --kcsan
 selects.config_setting_group(
     name = "lto_should_be_none",
     match_any = [
         ":debug_is_set_to_true",
+        ":kasan_generic_is_set_to_true",
+        ":kasan_sw_tags_is_set_to_true",
+        ":kcsan_is_set_to_true",
     ],
 )
 
 # --lto=default, but it should be none due to other flags. One of the following:
 # * --lto=default --debug
+# * --lto=default --kasan
+# * --lto=default --kasan_sw_tags
+# * --lto=default --kcsan
 selects.config_setting_group(
     name = "lto_is_set_to_default_but_lto_should_be_none",
     match_all = [
@@ -250,6 +239,27 @@ selects.config_setting_group(
         ":lto_should_be_none",
     ],
     # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# --kasan
+config_setting(
+    name = "kasan_generic_is_set_to_true",
+    flag_values = {"//build/kernel/kleaf:kasan": "1"},
+    visibility = ["//visibility:public"],
+)
+
+# --kasan_sw_tags
+config_setting(
+    name = "kasan_sw_tags_is_set_to_true",
+    flag_values = {"//build/kernel/kleaf:kasan_sw_tags": "1"},
+    visibility = ["//visibility:public"],
+)
+
+# --kcsan
+config_setting(
+    name = "kcsan_is_set_to_true",
+    flag_values = {"//build/kernel/kleaf:kcsan": "1"},
     visibility = ["//visibility:public"],
 )
 
