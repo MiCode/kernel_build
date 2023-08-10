@@ -106,3 +106,84 @@ def debug_lto_test(name):
         flag_values = (True, False),
         test_rules = _debug_tests,
     )
+
+_kasan_tests = _make_lto_tests_for_flag(
+    flag = Label("//build/kernel/kleaf:kasan"),
+    flag_values = (True, False),
+    expect_failure_message = "--kasan requires --lto=none or default",
+)
+
+# Hack to fix "Invalid rule class hasn't been exported by a bzl file"
+# List all values in _kasan_tests explicitly.
+_kasan_true_default_test = _kasan_tests[True, "default"]  # @unused
+_kasan_true_thin_test = _kasan_tests[True, "thin"]  # @unused
+_kasan_true_full_test = _kasan_tests[True, "full"]  # @unused
+_kasan_true_none_test = _kasan_tests[True, "none"]  # @unused
+_kasan_true_fast_test = _kasan_tests[True, "fast"]  # @unused
+_kasan_false_default_test = _kasan_tests[False, "default"]  # @unused
+_kasan_false_thin_test = _kasan_tests[False, "thin"]  # @unused
+_kasan_false_full_test = _kasan_tests[False, "full"]  # @unused
+_kasan_false_none_test = _kasan_tests[False, "none"]  # @unused
+_kasan_false_fast_test = _kasan_tests[False, "fast"]  # @unused
+
+def kasan_lto_test(name):
+    _lto_test_for_flag_common(
+        name = name,
+        flag = Label("//build/kernel/kleaf:kasan"),
+        flag_values = (True, False),
+        test_rules = _kasan_tests,
+    )
+
+_kasan_sw_tags_tests = _make_lto_tests_for_flag(
+    flag = Label("//build/kernel/kleaf:kasan_sw_tags"),
+    flag_values = (True, False),
+    expect_failure_message = "--kasan_sw_tags requires --lto=none or default",
+)
+
+# Hack to fix "Invalid rule class hasn't been exported by a bzl file"
+# List all values in _kasan_sw_tags_tests explicitly.
+_kasan_sw_tags_true_default_test = _kasan_sw_tags_tests[True, "default"]  # @unused
+_kasan_sw_tags_true_thin_test = _kasan_sw_tags_tests[True, "thin"]  # @unused
+_kasan_sw_tags_true_full_test = _kasan_sw_tags_tests[True, "full"]  # @unused
+_kasan_sw_tags_true_none_test = _kasan_sw_tags_tests[True, "none"]  # @unused
+_kasan_sw_tags_true_fast_test = _kasan_sw_tags_tests[True, "fast"]  # @unused
+_kasan_sw_tags_false_default_test = _kasan_sw_tags_tests[False, "default"]  # @unused
+_kasan_sw_tags_false_thin_test = _kasan_sw_tags_tests[False, "thin"]  # @unused
+_kasan_sw_tags_false_full_test = _kasan_sw_tags_tests[False, "full"]  # @unused
+_kasan_sw_tags_false_none_test = _kasan_sw_tags_tests[False, "none"]  # @unused
+_kasan_sw_tags_false_fast_test = _kasan_sw_tags_tests[False, "fast"]  # @unused
+
+def kasan_sw_tags_lto_test(name):
+    _lto_test_for_flag_common(
+        name = name,
+        flag = Label("//build/kernel/kleaf:kasan_sw_tags"),
+        flag_values = (True, False),
+        test_rules = _kasan_sw_tags_tests,
+    )
+
+_kcsan_tests = _make_lto_tests_for_flag(
+    flag = Label("//build/kernel/kleaf:kcsan"),
+    flag_values = (True, False),
+    expect_failure_message = "--kcsan requires --lto=none or default",
+)
+
+# Hack to fix "Invalid rule class hasn't been exported by a bzl file"
+# List all values in _kcsan_tests explicitly.
+_kcsan_true_default_test = _kcsan_tests[True, "default"]  # @unused
+_kcsan_true_thin_test = _kcsan_tests[True, "thin"]  # @unused
+_kcsan_true_full_test = _kcsan_tests[True, "full"]  # @unused
+_kcsan_true_none_test = _kcsan_tests[True, "none"]  # @unused
+_kcsan_true_fast_test = _kcsan_tests[True, "fast"]  # @unused
+_kcsan_false_default_test = _kcsan_tests[False, "default"]  # @unused
+_kcsan_false_thin_test = _kcsan_tests[False, "thin"]  # @unused
+_kcsan_false_full_test = _kcsan_tests[False, "full"]  # @unused
+_kcsan_false_none_test = _kcsan_tests[False, "none"]  # @unused
+_kcsan_false_fast_test = _kcsan_tests[False, "fast"]  # @unused
+
+def kcsan_lto_test(name):
+    _lto_test_for_flag_common(
+        name = name,
+        flag = Label("//build/kernel/kleaf:kcsan"),
+        flag_values = (True, False),
+        test_rules = _kcsan_tests,
+    )
