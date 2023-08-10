@@ -282,7 +282,7 @@ class KleafIntegrationTestAbiTest(KleafIntegrationTestBase):
         """
 
         if not arguments.include_abi_tests:
-          self.skipTest("Skipping test_non_exported_symbol_fails test.")
+          self.skipTest("--include-abi-tests is not set.")
 
         # Select an arbitrary driver and unexport a symbols.
         self.driver_file = f"{self._common()}/drivers/i2c/i2c-core-base.c"
