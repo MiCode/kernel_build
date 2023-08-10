@@ -261,9 +261,6 @@ def _config_kasan(ctx):
     if not kasan:
         return struct(configs = [], deps = [])
 
-    if ctx.attr.kasan_sw_tags[BuildSettingInfo].value:
-        fail("{}: cannot have both --kasan and --kasan_sw_tags simultaneously".format(ctx.label))
-
     if trim_nonlisted_kmi_utils.get_value(ctx):
         fail("{}: --kasan requires trimming to be disabled".format(ctx.label))
 
@@ -282,9 +279,6 @@ def _config_kasan_sw_tags(ctx):
 
     if not kasan_sw_tags:
         return struct(configs = [], deps = [])
-
-    if ctx.attr.kasan[BuildSettingInfo].value:
-        fail("{}: cannot have both --kasan and --kasan_sw_tags simultaneously".format(ctx.label))
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
         fail("{}: --kasan_sw_tags requires trimming to be disabled".format(ctx.label))
