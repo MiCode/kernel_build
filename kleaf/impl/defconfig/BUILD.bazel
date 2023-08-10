@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kernel/kleaf:fail.bzl", "fail_action")
+load("//build/kernel/kleaf:fail.bzl", "fail_action", "fail_rule")
 
 # Used by all packages that uses kernel_build
 exports_files([
@@ -54,7 +54,13 @@ filegroup(
     name = "debug",
     srcs = select({
         "//build/kernel/kleaf:debug_is_true": ["debug_defconfig"],
-        "//conditions:default": [],
+        "//build/kernel/kleaf:debug_is_false": [],
+        "//conditions:default": [":fail_debug_lto"],
     }),
     visibility = ["//visibility:public"],
+)
+
+fail_rule(
+    name = "fail_debug_lto",
+    message = "--debug requires --lto=none or default.",
 )

@@ -247,28 +247,6 @@ def _config_keys(ctx):
 
     return struct(configs = configs, deps = deps)
 
-def _config_debug(ctx):
-    """Return configs for --debug.
-
-    TODO: elsk@ to clean up b/294390500
-
-    Args:
-        ctx: ctx
-    Returns:
-        A struct, where `configs` is a list of arguments to `scripts/config`,
-        and `deps` is a list of input files.
-    """
-    lto = ctx.attr.lto
-    debug = ctx.attr.debug[BuildSettingInfo].value
-
-    if not debug:
-        return struct(configs = [], deps = [])
-
-    if lto != "none":
-        fail("{}: --debug requires --lto=none, but --lto is {}".format(ctx.label, lto))
-
-    return struct(configs = [], deps = [])
-
 def _config_kasan(ctx):
     """Return configs for --kasan.
 
@@ -386,7 +364,6 @@ def _reconfig(ctx):
     check_defconfig_fragments_cmd = ""
 
     for fn in (
-        _config_debug,
         _config_lto,
         _config_trim,
         _config_kcsan,

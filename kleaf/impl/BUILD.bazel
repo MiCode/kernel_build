@@ -201,6 +201,17 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# The --lto flag is set to either default or none.
+selects.config_setting_group(
+    name = "lto_is_set_to_default_or_none",
+    match_any = [
+        ":lto_is_set_to_default",
+        ":lto_is_set_to_none",
+    ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
 selects.config_setting_group(
     name = "lto_is_set_to_default_and_kasan_is_true",
     match_all = [
@@ -217,6 +228,35 @@ selects.config_setting_group(
         ":lto_is_set_to_default",
         "//build/kernel/kleaf:kcsan_is_true",
     ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# LTO should be none due to other flags. One of the following:
+# * --debug
+selects.config_setting_group(
+    name = "lto_should_be_none",
+    match_any = [
+        ":debug_is_set_to_true",
+    ],
+)
+
+# --lto=default, but it should be none due to other flags. One of the following:
+# * --lto=default --debug
+selects.config_setting_group(
+    name = "lto_is_set_to_default_but_lto_should_be_none",
+    match_all = [
+        ":lto_is_set_to_default",
+        ":lto_should_be_none",
+    ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# --debug
+config_setting(
+    name = "debug_is_set_to_true",
+    flag_values = {"//build/kernel/kleaf:debug": "1"},
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )

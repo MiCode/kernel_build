@@ -52,7 +52,7 @@ selects.config_setting_group(
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
         "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kasan_is_true",
         "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kcsan_is_true",
-        "//build/kernel/kleaf:debug_is_true",
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_but_lto_should_be_none",
     ],
     visibility = ["//visibility:public"],
 )
@@ -335,12 +335,20 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# One of the following:
+# --debug --lto=default
+# --debug --lto=none
+selects.config_setting_group(
     name = "debug_is_true",
-    flag_values = {":debug": "1"},
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_or_none",
+        "//build/kernel/kleaf/impl:debug_is_set_to_true",
+    ],
+    # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
 )
 
+# --debug=false
 config_setting(
     name = "debug_is_false",
     flag_values = {":debug": "0"},
