@@ -56,9 +56,11 @@ def _create_check_defconfig_cmd(label, defconfig_fragments_paths_expr):
                 config_set='s/^(CONFIG_\\w*)=.*/\\1/p'
                 config_not_set='s/^# (CONFIG_\\w*) is not set$/\\1/p'
                 configs=$(sed -n -E -e "${{config_set}}" -e "${{config_not_set}}" ${{defconfig_path}})
-                msg=""
+                error_msg=""
                 for config in ${{configs}}; do
-                    defconfig_value=$(grep -w -e "${{config}}" ${{defconfig_path}})
+                    defconfig_line=$(grep -w -e "${{config}}" ${{defconfig_path}})
+                    defconfig_value=$(echo "${{defconfig_line}}" | sed -E -e 's/\\s*# nocheck.*$//g')
+                    nocheck_reason=$(echo ${{defconfig_line}} | sed -n -E -e 's/^.*# nocheck(:\\s*)?(.*)$/\\2/p')
                     actual_value=$(grep -w -e "${{config}}" ${{OUT_DIR}}/.config || true)
 
                     config_not_set_regexp='^# CONFIG_[A-Z_]+ is not set$'
@@ -70,13 +72,23 @@ def _create_check_defconfig_cmd(label, defconfig_fragments_paths_expr):
                     fi
 
                     if [[ "${{defconfig_value}}" != "${{actual_value}}" ]] ; then
-                        msg="${{msg}}
-    ${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}' from ${{defconfig_path}}."
-                        found_unexpected=1
+                        my_msg="${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}' from ${{defconfig_path}}."
+                        if [[ "${{defconfig_line}}" == *#\\ nocheck* ]]; then
+                            warn_msg="${{warn_msg}}
+    ${{my_msg}}
+        (ignore reason: ${{nocheck_reason}})"
+                        else
+                            error_msg="${{error_msg}}
+    ${{my_msg}}"
+                            found_unexpected=1
+                        fi
                     fi
                 done
-                if [[ -n "${{msg}}" ]]; then
-                    echo "ERROR: {label}: ${{msg}}
+                if [[ -n "${{warn_msg}}" ]]; then
+                    echo "WARNING: {label}: ${{warn_msg}}" >&2
+                fi
+                if [[ -n "${{error_msg}}" ]]; then
+                    echo "ERROR: {label}: ${{error_msg}}
     Are they declared in Kconfig?" >&2
                     exit 1
                 fi
