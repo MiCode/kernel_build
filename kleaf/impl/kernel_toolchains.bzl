@@ -65,15 +65,15 @@ def _check_toolchain_version(ctx, resolved_toolchain_info, declared_toolchain_ve
 
 def _get_target_arch(ctx):
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_arm[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_arm.label.name
+        return "arm"
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_arm64[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_arm64.label.name
+        return "arm64"
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_i386[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_i386.label.name
+        return "i386"
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_riscv64[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_riscv64.label.name
+        return "riscv64"
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_x86_64[platform_common.ConstraintValueInfo]):
-        return ctx.attr._platform_cpu_x86_64.label.name
+        return "x86_64"
     fail("{}: Cannot determine target platform.".format(ctx.label))
 
 def _quote_sanitize_flags(flags):
