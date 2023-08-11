@@ -17,6 +17,8 @@ Build initramfs.
 
 load(":image/image_utils.bzl", "image_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 InitramfsInfo = provider(
     doc = "Provides information about initramfs outputs.",
     fields = {

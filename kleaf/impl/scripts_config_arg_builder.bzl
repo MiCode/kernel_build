@@ -14,6 +14,8 @@
 
 """Utility functions to build arguments to `scripts/config`."""
 
+visibility("//build/kernel/kleaf/...")
+
 def _enable(config):
     return "--enable {}".format(config)
 

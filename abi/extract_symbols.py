@@ -242,10 +242,17 @@ def main():
       help="Do not group symbols by module. When coupled with --additions-only, the unused symbols are sorted with all the symbols")
 
   parser.add_argument(
-      "--module-filter",
+      "--module-include",
       action="append",
-      dest="module_filters",
+      dest="module_includes",
       help="Only process modules matching the filter. Can be passed multiple times."
+  )
+
+  parser.add_argument(
+      "--module-exclude",
+      action="append",
+      dest="module_excludes",
+      help="Do not process modules matching the filter. Can be passed multiple times."
   )
 
   args = parser.parse_args()
@@ -265,10 +272,16 @@ def main():
   # Locate the Kernel Binaries
   vmlinux, modules = find_binaries(args.directory)
 
-  if args.module_filters:
+  if args.module_includes:
     modules = [
         mod for mod in modules if any(
-            [re.search(f, os.path.basename(mod)) for f in args.module_filters])
+            [re.search(f, os.path.basename(mod)) for f in args.module_includes])
+    ]
+
+  if args.module_excludes:
+    modules = [
+        mod for mod in modules if not any(
+            [re.search(f, os.path.basename(mod)) for f in args.module_excludes])
     ]
 
   # Partition vendor (unsigned) and GKI modules (signed) in two lists
@@ -301,9 +314,9 @@ def main():
   add_dependent_symbols(undefined_symbols, all_exported)
 
   # For sanity, check for inconsistencies between required and exported symbols
-  # Do not do this analysis if module_filters are in place as likely
+  # Do not do this analysis if module_includes or module_excludes are in place as likely
   # inter-module dependencies are broken by this.
-  if args.report_missing and not args.module_filters:
+  if args.report_missing and not (args.module_includes or args.module_excludes):
     report_missing(undefined_symbols, all_exported)
 
   # If specified, create the symbol list

@@ -17,6 +17,8 @@
 load("//build/bazel_common_rules/exec:exec.bzl", "exec", "exec_test")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 
+visibility("//build/kernel/kleaf/...")
+
 def _hermetic_exec_toolchain_run_setup_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     run_setup_sh = ctx.actions.declare_file("{}/run_setup.sh".format(ctx.label.name))

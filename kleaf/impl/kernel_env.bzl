@@ -21,6 +21,7 @@ load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
     ":common_providers.bzl",
+    "KernelBuildConfigInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelEnvMakeGoalsInfo",
@@ -36,6 +37,8 @@ load(":kgdb.bzl", "kgdb")
 load(":stamp.bzl", "stamp")
 load(":status.bzl", "status")
 load(":utils.bzl", "utils")
+
+visibility("//build/kernel/kleaf/...")
 
 def _toolchains_transition_impl(_settings, attr):
     return {
@@ -153,6 +156,12 @@ def _kernel_env_impl(ctx):
         build_config,
     ]
     inputs += srcs
+
+    transitive_inputs = []
+    for target in [ctx.attr.build_config] + ctx.attr.srcs:
+        if KernelBuildConfigInfo in target:
+            transitive_inputs.append(target[KernelBuildConfigInfo].deps)
+
     tools = [
         setup_env,
         ctx.file._build_utils_sh,
@@ -188,19 +197,20 @@ def _kernel_env_impl(ctx):
 
     # If multiple targets have the same KERNEL_DIR are built simultaneously
     # with --spawn_strategy=local, try to isolate their OUT_DIRs.
-    common_config_tags = kernel_config_settings.kernel_env_get_config_tags(ctx)
-    config_tags = dict(common_config_tags)
-    config_tags["_target"] = str(ctx.label)
-    config_tags_json = json.encode_indent(config_tags, indent = "  ")
-    config_tags_comment_file = ctx.actions.declare_file("{}/config_tags.txt".format(ctx.label.name))
-    config_tags_comment_lines = "\n".join(["# " + line for line in config_tags_json.splitlines()]) + "\n"
-    ctx.actions.write(config_tags_comment_file, config_tags_comment_lines)
-    inputs.append(config_tags_comment_file)
+    defconfig_fragments = ctx.files.defconfig_fragments
+    config_tags_out = kernel_config_settings.kernel_env_get_config_tags(
+        ctx = ctx,
+        mnemonic_prefix = "KernelEnv",
+        defconfig_fragments = defconfig_fragments,
+    )
+    inputs.append(config_tags_out.env)
 
-    out_dir_suffix = utils.hash_hex(config_tags_json)
+    # For actions using cache_dir, OUT_DIR_SUFFIX is handled by cache_dir.bzl.
+    # For actions that do not use cache_dir, OUT_DIR_SUFFIX is useless because
+    # the action is already in a sandbox. Hence unset it.
     command += """
-          export OUT_DIR_SUFFIX={}
-    """.format(out_dir_suffix)
+          export OUT_DIR_SUFFIX=
+    """
 
     set_source_date_epoch_ret = stamp.set_source_date_epoch(ctx)
     command += set_source_date_epoch_ret.cmd
@@ -234,6 +244,7 @@ def _kernel_env_impl(ctx):
         # Add a comment with config_tags for debugging
           cp -p {config_tags_comment_file} {out}
           chmod +w {out}
+          echo >> {out}
         # capture it as a file to be sourced in downstream rules
           {preserve_env} >> {out}
         """.format(
@@ -246,15 +257,15 @@ def _kernel_env_impl(ctx):
         make_goals_deprecation_warning = make_goals_deprecation_warning,
         preserve_env = preserve_env.path,
         out = out_file.path,
-        config_tags_comment_file = config_tags_comment_file.path,
+        config_tags_comment_file = config_tags_out.env.path,
     )
 
-    progress_message_note = kernel_config_settings.get_progress_message_note(ctx)
+    progress_message_note = kernel_config_settings.get_progress_message_note(ctx, defconfig_fragments)
 
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelEnv",
-        inputs = inputs,
+        inputs = depset(inputs, transitive = transitive_inputs),
         outputs = [out_file],
         tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating build environment {}{}".format(progress_message_note, ctx.label),
@@ -288,9 +299,6 @@ def _kernel_env_impl(ctx):
          # source the build environment
            source {env}
            {set_up_jobs_cmd}
-         # re-setup the PATH to also include the hermetic tools, because env completely overwrites
-         # PATH with HERMETIC_TOOLCHAIN=1
-           {hermetic_tools_additional_setup}
          # setup LD_LIBRARY_PATH for prebuilts
            export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
          # Set up KCONFIG_EXT
@@ -298,7 +306,7 @@ def _kernel_env_impl(ctx):
              export KCONFIG_EXT_PREFIX=$(realpath $(dirname ${{KCONFIG_EXT}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
            fi
            if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
-             export dtstree=$(realpath $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
+             export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
            fi
          # Set up KCPPFLAGS
          # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
@@ -308,7 +316,6 @@ def _kernel_env_impl(ctx):
              export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
            fi
            """.format(
-        hermetic_tools_additional_setup = hermetic_tools.additional_setup,
         env = out_file.path,
         build_utils_sh = ctx.file._build_utils_sh.path,
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
@@ -345,7 +352,7 @@ def _kernel_env_impl(ctx):
         KernelEnvAttrInfo(
             kbuild_symtypes = kbuild_symtypes,
             progress_message_note = progress_message_note,
-            common_config_tags = common_config_tags,
+            common_config_tags = config_tags_out.common,
         ),
         KernelEnvMakeGoalsInfo(
             make_goals = make_goals,
@@ -483,6 +490,10 @@ kernel_env = rule(
             doc = """labels that this build config refers to, including itself.
             E.g. ["build.config.gki.aarch64", "build.config.gki"]""",
         ),
+        "defconfig_fragments": attr.label_list(
+            doc = "defconfig fragments",
+            allow_files = True,
+        ),
         "setup_env": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:_setup_env"),
@@ -548,7 +559,17 @@ kernel_env = rule(
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_linux_x86_libs": attr.label(default = "//prebuilts/kernel-build-tools:linux-x86-libs"),
         "_kernel_use_resolved_toolchains": attr.label(
-            default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
+            default = "//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains",
+        ),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_write_depset": attr.label(
+            default = "//build/kernel/kleaf/impl:write_depset",
+            executable = True,
+            cfg = "exec",
         ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",

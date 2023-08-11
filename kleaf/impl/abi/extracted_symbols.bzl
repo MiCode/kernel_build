@@ -24,6 +24,8 @@ load(
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _extracted_symbols_impl(ctx):
     if ctx.attr.kernel_build[KernelBuildAbiInfo].trim_nonlisted_kmi:
         fail("{}: Requires `kernel_build` {} to have `trim_nonlisted_kmi = False`.".format(
@@ -70,6 +72,9 @@ def _extracted_symbols_impl(ctx):
             src = ctx.file.src.path,
             out = out.path,
         )
+
+    for base_name_module in ctx.attr.kernel_modules_exclude_list:
+        flags.append("--module-exclude={}".format(base_name_module))
 
     # Get the signed and stripped module archive for the GKI modules
     base_modules_archive = ctx.attr.kernel_build[KernelBuildAbiInfo].base_modules_staging_archive
@@ -125,6 +130,9 @@ extracted_symbols = rule(
         "kernel_build": attr.label(providers = [KernelEnvAndOutputsInfo, KernelBuildAbiInfo]),
         # KernelModuleInfo
         "kernel_modules": attr.label_list(allow_files = True),
+        "kernel_modules_exclude_list": attr.string_list(
+            doc = "Base name list of kernel modules to exclude from.",
+        ),
         "module_grouping": attr.bool(default = True),
         "src": attr.label(doc = "Source `abi_gki_*` file. Used when `kmi_symbol_list_add_only`.", allow_single_file = True),
         "kmi_symbol_list_add_only": attr.bool(),

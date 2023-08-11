@@ -1,9 +1,9 @@
 # Supporting GKI\_BUILD\_CONFIG\_FRAGMENT on Kleaf
 
 **WARNING:** Build configs are being deprecated. The support for this will stop
-once the migration of all [configs](docs/build_configs.md) is completed. Before
+once the migration of all [configs](build_configs.md) is completed. Before
 trying this approach make sure your use case is not covered by
-[flags](README.md#flags) or by customizing [.bazelrc files](docs/impl.md#files).
+[flags](README.md#flags) or by customizing [.bazelrc files](impl.md#bazelrc-files).
 
 **NOTE:** If you find a use case for a new flag, please email
 kernel-team@android.com so we can discuss its addition to Kleaf.

@@ -18,6 +18,8 @@ load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _dtbo_impl(ctx):
     output = ctx.actions.declare_file("{}/dtbo.img".format(ctx.label.name))
     transitive_inputs = [target.files for target in ctx.attr.srcs]

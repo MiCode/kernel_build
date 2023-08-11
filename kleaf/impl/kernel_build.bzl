@@ -57,6 +57,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
+load(":file_selector.bzl", "file_selector")
 load(":file.bzl", "file")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config.bzl", "kernel_config")
@@ -69,6 +70,8 @@ load(":kmi_symbol_list.bzl", _kmi_symbol_list = "kmi_symbol_list")
 load(":modules_prepare.bzl", "modules_prepare")
 load(":raw_kmi_symbol_list.bzl", "raw_kmi_symbol_list")
 load(":utils.bzl", "kernel_utils", "utils")
+
+visibility("//build/kernel/kleaf/...")
 
 # Outputs of a kernel_build rule needed to build kernel_* that depends on it
 _kernel_build_internal_outs = [
@@ -109,6 +112,8 @@ def kernel_build(
         module_signing_key = None,
         system_trusted_key = None,
         modules_prepare_force_generate_headers = None,
+        defconfig_fragments = None,
+        page_size = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -390,6 +395,18 @@ def kernel_build(
         dtstree: Device tree support.
         modules_prepare_force_generate_headers: If `True` it forces generation of
           additional headers as part of modules_prepare.
+        defconfig_fragments: A list of targets that are applied to the defconfig.
+
+          As a convention, files should usually be named `<prop>_defconfig`
+          (e.g. `kasan_defconfig`) or `<prop>_<value>_defconfig` (e.g. `lto_none_defconfig`)
+          to provide human-readable hints during the build. The prefix should
+          describe what the defconfig does. However, this is not a requirement.
+        page_size: Default is `"default"`. Page size of the kernel build.
+
+          Value may be one of `"default"`, `"4k"`, `"16k"` or `"64k"`. If
+          `"default"`, the defconfig is left as-is.
+
+          16k / 64k page size is only supported on `arch = "arm64"`.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -439,6 +456,14 @@ def kernel_build(
         "//conditions:default": "default",
     })
 
+    defconfig_fragments = _get_defconfig_fragments(
+        kernel_build_name = name,
+        kernel_build_defconfig_fragments = defconfig_fragments,
+        kernel_build_arch = arch,
+        kernel_build_page_size = page_size,
+        **internal_kwargs
+    )
+
     toolchain_constraints = []
     if toolchain_version != None:
         toolchain_constraint = "//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)
@@ -478,6 +503,7 @@ def kernel_build(
         make_goals = make_goals,
         target_platform = name + "_platform_target",
         exec_platform = name + "_platform_exec",
+        defconfig_fragments = defconfig_fragments,
         **internal_kwargs
     )
 
@@ -523,6 +549,7 @@ def kernel_build(
         module_signing_key = module_signing_key,
         system_trusted_key = system_trusted_key,
         lto = lto,
+        defconfig_fragments = defconfig_fragments,
         **internal_kwargs
     )
 
@@ -648,6 +675,70 @@ def kernel_build(
         modules = (real_outs.get("module_outs") or []) + (real_outs.get("module_implicit_outs") or []),
         **kwargs
     )
+
+def _get_defconfig_fragments(
+        kernel_build_name,
+        kernel_build_defconfig_fragments,
+        kernel_build_arch,
+        kernel_build_page_size,
+        **internal_kwargs):
+    # Use a separate list to avoid .append on the provided object directly.
+    # kernel_build_defconfig_fragments could be a list or a select() expression.
+    additional_fragments = [
+        Label("//build/kernel/kleaf:defconfig_fragment"),
+    ]
+
+    btf_debug_info_target = kernel_build_name + "_defconfig_fragment_btf_debug_info"
+    file_selector(
+        name = btf_debug_info_target,
+        first_selector = select({
+            Label("//build/kernel/kleaf:btf_debug_info_is_enabled"): "enable",
+            Label("//build/kernel/kleaf:btf_debug_info_is_disabled"): "disable",
+            # TODO(b/229662633): Add kernel_build.btf_debug_info. After that, this should be
+            #   `kernel_build_btf_debug_info or "enable"`.
+            "//conditions:default": "default",
+        }),
+        files = {
+            Label("//build/kernel/kleaf/impl/defconfig:btf_debug_info_enabled_defconfig"): "enable",
+            Label("//build/kernel/kleaf/impl/defconfig:btf_debug_info_disabled_defconfig"): "disable",
+            # If --btf_debug_info=default, do not apply any defconfig fragments
+            Label("//build/kernel/kleaf/impl:empty_filegroup"): "default",
+        },
+        **internal_kwargs
+    )
+    additional_fragments.append(btf_debug_info_target)
+
+    page_size_target = kernel_build_name + "_defconfig_fragment_page_size"
+    file_selector(
+        name = page_size_target,
+        first_selector = select({
+            Label("//build/kernel/kleaf:page_size_4k"): "4k",
+            Label("//build/kernel/kleaf:page_size_16k"): "16k",
+            Label("//build/kernel/kleaf:page_size_64k"): "64k",
+            # If --page_size=default, use kernel_build.page_size; If kernel_build.page_size
+            # is also unset, use "default".
+            "//conditions:default": None,
+        }),
+        second_selector = kernel_build_page_size,
+        third_selector = "default",
+        files = {
+            Label("//build/kernel/kleaf/impl/defconfig:{}_4k_defconfig".format(kernel_build_arch)): "4k",
+            Label("//build/kernel/kleaf/impl/defconfig:{}_16k_defconfig".format(kernel_build_arch)): "16k",
+            Label("//build/kernel/kleaf/impl/defconfig:{}_64k_defconfig".format(kernel_build_arch)): "64k",
+            # If --page_size=default, do not apply any defconfig fragments
+            Label("//build/kernel/kleaf/impl:empty_filegroup"): "default",
+        },
+        **internal_kwargs
+    )
+    additional_fragments.append(page_size_target)
+
+    if kernel_build_defconfig_fragments == None:
+        kernel_build_defconfig_fragments = []
+
+    # Do not call kernel_build_defconfig_fragments += ... to avoid
+    # modifying the incoming object from kernel_build.defconfig_fragments.
+    defconfig_fragments = kernel_build_defconfig_fragments + additional_fragments
+    return defconfig_fragments
 
 def _uniq(lst):
     """Deduplicates items in lst."""
@@ -994,24 +1085,38 @@ def _get_grab_gcno_step(ctx):
     """Returns a step for grabbing the `*.gcno`files from `OUT_DIR`.
 
     Returns:
-      A struct with fields (inputs, tools, outputs, cmd, gcno_mapping)
+      A struct with fields (inputs, tools, outputs, cmd, gcno_mapping, gcno_dir)
     """
     grab_gcno_cmd = ""
     inputs = []
     outputs = []
     tools = []
     gcno_mapping = None
+    gcno_dir = None
     if ctx.attr._gcov[BuildSettingInfo].value:
         gcno_dir = ctx.actions.declare_directory("{name}/{name}_gcno".format(name = ctx.label.name))
         gcno_mapping = ctx.actions.declare_file("{name}/gcno_mapping.{name}.json".format(name = ctx.label.name))
-        outputs += [gcno_dir, gcno_mapping]
+        gcno_archive = ctx.actions.declare_file(
+            "{name}/{name}.gcno.tar.gz".format(name = ctx.label.name),
+        )
+        outputs += [gcno_dir, gcno_mapping, gcno_archive]
         tools.append(ctx.executable._print_gcno_mapping)
 
         extra_args = ""
         base_kernel = base_kernel_utils.get_base_kernel(ctx)
+        base_kernel_gcno_dir_cmd = ""
         if base_kernel and base_kernel[GcovInfo].gcno_mapping:
             extra_args = "--base {}".format(base_kernel[GcovInfo].gcno_mapping.path)
             inputs.append(base_kernel[GcovInfo].gcno_mapping)
+            if base_kernel[GcovInfo].gcno_dir:
+                inputs.append(base_kernel[GcovInfo].gcno_dir)
+                base_kernel_gcno_dir_cmd = """
+                    # Copy all *.gcno files and its subdirectories recursively.
+                    rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' {base_gcno_dir}/ {gcno_dir}/
+                """.format(
+                    base_gcno_dir = base_kernel[GcovInfo].gcno_dir.path,
+                    gcno_dir = gcno_dir.path,
+                )
 
         # Note: Emitting ${OUT_DIR} is one source of ir-reproducible output for sandbox actions.
         # However, note that these ir-reproducibility are tied to vmlinux, because these paths are already
@@ -1019,11 +1124,17 @@ def _get_grab_gcno_step(ctx):
         grab_gcno_cmd = """
             rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
             {print_gcno_mapping} {extra_args} ${{OUT_DIR}}:{gcno_dir} > {gcno_mapping}
+            # Archive gcno_dir + gcno_mapping + base_kernel_gcno_dir
+            {base_kernel_gcno_cmd}
+            cp {gcno_mapping} {gcno_dir}
+            tar czf {gcno_archive} -C {gcno_dir} .
         """.format(
             gcno_dir = gcno_dir.path,
             gcno_mapping = gcno_mapping.path,
             print_gcno_mapping = ctx.executable._print_gcno_mapping.path,
             extra_args = extra_args,
+            gcno_archive = gcno_archive.path,
+            base_kernel_gcno_cmd = base_kernel_gcno_dir_cmd,
         )
     return struct(
         inputs = inputs,
@@ -1031,6 +1142,7 @@ def _get_grab_gcno_step(ctx):
         cmd = grab_gcno_cmd,
         outputs = outputs,
         gcno_mapping = gcno_mapping,
+        gcno_dir = gcno_dir,
     )
 
 def _get_grab_kbuild_output_step(ctx):
@@ -1045,6 +1157,9 @@ def _get_grab_kbuild_output_step(ctx):
         kbuild_output_target = ctx.actions.declare_directory("{name}/kbuild_output".format(name = ctx.label.name))
         outputs.append(kbuild_output_target)
         grab_kbuild_output_cmd = """
+            if [[ -L ${{OUT_DIR}}/source ]]; then
+                rm -f ${{OUT_DIR}}/source
+            fi
             rsync -a --prune-empty-dirs --include '*/' ${{OUT_DIR}}/ {kbuild_output_target}/
         """.format(
             kbuild_output_target = kbuild_output_target.path,
@@ -1176,9 +1291,11 @@ def _get_modinst_step(ctx, modules_staging_dir):
     if base_kernel:
         cmd += """
           # Check that `make modules_install` does not revert include/config/kernel.release
-            if diff -q {base_kernel_release} ${{OUT_DIR}}/include/config/kernel.release; then
+            if ! diff -q {base_kernel_release} ${{OUT_DIR}}/include/config/kernel.release; then
                 echo "ERROR: make modules_install modifies include/config/kernel.release." >&2
-                echo "   This is not expected; please file a bug!" >&2
+                echo "    This is not expected; please file a bug!" >&2
+                echo "    expected: $(cat {base_kernel_release})" >&2
+                echo "    actual: $(cat ${{OUT_DIR}}/include/config/kernel.release)" >&2
             fi
         """.format(
             base_kernel_release = base_kernel[KernelBuildUnameInfo].kernel_release.path,
@@ -1414,6 +1531,7 @@ def _build_main_action(
         compile_commands_out_dir = compile_commands_step.compile_commands_out_dir,
         gcno_outputs = grab_gcno_step.outputs,
         gcno_mapping = grab_gcno_step.gcno_mapping,
+        gcno_dir = grab_gcno_step.gcno_dir,
         module_symvers_outputs = copy_module_symvers_step.outputs,
     )
 
@@ -1623,6 +1741,7 @@ def _create_infos(
 
     gcov_info = GcovInfo(
         gcno_mapping = main_action_ret.gcno_mapping,
+        gcno_dir = main_action_ret.gcno_dir,
     )
 
     output_group_kwargs = {}
@@ -1741,6 +1860,7 @@ def _kernel_build_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_build(),
         base_kernel_utils.non_config_attrs(),
+        cache_dir.attrs(),
     )
 
 _kernel_build = rule(
@@ -1808,8 +1928,6 @@ _kernel_build = rule(
             cfg = "exec",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
-        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_allow_undeclared_modules": attr.label(default = "//build/kernel/kleaf:allow_undeclared_modules"),
         "_warn_undeclared_modules": attr.label(default = "//build/kernel/kleaf:warn_undeclared_modules"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
@@ -1950,11 +2068,25 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
               IGNORED because --kasan is set!".format(this_label = ctx.label))
         return None
 
+    # Skip for the --kasan_sw_tags targets as they are not valid GKI release targets
+    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --kasan_sw_tags is set!".format(this_label = ctx.label))
+        return None
+
     # Skip for the --kcsan targets as they are not valid GKI release targets
     if ctx.attr._kcsan[BuildSettingInfo].value:
         # buildifier: disable=print
         print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
               IGNORED because --kcsan is set!".format(this_label = ctx.label))
+        return None
+
+    # Skip for the --kgdb targets as they are not valid GKI release targets
+    if ctx.attr._kgdb[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --kgdb is set!".format(this_label = ctx.label))
         return None
 
     if not ctx.attr.kmi_symbol_list_strict_mode:
@@ -2037,6 +2169,9 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
     # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
     # if required.
     if ctx.attr._kasan[BuildSettingInfo].value:
+        return None
+
+    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
         return None
 
     # Skip for --kcsan build as they are not valid GKI releasae configurations.

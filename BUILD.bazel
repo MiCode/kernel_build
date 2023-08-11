@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule", "hermetic_tools")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
 
 filegroup(
@@ -24,6 +24,7 @@ filegroup(
     visibility = [
         ":__subpackages__",
         "//prebuilts/clang/host/linux-x86/kleaf:__subpackages__",
+        "@kleaf_user_clang_toolchain//:__subpackages__",
     ],
 )
 
@@ -50,6 +51,15 @@ hermetic_tools(
         "python",
         "python3",
     ],
+    rsync_args = [
+        "--no-group",
+    ],
+    symlinks = select({
+        "//build/kernel/kleaf:debug_cache_dir_conflict_needs_flock": {
+            "//prebuilts/build-tools:linux-x86/bin/toybox": "flock",
+        },
+        "//conditions:default": {},
+    }),
     tar_args = [
         "--mtime=@0",
         "--owner=0",
@@ -173,13 +183,11 @@ _GKI_CERTIFICATION_BINARIES = [
     "certify_bootimg",
 ]
 
-genrule(
+hermetic_genrule(
     name = "gki_certification_tools",
     srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
     outs = ["gki_certification_tools.tar.gz"],
-    # Set PATH to ensure hermeticity.
     cmd = """
-        PATH=$$($(location :hermetic-tools/readlink) -m $$($(location :hermetic-tools/dirname) $(location :hermetic-tools/dirname)))
         tar -czhf $@ \\
             -C $$(dirname $$(dirname $(location {prefix}{first}))) \\
             {files}
@@ -188,10 +196,5 @@ genrule(
         first = _GKI_CERTIFICATION_BINARIES[0],
         prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
     ),
-    tools = [
-        ":hermetic-tools",
-        ":hermetic-tools/dirname",
-        ":hermetic-tools/readlink",
-    ],
     visibility = ["//visibility:public"],
 )

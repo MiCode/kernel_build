@@ -21,6 +21,8 @@ load(
 )
 load(":debug.bzl", "debug")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_headers_impl(ctx):
     inputs = [
         ctx.attr.kernel_build[KernelBuildInfo].out_dir_kernel_headers_tar,

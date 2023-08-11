@@ -14,6 +14,8 @@
 
 """Utilities for using `//build/kernel:hermetic_tools_toolchain_type`."""
 
+visibility("//build/kernel/kleaf/...")
+
 _TOOLCHAIN_TYPE = Label("//build/kernel:hermetic_tools_toolchain_type")
 
 def _get(ctx):

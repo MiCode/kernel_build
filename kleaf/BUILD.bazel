@@ -15,7 +15,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
@@ -24,6 +23,7 @@ load(":print_flags.bzl", "print_flags")
 
 # Build flags
 
+# LTO setting. Values can be one of default, none, fast, thin, full
 string_flag(
     name = "lto",
     build_setting_default = "default",
@@ -31,35 +31,45 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# The final LTO setting is "default" (use defconfig value).
+# If --lto=default, and none of --kasan/--kcsan, LTO is default
+selects.config_setting_group(
     name = "lto_is_default",
-    flag_values = {"//build/kernel/kleaf:lto": "default"},
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default",
+        ":kasan_is_false",
+        ":kcsan_is_false",
+    ],
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "none".
 # If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
 selects.config_setting_group(
     name = "lto_is_none",
     match_any = [
         "//build/kernel/kleaf/impl:lto_is_set_to_none",
-        "//build/kernel/kleaf/impl:lto_is_default_and_kasan_is_true",
-        "//build/kernel/kleaf/impl:lto_is_default_and_kcsan_is_true",
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kasan_is_true",
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_and_kcsan_is_true",
     ],
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "thin".
 config_setting(
     name = "lto_is_thin",
     flag_values = {":lto": "thin"},
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "full".
 config_setting(
     name = "lto_is_full",
     flag_values = {":lto": "full"},
     visibility = ["//visibility:public"],
 )
 
+# The final LTO setting is "fast".
 config_setting(
     name = "lto_is_fast",
     flag_values = {":lto": "fast"},
@@ -90,7 +100,8 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-# If true, enable kasan. This assumes --lto=none, but :print_flags only shows
+# If true, enable kasan.
+# This assumes --lto=none, but :print_flags only shows
 # values from the command line.
 bool_flag(
     name = "kasan",
@@ -99,12 +110,58 @@ bool_flag(
 )
 
 config_setting(
-    name = "kasan_is_true",
+    name = "kasan_generic_is_true",
     flag_values = {":kasan": "1"},
     visibility = ["//visibility:public"],
 )
 
-# If true, enable kcsan. This assumes --lto=none, but :print_flags only shows
+config_setting(
+    name = "kasan_generic_is_false",
+    flag_values = {":kasan": "0"},
+    visibility = ["//visibility:public"],
+)
+
+# If true, enable kasan sw tags.
+# This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kasan_sw_tags",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_sw_tags_is_true",
+    flag_values = {":kasan_sw_tags": "1"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kasan_sw_tags_is_false",
+    flag_values = {":kasan_sw_tags": "0"},
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "kasan_is_true",
+    match_any = [
+        ":kasan_generic_is_true",
+        ":kasan_sw_tags_is_true",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "kasan_is_false",
+    match_all = [
+        ":kasan_generic_is_false",
+        ":kasan_sw_tags_is_false",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# If true, enable kcsan.
+# This assumes --lto=none, but :print_flags only shows
 # values from the command line.
 bool_flag(
     name = "kcsan",
@@ -115,6 +172,12 @@ bool_flag(
 config_setting(
     name = "kcsan_is_true",
     flag_values = {":kcsan": "1"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kcsan_is_false",
+    flag_values = {":kcsan": "0"},
     visibility = ["//visibility:public"],
 )
 
@@ -168,6 +231,7 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+# If true, kmi_symbol_list_violations_check is enabled.
 # If false, kmi_symbol_list_violations_check is disabled.
 bool_flag(
     name = "kmi_symbol_list_violations_check",
@@ -175,7 +239,15 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-# Flag to enable/disable BTF debug information
+# Additional symbol lists to add to GKI kernel build
+label_flag(
+    name = "user_kmi_symbol_lists",
+    build_setting_default = "//build/kernel/kleaf/impl:empty_filegroup",
+    visibility = ["//visibility:public"],
+)
+
+# Flag to enable/disable BTF debug information.
+# Value is one of the following: default, enable, disable
 string_flag(
     name = "btf_debug_info",
     build_setting_default = "default",
@@ -187,22 +259,69 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "btf_debug_info_is_enabled",
+    flag_values = {":btf_debug_info": "enable"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "btf_debug_info_is_disabled",
+    flag_values = {":btf_debug_info": "disable"},
+    visibility = ["//visibility:public"],
+)
+
+# Flag to control page size.
+# Value is one of default, 4k, 16k, 64k.
+string_flag(
+    name = "page_size",
+    build_setting_default = "default",
+    values = [
+        "default",  # Respect value in defconfig
+        "4k",
+        "16k",
+        "64k",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "page_size_4k",
+    flag_values = {":page_size": "4k"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "page_size_16k",
+    flag_values = {":page_size": "16k"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "page_size_64k",
+    flag_values = {":page_size": "64k"},
+    visibility = ["//visibility:public"],
+)
+
 # Use the resolved toolchains for building kernel_* rules.
 # See https://bazel.build/extending/toolchains for how toolchains are resolved.
 bool_flag(
-    name = "experimental_kernel_use_resolved_toolchains",
+    name = "incompatible_kernel_use_resolved_toolchains",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )
 
 # Debug options
 
+# Runs all script invocations with `set -x`
+# and a trap that executes `date` after every command.
 bool_flag(
     name = "debug_annotate_scripts",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )
 
+# Prints the content of the (generated) command scripts during rule execution.
 bool_flag(
     name = "debug_print_scripts",
     build_setting_default = False,
@@ -215,6 +334,48 @@ bool_flag(
     name = "debug_modpost_warn",
     build_setting_default = False,
     visibility = ["//visibility:public"],
+)
+
+# If set, debug --cache_dir conflict issues
+string_flag(
+    name = "debug_cache_dir_conflict",
+    build_setting_default = "none",
+    values = [
+        # Attempt to resolve any conflicts.
+        # Wait if there are any conflicts. Build may be slower but the conflicts
+        # should be resolved serially.
+        "resolve",
+        # Detect any conflicts.
+        # Emit a build error if there are any conflicts. This detects any
+        # possible conflicts.
+        "detect",
+        # Do not detect conflicts. If there are any conflicts, this may lead
+        # to obscure errors.
+        "none",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "debug_cache_dir_conflict_is_resolve",
+    flag_values = {":debug_cache_dir_conflict": "resolve"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
+config_setting(
+    name = "debug_cache_dir_conflict_is_detect",
+    flag_values = {":debug_cache_dir_conflict": "detect"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
+# If --lto=none, or if --kasan/--kcsan, LTO should be set to none.
+selects.config_setting_group(
+    name = "debug_cache_dir_conflict_needs_flock",
+    match_any = [
+        ":debug_cache_dir_conflict_is_resolve",
+        ":debug_cache_dir_conflict_is_detect",
+    ],
+    visibility = ["//build/kernel:__pkg__"],
 )
 
 # Debug flag to control make verbosity
@@ -242,6 +403,16 @@ label_flag(
     visibility = ["//visibility:public"],
 )
 
+# Command-line option that adds to kernel_build.defconfig_fragments.
+# See kernel_build.defconfig_fragments for description, restrictions, and
+# conventions.
+# See kleaf/docs/kernel_config.md#defconfig-fragments.
+label_flag(
+    name = "defconfig_fragment",
+    build_setting_default = "//build/kernel/kleaf/impl:empty_filegroup",
+    visibility = ["//visibility:public"],
+)
+
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
 # If additional hacks are needed, put `select()` on the build_config.
 # See kleaf/docs/kgdb.md for details.
@@ -254,6 +425,34 @@ bool_flag(
 config_setting(
     name = "kgdb_is_true",
     flag_values = {":kgdb": "1"},
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "use_prebuilt_gki",
+    build_setting_default = False,
+    # Visible to any package that calls define_common_kernels()
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "use_prebuilt_gki_is_true",
+    flag_values = {":use_prebuilt_gki": "1"},
+    # Visible to any package that calls define_common_kernels()
+    visibility = ["//visibility:public"],
+)
+
+# If set, download signed prebuilts from ci.android.com.
+bool_flag(
+    name = "use_signed_prebuilts",
+    build_setting_default = False,
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "use_signed_prebuilts_is_true",
+    flag_values = {":use_signed_prebuilts": "1"},
+    # Visible to any package that calls define_common_kernels()
     visibility = ["//visibility:public"],
 )
 
@@ -277,6 +476,7 @@ print_flags(
     name = "print_flags",
     flags = [
         ":kasan",
+        ":kasan_sw_tags",
         ":kcsan",
         ":kbuild_symtypes",
         ":lto",
@@ -315,6 +515,13 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+# Utility to create a Kernel SBOM
+py_binary(
+    name = "kernel_sbom",
+    srcs = ["kernel_sbom.py"],
+    visibility = ["//visibility:public"],
+)
+
 # Analyze DDK targets
 
 # Usage:
@@ -341,11 +548,14 @@ gen_ddk_headers(
     target = ":gen_ddk_headers_target",
 )
 
+# Target to analyze and generate DDK headers from.
 label_flag(
     name = "gen_ddk_headers_target",
     build_setting_default = ":gen_ddk_headers_target_unspecified",
 )
 
+# Label of allowlist of DDK header archives.
+# This is usually //{common}:kernel_aarch64_ddk_allowlist_headers
 label_flag(
     name = "gen_ddk_headers_gen_files_archives",
     build_setting_default = ":gen_ddk_headers_target_unspecified",
@@ -388,17 +598,6 @@ bzl_library(
     deps = [":hermetic_tools_def"],
 )
 
-filegroup(
-    name = "docs_deprecated",
-    srcs = ["index.html"],
-    visibility = ["//visibility:public"],
-)
-
-copy_to_dist_dir(
-    name = "docs_deprecated_dist",
-    data = [":docs_deprecated"],
-)
-
 # Kleaf API Docs. To view them:
 #   Refer to kleaf/docs/api_reference.md
 docs(
@@ -428,6 +627,7 @@ docs(
         "@bazel_skylib//:workspace",
         "@bazel_skylib//lib:dicts",
         "@bazel_skylib//lib:paths",
+        "@bazel_skylib//lib:selects",
         "@bazel_skylib//lib:unittest",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",

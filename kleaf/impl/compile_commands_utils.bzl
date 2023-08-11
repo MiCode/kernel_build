@@ -16,6 +16,8 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
+visibility("//build/kernel/kleaf/...")
+
 def _compile_commands_config_settings_raw():
     """Attributes of rules that supports `compile_commands.json`."""
     return {

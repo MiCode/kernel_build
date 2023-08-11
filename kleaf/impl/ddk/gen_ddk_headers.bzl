@@ -17,6 +17,8 @@
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load(":ddk/analyze_inputs.bzl", "analyze_inputs")
 
+visibility("//build/kernel/kleaf/...")
+
 def _gen_ddk_headers_impl(ctx):
     executable = ctx.actions.declare_file(ctx.label.name + ".sh")
 
