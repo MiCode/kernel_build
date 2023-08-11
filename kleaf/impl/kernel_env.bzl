@@ -71,9 +71,7 @@ def _get_toolchains(ctx):
 
 def _get_check_arch_cmd(ctx):
     toolchains = _get_toolchains(ctx)
-    expected_arch = toolchains.target_arch
-    if expected_arch == "riscv64":
-        expected_arch = "riscv"
+    declared_arch = toolchains.target_arch
 
     level = "WARNING"
     exit_cmd = ""
@@ -82,14 +80,14 @@ def _get_check_arch_cmd(ctx):
         exit_cmd = "exit 1"
 
     return """
-        if [[ "$ARCH" != "{expected_arch}" ]]; then
-            echo '{level}: {label} must specify arch = '"${{ARCH/riscv/riscv64}}"'.' >&2
+        if [[ "${{ARCH/riscv/riscv64}}" != "{declared_arch}" ]]; then
+            echo '{level}: {label} must specify arch = '"${{ARCH/riscv/riscv64}}"', but is {declared_arch}.' >&2
             {exit_cmd}
         fi
     """.format(
         level = level,
         label = ctx.label,
-        expected_arch = expected_arch,
+        declared_arch = declared_arch,
         exit_cmd = exit_cmd,
     )
 
