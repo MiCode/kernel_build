@@ -270,12 +270,20 @@ for EXT_MOD in ${EXT_MODULES}; do
     fi
   done
 
+  if [ "$TARGET_BOARD_PLATFORM" = "msmnile" ]; then
+     btgt="gen3auto"
+  elif [ "$TARGET_BOARD_PLATFORM" = "sm6150" ]; then
+     btgt="sdmsteppeauto"
+  else
+     btgt="$TARGET_BOARD_PLATFORM"
+  fi
+
   # Query for a target that matches the pattern for module distribution
   if [ "$ENABLE_DDK_BUILD" = "true" ] \
      && [ -n "$pkg_path" ] \
-     && [ -n "$TARGET_BOARD_PLATFORM" ] \
+     && [ -n "$btgt" ] \
      && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
-          "filter('${TARGET_BOARD_PLATFORM/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
+          "filter('${btgt/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
      && [ -n "$build_target" ]
   then
 
