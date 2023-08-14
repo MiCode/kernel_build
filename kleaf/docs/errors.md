@@ -350,6 +350,22 @@ issue:
   see the error again afterwards.
 - You may rebuild with `--debug_cache_dir_conflict=resolve`.
 
+## Build hangs on BTRFS
+
+If your tree is on BTRFS, and your Android kernel source tree contains the
+following patch, building `kernel_build` may hang.
+
+[FROMLIST: kheaders: dereferences the source tree](http://r.android.com/2626404)
+
+This is a known issue:
+
+[Bug 217681 - gen_kheaders.sh gets stuck in an infinite loop](https://bugzilla.kernel.org/show_bug.cgi?id=217681)
+
+You may update your host machine's kernel to a version that includes the following patch
+to fix the problem.
+
+[[PATCH] btrfs: fix infinite directory reads](https://lore.kernel.org/linux-btrfs/c9ceb0e15d92d0634600603b38965d9b6d986b6d.1691923900.git.fdmanana@suse.com/)
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.
