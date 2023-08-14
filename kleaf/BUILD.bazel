@@ -112,15 +112,31 @@ bool_flag(
 )
 
 config_setting(
-    name = "kasan_generic_is_true",
+    name = "kasan_any_mode_is_true",
     flag_values = {":kasan": "1"},
     visibility = ["//visibility:public"],
 )
 
 config_setting(
-    name = "kasan_generic_is_false",
+    name = "kasan_any_mode_is_false",
     flag_values = {":kasan": "0"},
     visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "kasan_generic_is_true",
+    actual = "kasan_any_mode_is_true",
+    deprecation = """This target is a misnomer. It enables KASAN with mode unspecified
+        (default to value in defconfig). Use kasan_any_mode_is_true instead.
+    """,
+)
+
+alias(
+    name = "kasan_generic_is_false",
+    actual = "kasan_any_mode_is_false",
+    deprecation = """This target is a misnomer. It enables KASAN with mode unspecified
+        (default to value in defconfig). Use kasan_any_mode_is_false instead.
+    """,
 )
 
 # If true, enable kasan sw tags.
@@ -147,7 +163,7 @@ config_setting(
 selects.config_setting_group(
     name = "kasan_is_true",
     match_any = [
-        ":kasan_generic_is_true",
+        ":kasan_any_mode_is_true",
         ":kasan_sw_tags_is_true",
     ],
     visibility = ["//visibility:public"],
@@ -156,7 +172,7 @@ selects.config_setting_group(
 selects.config_setting_group(
     name = "kasan_is_false",
     match_all = [
-        ":kasan_generic_is_false",
+        ":kasan_any_mode_is_false",
         ":kasan_sw_tags_is_false",
     ],
     visibility = ["//visibility:public"],
