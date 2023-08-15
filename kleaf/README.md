@@ -10,7 +10,7 @@
 
 [`build.sh` build configs](docs/build_configs.md)
 
-[Running `make *config`](docs/kernel_config.md)
+[Configuring kernel\_build](docs/kernel_config.md)
 
 [Support ABI monitoring (GKI)](docs/abi.md)
 
@@ -41,6 +41,8 @@
 [Internet Access](docs/network.md)
 
 [Toolchain resolution](docs/toolchains.md)
+
+[Checkpatch](docs/checkpatch.md)
 
 ### Configurations
 

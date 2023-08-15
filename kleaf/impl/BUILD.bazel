@@ -39,6 +39,7 @@ bzl_library(
         "android_filegroup.bzl",
         "btf.bzl",
         "cache_dir.bzl",
+        "checkpatch.bzl",
         "common_providers.bzl",
         "compile_commands_utils.bzl",
         "config_utils.bzl",
@@ -287,6 +288,18 @@ py_test(
         ":get_kmi_string",
         "@io_abseil_py//absl/testing:absltest",
     ],
+)
+
+sh_binary(
+    name = "checkpatch",
+    srcs = [
+        "checkpatch.sh",
+    ],
+    data = [
+        "//build/kernel/static_analysis:checkpatch_ignorelist",
+    ],
+    # All checkpatch rules from any package can see this
+    visibility = ["//visibility:public"],
 )
 
 kernel_platform_toolchain(
