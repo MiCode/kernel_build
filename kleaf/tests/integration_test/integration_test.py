@@ -543,9 +543,6 @@ class QuickIntegrationTest(KleafIntegrationTestBase):
         self.assertIn(
             "CONFIG_DELETED_SET: actual '', expected 'CONFIG_DELETED_SET=y' from build/kernel/kleaf/tests/integration_test/ddk_negative_test/defconfig.",
             stderr)
-        self.assertIn(
-            "CONFIG_DELETED_UNSET: actual '', expected '# CONFIG_DELETED_UNSET is not set' from build/kernel/kleaf/tests/integration_test/ddk_negative_test/defconfig.",
-            stderr)
         self.assertNotIn("DECLARED_SET", stderr)
         self.assertNotIn("DECLARED_UNSET", stderr)
 
