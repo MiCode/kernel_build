@@ -357,14 +357,14 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
-# Default is false (this will be true by default in the future).
+# Default is true.
 # If true, keys of hermetic_tools.symlinks are excluded from sandboxes.
 # If false, keys of hermetic_tools.symlinks are added to the sandboxes.
 bool_flag(
     name = "incompatible_disable_hermetic_tools_symlink_source",
     # TODO(b/291816237): Set this to true once build.config.common no longer
     #   hardcodes DTC.
-    build_setting_default = False,
+    build_setting_default = True,
     visibility = ["//build/kernel:__pkg__"],
 )
 
