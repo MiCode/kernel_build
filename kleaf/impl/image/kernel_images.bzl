@@ -22,6 +22,8 @@ load(":image/initramfs.bzl", "initramfs")
 load(":image/system_dlkm_image.bzl", "system_dlkm_image")
 load(":image/vendor_dlkm_image.bzl", "vendor_dlkm_image")
 
+visibility("//build/kernel/kleaf/...")
+
 def kernel_images(
         name,
         kernel_modules_install,

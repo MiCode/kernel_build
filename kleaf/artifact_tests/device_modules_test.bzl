@@ -21,6 +21,8 @@ load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
 load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _get_module_staging_dir_impl(ctx):
     modules_staging_dws_list = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_staging_dws_depset.to_list()
     if len(modules_staging_dws_list) != 1:
@@ -100,12 +102,9 @@ def _create_one_device_modules_test(
         expect_signature,
         module_outs = None):
     # Cross compiler name is not always the same as the linux arch
-    # "Fake" GKIs may use additional merged gki_defconfig fragments (b/271451453)
-    fragments = ["gki_defconfig"]
-    if arch == "arm64":
-        arch = "aarch64"
-    elif arch == "riscv64":
-        fragments += ["64-bit.config", "gki.config"]
+    cross_compiler_name = arch
+    if cross_compiler_name == "arm64":
+        cross_compiler_name = "aarch64"
 
     # A minimal device's kernel_build build_config.
     build_config_content = """
@@ -113,16 +112,15 @@ def _create_one_device_modules_test(
 
                 . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.common
                 . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.gki
-                . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.{arch}
+                . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.{cross_compiler_name}
 
                 {set_src_arch_cmd}
                 MAKE_GOALS="modules"
                 DEFCONFIG="device_modules_test_gki_defconfig"
-                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{SRCARCH}}/configs/{fragments} && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}};"
+                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{SRCARCH}}/configs/gki_defconfig && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}};"
                 POST_DEFCONFIG_CMDS=""
                 """.format(
-        fragments = fragments[0] if len(fragments) == 1 else "{" + ",".join(fragments) + "}",
-        arch = arch,
+        cross_compiler_name = cross_compiler_name,
         common_package = base_kernel_label.package,
         set_src_arch_cmd = kernel_utils.set_src_arch_cmd(),
     )

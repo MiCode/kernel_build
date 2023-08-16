@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Internal constants."""
+
+visibility("//build/kernel/kleaf/...")
+
 TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
 
 # The suffix of the file in the default outputs of kernel_build that stores

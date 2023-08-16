@@ -16,6 +16,8 @@
 
 load(":common_providers.bzl", "KernelCmdsInfo")
 
+visibility("//build/kernel/kleaf/...")
+
 def _analyze_inputs_transition_impl(settings, attr):
     if settings["//build/kernel/kleaf:config_local"]:
         # buildifier: disable=print

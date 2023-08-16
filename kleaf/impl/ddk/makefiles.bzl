@@ -29,6 +29,8 @@ load(
 )
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _handle_copt(ctx):
     # copt values contains prefixing "-", so we must use --copt=-x --copt=-y to avoid confusion.
     # We treat $(location) differently because paths must be relative to the Makefile

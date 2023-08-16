@@ -25,6 +25,8 @@ load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "kernel_utils", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _abi_dump_impl(ctx):
     kernel_utils.check_kernel_build(
         [target[KernelModuleInfo] for target in ctx.attr.kernel_modules],
@@ -82,7 +84,7 @@ def _abi_dump_full_stg(ctx):
     # Collect all modules from all directories
     all_modules = ""
     for unstripped_dir in unstripped_dirs:
-        all_modules += "{dir_path}/*.ko ".format(
+        all_modules += "$(find {dir_path} -name '*.ko') ".format(
             dir_path = unstripped_dir.path,
         )
 

@@ -15,6 +15,7 @@
 load(":kasan_test.bzl", "kasan_test")
 load(":kcsan_test.bzl", "kcsan_test")
 load(":kernel_config_option_test.bzl", "kernel_config_option_test_suite")
+load(":kernel_defconfig_fragments_test.bzl", "kernel_defconfig_fragments_test")
 
 # Analysis test
 
@@ -25,6 +26,8 @@ kcsan_test(name = "kcsan_test")
 # Quick test on artifacts.
 
 kernel_config_option_test_suite(name = "kernel_config_option_test_suite")
+
+kernel_defconfig_fragments_test(name = "kernel_defconfig_fragments_test")
 
 test_suite(
     name = "kernel_config_test",

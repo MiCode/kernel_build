@@ -186,3 +186,71 @@ For example:
     },
     toolchains = [hermetic_toolchain.type],
 )
+
+def _gki_artifacts_prebuilts_impl(ctx):
+    # Assuming the rule specifies `outs = ["subdir/gki-info.txt"]`
+
+    srcs_map = {src.basename: src for src in ctx.files.srcs}
+
+    # missing_outs: {"subidr/gki-info.txt": File(...)}, excluding those already in srcs
+    missing_outs = {}
+
+    # default_info_files: [File(...)]
+    default_info_files = []
+    for out in ctx.attr.outs:
+        out_basename = paths.basename(out)
+        if out_basename not in srcs_map:
+            out_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, out))
+            default_info_files.append(out_file)
+            missing_outs[out] = out_file
+        else:
+            default_info_files.append(srcs_map[out_basename])
+
+    if missing_outs:
+        hermetic_tools = hermetic_toolchain.get(ctx)
+
+        boot_img_tar = srcs_map["boot-img.tar.gz"]
+
+        # The result of ctx.actions.declare_directory(ctx.label.name).path without declaring it
+        ruledir = paths.join(
+            ctx.bin_dir.path,
+            paths.dirname(ctx.build_file_path),
+            ctx.attr.name,
+        )
+
+        cmd = hermetic_tools.setup + """
+            mkdir -p {intermediates_dir}
+            tar xf {boot_img_tar} -C {intermediates_dir}
+            {search_and_cp_output} --srcdir {intermediates_dir} --dstdir {ruledir} {outs}
+        """.format(
+            boot_img_tar = boot_img_tar.path,
+            intermediates_dir = utils.intermediates_dir(ctx),
+            search_and_cp_output = ctx.executable._search_and_cp_output.path,
+            ruledir = ruledir,
+            outs = " ".join(missing_outs.keys()),
+        )
+
+        ctx.actions.run_shell(
+            inputs = [boot_img_tar],
+            outputs = missing_outs.values(),
+            tools = depset([ctx.executable._search_and_cp_output], transitive = [hermetic_tools.deps]),
+            command = cmd,
+            progress_message = "Extracting prebuilt boot-img.tar.gz {}".format(ctx.label),
+            mnemonic = "GkiArtifactsPrebuiltsExtract",
+        )
+
+    return DefaultInfo(files = depset(default_info_files))
+
+gki_artifacts_prebuilts = rule(
+    implementation = _gki_artifacts_prebuilts_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "outs": attr.string_list(),
+        "_search_and_cp_output": attr.label(
+            default = Label("//build/kernel/kleaf:search_and_cp_output"),
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+    toolchains = [hermetic_toolchain.type],
+)

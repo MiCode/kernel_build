@@ -14,8 +14,58 @@
 
 """Utilities for handling `--cache_dir`."""
 
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load(":utils.bzl", "utils")
+
+_FLOCK_FD = 0x41F  # KLF
+
+def _get_flock_cmd(ctx):
+    if ctx.attr._debug_cache_dir_conflict[BuildSettingInfo].value == "none":
+        pre_cmd = """
+                unset KLEAF_CACHED_COMMON_OUT_DIR
+            """
+        post_cmd = ""
+        return struct(
+            pre_cmd = pre_cmd,
+            post_cmd = post_cmd,
+        )
+
+    if ctx.attr._debug_cache_dir_conflict[BuildSettingInfo].value not in ("detect", "resolve"):
+        fail("{}: {} has unexpected value {}. Must be one of none, detect, resolve.".format(
+            ctx.label,
+            ctx.attr._debug_cache_dir_conflict.label,
+            ctx.attr._debug_cache_dir_conflict[BuildSettingInfo].value,
+        ))
+
+    lock_args = ""
+    if ctx.attr._debug_cache_dir_conflict[BuildSettingInfo].value == "detect":
+        lock_args = "-n"
+
+    pre_cmd = """
+        (
+            echo "DEBUG: [$(date -In)] {label}: Locking ${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json before using" >&2
+            if ! flock -x {lock_args} {flock_fd}; then
+                echo "ERROR: [$(date -In)] {label}: Unable to lock ${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json." >&2
+                echo "    Please file a bug! See build/kernel/kleaf/docs/errors.md" >&2
+                exit 1
+            fi
+    """.format(
+        label = ctx.label,
+        lock_args = lock_args,
+        flock_fd = _FLOCK_FD,
+    )
+    post_cmd = """
+        ) {flock_fd}<"${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
+        echo "DEBUG: [$(date -In)] {label}: Unlocked ${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json after using" >&2
+    """.format(
+        label = ctx.label,
+        flock_fd = _FLOCK_FD,
+    )
+
+    return struct(
+        pre_cmd = pre_cmd,
+        post_cmd = post_cmd,
+    )
 
 def _get_step(ctx, common_config_tags, symlink_name):
     """Returns a step for caching the output directory.
@@ -41,64 +91,83 @@ def _get_step(ctx, common_config_tags, symlink_name):
     cache_dir_cmd = ""
     post_cmd = ""
     inputs = []
+    tools = []
     if ctx.attr._config_is_local[BuildSettingInfo].value:
         if not ctx.attr._cache_dir[BuildSettingInfo].value:
             fail("--config=local requires --cache_dir.")
 
-        config_tags = dict(common_config_tags)
-        config_tags["_target"] = str(ctx.label)
-        config_tags_json = json.encode_indent(config_tags, indent = "  ")
-        config_tags_json_file = ctx.actions.declare_file("{}_config_tags/config_tags.json".format(ctx.label.name))
-        ctx.actions.write(config_tags_json_file, config_tags_json)
-        inputs.append(config_tags_json_file)
+        tools.append(ctx.executable._cache_dir_config_tags)
+        inputs.append(common_config_tags)
 
-        out_dir_suffix = utils.hash_hex(config_tags_json)
+        flock_ret = _get_flock_cmd(ctx)
 
         cache_dir_cmd = """
-              export OUT_DIR_SUFFIX={out_dir_suffix}
-              KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
-              KLEAF_CACHED_OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
-              (
-                  mkdir -p "${{KLEAF_CACHED_OUT_DIR}}"
-                  KLEAF_CONFIG_TAGS="${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
+            KLEAF_CONFIG_TAGS_TMP=$(mktemp kleaf_config_tags.json.XXXXXX)
+            # cache_dir_config_tags.py requires --dest to not exist, otherwise it compares
+            # and fails.
+            rm -f "${{KLEAF_CONFIG_TAGS_TMP}}"
 
-                  # {config_tags_json_file} is readonly. If ${{KLEAF_CONFIG_TAGS}} exists,
-                  # it should be readonly too.
-                  # If ${{KLEAF_CONFIG_TAGS}} exists, copying fails, and then we diff the file
-                  # to ensure we aren't polluting the sandbox for something else.
-                  if ! cp -p {config_tags_json_file} "${{KLEAF_CONFIG_TAGS}}" 2>/dev/null; then
-                    if ! diff -q {config_tags_json_file} "${{KLEAF_CONFIG_TAGS}}"; then
-                      echo "Collision detected in ${{KLEAF_CONFIG_TAGS}}" >&2
-                      diff {config_tags_json_file} "${{KLEAF_CONFIG_TAGS}}" >&2
-                      echo 'Run `tools/bazel clean` and try again. If the error persists, report a bug.' >&2
-                      exit 1
-                    fi
-                  fi
-              )
+            # Add label of this target.
+            {cache_dir_config_tags} \\
+                --base {common_config_tags} \\
+                --target {label} \\
+                --dest "${{KLEAF_CONFIG_TAGS_TMP}}"
 
-              export OUT_DIR=${{KLEAF_CACHED_OUT_DIR}}
-              unset KLEAF_CACHED_OUT_DIR
-              unset KLEAF_CACHED_COMMON_OUT_DIR
+            export OUT_DIR_SUFFIX=$(cat ${{KLEAF_CONFIG_TAGS_TMP}} | sha1sum -b | cut -c-8)
+
+            KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
+            export OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
+            mkdir -p "${{OUT_DIR}}"
+
+            # Reconcile differences between expected file and target file, if any,
+            # to prevent hash collision.
+            {cache_dir_config_tags} \\
+                --base "${{KLEAF_CONFIG_TAGS_TMP}}" \\
+                --dest "${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
+
+            rm -f "${{KLEAF_CONFIG_TAGS_TMP}}"
+            unset KLEAF_CONFIG_TAGS_TMP
+
+            {flock_pre_cmd}
         """.format(
-            out_dir_suffix = out_dir_suffix,
+            label = shell.quote(str(ctx.label)),
+            cache_dir_config_tags = ctx.executable._cache_dir_config_tags.path,
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
-            config_tags_json_file = config_tags_json_file.path,
+            common_config_tags = common_config_tags.path,
+            flock_pre_cmd = flock_ret.pre_cmd,
         )
 
         post_cmd = """
             ln -sfT ${{OUT_DIR_SUFFIX}} {cache_dir}/last_{symlink_name}
+            {flock_post_cmd}
         """.format(
             cache_dir = ctx.attr._cache_dir[BuildSettingInfo].value,
             symlink_name = symlink_name,
+            flock_post_cmd = flock_ret.post_cmd,
         )
     return struct(
         inputs = inputs,
-        tools = [],
+        tools = tools,
         cmd = cache_dir_cmd,
         outputs = [],
         post_cmd = post_cmd,
     )
 
+def _attrs():
+    return {
+        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
+        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
+        "_cache_dir_config_tags": attr.label(
+            default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_debug_cache_dir_conflict": attr.label(
+            default = "//build/kernel/kleaf:debug_cache_dir_conflict",
+        ),
+    }
+
 cache_dir = struct(
     get_step = _get_step,
+    attrs = _attrs,
 )

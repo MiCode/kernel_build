@@ -37,6 +37,11 @@ import %workspace%/build/kernel/kleaf/bazelrc/flags.bazelrc
 # Toolchains and platforms
 import %workspace%/build/kernel/kleaf/bazelrc/hermetic_cc.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/platforms.bazelrc
+# Control Network access - with no internet by default.
+import %workspace%/build/kernel/kleaf/bazelrc/network.bazelrc
+
+# Use cflags / ldflags from toolchains
+build --incompatible_kernel_use_resolved_toolchains
 
 # Ensure to always use @local_jdk; the checked-in JDK.
 # build --java_runtime_version=local_jdk

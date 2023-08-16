@@ -298,7 +298,7 @@ One exception is that the `kernel_build` rule provides limited support
 of `select()` in `outs` and `module_outs` attributes. See
 [documentations](api_reference.md) of `kernel_build` for details.
 
-### `bazelrc` files
+### .bazelrc files
 
 By default, the `.bazelrc` (symlink to `build/kernel/kleaf/common.bazelrc`)
 tries to import the following two files if they exist:

@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""An aspect that retrieves srcs attribute from a rule."""
+
 load(":utils.bzl", "utils")
 
-SrcsInfo = provider(fields = {
+visibility("//build/kernel/kleaf/...")
+
+SrcsInfo = provider("Provides list of sources", fields = {
     "srcs": "The srcs attribute of a rule.",
 })
 
-def _srcs_aspect_impl(target, ctx):
+def _srcs_aspect_impl(_target, ctx):
     return [SrcsInfo(srcs = utils.getoptattr(ctx.rule.attr, "srcs"))]
 
 srcs_aspect = aspect(

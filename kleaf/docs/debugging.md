@@ -12,6 +12,10 @@ This is a non exhaustive list of options to help debugging compilation issues:
     *   `--debug_print_scripts`: Prints the content of the (generated) command
         scripts during rule execution.
 
+    *   `--debug_cache_dir_conflict={detect,resolve}`: Attempt to detect or
+        resolve any conflicts if multiple actions uses the same subdirectory
+        within `--cache_dir` simultaneously.
+
 *   Customise Kbuild:
 
     *   `--debug_make_verbosity`: Controls verbosity of `make` executions `E

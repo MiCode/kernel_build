@@ -14,18 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(b/266980402): remove it
 # rel_path <to> <from>
 # Generate relative directory path to reach directory <to> from <from>
 function rel_path() {
-  echo "WARNING: rel_path is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
-  ${ROOT_DIR}/build/kernel/build-tools/path/linux-x86/realpath "$1" --relative-to="$2"
-}
-
-# TODO(b/266980402): remove it
-# rel_path2 <to> <from>
-# Generate relative directory path to reach directory <to> from <from>
-function rel_path2() {
-  echo "ERROR: rel_path2 is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
+  echo "ERROR: rel_path is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
   exit 1
 }
 
@@ -826,7 +819,13 @@ function extract_git_metadata() {
   local git_project_candidate=$2
   local what=$3
   while [[ "${git_project_candidate}" != "." ]]; do
-    value_candidate=$(echo "${map}" | sed -E -n 's;(^|.*\s)'"${git_project_candidate}"':(\S+).*;\2;p' || true)
+    value_candidate=$(python3 -c '
+import sys, json
+js = json.load(sys.stdin)
+key = sys.argv[1]
+if key in js:
+    print(js[key])
+' "${git_project_candidate}" <<< "${map}")
     if [[ -n "${value_candidate}" ]]; then
         break
     fi

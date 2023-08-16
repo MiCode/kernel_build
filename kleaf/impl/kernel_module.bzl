@@ -45,6 +45,8 @@ load(":kernel_build.bzl", "get_grab_cmd_step")
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def kernel_module(
         name,
         kernel_build,
@@ -169,10 +171,8 @@ def kernel_module(
     """
 
     if kwargs.get("kernel_module_deps"):
-        fail("{}//{}:{}: kernel_module_deps is deprecated. Use deps instead.".format(
-            native.repository_name(),
-            native.package_name(),
-            name,
+        fail("{}: kernel_module_deps is deprecated. Use deps instead.".format(
+            native.package_relative_label(name),
         ))
 
     kwargs.update(
@@ -625,6 +625,9 @@ def _kernel_module_impl(ctx):
         ),
     ]
 
+def _kernel_module_additional_attrs():
+    return cache_dir.attrs()
+
 _kernel_module = rule(
     implementation = _kernel_module_impl,
     doc = """
@@ -658,7 +661,6 @@ _kernel_module = rule(
         # Not output_list because it is not a list of labels. The list of
         # output labels are inferred from name and outs.
         "outs": attr.output_list(),
-        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_search_and_cp_output": attr.label(
             default = Label("//build/kernel/kleaf:search_and_cp_output"),
             cfg = "exec",
@@ -670,12 +672,11 @@ _kernel_module = rule(
             cfg = "exec",
             executable = True,
         ),
-        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_debug_modpost_warn": attr.label(default = "//build/kernel/kleaf:debug_modpost_warn"),
-    },
+    } | _kernel_module_additional_attrs(),
     toolchains = [hermetic_toolchain.type],
 )
 

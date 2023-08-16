@@ -23,6 +23,8 @@ load(
 )
 load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 
+visibility("//build/kernel/kleaf/...")
+
 def _quote_prepend_cwd(value):
     """Prepends $PWD to value.
 
@@ -48,12 +50,18 @@ def _check_toolchain_version(ctx, resolved_toolchain_info, declared_toolchain_ve
         return
 
     if resolved_toolchain_info.compiler_version != declared_toolchain_version:
-        fail("{}: Resolved to incorrect toolchain for {} platform. Expected: {}, actual: {}".format(
-            ctx.label,
-            platform_name,
-            declared_toolchain_version,
-            resolved_toolchain_info.compiler_version,
-        ))
+        if resolved_toolchain_info.compiler_version == "kleaf_user_clang_toolchain_skip_version_check":
+            # buildifier: disable=print
+            print("\nWARNING: kernel_build.toolchain_version = {}, but overriding with --user_clang_toolchain".format(
+                declared_toolchain_version,
+            ))
+        else:
+            fail("{}: Resolved to incorrect toolchain for {} platform. Expected: {}, actual: {}".format(
+                ctx.label,
+                platform_name,
+                declared_toolchain_version,
+                resolved_toolchain_info.compiler_version,
+            ))
 
 def _get_target_arch(ctx):
     if ctx.target_platform_has_constraint(ctx.attr._platform_cpu_arm[platform_common.ConstraintValueInfo]):
@@ -182,7 +190,7 @@ kernel_toolchains = rule(
             providers = [KernelPlatformToolchainInfo],
         ),
         "_kernel_use_resolved_toolchains": attr.label(
-            default = "//build/kernel/kleaf:experimental_kernel_use_resolved_toolchains",
+            default = "//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains",
         ),
         "_platform_cpu_arm": attr.label(default = "@platforms//cpu:arm"),
         "_platform_cpu_arm64": attr.label(default = "@platforms//cpu:arm64"),

@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DtstreeInfo = provider(fields = {
+"""Specify a kernel DTS tree."""
+
+visibility("//build/kernel/kleaf/...")
+
+DtstreeInfo = provider("DTS tree info", fields = {
     "srcs": "DTS tree sources",
     "makefile": "DTS tree makefile",
 })
@@ -39,6 +43,7 @@ def kernel_dtstree(
     """Specify a kernel DTS tree.
 
     Args:
+      name: name of the module
       srcs: sources of the DTS tree. Default is
 
         ```
@@ -51,7 +56,7 @@ def kernel_dtstree(
         ```
       makefile: Makefile of the DTS tree. Default is `:Makefile`, i.e. the `Makefile`
         at the root of the package.
-      kwargs: Additional attributes to the internal rule, e.g.
+      **kwargs: Additional attributes to the internal rule, e.g.
         [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
         See complete list
         [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).

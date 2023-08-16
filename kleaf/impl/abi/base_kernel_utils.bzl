@@ -24,6 +24,8 @@ load(
     "KernelToolchainInfo",
 )
 
+visibility("//build/kernel/kleaf/...")
+
 _FORCE_IGNORE_BASE_KERNEL_SETTING = "//build/kernel/kleaf/impl:force_ignore_base_kernel"
 
 def _base_kernel_config_settings_raw():

@@ -24,6 +24,8 @@ load(
 )
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kernel_compile_commands_transition_impl(_settings, _attr):
     return {
         FORCE_IGNORE_BASE_KERNEL_SETTING: True,

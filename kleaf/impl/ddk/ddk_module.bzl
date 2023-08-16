@@ -19,6 +19,8 @@ load(":ddk/makefiles.bzl", "makefiles")
 load(":ddk/ddk_conditional_filegroup.bzl", "flatten_conditional_srcs")
 load(":ddk/ddk_config.bzl", "ddk_config")
 
+visibility("//build/kernel/kleaf/...")
+
 def ddk_module(
         name,
         kernel_build,
