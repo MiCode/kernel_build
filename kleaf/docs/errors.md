@@ -366,6 +366,9 @@ to fix the problem.
 
 [[PATCH] btrfs: fix infinite directory reads](https://lore.kernel.org/linux-btrfs/c9ceb0e15d92d0634600603b38965d9b6d986b6d.1691923900.git.fdmanana@suse.com/)
 
+You may also use `--workaround_btrfs_b292212788` to work around this issue
+temporarily.
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.

@@ -368,6 +368,23 @@ bool_flag(
     visibility = ["//build/kernel:__pkg__"],
 )
 
+# Default is false.
+# If true, workaround known issues when building on btrfs, sacrificing
+# hermeticity.
+# For details: b/292212788, or
+#   https://bugzilla.kernel.org/show_bug.cgi?id=217681
+bool_flag(
+    name = "workaround_btrfs_b292212788",
+    build_setting_default = False,
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "workaround_btrfs_b292212788_is_true",
+    flag_values = {":workaround_btrfs_b292212788": "1"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
 # Debug options
 
 # Flag to control whether enable debug features in the kernel

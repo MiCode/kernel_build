@@ -64,7 +64,6 @@ _HERMETIC_TOOLS = [
     "build-tools/path/linux-x86/env",
     "build-tools/path/linux-x86/expr",
     "build-tools/path/linux-x86/fec",
-    "build-tools/path/linux-x86/find",
     "build-tools/path/linux-x86/flex",
     "build-tools/path/linux-x86/getconf",
     "build-tools/path/linux-x86/grep",
@@ -299,6 +298,13 @@ hermetic_tools(
             ":hermetic_tools_toybox_flock_alias": "flock",
         },
         "//conditions:default": {},
+    }) | select({
+        "//build/kernel/kleaf:workaround_btrfs_b292212788_is_true": {
+            "@kleaf_host_tools//:find": "find",
+        },
+        "//conditions:default": {
+            "build-tools/path/linux-x86/find": "find",
+        },
     }) | {
         "//prebuilts/build-tools:linux-x86/bin/toybox": ":".join(_ADDITIONAL_TOYS),
 

@@ -69,6 +69,9 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         io_bazel_stardoc = True,
     )
 
+    # Superset of all tools we need from host.
+    # For the subset of host tools we typically use for a kernel build,
+    # see //build/kernel:hermetic-tools.
     kleaf_host_tools_repo(
         name = "kleaf_host_tools",
         host_tools = [
@@ -76,6 +79,8 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
             "perl",
             "rsync",
             "sh",
+            # For BTRFS (b/292212788)
+            "find",
         ],
     )
 

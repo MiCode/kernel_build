@@ -166,3 +166,6 @@ e.g. to draw randomness from `/dev/urandom` to create key pairs for signing.
 
 Updating the ABI definition uses the host executables in order to use `git`.
 
+If `--workaround_btrfs_b292212788` is set, `find` comes from the host machine.
+[See internal bug b/292212788](http://b/292212788), or
+[Bug 217681 - gen_kheaders.sh gets stuck in an infinite loop](https://bugzilla.kernel.org/show_bug.cgi?id=217681)

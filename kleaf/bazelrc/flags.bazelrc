@@ -23,6 +23,7 @@ build --flag_alias=incompatible_disable_hermetic_tools_info=//build/kernel/kleaf
 build --flag_alias=noincompatible_disable_hermetic_tools_info=no//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info
 build --flag_alias=incompatible_disable_hermetic_tools_symlink_source=//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source
 build --flag_alias=noincompatible_disable_hermetic_tools_symlink_source=no//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source
+build --flag_alias=workaround_btrfs_b292212788=//build/kernel/kleaf:workaround_btrfs_b292212788
 
 # flags that control kleaf integrity checking
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers
