@@ -71,7 +71,8 @@ def _log_command(args):
 
 
 def _find_checkpatch_targets(path: pathlib.Path) -> list[str]:
-    if not (path / "BUILD.bazel").is_file() and not (path / "BUILD").is_file():
+    if not _resolve_against_workspace_root(path / "BUILD.bazel").is_file() and \
+        not _resolve_against_workspace_root(path / "BUILD").is_file():
         logging.info("//%s is not a package; no BUILD file is found", path)
         return []
 
