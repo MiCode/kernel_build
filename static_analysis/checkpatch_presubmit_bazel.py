@@ -71,6 +71,10 @@ def _log_command(args):
 
 
 def _find_checkpatch_targets(path: pathlib.Path) -> list[str]:
+    if not (path / "BUILD.bazel").is_file() and not (path / "BUILD").is_file():
+        logging.info("//%s is not a package; no BUILD file is found", path)
+        return []
+
     args = [_BAZEL, "query"]
     args += _SILENT_ARGS
     args.append(f'kind("^checkpatch rule$", //{path}:all)')
