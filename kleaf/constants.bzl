@@ -127,9 +127,12 @@ GKI_DOWNLOAD_CONFIGS = [
 # Key: Bazel target name in common_kernels.bzl
 # repo_name: name of download_artifacts_repo in bazel.WORKSPACE
 # outs: list of outs associated with that target name
+# arch: Architecture associated with this mapping.
 CI_TARGET_MAPPING = {
     # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
     "kernel_aarch64": {
+        "arch": "arm64",
+        # TODO: Rename this when more architectures are added.
         "repo_name": "gki_prebuilts",
         "outs": DEFAULT_GKI_OUTS + [
             "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
