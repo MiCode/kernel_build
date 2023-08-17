@@ -189,7 +189,11 @@ echo "========================================================" >> "${MY_RESULTS
 # unconditionally.
 
 set +e
-"${CHECKPATCH_PL_PATH}" ${CHECKPATCH_ARGS[*]} $PATCH_FILE >> "${MY_RESULTS_PATH}"
+(
+  # checkpatch.pl only looks up git from PATH.
+  export PATH=$PATH:$(dirname "${GIT}")
+  "${CHECKPATCH_PL_PATH}" ${CHECKPATCH_ARGS[*]} $PATCH_FILE >> "${MY_RESULTS_PATH}"
+)
 CHECKPATCH_RC=$?
 set -e
 
