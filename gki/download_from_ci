@@ -258,7 +258,7 @@ def get_abi_definition(target, output_dir):
   files = list_artifacts(url_base)
 
   # Only download relevant ABI files.
-  files_to_fetch = [x for x in files if x.startswith(("abi"))]
+  files_to_fetch = [x for x in files if x.startswith("abi") and not "abi_stgdiff" in x]
   func = functools.partial(download, url_base, output_dir)
   _pool.map(func, files_to_fetch)
 
