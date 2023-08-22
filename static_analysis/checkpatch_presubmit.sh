@@ -20,6 +20,10 @@
 
 set -e
 
+echo "WARNING: $0 is deprecated. " >&2
+echo "  Please see build/kernel/kleaf/docs/checkpatch.md to migrate to Kleaf." >&2
+sleep 3
+
 export STATIC_ANALYSIS_SRC_DIR=$(dirname $(readlink -f $0))
 
 source ${STATIC_ANALYSIS_SRC_DIR}/../_setup_env.sh
