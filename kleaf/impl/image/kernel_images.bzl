@@ -45,6 +45,7 @@ def kernel_images(
         modules_options = None,
         vendor_ramdisk_binaries = None,
         system_dlkm_fs_type = None,
+        system_dlkm_fs_types = None,
         system_dlkm_modules_list = None,
         system_dlkm_modules_blocklist = None,
         system_dlkm_props = None,
@@ -193,7 +194,15 @@ def kernel_images(
           ```
 
           This corresponds to `MODULES_OPTIONS` in `build.config` for `build.sh`.
-        system_dlkm_fs_type: Supported filesystems for `system_dlkm.img` are `ext4` and `erofs`. Defaults to `ext4` if not specified.
+        system_dlkm_fs_type: Deprecated. Use `system_dlkm_fs_types` instead.
+
+            Supported filesystems for `system_dlkm` image are `ext4` and `erofs`.
+            Defaults to `ext4` if not specified.
+        system_dlkm_fs_types: List of file systems type for `system_dlkm` images.
+
+            Supported filesystems for `system_dlkm` image are `ext4` and `erofs`.
+            If not specified, builds `system_dlkm.img` with ext4 else builds
+            `system_dlkm.<fs>.img` for each file system type in the list.
         system_dlkm_modules_list: location of an optional file
           containing the list of kernel modules which shall be copied into a
           system_dlkm partition image.
@@ -356,9 +365,6 @@ def kernel_images(
         all_rules.append(":{}_initramfs".format(name))
 
     if build_system_dlkm:
-        if system_dlkm_fs_type == None:
-            system_dlkm_fs_type = "ext4"
-
         system_dlkm_image(
             name = "{}_system_dlkm_image".format(name),
             # For GKI system_dlkm
@@ -369,6 +375,7 @@ def kernel_images(
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
             system_dlkm_fs_type = system_dlkm_fs_type,
+            system_dlkm_fs_types = system_dlkm_fs_types,
             system_dlkm_modules_list = system_dlkm_modules_list,
             system_dlkm_modules_blocklist = system_dlkm_modules_blocklist,
             system_dlkm_props = system_dlkm_props,
