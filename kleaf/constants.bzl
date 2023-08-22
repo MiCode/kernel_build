@@ -22,7 +22,7 @@ load(
     "GKI_ARTIFACTS_AARCH64_OUTS",
     "MODULES_STAGING_ARCHIVE",
     "MODULE_OUTS_FILE_SUFFIX",
-    "SYSTEM_DLKM_OUTS",
+    "SYSTEM_DLKM_COMMON_OUTS",
     "TOOLCHAIN_VERSION_FILENAME",
 )
 
@@ -70,7 +70,8 @@ GKI_DOWNLOAD_CONFIGS = [
     },
     {
         "target_suffix": "images",
-        "outs": SYSTEM_DLKM_OUTS,
+        # TODO(b/297934577): Update GKI prebuilts to download system_dlkm.<fs>.img
+        "outs": SYSTEM_DLKM_COMMON_OUTS,
     },
     {
         "target_suffix": "toolchain_version",
