@@ -60,6 +60,15 @@ def _create_check_defconfig_cmd(label, defconfig_fragments_paths_expr):
                 for config in ${{configs}}; do
                     defconfig_value=$(grep -w -e "${{config}}" ${{defconfig_path}})
                     actual_value=$(grep -w -e "${{config}}" ${{OUT_DIR}}/.config || true)
+
+                    config_not_set_regexp='^# CONFIG_[A-Z_]+ is not set$'
+                    if [[ "${{defconfig_value}}" =~ ${{config_not_set_regexp}} ]]; then
+                        defconfig_value=""
+                    fi
+                    if [[ "${{actual_value}}" =~ ${{config_not_set_regexp}} ]]; then
+                        actual_value=""
+                    fi
+
                     if [[ "${{defconfig_value}}" != "${{actual_value}}" ]] ; then
                         msg="${{msg}}
     ${{config}}: actual '${{actual_value}}', expected '${{defconfig_value}}' from ${{defconfig_path}}."
