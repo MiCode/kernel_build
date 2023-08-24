@@ -348,11 +348,12 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# Default is true.
 # Use the resolved toolchains for building kernel_* rules.
 # See https://bazel.build/extending/toolchains for how toolchains are resolved.
 bool_flag(
     name = "incompatible_kernel_use_resolved_toolchains",
-    build_setting_default = False,
+    build_setting_default = True,
     visibility = ["//visibility:public"],
 )
 
