@@ -124,7 +124,8 @@ class Exec(object):
         kwargs.setdefault("text", True)
         sys.stderr.write(f"+ {' '.join(args)}\n")
         return subprocess.run(
-            args, check = False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout
+            args, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout
+
 
 class KleafIntegrationTestBase(unittest.TestCase):
 
@@ -282,23 +283,25 @@ class KleafIntegrationTestAbiTest(KleafIntegrationTestBase):
         """
 
         if not arguments.include_abi_tests:
-          self.skipTest("--include-abi-tests is not set.")
+            self.skipTest("--include-abi-tests is not set.")
 
         # Select an arbitrary driver and unexport a symbols.
         self.driver_file = f"{self._common()}/drivers/i2c/i2c-core-base.c"
         self.restore_file_after_test(self.driver_file)
         self.replace_lines(self.driver_file,
-                           lambda x: re.search("EXPORT_SYMBOL_GPL\(i2c_adapter_type\);", x),
+                           lambda x: re.search(
+                               "EXPORT_SYMBOL_GPL\(i2c_adapter_type\);", x),
                            [""])
 
         # Check for errors in the logs.
-        output = self._check_errors("build", [f"//{self._common()}:db845c", "--config=fast"])
+        output = self._check_errors(
+            "build", [f"//{self._common()}:db845c", "--config=fast"])
 
         def matching_line(line): return re.match(
-             r"^ERROR: modpost: \"i2c_adapter_type\" \[.*\] undefined!$",
-             line)
+            r"^ERROR: modpost: \"i2c_adapter_type\" \[.*\] undefined!$",
+            line)
         self.assertTrue(
-             any([matching_line(line) for line in output.splitlines()]))
+            any([matching_line(line) for line in output.splitlines()]))
 
 
 # Slow integration tests belong to their own shard.
@@ -345,6 +348,8 @@ class KleafIntegrationTestShard2(KleafIntegrationTestBase):
 # Quick integration tests. Each test case should finish within 1 minute.
 # The whole test suite should finish within 5 minutes. If the whole test suite
 # takes too long, consider sharding QuickIntegrationTest too.
+
+
 class QuickIntegrationTest(KleafIntegrationTestBase):
 
     def test_change_to_core_kernel_does_not_affect_modules_prepare(self):
