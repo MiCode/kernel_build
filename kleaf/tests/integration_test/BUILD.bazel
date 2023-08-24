@@ -50,21 +50,11 @@ write_flag(
 # bazel commands accordingly.
 # buildifier: disable=no-effect
 """
-(
-    set -e
     RAW_TEST_OUTPUT_DIR=$(mktemp -d)
-    trap "rm -rf $RAW_TEST_OUTPUT_DIR" EXIT
-    (
-        (
-            set +e
-            tools/bazel run //build/kernel/kleaf/tests/integration_test \
-                -- --xml_output_file=$RAW_TEST_OUTPUT_DIR/output.xml
-            echo $? > $RAW_TEST_OUTPUT_DIR/exitcode.txt
-        ) | tee $RAW_TEST_OUTPUT_DIR/stdout.txt
-    ) 3>&1 1>&2 2>&3 | tee $RAW_TEST_OUTPUT_DIR/stderr.txt
+    tools/bazel run //build/kernel/kleaf/tests/integration_test \
+        -- --test_result_dir=$RAW_TEST_OUTPUT_DIR
     tools/bazel test //build/kernel/kleaf/tests/integration_test:reporter \
         --//build/kernel/kleaf/tests/integration_test:raw_test_result_dir=$RAW_TEST_OUTPUT_DIR
-)
 """
 
 py_test(

@@ -36,6 +36,7 @@ Example:
 """
 
 import argparse
+import contextlib
 import hashlib
 import os
 import re
@@ -47,7 +48,7 @@ import pathlib
 import tempfile
 import textwrap
 import unittest
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable, TextIO
 
 from absl.testing import absltest
 from build.kernel.kleaf.analysis.inputs import analyze_inputs
@@ -84,10 +85,24 @@ def load_arguments():
                         dest="include_abi_tests",
                         help="Include ABI Monitoring related tests." +
                         "NOTE: It requires a branch with ABI monitoring enabled.")
+    group = parser.add_argument_group("CI", "flags for ci.android.com")
+    group.add_argument("--test_result_dir",
+                       type=_require_absolute_path,
+                       help="""Directory to store test results to be used in :reporter.
+
+                            If set, this script always has exit code 0.
+                       """)
     return parser.parse_known_args()
 
 
 arguments = None
+
+
+def _require_absolute_path(p: str) -> pathlib.Path:
+    path = pathlib.Path(p)
+    if not path.is_absolute():
+        raise ValueError(f"{p} is not absolute")
+    return path
 
 
 class Exec(object):
@@ -733,7 +748,70 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
 
+# Class that mimics tee(1)
+class Tee(object):
+    def __init__(self, stream: TextIO, path: pathlib.Path):
+        self._stream = stream
+        self._path = path
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
+
+    def write(self, *args, **kwargs) -> int:
+        # Ignore short write to console
+        self._stream.write(*args, **kwargs)
+        return self._file.write(*args, **kwargs)
+
+    def __enter__(self) -> "Tee":
+        self._file = open(self._path, "w")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._file.close()
+
+
+def _get_exit_code(exc: SystemExit):
+    if exc.code is None:
+        return 0
+    # absltest calls sys.exit() with a boolean value.
+    if type(exc.code) == bool:
+        return int(exc.code)
+    if type(exc.code) == int:
+        return exc.code
+    print(
+        f"ERROR: Unknown exit code: {e.code}, exiting with code 1",
+        file=sys.stderr)
+    return 1
+
+
 if __name__ == "__main__":
     arguments, unknown = load_arguments()
+
+    if not arguments.test_result_dir:
+        sys.argv[1:] = unknown
+        absltest.main()
+        sys.exit(0)
+
+    # If --test_result_dir is set, also set --xml_output_file for :reporter.
+    unknown += [
+        "--xml_output_file",
+        str(arguments.test_result_dir / "output.xml")
+    ]
     sys.argv[1:] = unknown
-    absltest.main()
+
+    os.makedirs(arguments.test_result_dir, exist_ok=True)
+    stdout_path = arguments.test_result_dir / "stdout.txt"
+    stderr_path = arguments.test_result_dir / "stderr.txt"
+    with Tee(sys.__stdout__, stdout_path) as stdout_tee, \
+            Tee(sys.__stderr__, stderr_path) as stderr_tee, \
+            contextlib.redirect_stdout(stdout_tee), \
+            contextlib.redirect_stderr(stderr_tee):
+        try:
+            absltest.main()
+            exit_code = 0
+        except SystemExit as e:
+            exit_code = _get_exit_code(e)
+
+    exit_code_path = arguments.test_result_dir / "exitcode.txt"
+    with open(exit_code_path, "w") as exit_code_file:
+        exit_code_file.write(f"{exit_code}\n")
