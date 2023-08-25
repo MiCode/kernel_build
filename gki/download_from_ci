@@ -472,13 +472,21 @@ def update_android_mainline_cf(gitlog, output_dir):
   download_kernel("kernel_virt_riscv64", "mainline", riscv64_cf_dir)
   download_kernel_modules("kernel_virt_riscv64", riscv64_cf_dir)
 
+  riscv64_cf_system_dlkm_dir = os.path.join(riscv64_cf_dir, "system_dlkm")
+  download_kernel_modules("kernel_riscv64", riscv64_cf_system_dlkm_dir)
+
   commit_prebuilts(cf_dir, gitlog)
 
 def update_android_mainline(output_dir):
   arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", "mainline",
                            "arm64")
   arm64_kernel = os.path.join(arm64_dir, "kernel-mainline-allsyms")
-  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  # Although we don't update the x86_64 kernel, we use it's path to compute the
+  # binary kernel version, as the version parser only supports x86 images.
+  x86_64_kernel = os.path.join(output_dir, "kernel", "prebuilts", "mainline",
+                               "x86_64", "kernel-mainline-allsyms")
+  (old_version, old_sha) = get_binary_kernel_version(x86_64_kernel)
 
   subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
   download_kernel("kernel_debug_aarch64", "mainline", arm64_dir, fetch_system_dlkm=True)
@@ -486,7 +494,7 @@ def update_android_mainline(output_dir):
   write_prebuilt_info(arm64_dir)
   get_abi_definition("kernel_abi_aarch64", arm64_dir)
 
-  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+  (new_version, new_sha) = get_binary_kernel_version(x86_64_kernel)
 
   gitlog = get_git_log(old_sha, new_sha)
   commit_prebuilts(arm64_dir, gitlog)
