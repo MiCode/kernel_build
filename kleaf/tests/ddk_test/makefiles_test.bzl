@@ -253,6 +253,31 @@ def _create_makefiles_artifact_test(
     )
     tests.append(name + "_makefile_test")
 
+    # License header tests.
+    write_file(
+        name = name + "_kbuild_license_header",
+        out = name + "_expected_license/Kbuild",
+        content = ["# SPDX-License-Identifier: GPL-2.0"],
+    )
+    contain_lines_test(
+        name = name + "_kbuild_license_test",
+        expected = name + "_kbuild_license_header",
+        actual = name + "_kbuild",
+    )
+    tests.append(name + "_kbuild_license_test")
+    if top_level_makefile:
+        write_file(
+            name = name + "_makefile_license_header",
+            out = name + "_expected_license/Makefile",
+            content = ["# SPDX-License-Identifier: GPL-2.0"],
+        )
+        contain_lines_test(
+            name = name + "_makefile_license_test",
+            expected = name + "_makefile_license_header",
+            actual = name + "_makefile",
+        )
+        tests.append(name + "_makefile_license_test")
+
     if expected_cflags_lines:
         # Assume no submodules. For submodules, out == None
         cflags_file_name = out.removesuffix(".ko") + ".cflags"
