@@ -270,14 +270,39 @@ for EXT_MOD in ${EXT_MODULES}; do
     fi
   done
 
+  if [ "$TARGET_BOARD_PLATFORM" = "msmnile" ]; then
+     btgt="gen3auto"
+  elif [ "$TARGET_BOARD_PLATFORM" = "sm6150" ]; then
+     btgt="sdmsteppeauto"
+  else
+     btgt="$TARGET_BOARD_PLATFORM"
+  fi
+
+  filter_regex="${btgt/_/-}_${VARIANT/_/-}_${SUBTARGET_REGEX:-.*}_dist$"
+
   # Query for a target that matches the pattern for module distribution
   if [ "$ENABLE_DDK_BUILD" = "true" ] \
      && [ -n "$pkg_path" ] \
-     && [ -n "$TARGET_BOARD_PLATFORM" ] \
+     && [ -n "$btgt" ] \
      && build_target=$(./tools/bazel query --ui_event_filters=-info --noshow_progress \
-          "filter('${TARGET_BOARD_PLATFORM/_/-}_${VARIANT/_/-}_.*_dist$', //${pkg_path}/...)") \
+          "filter('${filter_regex}', //${pkg_path}/...)") \
      && [ -n "$build_target" ]
   then
+    if [ "$(printf "%s\n" "$build_target" | wc -l)" -gt 1 ]; then
+      printf "error - multiple targets found matching \"%s\":\n%s\n" \
+        "$filter_regex" "$build_target"
+      exit 1
+    fi
+
+    # Make sure Bazel extensions are linked properly
+    if [ ! -f "build/msm_kernel_extensions.bzl" ] \
+          && [ -f "msm-kernel/msm_kernel_extensions.bzl" ]; then
+      ln -fs "../msm-kernel/msm_kernel_extensions.bzl" "build/msm_kernel_extensions.bzl"
+    fi
+    if [ ! -f "build/abl_extensions.bzl" ] \
+          && [ -f "bootable/bootloader/edk2/abl_extensions.bzl" ]; then
+      ln -fs "../bootable/bootloader/edk2/abl_extensions.bzl" "build/abl_extensions.bzl"
+    fi
 
     build_flags=($(cat "${KERNEL_KIT}/build_opts.txt" | xargs))
 
@@ -287,14 +312,7 @@ for EXT_MOD in ${EXT_MODULES}; do
 
     # Run the dist command passing in the output directory from Android build system
     ./tools/bazel run "${build_flags[@]}" "$build_target" \
-      -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}" && ret="$?" || ret="$?"
-
-    # Modify the output directory's permissions so cleanup can occur later
-    find out/bazel -type d -exec chmod 0775 {} +
-
-    if [ "$ret" -ne 0 ]; then
-      exit "$ret"
-    fi
+      -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}"
 
     # The Module.symvers file is named "<target>_<variant>_Modules.symvers, but other modules are
     # looking for just "Module.symvers". Concatenate any of them into one Module.symvers file.
