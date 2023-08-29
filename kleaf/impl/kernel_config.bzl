@@ -123,8 +123,6 @@ def _config_gcov(ctx):
         # TODO(b/291710318) Allow section mismatch when using GCOV_PROFILE_ALL
         #  modpost: vmlinux.o: section mismatch in reference: cpumask_andnot (section: .text) -> efi_systab_phys (section: .init.data)
         _config.enable("SECTION_MISMATCH_WARN_ONLY"),
-        # TODO: Re-enable when https://github.com/ClangBuiltLinux/linux/issues/1778 is fixed.
-        _config.disable("CFI_CLANG"),
     ]
     return struct(configs = configs, deps = [])
 
