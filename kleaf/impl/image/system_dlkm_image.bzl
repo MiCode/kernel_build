@@ -18,14 +18,14 @@ Build system_dlkm image for GKI modules.
 load("//build/kernel/kleaf/impl:constants.bzl", "SYSTEM_DLKM_OUTS")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
+    ":common_providers.bzl",
+    "KernelModuleInfo",
+)
+load(
     ":image/image_utils.bzl",
     "image_utils",
     _MODULES_LOAD_NAME = "SYSTEM_DLKM_MODULES_LOAD_NAME",
     _STAGING_ARCHIVE_NAME = "SYSTEM_DLKM_STAGING_ARCHIVE_NAME",
-)
-load(
-    ":common_providers.bzl",
-    "KernelModuleInfo",
 )
 
 visibility("//build/kernel/kleaf/...")
