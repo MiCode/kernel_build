@@ -141,6 +141,7 @@ def _conditional_srcs_test(
         name = name + "_kbuild",
         filename = "Kbuild",
         target = name + "_module_makefiles",
+        tags = ["manual"],
     )
 
     write_file(
@@ -166,6 +167,7 @@ def ddk_module_test_suite(name):
 
     Args:
         name: name of the test suite."""
+
     kernel_build(
         name = name + "_kernel_build",
         build_config = "build.config.fake",

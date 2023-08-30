@@ -18,5 +18,6 @@ ddk_submodule(
     name = "ddk_test_submodule_cross_package_test_ddk_submodule",
     srcs = [],
     out = "ddk_test_submodule_cross_package_test_ddk_submodule.ko",
+    tags = ["manual"],
     visibility = ["//build/kernel/kleaf/tests/ddk_test:__pkg__"],
 )

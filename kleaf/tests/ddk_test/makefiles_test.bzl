@@ -223,6 +223,7 @@ def _create_makefiles_artifact_test(
         name = name + "_kbuild",
         filename = "Kbuild",
         target = name + "_module_makefiles",
+        tags = ["manual"],
     )
 
     contain_lines_test(
@@ -243,6 +244,7 @@ def _create_makefiles_artifact_test(
         name = name + "_makefile",
         filename = "Makefile",
         target = name + "_module_makefiles",
+        tags = ["manual"],
     )
 
     contain_lines_test(
@@ -726,24 +728,28 @@ def makefiles_test_suite(name):
         name = name + "_self_headers",
         hdrs = ["self.h"],
         includes = ["."],
+        tags = ["manual"],
     )
 
     ddk_headers(
         name = name + "_include_headers",
         hdrs = ["include/subdir.h"],
         includes = ["include"],
+        tags = ["manual"],
     )
 
     ddk_headers(
         name = name + "_base_headers",
         hdrs = ["include/base/base.h"],
         includes = ["include/base"],
+        tags = ["manual"],
     )
 
     ddk_headers(
         name = name + "_foo_headers",
         hdrs = ["foo.h"],
         includes = ["include/foo"],
+        tags = ["manual"],
     )
 
     _makefiles_test_make(
