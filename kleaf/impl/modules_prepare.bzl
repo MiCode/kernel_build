@@ -15,12 +15,12 @@
 """Runs `make modules_prepare` to prepare `$OUT_DIR` for modules."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
 )
-load(":cache_dir.bzl", "cache_dir")
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":utils.bzl", "kernel_utils")

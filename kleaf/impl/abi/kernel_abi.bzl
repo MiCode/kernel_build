@@ -14,16 +14,16 @@
 
 """Rules to enable ABI monitoring."""
 
-load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
-load(":abi/abi_stgdiff.bzl", "stgdiff")
+load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
 load(":abi/abi_dump.bzl", "abi_dump")
-load(":abi/extracted_symbols.bzl", "extracted_symbols")
-load(":abi/abi_update.bzl", "abi_update")
-load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
-load(":abi/protected_exports.bzl", "protected_exports")
-load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
+load(":abi/abi_stgdiff.bzl", "stgdiff")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
+load(":abi/abi_update.bzl", "abi_update")
+load(":abi/extracted_symbols.bzl", "extracted_symbols")
+load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
+load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
+load(":abi/protected_exports.bzl", "protected_exports")
 load(":common_providers.bzl", "KernelBuildAbiInfo")
 load(":hermetic_exec.bzl", "hermetic_exec")
 load(":kernel_build.bzl", "kernel_build")

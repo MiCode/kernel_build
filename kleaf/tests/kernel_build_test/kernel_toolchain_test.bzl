@@ -14,8 +14,8 @@
 
 """Tests kernel_build.toolchain_version."""
 
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
     "MODULES_STAGING_ARCHIVE",

@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("//build/kernel/kleaf/impl:android_filegroup.bzl", "android_filegroup")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
+load("//build/kernel/kleaf/impl:android_filegroup.bzl", "android_filegroup")
 
 _LINUX_X86_64 = [
     "@platforms//os:linux",

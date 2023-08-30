@@ -14,10 +14,10 @@
 
 """Rules for defining a DDK (Driver Development Kit) module."""
 
-load(":kernel_module.bzl", "kernel_module")
-load(":ddk/makefiles.bzl", "makefiles")
 load(":ddk/ddk_conditional_filegroup.bzl", "flatten_conditional_srcs")
 load(":ddk/ddk_config.bzl", "ddk_config")
+load(":ddk/makefiles.bzl", "makefiles")
+load(":kernel_module.bzl", "kernel_module")
 
 visibility("//build/kernel/kleaf/...")
 

@@ -16,8 +16,8 @@
 
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/bazel_common_rules/exec:exec.bzl", "exec_rule")
-load(":hermetic_exec.bzl", "hermetic_exec", "hermetic_exec_target")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
+load(":hermetic_exec.bzl", "hermetic_exec", "hermetic_exec_target")
 
 visibility("//build/kernel/kleaf/...")
 

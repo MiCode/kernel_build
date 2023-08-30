@@ -16,7 +16,6 @@ Build vendor_dlkm.img for vendor modules.
 """
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
-load(":utils.bzl", "utils")
 load(
     ":image/image_utils.bzl",
     "SYSTEM_DLKM_MODULES_LOAD_NAME",
@@ -24,6 +23,7 @@ load(
     "VENDOR_DLKM_STAGING_ARCHIVE_NAME",
     "image_utils",
 )
+load(":utils.bzl", "utils")
 
 visibility("//build/kernel/kleaf/...")
 

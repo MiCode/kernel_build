@@ -15,11 +15,11 @@
 """This test checks that device targets contains proper modules."""
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelModuleInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
 load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
+load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 
 visibility("//build/kernel/kleaf/...")
 

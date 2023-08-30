@@ -15,8 +15,8 @@
 """Test that, if a flag is specified, and --lto is not none or unspecified, fail."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf:constants.bzl", "LTO_VALUES")
+load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 
 def _lto_test_impl_common(ctx):
     env = analysistest.begin(ctx)

@@ -15,8 +15,8 @@
 """Create a build.config file by concatenating build config fragments."""
 
 load(":common_providers.bzl", "KernelBuildConfigInfo")
-load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":debug.bzl", "debug")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
 

@@ -16,12 +16,12 @@
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 load(
     ":common_providers.bzl",
     "KernelEnvToolchainsInfo",
     "KernelPlatformToolchainInfo",
 )
-load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 
 visibility("//build/kernel/kleaf/...")
 

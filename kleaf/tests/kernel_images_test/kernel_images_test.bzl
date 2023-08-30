@@ -17,8 +17,8 @@
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/kernel/kleaf/impl:image/kernel_images.bzl", "kernel_images")
 load("//build/kernel/kleaf:kernel.bzl", "kernel_build", "kernel_modules_install")
+load("//build/kernel/kleaf/impl:image/kernel_images.bzl", "kernel_images")
 load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 
 # Check effect of ramdisk_options -- compress format and arguments.

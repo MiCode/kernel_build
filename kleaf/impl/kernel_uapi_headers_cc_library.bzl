@@ -1,7 +1,7 @@
 """Rules for defining a native cc_library based on a kernel's UAPI headers."""
 
-load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo")
+load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
 
