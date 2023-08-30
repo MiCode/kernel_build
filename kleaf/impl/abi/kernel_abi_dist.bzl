@@ -57,7 +57,7 @@ def kernel_abi_dist(
       kernel_build_add_vmlinux: If `True`, all `kernel_build` targets depended
         on by this change automatically applies a
         [transition](https://bazel.build/extending/config#user-defined-transitions)
-        that always builds `vmlinux` and sets `kbuild_symtypes="true"`. For
+        that always builds `vmlinux`. For
         up-to-date implementation details, look for `with_vmlinux_transition`
         in `build/kernel/kleaf/impl/abi`.
 
