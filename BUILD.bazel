@@ -408,6 +408,7 @@ py_binary(
 py_library(
     name = "symbol_extraction",
     srcs = ["abi/symbol_extraction.py"],
+    imports = ["abi"],
     visibility = ["//visibility:private"],
 )
 

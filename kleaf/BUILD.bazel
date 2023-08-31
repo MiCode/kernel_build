@@ -673,6 +673,7 @@ filegroup(
 py_library(
     name = "buildozer_command_builder",
     srcs = ["buildozer_command_builder.py"],
+    imports = ["."],
     srcs_version = "PY3",
     visibility = ["//build/kernel/kleaf:__subpackages__"],
 )
@@ -768,6 +769,7 @@ empty_test(
 py_test(
     name = "check_declared_output_list_test",
     srcs = ["check_declared_output_list_test.py"],
+    imports = ["."],
     python_version = "PY3",
     deps = [
         ":check_declared_output_list",

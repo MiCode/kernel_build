@@ -340,6 +340,7 @@ py_test(
     name = "get_kmi_string_test",
     timeout = "short",
     srcs = ["get_kmi_string_test.py"],
+    imports = ["."],
     main = "get_kmi_string_test.py",
     deps = [
         ":get_kmi_string",
