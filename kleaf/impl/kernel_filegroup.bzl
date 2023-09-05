@@ -315,6 +315,7 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "module_outs_file": attr.label(
             allow_single_file = True,
             doc = """A file containing `module_outs` of the original [`kernel_build`](#kernel_build) target.""",
+            mandatory = True,
         ),
         "images": attr.label(
             allow_files = True,
@@ -323,7 +324,9 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "protected_modules_list": attr.label(allow_files = True),
         "gki_artifacts": attr.label(
             allow_files = True,
-            doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.""",
+            doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.
+            The `gki-info.txt` file should be part of that list.""",
+            mandatory = True,
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_cache_dir_config_tags": attr.label(
