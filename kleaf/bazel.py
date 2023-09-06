@@ -186,7 +186,7 @@ class BazelWrapper(object):
         group.add_argument(
             "--use_prebuilt_gki",
             metavar="BUILD_NUMBER",
-            help="Use prebuilt GKI downloaded from ci.android.com")
+            help="Use prebuilt GKI downloaded from ci.android.com or a custom download location.")
         group.add_argument(
             "--experimental_strip_sandbox_path",
             action="store_true",

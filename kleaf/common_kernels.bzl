@@ -270,7 +270,7 @@ def define_common_kernels(
     **Prebuilts**
 
     You may set the argument `--use_prebuilt_gki` to a GKI prebuilt build number
-    on [ci.android.com](http://ci.android.com). The format is:
+    on [ci.android.com](http://ci.android.com) or your custom CI host. The format is:
 
     ```
     bazel <command> --use_prebuilt_gki=<build_number> <targets>
@@ -288,7 +288,7 @@ def define_common_kernels(
 
     `<name>_download_or_build` targets builds `<name>` from source if the `use_prebuilt_gki`
     is not set, and downloads artifacts of the build number from
-    [ci.android.com](http://ci.android.com) if it is set. The build number is spe
+    [ci.android.com](http://ci.android.com) (or your custom CI host) if it is set.
 
     - `kernel_aarch64_download_or_build`
       - `kernel_aarch64_additional_artifacts_download_or_build`

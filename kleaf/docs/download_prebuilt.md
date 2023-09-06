@@ -85,3 +85,21 @@ To resolve this, try using the latest build ID from the branch.
 If you are still unable to resolve the issue, you may:
 - contact [owners](../OWNERS) or [kernel-team@android.com](mailto:kernel-team@android.com)
 - contact your Technical Account Manager to file a bug
+
+### Using a custom CI host
+
+It is possible to specify a different endpoint to download prebuilt artifacts, by customizing the
+[workspace](https://bazel.build/concepts/build-ref#workspace) setup similar to what is done for
+[kleaf-docs branch](https://android.googlesource.com/kernel/manifest/+/5ea7995b7c75cb30f42224b0273a1516627075c6/default.xml#10).
+
+  * Provide a correct value for `artifact_url_fmt`.
+  ```shell
+  ...
+  load("//build/kernel/kleaf:workspace.bzl", "define_kleaf_workspace")
+
+  define_kleaf_workspace(artifact_url_fmt = "https://ci.android.com/builds/submitted/{build_number}/{target}/latest/raw/{filename}")
+  ...
+  ```
+
+Note: The format may include anchors for the following properties: build_number, target, filename.
+

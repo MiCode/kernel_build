@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Instantiates a repository that downloads artifacts from http://ci.android.com."""
+"""Instantiates a repository that downloads artifacts from a given download location."""
 
 _BUILD_NUM_ENV_VAR = "KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"
 
@@ -134,7 +134,7 @@ def _download_from_build_number(repository_ctx, build_number):
     remote_filename = remote_filename.replace("/", "%2F")
 
     # Download the requested file
-    urls = [_ARTIFACT_URL_FMT.format(
+    urls = [repository_ctx.attr.artifact_url_fmt.format(
         build_number = build_number,
         target = repository_ctx.attr.target,
         filename = remote_filename,
@@ -177,20 +177,31 @@ _download_artifact_repo = repository_rule(
             doc = "Filename and target name used locally to refer to the file.",
         ),
         "remote_filename_fmt": attr.string(
-            doc = """Format string of the filename on [ci.android.com](http://ci.android.com).
+            doc = """Format string of the filename on the download location..
 
-            The filename on [ci.android.com](http://ci.android.com) is determined by
-            `remote_filename_fmt.format(...)`, with the following keys:
+            The filename is determined by `remote_filename_fmt.format(...)`, with the following keys:
 
             - `build_number`: the environment variable or the `build_number` attribute
             """,
         ),
-        "target": attr.string(doc = "Name of target on [ci.android.com](http://ci.android.com), e.g. `kernel_aarch64`"),
+        "target": attr.string(doc = "Name of target on the download location, e.g. `kernel_aarch64`"),
         "sha256": attr.string(
             default = "",
             doc = "checksum of the downloaded file",
         ),
         "allow_fail": attr.bool(),
+        "artifact_url_fmt": attr.string(
+            doc = """API endpoint for Android CI artifacts.
+
+            The format may include anchors for the following properties:
+                * {build_number}
+                * {target}
+                * {filename}
+
+            Its default value is the API endpoint for http://ci.android.com.
+            """,
+            default = _ARTIFACT_URL_FMT,
+        ),
     },
     environ = [
         _BUILD_NUM_ENV_VAR,
@@ -259,7 +270,8 @@ def download_artifacts_repo(
         target,
         files = None,
         optional_files = None,
-        build_number = None):
+        build_number = None,
+        artifact_url_fmt = None):
     """Create a [repository](https://docs.bazel.build/versions/main/build-ref.html#repositories) that contains artifacts downloaded from [ci.android.com](http://ci.android.com).
 
     For each item `file` in `files`, the label `@{name}//{file}` can refer to the downloaded file.
@@ -331,6 +343,11 @@ def download_artifacts_repo(
         optional_files: Same as `files`, but it is optional. If the file is not in the given
           build, it will not be downloaded, and the label (e.g. `@gki_prebuilts//abi_symbollist`)
           points to an empty filegroup.
+        artifact_url_fmt: API endpoint for Android CI artifacts.
+          The format may include anchors for the following properties:
+            * {build_number}
+            * {target}
+            * {filename}
     """
 
     files = _transform_files_arg(name, files)
@@ -350,6 +367,7 @@ def download_artifacts_repo(
                 sha256 = file_metadata.get("sha256"),
                 remote_filename_fmt = file_metadata.get("remote_filename_fmt", local_filename),
                 allow_fail = allow_fail,
+                artifact_url_fmt = artifact_url_fmt,
             )
 
     # Define a repo named @gki_prebuilts that contains aliases to individual files, e.g.

@@ -28,7 +28,7 @@ load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_re
 load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
 # buildifier: disable=unnamed-macro
-def define_kleaf_workspace(common_kernel_package = None, include_remote_java_tools_repo = False):
+def define_kleaf_workspace(common_kernel_package = None, include_remote_java_tools_repo = False, artifact_url_fmt = None):
     """Common macro for defining repositories in a Kleaf workspace.
 
     **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
@@ -49,6 +49,11 @@ def define_kleaf_workspace(common_kernel_package = None, include_remote_java_too
         repositories: remote_java_tools and remote_java_tools_linux.
 
         These respositories should exist under `//prebuilts/bazel/`
+      artifact_url_fmt: API endpoint for Android CI artifacts.
+        The format may include anchors for the following properties:
+          * {build_number}
+          * {target}
+          * {filename}
     """
     if common_kernel_package == None:
         common_kernel_package = "@//common"
@@ -120,6 +125,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
             files = gki_prebuilts_files,
             optional_files = gki_prebuilts_optional_files,
             target = target,
+            artifact_url_fmt = artifact_url_fmt,
         )
 
     # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
