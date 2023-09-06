@@ -345,38 +345,36 @@ function build_vendor_dlkm() {
 }
 
 function build_super() {
-  echo "========================================================"
-  echo " Creating super.img"
-
-  local super_props_file=$(mktemp)
+  local super_props_file="${DIST_DIR}/super_image.props"
   local dynamic_partitions=""
-  # Default to 256 MB
-  local super_image_size="$((${SUPER_IMAGE_SIZE:-268435456}))"
-  local group_size="$((${super_image_size} - 0x400000))"
-  echo -e "lpmake=lpmake" >> ${super_props_file}
-  echo -e "super_metadata_device=super" >> ${super_props_file}
-  echo -e "super_block_devices=super" >> ${super_props_file}
-  echo -e "super_super_device_size=${super_image_size}" >> ${super_props_file}
-  echo -e "super_partition_size=${super_image_size}" >> ${super_props_file}
-  echo -e "super_partition_groups=kb_dynamic_partitions" >> ${super_props_file}
-  echo -e "super_kb_dynamic_partitions_group_size=${group_size}" >> ${super_props_file}
+
+  if [ -z "$SUPER_IMAGE_SIZE" ]; then
+    echo "ERROR: SUPER_IMAGE_SIZE must be set" >&2
+    exit 1
+  fi
+  local group_size="$((SUPER_IMAGE_SIZE - 0x400000))"
+  cat << EOF >> "$super_props_file"
+lpmake=lpmake
+super_metadata_device=super
+super_block_devices=super
+super_super_device_size=${SUPER_IMAGE_SIZE}
+super_partition_size=${SUPER_IMAGE_SIZE}
+super_partition_groups=kb_dynamic_partitions
+super_kb_dynamic_partitions_group_size=${group_size}
+EOF
 
   for image in "${SUPER_IMAGE_CONTENTS[@]}"; do
     echo "  Adding ${image}"
     partition_name=$(basename -s .img "${image}")
     dynamic_partitions="${dynamic_partitions} ${partition_name}"
-    echo -e "${partition_name}_image=${image}" >> ${super_props_file}
+    echo -e "${partition_name}_image=${image}" >> "$super_props_file"
   done
 
-  echo -e "dynamic_partition_list=${dynamic_partitions}" >> ${super_props_file}
-  echo -e "super_kb_dynamic_partitions_partition_list=${dynamic_partitions}" >> ${super_props_file}
-  build_super_image -v ${super_props_file} ${DIST_DIR}/super.img
-  rm ${super_props_file}
+  echo -e "dynamic_partition_list=${dynamic_partitions}" >> "$super_props_file"
+  echo -e "super_kb_dynamic_partitions_partition_list=${dynamic_partitions}" >> "$super_props_file"
 
-  echo "super image created at ${DIST_DIR}/super.img"
-
-  simg2img ${DIST_DIR}/super.img ${DIST_DIR}/super_unsparsed.img
-  echo "Unsparsed super image created at ${DIST_DIR}/super_unsparsed.img"
+  build_super_image -v "$super_props_file" "${DIST_DIR}/super.img"
+  rm -f "$super_props_file"
 }
 
 function check_mkbootimg_path() {
