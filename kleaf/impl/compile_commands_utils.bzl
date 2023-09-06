@@ -52,6 +52,7 @@ def _kernel_build_step(ctx):
             rsync -a --prune-empty-dirs \\
                 --include '*/' \\
                 --include '*.c' \\
+                --include '*.S' \\
                 --include '*.h' \\
                 --exclude '*' ${{OUT_DIR}}/ {out_dir}/
             sed -e "s:${{OUT_DIR}}:\\${{OUT_DIR}}:g;s:${{ROOT_DIR}}:\\${{ROOT_DIR}}:g" \\
