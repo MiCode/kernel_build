@@ -343,6 +343,39 @@ function build_vendor_dlkm() {
   fi
 }
 
+function build_super() {
+  local super_props_file="${DIST_DIR}/super_image.props"
+  local dynamic_partitions=""
+
+  if [ -z "$SUPER_IMAGE_SIZE" ]; then
+    echo "ERROR: SUPER_IMAGE_SIZE must be set" >&2
+    exit 1
+  fi
+  local group_size="$((SUPER_IMAGE_SIZE - 0x400000))"
+  cat << EOF >> "$super_props_file"
+lpmake=lpmake
+super_metadata_device=super
+super_block_devices=super
+super_super_device_size=${SUPER_IMAGE_SIZE}
+super_partition_size=${SUPER_IMAGE_SIZE}
+super_partition_groups=kb_dynamic_partitions
+super_kb_dynamic_partitions_group_size=${group_size}
+EOF
+
+  for image in "${SUPER_IMAGE_CONTENTS[@]}"; do
+    echo "  Adding ${image}"
+    partition_name=$(basename -s .img "${image}")
+    dynamic_partitions="${dynamic_partitions} ${partition_name}"
+    echo -e "${partition_name}_image=${image}" >> "$super_props_file"
+  done
+
+  echo -e "dynamic_partition_list=${dynamic_partitions}" >> "$super_props_file"
+  echo -e "super_kb_dynamic_partitions_partition_list=${dynamic_partitions}" >> "$super_props_file"
+
+  build_super_image -v "$super_props_file" "${DIST_DIR}/super.img"
+  rm -f "$super_props_file"
+}
+
 function check_mkbootimg_path() {
   if [ -z "${MKBOOTIMG_PATH}" ]; then
     MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
