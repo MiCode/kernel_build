@@ -351,6 +351,7 @@ config_setting(
 # Default is true.
 # Use the resolved toolchains for building kernel_* rules.
 # See https://bazel.build/extending/toolchains for how toolchains are resolved.
+# Setting this to false will break the kernel build.
 bool_flag(
     name = "incompatible_kernel_use_resolved_toolchains",
     build_setting_default = True,
