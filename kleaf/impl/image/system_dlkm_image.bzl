@@ -19,6 +19,7 @@ load("//build/kernel/kleaf/impl:constants.bzl", "SYSTEM_DLKM_COMMON_OUTS")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load(
     ":common_providers.bzl",
+    "ImagesInfo",
     "KernelModuleInfo",
 )
 load(
@@ -151,14 +152,16 @@ def _system_dlkm_image_impl(ctx):
             system_dlkm_modules_blocklist = system_dlkm_modules_blocklist.path,
         )
 
+    outputs += [
+        system_dlkm_modules_load,
+        system_dlkm_staging_archive,
+        system_dlkm_modules_blocklist,
+    ]
+
     default_info = image_utils.build_modules_image_impl_common(
         ctx = ctx,
         what = "system_dlkm",
-        outputs = outputs + [
-            system_dlkm_modules_load,
-            system_dlkm_staging_archive,
-            system_dlkm_modules_blocklist,
-        ],
+        outputs = outputs,
         additional_inputs = additional_inputs,
         restore_modules_install = restore_modules_install,
         build_command = command,
@@ -172,7 +175,16 @@ def _system_dlkm_image_impl(ctx):
         what = "{}: Internal error: not producing the expected list of outputs".format(ctx.label),
     )
 
-    return [default_info]
+    images_info = ImagesInfo(files_dict = {
+        file.basename: depset([file])
+        for file in outputs
+        if file.extension == "img"
+    })
+
+    return [
+        default_info,
+        images_info,
+    ]
 
 system_dlkm_image = rule(
     implementation = _system_dlkm_image_impl,

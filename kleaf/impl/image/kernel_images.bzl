@@ -15,6 +15,10 @@
 Build multiple kernel images.
 """
 
+load(
+    ":common_providers.bzl",
+    "ImagesInfo",
+)
 load(":image/boot_images.bzl", "boot_images")
 load(":image/dtbo.bzl", "dtbo")
 load(":image/image_utils.bzl", "image_utils")
@@ -65,6 +69,33 @@ def kernel_images(
         dedup_dlkm_modules = None,
         **kwargs):
     """Build multiple kernel images.
+
+    You may use `filegroup.output_group` to request certain files. Example:
+
+    ```
+    kernel_images(
+        name = "my_images",
+        build_vendor_dlkm = True,
+    )
+    filegroup(
+        name = "my_vendor_dlkm",
+        srcs = [":my_images"],
+        output_group = "vendor_dlkm.img",
+    )
+    ```
+
+    Allowed strings in `filegroup.output_group`:
+    * `vendor_dlkm.img`, if `build_vendor_dlkm` is set
+    * `system_dlkm.img`, if `build_system_dlkm` and `system_dlkm_fs_type` is set
+    * `system_dlkm.<type>.img` for each of `system_dlkm_fs_types`, if
+        `build_system_dlkm` is set and `system_dlkm_fs_types` is not empty.
+
+    If no output files are found, the filegroup resolves to an empty one.
+    You may also read `OutputGroupInfo` on the `kernel_images` rule directly
+    in your rule implementation.
+
+    For details, see
+    [Requesting output files](https://bazel.build/extending/rules#requesting_output_files).
 
     Args:
         name: name of this rule, e.g. `kernel_images`,
@@ -447,8 +478,40 @@ def kernel_images(
         )
         all_rules.append(":{}_dtbo".format(name))
 
-    native.filegroup(
+    _kernel_images(
         name = name,
         srcs = all_rules,
         **kwargs
     )
+
+def _kernel_images_impl(ctx):
+    default_info = DefaultInfo(files = depset(transitive = [
+        target.files
+        for target in ctx.attr.srcs
+    ]))
+
+    # Combine Images from dependencies into OutputGroupInfo
+    output_group_info_depsets = {}
+    for target in ctx.attr.srcs:
+        if ImagesInfo not in target:
+            continue
+        for key, the_depset in target[ImagesInfo].files_dict.items():
+            if key not in output_group_info_depsets:
+                output_group_info_depsets[key] = []
+            output_group_info_depsets[key].append(the_depset)
+    output_group_info = OutputGroupInfo(**{
+        key: depset(transitive = value_list)
+        for key, value_list in output_group_info_depsets.items()
+    })
+
+    return [
+        default_info,
+        output_group_info,
+    ]
+
+_kernel_images = rule(
+    implementation = _kernel_images_impl,
+    attrs = {
+        "srcs": attr.label_list(),
+    },
+)

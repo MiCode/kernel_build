@@ -357,3 +357,14 @@ DdkConfigInfo = provider(
             file of this and its dependencies. Uses `postorder` ordering (dependencies first).""",
     },
 )
+
+ImagesInfo = provider(
+    doc = "Provider from individual *_image rule to [`kernel_images`](#kernel_images) rule",
+    fields = {
+        "files_dict": """A dictionary, where keys are keys in
+            [OutputGroupInfo](https://bazel.build/rules/lib/providers/OutputGroupInfo)
+            for `kernel_images`,
+            and values are [depsets](https://bazel.build/extending/depsets).
+        """,
+    },
+)
