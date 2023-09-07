@@ -23,14 +23,22 @@ def _super_image_impl(ctx):
 
     outputs = [super_img]
 
-    # Create a bash array of input images
-    super_img_contents = "("
-    for dep in [ctx.attr.system_dlkm_image, ctx.attr.vendor_dlkm_image]:
-        # TODO (b/299326717): Clean up depset to_list() call
-        for f in dep.files.to_list():
-            if f.extension == "img":
-                super_img_contents += f.path + " "
-    super_img_contents += ")"
+    vars_command = """
+        SYSTEM_DLKM_IMAGE=
+        VENDOR_DLKM_IMAGE=
+    """
+    if ctx.file.system_dlkm_image:
+        vars_command += """
+            SYSTEM_DLKM_IMAGE={system_dlkm_image}
+        """.format(
+            system_dlkm_image = ctx.file.system_dlkm_image.path,
+        )
+    if ctx.file.vendor_dlkm_image:
+        vars_command += """
+            VENDOR_DLKM_IMAGE={vendor_dlkm_image}
+        """.format(
+            vendor_dlkm_image = ctx.file.vendor_dlkm_image.path,
+        )
 
     command = hermetic_tools.setup
     command += """
@@ -39,7 +47,7 @@ def _super_image_impl(ctx):
             # Build super
               mkdir -p "$DIST_DIR"
               (
-                SUPER_IMAGE_CONTENTS={super_img_contents}
+                {vars_command}
                 SUPER_IMAGE_SIZE={super_img_size}
                 build_super
               )
@@ -50,7 +58,7 @@ def _super_image_impl(ctx):
         intermediates_dir = utils.intermediates_dir(ctx),
         super_img = super_img.path,
         super_img_size = super_img_size,
-        super_img_contents = super_img_contents,
+        vars_command = vars_command,
     )
 
     debug.print_scripts(ctx, command)
@@ -110,11 +118,11 @@ When included in a `copy_to_dist_dir` rule, this rule copies a `super.img` to `D
 """,
     attrs = {
         "system_dlkm_image": attr.label(
-            allow_files = True,
+            allow_single_file = True,
             doc = "`system_dlkm_image` to include in super.img",
         ),
         "vendor_dlkm_image": attr.label(
-            allow_files = True,
+            allow_single_file = True,
             doc = "`vendor_dlkm_image` to include in super.img",
         ),
         "super_img_size": attr.int(

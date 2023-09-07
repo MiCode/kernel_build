@@ -362,12 +362,14 @@ super_partition_groups=kb_dynamic_partitions
 super_kb_dynamic_partitions_group_size=${group_size}
 EOF
 
-  for image in "${SUPER_IMAGE_CONTENTS[@]}"; do
-    echo "  Adding ${image}"
-    partition_name=$(basename -s .img "${image}")
-    dynamic_partitions="${dynamic_partitions} ${partition_name}"
-    echo -e "${partition_name}_image=${image}" >> "$super_props_file"
-  done
+  if [[ -n "${SYSTEM_DLKM_IMAGE}" ]]; then
+    echo -e "system_dlkm_image=${SYSTEM_DLKM_IMAGE}" >> "$super_props_file"
+    dynamic_partitions="${dynamic_partitions} system_dlkm"
+  fi
+  if [[ -n "${VENDOR_DLKM_IMAGE}" ]]; then
+    echo -e "vendor_dlkm_image=${VENDOR_DLKM_IMAGE}" >> "$super_props_file"
+    dynamic_partitions="${dynamic_partitions} vendor_dlkm"
+  fi
 
   echo -e "dynamic_partition_list=${dynamic_partitions}" >> "$super_props_file"
   echo -e "super_kb_dynamic_partitions_partition_list=${dynamic_partitions}" >> "$super_props_file"
