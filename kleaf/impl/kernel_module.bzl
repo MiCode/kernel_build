@@ -273,7 +273,6 @@ def _kernel_module_impl(ctx):
     module_srcs = depset(transitive = module_srcs)
 
     transitive_inputs = [module_srcs]
-    transitive_inputs.append(ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_scripts)
     for kernel_module_dep in kernel_module_deps:
         transitive_inputs.append(kernel_module_dep.kernel_module_setup_info.inputs)
 

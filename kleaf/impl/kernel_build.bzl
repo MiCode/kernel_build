@@ -1568,22 +1568,32 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
 
     return script
 
-def _create_env_and_outputs_info(pre_info, restore_outputs_cmd_deps, restore_outputs_cmd):
+def _create_env_and_outputs_info(
+        pre_info,
+        restore_outputs_cmd_deps,
+        restore_outputs_cmd,
+        module_scripts):
     """Creates an KernelEnvAndOutputsInfo.
 
     Args:
         pre_info: pre setup script and dependencies
         restore_outputs_cmd_deps: list of outputs to restore
         restore_outputs_cmd: command to restore these outputs
+        module_scripts: None or a depset attached to `inputs` of returned object
 
     Returns:
         A KernelEnvAndOutputsInfo that runs pre_info, then restore outputs given the list of
         outputs and cmd."""
+
+    inputs_transitive = [pre_info.inputs]
+    if module_scripts:
+        inputs_transitive.append(module_scripts)
+
     return KernelEnvAndOutputsInfo(
         get_setup_script = _env_and_outputs_info_get_setup_script,
         inputs = depset(
             restore_outputs_cmd_deps,
-            transitive = [pre_info.inputs],
+            transitive = inputs_transitive,
         ),
         tools = pre_info.tools,
         data = struct(
@@ -1639,6 +1649,7 @@ def _create_infos(
         pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
+        module_scripts = None,
     )
 
     orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
@@ -1683,6 +1694,7 @@ def _create_infos(
         pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = ext_mod_env_and_outputs_info_deps,
         restore_outputs_cmd = ext_mod_env_and_outputs_info_setup_restore_outputs,
+        module_scripts = module_srcs.module_scripts,
     )
 
     # For kernel_module() that require all kernel_build outputs
@@ -1690,6 +1702,7 @@ def _create_infos(
         pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
+        module_scripts = module_srcs.module_scripts,
     )
 
     # For kernel_modules_install()
@@ -1697,14 +1710,22 @@ def _create_infos(
         pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
+        module_scripts = module_srcs.module_scripts,
+    )
+
+    # For ddk_config()
+    config_env_and_outputs_info = _create_env_and_outputs_info(
+        pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+        restore_outputs_cmd_deps = [],
+        restore_outputs_cmd = "",
+        module_scripts = module_srcs.module_scripts,
     )
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
-        module_scripts = module_srcs.module_scripts,
         module_kconfig = module_srcs.module_kconfig,
-        config_env_and_outputs_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+        config_env_and_outputs_info = config_env_and_outputs_info,
         modules_env_and_minimal_outputs_info = ext_mod_env_and_outputs_info,
         modules_env_and_all_outputs_info = ext_mod_env_and_all_outputs_info,
         modules_install_env_and_outputs_info = ext_modinst_env_and_outputs_info,

@@ -77,7 +77,6 @@ def _kernel_modules_install_impl(ctx):
         external_modules.append(declared_file)
 
     transitive_inputs = [
-        kernel_build_infos.ext_module_info.module_scripts,
         kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.inputs,
     ]
 

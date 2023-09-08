@@ -113,7 +113,11 @@ def _kernel_filegroup_impl(ctx):
 
     ext_mod_env_and_outputs_info = KernelEnvAndOutputsInfo(
         get_setup_script = _ext_mod_env_and_outputs_info_get_setup_script,
-        inputs = depset([modules_prepare_out_dir_tar_gz]),
+        inputs = depset([
+            modules_prepare_out_dir_tar_gz,
+        ], transitive = [
+            module_srcs.module_scripts,
+        ]),
         tools = depset(),
         data = struct(modules_prepare_out_dir_tar_gz = modules_prepare_out_dir_tar_gz),
     )
@@ -125,7 +129,6 @@ def _kernel_filegroup_impl(ctx):
         modules_install_env_and_outputs_info = ext_mod_env_and_outputs_info,
         # TODO(b/211515836): module_hdrs / module_scripts might also be downloaded
         module_hdrs = module_srcs.module_hdrs,
-        module_scripts = module_srcs.module_scripts,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
 
