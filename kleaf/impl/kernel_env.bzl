@@ -337,7 +337,7 @@ def _kernel_env_impl(ctx):
         setup_inputs.append(kconfig_ext)
     setup_inputs += dtstree_srcs
 
-    run_env = _get_run_env(ctx, srcs)
+    run_env = _get_run_env(ctx, srcs, toolchains)
 
     env_info = KernelEnvInfo(
         inputs = depset(setup_inputs),
@@ -393,7 +393,7 @@ def _get_make_verbosity_command(ctx):
 
     return command
 
-def _get_run_env(ctx, srcs):
+def _get_run_env(ctx, srcs, toolchains):
     """Returns setup script for execution phase.
 
     Unlike the setup script for regular builds, this doesn't modify variables from build.config for
@@ -420,10 +420,16 @@ def _get_run_env(ctx, srcs):
           export SOURCE_DATE_EPOCH=0
 
           source {setup_env}
+        # Variables from resolved toolchain
+          {toolchains_setup_env_var_cmd}
+        # setup LD_LIBRARY_PATH for prebuilts
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
     """.format(
         build_utils_sh = ctx.file._build_utils_sh.short_path,
         build_config = ctx.file.build_config.short_path,
         setup_env = ctx.file.setup_env.short_path,
+        toolchains_setup_env_var_cmd = toolchains.setup_env_var_cmd,
+        linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
     )
     setup += hermetic_tools.run_additional_setup
     tools = [
