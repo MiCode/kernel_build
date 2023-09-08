@@ -67,6 +67,7 @@ def download(url_base, dest_dir, filename, dest_filename = None):
   dest_filename = os.path.join(dest_dir, dest_filename or filename)
   if not os.path.exists(dest_filename):
     print("Downloading %s to %s" % (filename, dest_dir))
+    os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
     try:
       urllib.request.urlretrieve(os.path.join(url_base, filename), dest_filename)
     except urllib.error.HTTPError as e:
@@ -200,7 +201,12 @@ def extract_version_from_kernel(path):
     magic = file.read(4)
     if magic != b"HdrS":
       # fallback to grep (for the arm64 case)
-      return str(subprocess.check_output(["grep", "-a", "Linux version ", path]))
+      file.seek(0)
+      data = file.read()
+      pos = data.find(b"Linux version ")
+      end = data.find(b"\n", pos)
+      return data[pos:end].removeprefix(b"Linux version ").decode()
+
     # 2 byte offset to the version string at 0x20e
     file.seek(0x20e)
     offset = struct.unpack('h', file.read(2))[0]
@@ -208,7 +214,20 @@ def extract_version_from_kernel(path):
     file.seek(offset+0x200)
     # read the first null-terminated string with a reasonable assumption that
     # it isn't longer than 1023 bytes
+    # Example:
+    # 6.1.25-android14-11-g34fde9ec08a3-ab10675345 (build-user@build-host) #1 SMP PREEMPT Thu Aug 17 19:23:24 UTC 2023
     return file.read(1024).split(b'\0')[0].decode()
+
+def get_binary_kernel_release(path):
+  """Returns release name of the kernel (same as uname -r)."""
+  version = extract_version_from_kernel(path)
+  result = version.split()[0]
+
+  if not result:
+    raise Exception(
+        "Could not determine release in kernel binary {}, extracted kernel version string is {}".format(path, version))
+  return result
+
 
 def get_binary_kernel_version(path):
   """Returns a tuple of strings of the x.y.z (LTS) version and the SHA."""
@@ -251,6 +270,7 @@ def repackage_kernels(build_is_x86_64, output_dir, version, suffix = ""):
                             shell=True)
       subprocess.check_call(["lz4", "-f", "-l", "-12", "--favor-decSpeed",
                             uncompressed_kernel, lz4_kernel])
+  return uncompressed_kernel
 
 def get_abi_definition(target, output_dir):
   os.makedirs(output_dir, exist_ok=True)
@@ -262,6 +282,20 @@ def get_abi_definition(target, output_dir):
   func = functools.partial(download, url_base, output_dir)
   _pool.map(func, files_to_fetch)
 
+# Example return value: 6.1.25-android14-11-g34fde9ec08a3-ab10675345
+def parse_kernel_release_from_gki_info(path):
+  """Parse kernel release from gki-info.txt
+  Args:
+    path: Path to gki-info.txt
+
+  Returns:
+    The kernel release, same as uname -r.
+  """
+  with open(path, "r") as fp:
+    for line in fp:
+      line = ''.join(line.split())
+      if line.startswith('kernel_release='):
+        return line.partition('=')[-1]
 
 def download_kernel(target, version, output_dir, fetch_system_dlkm=False):
   if not os.path.isdir(output_dir):
@@ -274,6 +308,7 @@ def download_kernel(target, version, output_dir, fetch_system_dlkm=False):
   if fetch_system_dlkm:
     # Fetch GKI modules tarball with signed modules
     files.append("system_dlkm_staging_archive.tar.gz")
+  files.append("gki-info.txt")
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=target)
   func = functools.partial(download, url_base, output_dir)
@@ -285,7 +320,19 @@ def download_kernel(target, version, output_dir, fetch_system_dlkm=False):
               os.path.join(output_dir, "System.map" + suffix))
   else:
     suffix = ""
-  repackage_kernels(build_is_x86_64, output_dir, version, suffix)
+  uncompressed_kernel = repackage_kernels(
+      build_is_x86_64, output_dir, version, suffix)
+  gki_info_path = os.path.join(output_dir, "gki-info.txt")
+
+  new_kernel_release = None
+  if os.path.exists(gki_info_path):
+    new_kernel_release = parse_kernel_release_from_gki_info(gki_info_path)
+    os.unlink(gki_info_path)
+  if not new_kernel_release:
+    new_kernel_release = get_binary_kernel_release(uncompressed_kernel)
+  with open(os.path.join(output_dir, "kernel_version.mk"), "w") as fp:
+    fp.write("BOARD_KERNEL_VERSION := " + new_kernel_release)
+
 
   if fetch_system_dlkm:
     # Extract the tarball for system_dlkm image content
