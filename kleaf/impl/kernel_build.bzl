@@ -2380,7 +2380,7 @@ def _create_module_scripts_archive(
                 echo "${{file#"${{KERNEL_DIR}}"/}}"
             fi
         done > {intermediates_dir}/module_scripts_file_list.txt
-        tar cf {out} -T {intermediates_dir}/module_scripts_file_list.txt -C ${{KERNEL_DIR}}
+        tar cf {out} --dereference -T {intermediates_dir}/module_scripts_file_list.txt -C ${{KERNEL_DIR}}
     """.format(
         out = out.path,
         intermediates_dir = intermediates_dir,
