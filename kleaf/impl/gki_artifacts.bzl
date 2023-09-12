@@ -22,6 +22,8 @@ load(":constants.bzl", "GKI_ARTIFACTS_AARCH64_OUTS")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _gki_artifacts_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     inputs = [
