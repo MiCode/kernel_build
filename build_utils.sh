@@ -259,6 +259,7 @@ function build_system_dlkm() {
   # No need to sign the image as modules are signed
   avbtool add_hashtree_footer \
     --partition_name system_dlkm \
+    --hash_algorithm sha256 \
     --image "${DIST_DIR}/system_dlkm.img"
 
   # Archive system_dlkm_staging_dir
