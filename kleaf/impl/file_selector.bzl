@@ -16,6 +16,8 @@
 
 load("@bazel_skylib//lib:sets.bzl", "sets")
 
+visibility("//build/kernel/kleaf/impl/...")
+
 def _file_selector_impl(ctx):
     files_depsets = []
     selector = ctx.attr.first_selector or ctx.attr.second_selector or ctx.attr.third_selector

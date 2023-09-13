@@ -17,6 +17,8 @@
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
+visibility("//build/kernel/kleaf/impl/...")
+
 _FLOCK_FD = 0x41F  # KLF
 
 def _get_flock_cmd(ctx):

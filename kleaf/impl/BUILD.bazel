@@ -350,6 +350,17 @@ py_test(
     ],
 )
 
+# Test that visibility() is set.
+py_test(
+    name = "visibility_test",
+    timeout = "short",
+    srcs = ["visibility_test.py"],
+    data = glob(["**/*.bzl"]),
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
 sh_binary(
     name = "checkpatch",
     srcs = [

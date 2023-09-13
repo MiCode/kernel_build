@@ -14,6 +14,8 @@
 
 """Symlinks to host tools."""
 
+visibility("//build/kernel/kleaf/...")
+
 def _kleaf_host_tools_repo_impl(repository_ctx):
     repository_ctx.file("WORKSPACE", """\
 workspace(name = "{}")
