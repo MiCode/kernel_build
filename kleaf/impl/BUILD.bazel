@@ -83,6 +83,7 @@ bzl_library(
         "kernel_platform_toolchain.bzl",
         "kernel_sbom.bzl",
         "kernel_toolchains.bzl",
+        "kernel_toolchains_utils.bzl",
         "kernel_uapi_headers.bzl",
         "kernel_uapi_headers_cc_library.bzl",
         "kernel_unstripped_modules_archive.bzl",
