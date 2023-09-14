@@ -79,6 +79,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         path = "external/stardoc",
     )
 
+    maybe(
+        repo_rule = native.local_repository,
+        name = "rules_rust",
+        path = "external/bazelbuild-rules_rust",
+    )
+
     # The prebuilt NDK does not support Bazel.
     # https://docs.bazel.build/versions/main/external.html#non-bazel-projects
     native.new_local_repository(
