@@ -228,6 +228,10 @@ else
   RAMDISK_EXT="lz4"
 fi
 
+# Set libclang.so location for use by bindgen for Rust
+LIBCLANG_PATH=${ROOT_DIR}/${CLANG_PREBUILT_BIN}/../lib/
+export LIBCLANG_PATH
+
 # verifies that defconfig matches the DEFCONFIG
 function check_defconfig() {
     (cd ${OUT_DIR} && \
