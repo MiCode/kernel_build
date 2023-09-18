@@ -126,7 +126,6 @@ def _kernel_filegroup_impl(ctx):
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
         modules_env_and_minimal_outputs_info = ext_mod_env_and_outputs_info,
         modules_env_and_all_outputs_info = ext_mod_env_and_outputs_info,
-        modules_install_env_and_outputs_info = ext_mod_env_and_outputs_info,
         # TODO(b/211515836): module_hdrs / module_scripts might also be downloaded
         module_hdrs = module_srcs.module_hdrs,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,

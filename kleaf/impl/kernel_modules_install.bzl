@@ -77,19 +77,19 @@ def _kernel_modules_install_impl(ctx):
         external_modules.append(declared_file)
 
     transitive_inputs = [
-        kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.inputs,
+        kernel_build_infos.ext_module_info.modules_env_and_all_outputs_info.inputs,
     ]
 
     tools = [
         ctx.executable._check_duplicated_files_in_archives,
         ctx.executable._search_and_cp_output,
     ]
-    transitive_tools = [kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.tools]
+    transitive_tools = [kernel_build_infos.ext_module_info.modules_env_and_all_outputs_info.tools]
 
     modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.label.name))
 
-    command = kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.get_setup_script(
-        data = kernel_build_infos.ext_module_info.modules_install_env_and_outputs_info.data,
+    command = kernel_build_infos.ext_module_info.modules_env_and_all_outputs_info.get_setup_script(
+        data = kernel_build_infos.ext_module_info.modules_env_and_all_outputs_info.data,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """

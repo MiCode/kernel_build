@@ -1698,15 +1698,8 @@ def _create_infos(
     )
 
     # For kernel_module() that require all kernel_build outputs
-    ext_mod_env_and_all_outputs_info = _create_env_and_outputs_info(
-        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
-        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
-        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
-        module_scripts = module_srcs.module_scripts,
-    )
-
     # For kernel_modules_install()
-    ext_modinst_env_and_outputs_info = _create_env_and_outputs_info(
+    ext_mod_env_and_all_outputs_info = _create_env_and_outputs_info(
         pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
@@ -1728,7 +1721,6 @@ def _create_infos(
         config_env_and_outputs_info = config_env_and_outputs_info,
         modules_env_and_minimal_outputs_info = ext_mod_env_and_outputs_info,
         modules_env_and_all_outputs_info = ext_mod_env_and_all_outputs_info,
-        modules_install_env_and_outputs_info = ext_modinst_env_and_outputs_info,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )
