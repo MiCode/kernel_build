@@ -18,11 +18,6 @@ build --experimental_strict_action_env
 # By default, output all the logs to stdout/stderr by disabling the console limit
 build --experimental_ui_max_stdouterr_bytes=-1
 
-# By default, delete sandboxes in the background to improve performance on
-# actions with a lot of inputs, like kernel_build() with the whole kernel source
-# tree.
-build --experimental_sandbox_async_tree_delete_idle_threads=4
-
 # Show the full set of flags for observability and debuggability.
 # common --announce_rc
 
