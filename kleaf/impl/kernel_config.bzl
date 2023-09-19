@@ -199,6 +199,12 @@ def _config_trim(ctx):
               IGNORED because --kgdb is set!".format(this_label = ctx.label))
         return struct(configs = [], deps = [])
 
+    if ctx.attr.debug[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Symbol trimming \
+              IGNORED because --debug is set!".format(this_label = ctx.label))
+        return struct(configs = [], deps = [])
+
     raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
     configs = [
         _config.disable("UNUSED_SYMBOLS"),

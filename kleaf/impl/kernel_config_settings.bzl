@@ -74,6 +74,7 @@ def _kernel_build_config_settings_raw():
         {
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
             "_gcov": "//build/kernel/kleaf:gcov",
+            "_debug": "//build/kernel/kleaf:debug",
             "_kasan": "//build/kernel/kleaf:kasan",
             "_kasan_sw_tags": "//build/kernel/kleaf:kasan_sw_tags",
             "_kcsan": "//build/kernel/kleaf:kcsan",

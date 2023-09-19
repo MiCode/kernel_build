@@ -708,6 +708,12 @@ def _skip_build_checks(ctx, what):
               IGNORED because --kgdb is set!".format(this_label = ctx.label, what = what))
         return True
 
+    # Skip when --debug is specified.
+    if ctx.attr._debug[BuildSettingInfo].value:
+        print("\nWARNING: {this_label}: {what} was\
+              IGNORED because --debug is set!".format(this_label = ctx.label, what = what))
+        return True
+
     return False
 
 def _get_defconfig_fragments(
