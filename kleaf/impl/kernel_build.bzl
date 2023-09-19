@@ -686,6 +686,30 @@ def kernel_build(
         **kwargs
     )
 
+# buildifier: disable=print
+def _skip_build_checks(ctx, what):
+    # Skip for --k*san targets as they are usually debug targets.
+    if ctx.attr._kasan[BuildSettingInfo].value:
+        print("\nWARNING: {this_label}: {what} was\
+              IGNORED because --kasan is set!".format(this_label = ctx.label, what = what))
+        return True
+    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
+        print("\nWARNING: {this_label}: {what} was\
+              IGNORED because --kasan_sw_tags is set!".format(this_label = ctx.label, what = what))
+        return True
+    if ctx.attr._kcsan[BuildSettingInfo].value:
+        print("\nWARNING: {this_label}: {what} was\
+              IGNORED because --kcsan is set!".format(this_label = ctx.label, what = what))
+        return True
+
+    # Skip for --kgdb as it is usually used for debug targets.
+    if ctx.attr._kgdb[BuildSettingInfo].value:
+        print("\nWARNING: {this_label}: {what} was\
+              IGNORED because --kgdb is set!".format(this_label = ctx.label, what = what))
+        return True
+
+    return False
+
 def _get_defconfig_fragments(
         kernel_build_name,
         kernel_build_defconfig_fragments,
@@ -2103,32 +2127,7 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         ))
         return None
 
-    # Skip for the --kasan targets as they are not valid GKI release targets
-    if ctx.attr._kasan[BuildSettingInfo].value:
-        # buildifier: disable=print
-        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
-              IGNORED because --kasan is set!".format(this_label = ctx.label))
-        return None
-
-    # Skip for the --kasan_sw_tags targets as they are not valid GKI release targets
-    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
-        # buildifier: disable=print
-        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
-              IGNORED because --kasan_sw_tags is set!".format(this_label = ctx.label))
-        return None
-
-    # Skip for the --kcsan targets as they are not valid GKI release targets
-    if ctx.attr._kcsan[BuildSettingInfo].value:
-        # buildifier: disable=print
-        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
-              IGNORED because --kcsan is set!".format(this_label = ctx.label))
-        return None
-
-    # Skip for the --kgdb targets as they are not valid GKI release targets
-    if ctx.attr._kgdb[BuildSettingInfo].value:
-        # buildifier: disable=print
-        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
-              IGNORED because --kgdb is set!".format(this_label = ctx.label))
+    if _skip_build_checks(ctx, what = "Attribute kmi_symbol_list_strict_mode"):
         return None
 
     if not ctx.attr.kmi_symbol_list_strict_mode:
@@ -2206,28 +2205,7 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
     if len(ctx.files.raw_kmi_symbol_list) > 1:
         fail("{}: raw_kmi_symbol_list must only provide at most one file".format(ctx.label))
 
-    # Skip for --kasan build as they are not valid GKI releasae configurations.
-    # Downstreams are expect to build kernel+modules+vendor modules locally
-    # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
-    # if required.
-    if ctx.attr._kasan[BuildSettingInfo].value:
-        return None
-
-    if ctx.attr._kasan_sw_tags[BuildSettingInfo].value:
-        return None
-
-    # Skip for --kcsan build as they are not valid GKI releasae configurations.
-    # Downstreams are expect to build kernel+modules+vendor modules locally
-    # and can disable the runtime symbol protection with CONFIG_SIG_PROTECT=n
-    # if required.
-    if ctx.attr._kcsan[BuildSettingInfo].value:
-        return None
-
-    # Skip for the --kgdb targets as they are not valid GKI release targets
-    if ctx.attr._kgdb[BuildSettingInfo].value:
-        # buildifier: disable=print
-        print("\nWARNING: {this_label}: Symbol list violations check \
-              IGNORED because --kgdb is set!".format(this_label = ctx.label))
+    if _skip_build_checks(ctx, what = "Symbol list violations check"):
         return None
 
     inputs = [
