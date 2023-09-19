@@ -14,18 +14,21 @@
 
 """Rules to enable ABI monitoring."""
 
-load("//build/bazel_common_rules/exec:exec.bzl", "exec")
 load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(":abi/abi_stgdiff.bzl", "stgdiff")
 load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
+load(":abi/abi_update.bzl", "abi_update")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
 load(":abi/protected_exports.bzl", "protected_exports")
 load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
 load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
 load(":common_providers.bzl", "KernelBuildAbiInfo")
+load(":hermetic_exec.bzl", "hermetic_exec")
 load(":kernel_build.bzl", "kernel_build")
+
+visibility("//build/kernel/kleaf/...")
 
 def _kmi_symbol_checks_impl(ctx):
     kmi_strict_mode_out = ctx.attr.kernel_build[KernelBuildAbiInfo].kmi_strict_mode_out
@@ -54,6 +57,7 @@ def kernel_abi(
         kmi_enforced = None,
         unstripped_modules_archive = None,
         kmi_symbol_list_add_only = None,
+        kernel_modules_exclude_list = None,
         **kwargs):
     """Declare multiple targets to support ABI monitoring.
 
@@ -120,6 +124,8 @@ def kernel_abi(
         [`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules).
       kernel_modules: A list of external [`kernel_module()`](#kernel_module)s
         to extract symbols from.
+      kernel_modules_exclude_list: List of base names for in-tree kernel modules to exclude from.
+        i.e. This is the modules built in `kernel_build`, not the `kernel_modules` mentioned above.
       module_grouping: If unspecified or `None`, it is `True` by default.
         If `True`, then the symbol list will group symbols based
         on the kernel modules that reference the symbol. Otherwise the symbol
@@ -181,6 +187,7 @@ def kernel_abi(
             abi_definition_stg = abi_definition_stg,
             kmi_enforced = kmi_enforced,
             abi_dump_target = name + "_dump",
+            kernel_modules_exclude_list = kernel_modules_exclude_list,
             **kwargs
         )
 
@@ -209,12 +216,12 @@ def _not_define_abi_targets(
     )
 
     # For kernel_abi_dist to use when define_abi_targets is not set.
-    exec(
+    hermetic_exec(
         name = name + "_diff_executable",
         script = "",
         **private_kwargs
     )
-    exec(
+    hermetic_exec(
         name = name + "_diff_executable_xml",
         script = "",
         **private_kwargs
@@ -237,6 +244,7 @@ def _define_abi_targets(
         abi_definition_stg,
         kmi_enforced,
         abi_dump_target,
+        kernel_modules_exclude_list,
         **kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = True.`
 
@@ -273,6 +281,7 @@ def _define_abi_targets(
         module_grouping = module_grouping,
         src = name + "_src_kmi_symbol_list",
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+        kernel_modules_exclude_list = kernel_modules_exclude_list,
         **private_kwargs
     )
     update_source_file(
@@ -341,7 +350,7 @@ def _define_abi_definition_targets(
 
     if not abi_definition_stg:
         # For kernel_abi_dist to use when abi_definition is empty.
-        exec(
+        hermetic_exec(
             name = name + "_diff_executable",
             script = "",
             **kwargs
@@ -392,7 +401,7 @@ def _define_abi_definition_targets(
             **kwargs
         )
 
-        exec(
+        hermetic_exec(
             name = name + "_nodiff_update",
             data = [
                 name + "_extracted_symbols",
@@ -408,12 +417,12 @@ def _define_abi_definition_targets(
                 # Ensure that symbol list is updated
                 if ! diff -q $(rootpath {src_symbol_list}) $(rootpath {dst_symbol_list}); then
                     echo "ERROR: symbol list must be updated before updating ABI definition."
-                    echo " To update, execute 'tools/bazel run //{package}:{update_symbol_list_label}'." >&2
+                    echo " To update, execute 'tools/bazel run {update_symbol_list_label}'." >&2
                     exit 1
                 fi
                 # Ensure that protected exports list is updated
                 if ! diff -q $(rootpath {src_protected_exports_list}) $(rootpath {dst_protected_exports_list}); then
-                echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run //{package}:{update_protected_exports_label}'." >&2
+                echo "ERROR: protected exports list must be updated before updating ABI definition. To update, execute 'tools/bazel run {update_protected_exports_label}'." >&2
                     exit 1
                 fi
                 # Update abi_definition
@@ -423,44 +432,19 @@ def _define_abi_definition_targets(
                 dst_protected_exports_list = protected_exports_list,
                 src_symbol_list = name + "_extracted_symbols",
                 dst_symbol_list = kmi_symbol_list,
-                package = native.package_name(),
-                update_protected_exports_label = name + "_update_protected_exports",
-                update_symbol_list_label = name + "_update_symbol_list",
+                update_protected_exports_label = native.package_relative_label(name + "_update_protected_exports"),
+                update_symbol_list_label = native.package_relative_label(name + "_update_symbol_list"),
                 update_definition = name + "_update_definition",
             ),
             **kwargs
         )
 
-        exec(
+        abi_update(
             name = name + "_update",
-            data = [
-                abi_definition_stg,
-                name + "_diff_executable",
-                name + "_nodiff_update",
-                name + "_diff_git_message",
-            ],
-            script = """
-                # Update abi_definition
-                $(rootpath {nodiff_update})
-                # Create git commit if requested
-                if [[ $1 == "--commit" ]]; then
-                    real_abi_def="$(realpath $(rootpath {abi_definition}))"
-                    git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
-                    git -C $(dirname ${{real_abi_def}}) commit -F $(realpath $(rootpath {git_message}))
-                fi
-                $(rootpath {diff})
-                if [[ $1 == "--commit" ]]; then
-                    echo
-                    echo "INFO: git commit created. Execute the following to edit the commit message:"
-                    echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
-                fi
-                """.format(
-                diff = name + "_diff_executable",
-                nodiff_update = name + "_nodiff_update",
-                abi_definition = abi_definition_stg,
-                git_message = name + "_diff_git_message",
-            ),
-            **kwargs
+            abi_definition_stg = abi_definition_stg,
+            git_message = name + "_diff_git_message",
+            diff = name + "_diff_executable",
+            nodiff_update = name + "_nodiff_update",
         )
 
     return default_outputs

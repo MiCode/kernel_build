@@ -18,12 +18,18 @@ Build vendor_dlkm.img for vendor modules.
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load(":utils.bzl", "utils")
 load(
+    ":common_providers.bzl",
+    "ImagesInfo",
+)
+load(
     ":image/image_utils.bzl",
     "SYSTEM_DLKM_MODULES_LOAD_NAME",
     "SYSTEM_DLKM_STAGING_ARCHIVE_NAME",
     "VENDOR_DLKM_STAGING_ARCHIVE_NAME",
     "image_utils",
 )
+
+visibility("//build/kernel/kleaf/...")
 
 def _vendor_dlkm_image_impl(ctx):
     vendor_dlkm_img = ctx.actions.declare_file("{}/vendor_dlkm.img".format(ctx.label.name))
@@ -99,7 +105,7 @@ def _vendor_dlkm_image_impl(ctx):
     if ctx.attr.vendor_dlkm_archive:
         outputs.append(vendor_dlkm_staging_archive)
 
-    return image_utils.build_modules_image_impl_common(
+    default_info = image_utils.build_modules_image_impl_common(
         ctx = ctx,
         what = "vendor_dlkm",
         outputs = outputs,
@@ -109,6 +115,15 @@ def _vendor_dlkm_image_impl(ctx):
         additional_inputs = additional_inputs,
         mnemonic = "VendorDlkmImage",
     )
+
+    images_info = ImagesInfo(files_dict = {
+        vendor_dlkm_img.basename: depset([vendor_dlkm_img]),
+    })
+
+    return [
+        default_info,
+        images_info,
+    ]
 
 def _exclude_system_dlkm(ctx, modules_staging_dir):
     if not ctx.attr.dedup_dlkm_modules:

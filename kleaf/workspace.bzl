@@ -84,17 +84,20 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         },
     )
 
-    gki_prebuilts_files = []
-    gki_prebuilts_optional_files = []
-
     # TODO: Make this architecture agnostic.
-    gki_prebuilts_files += CI_TARGET_MAPPING["kernel_aarch64"]["outs"]
-    gki_prebuilts_optional_files.append(CI_TARGET_MAPPING["kernel_aarch64"]["protected_modules"])
+    gki_prebuilts_files = {out: None for out in CI_TARGET_MAPPING["kernel_aarch64"]["outs"]}
+    gki_prebuilts_optional_files = {CI_TARGET_MAPPING["kernel_aarch64"]["protected_modules"]: None}
     for config in GKI_DOWNLOAD_CONFIGS:
         if config.get("mandatory", True):
-            gki_prebuilts_files += config["outs"]
+            files_dict = gki_prebuilts_files
         else:
-            gki_prebuilts_optional_files += config["outs"]
+            files_dict = gki_prebuilts_optional_files
+
+        files_dict.update({out: None for out in config.get("outs", [])})
+
+        for out, remote_filename_fmt in config.get("outs_mapping", {}).items():
+            file_metadata = {"remote_filename_fmt": remote_filename_fmt}
+            files_dict.update({out: file_metadata})
 
     download_artifacts_repo(
         name = "gki_prebuilts",

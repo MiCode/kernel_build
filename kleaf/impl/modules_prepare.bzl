@@ -25,6 +25,8 @@ load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":utils.bzl", "kernel_utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _modules_prepare_impl(ctx):
     inputs = []
     tools = []
@@ -126,6 +128,7 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
 def _modules_prepare_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_modules_prepare(),
+        cache_dir.attrs(),
     )
 
 modules_prepare = rule(
@@ -145,8 +148,6 @@ modules_prepare = rule(
         "force_generate_headers": attr.bool(
             doc = "If True it forces generation of additional headers after make modules_prepare",
         ),
-        "_cache_dir": attr.label(default = "//build/kernel/kleaf:cache_dir"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
-        "_config_is_local": attr.label(default = "//build/kernel/kleaf:config_local"),
     } | _modules_prepare_additional_attrs(),
 )

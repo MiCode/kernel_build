@@ -17,6 +17,8 @@
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kmi_symbol_list_impl(ctx):
     if not ctx.files.srcs:
         return []

@@ -324,6 +324,32 @@ See the following change for an example:
 
 [ANDROID: kleaf: convert fips140 to kleaf](https://android-review.googlesource.com/c/kernel/common/+/2212995)
 
+## unterminated call to function 'wildcard': missing ')'.  Stop. {#unterminated-call-to-function-wildcard}
+
+If you see an error like the following when using `--config=local`:
+
+```
+ERROR: <...>/BUILD.bazel:5:14: Building external kernel module <...> failed: (Exit 2): bash failed: error executing command (from target <...>) /bin/bash -c ... (remaining 1 argument skipped)
+<path>/.<filename>.o.cmd:5: *** unterminated call to function 'wildcard': missing ')'.  Stop.
+```
+
+This is a known issue with `--config=local`. The root cause of the issue is
+unknown. If you see this error, please file a bug with the following
+information:
+
+- Rebuild with
+  `--verbose_failures --debug_cache_dir_conflict=detect --profile=/tmp/command.profile.gz`
+- Record the full build log
+- Provide `/tmp/command.profile.gz`; see
+  [JSON trace profile](https://bazel.build/advanced/performance/json-trace-profile)
+
+After filing the bug, you may use one of the methods below to work around the
+issue:
+
+- You may run `tools/bazel clean` and try the build again. You may or may not
+  see the error again afterwards.
+- You may rebuild with `--debug_cache_dir_conflict=resolve`.
+
 ## fatal: not a git repository: '[...]/.git' {#not-git}
 
 This is a harmless warning message.

@@ -17,6 +17,8 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":scripts_config_arg_builder.bzl", _config = "scripts_config_arg_builder")
 
+visibility("//build/kernel/kleaf/...")
+
 def _kgdb_config_settings_raw():
     """Attributes of rules that supports kgdb."""
     return {

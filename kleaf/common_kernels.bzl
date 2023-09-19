@@ -15,6 +15,7 @@
 """Functions that are useful in the common kernel package (usually `//common`)."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
@@ -34,7 +35,9 @@ load(
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
 load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
-load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts")
+load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
+load("//build/kernel/kleaf/impl:kernel_sbom.bzl", "kernel_sbom")
+load("//build/kernel/kleaf/impl:merge_kzip.bzl", "merge_kzip")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
@@ -51,69 +54,17 @@ load(
 )
 load(":print_debug.bzl", "print_debug")
 
-_ARCH_CONFIGS = {
-    "kernel_aarch64": {
-        "arch": "arm64",
-        "build_config": "build.config.gki.aarch64",
-        "outs": DEFAULT_GKI_OUTS,
-    },
-    "kernel_aarch64_16k": {
-        "arch": "arm64",
-        "build_config": "build.config.gki.aarch64.16k",
-        "outs": DEFAULT_GKI_OUTS,
-    },
-    "kernel_aarch64_interceptor": {
-        "arch": "arm64",
-        "build_config": "build.config.gki.aarch64",
-        "outs": DEFAULT_GKI_OUTS,
-        "enable_interceptor": True,
-    },
-    "kernel_aarch64_debug": {
-        "arch": "arm64",
-        "build_config": "build.config.gki-debug.aarch64",
-        "outs": DEFAULT_GKI_OUTS,
-    },
-    "kernel_riscv64": {
-        "arch": "riscv64",
-        "build_config": "build.config.gki.riscv64",
-        "outs": DEFAULT_GKI_OUTS,
-    },
-    "kernel_x86_64": {
-        "arch": "x86_64",
-        "build_config": "build.config.gki.x86_64",
-        "outs": X86_64_OUTS,
-    },
-    "kernel_x86_64_debug": {
-        "arch": "x86_64",
-        "build_config": "build.config.gki-debug.x86_64",
-        "outs": X86_64_OUTS,
-    },
+# keys: name of common kernels
+# values: list of keys in target_configs to look up
+_COMMON_KERNEL_NAMES = {
+    "kernel_aarch64": ["kernel_aarch64"],
+    "kernel_aarch64_16k": ["kernel_aarch64_16k", "kernel_aarch64"],
+    "kernel_aarch64_interceptor": ["kernel_aarch64_interceptor", "kernel_aarch64"],
+    "kernel_aarch64_debug": ["kernel_aarch64_debug", "kernel_aarch64"],
+    "kernel_riscv64": ["kernel_riscv64"],
+    "kernel_x86_64": ["kernel_x86_64"],
+    "kernel_x86_64_debug": ["kernel_x86_64_debug", "kernel_x86_64"],
 }
-
-# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_build.
-_KERNEL_BUILD_VALID_KEYS = [
-    "kmi_symbol_list",
-    "additional_kmi_symbol_lists",
-    "trim_nonlisted_kmi",
-    "kmi_symbol_list_strict_mode",
-    "module_implicit_outs",
-    "protected_exports_list",
-    "protected_modules_list",
-    "make_goals",
-]
-
-# Subset of _TARGET_CONFIG_VALID_KEYS for kernel_abi.
-_KERNEL_ABI_VALID_KEYS = [
-    "abi_definition_stg",
-    "kmi_enforced",
-]
-
-# Valid configs of the value of the target_config argument in
-# `define_common_kernels`
-_TARGET_CONFIG_VALID_KEYS = _KERNEL_BUILD_VALID_KEYS + _KERNEL_ABI_VALID_KEYS + [
-    "build_gki_artifacts",
-    "gki_boot_img_sizes",
-]
 
 # Always collect_unstripped_modules for common kernels.
 _COLLECT_UNSTRIPPED_MODULES = True
@@ -141,8 +92,27 @@ def _default_target_configs():
     aarch64_abi_definition_stg = native.glob(["android/abi_gki_aarch64.stg"])
     aarch64_abi_definition_stg = aarch64_abi_definition_stg[0] if aarch64_abi_definition_stg else None
 
-    # Common configs for aarch64 and aarch64_debug
+    # Fallback to android/gki_system_dlkm_modules for backward compatibility reasons.
+    aarch64_gki_system_dlkm_modules = (native.glob(["android/gki_system_dlkm_modules_arm64"]) or ["android/gki_system_dlkm_modules"])[0]
+
+    # Common configs for aarch64*
     aarch64_common = {
+        "arch": "arm64",
+        "build_config": "build.config.gki.aarch64",
+        "outs": DEFAULT_GKI_OUTS,
+        "gki_system_dlkm_modules": aarch64_gki_system_dlkm_modules,
+    }
+
+    gki_boot_img_sizes = {
+        # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
+        "": "67108864",
+        # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
+        "lz4": "53477376",
+        # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
+        "gz": "47185920",
+    }
+
+    aarch64_abi = {
         # Assume the value for KMI_SYMBOL_LIST, ADDITIONAL_KMI_SYMBOL_LISTS, ABI_DEFINITION, and KMI_ENFORCED
         # for build.config.gki.aarch64
         "kmi_symbol_list": aarch64_kmi_symbol_list,
@@ -151,57 +121,64 @@ def _default_target_configs():
         "protected_modules_list": aarch64_protected_modules_list,
         "abi_definition_stg": aarch64_abi_definition_stg,
         "kmi_enforced": bool(aarch64_abi_definition_stg),
-        # Assume BUILD_GKI_ARTIFACTS=1
-        "build_gki_artifacts": True,
-        "gki_boot_img_sizes": {
-            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
-            "": "67108864",
-            # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
-            "lz4": "53477376",
-            # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
-            "gz": "47185920",
-        },
     }
+
+    # Fallback to android/gki_system_dlkm_modules for backward compatibility reasons.
+    riscv64_gki_system_dlkm_modules = (native.glob(["android/gki_system_dlkm_modules_riscv64"]) or ["android/gki_system_dlkm_modules"])[0]
 
     # Common configs for riscv64
     riscv64_common = {
+        "arch": "riscv64",
+        "build_config": "build.config.gki.riscv64",
+        "outs": DEFAULT_GKI_OUTS,
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
-        "gki_boot_img_sizes": {
-            # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
-            "": "67108864",
-            # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
-            "lz4": "53477376",
-            # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
-            "gz": "47185920",
-        },
+        "gki_boot_img_sizes": gki_boot_img_sizes,
+        "gki_system_dlkm_modules": riscv64_gki_system_dlkm_modules,
     }
+
+    # Fallback to android/gki_system_dlkm_modules for backward compatibility reasons.
+    x86_64_gki_system_dlkm_modules = (native.glob(["android/gki_system_dlkm_modules_x86_64"]) or ["android/gki_system_dlkm_modules"])[0]
 
     # Common configs for x86_64 and x86_64_debug
     x86_64_common = {
+        "arch": "x86_64",
+        "build_config": "build.config.gki.x86_64",
+        "outs": X86_64_OUTS,
         # Assume BUILD_GKI_ARTIFACTS=1
         "build_gki_artifacts": True,
         "gki_boot_img_sizes": {
             # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
             "": "67108864",
         },
+        "gki_system_dlkm_modules": x86_64_gki_system_dlkm_modules,
     }
 
     return {
-        "kernel_aarch64": dicts.add(aarch64_common, {
+        "kernel_aarch64": dicts.add(aarch64_common, aarch64_abi, {
             # In build.config.gki.aarch64:
             # - If there are symbol lists: assume TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
             # - If there aren't:           assume TRIM_NONLISTED_KMI unspecified
             "trim_nonlisted_kmi": aarch64_trim_and_check,
             "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+            # Assume BUILD_GKI_ARTIFACTS=1
+            "build_gki_artifacts": True,
+            "gki_boot_img_sizes": gki_boot_img_sizes,
         }),
-        "kernel_aarch64_16k": {
+        "kernel_aarch64_16k": dicts.add(aarch64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.aarch64.16k
             "trim_nonlisted_kmi": False,
-        },
-        "kernel_aarch64_debug": dicts.add(aarch64_common, {
-            # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.aarch64
+            "page_size": "16k",
+        }),
+        "kernel_aarch64_interceptor": dicts.add(aarch64_common, {
+            "enable_interceptor": True,
+        }),
+        "kernel_aarch64_debug": dicts.add(aarch64_common, aarch64_abi, {
             "trim_nonlisted_kmi": False,
+            "kmi_symbol_list_strict_mode": False,
+            # Assume BUILD_GKI_ARTIFACTS=1
+            "build_gki_artifacts": True,
+            "gki_boot_img_sizes": gki_boot_img_sizes,
         }),
         "kernel_riscv64": dicts.add(riscv64_common, {
             # Assume TRIM_NONLISTED_KMI="" in build.config.gki.riscv64
@@ -209,24 +186,10 @@ def _default_target_configs():
         }),
         "kernel_x86_64": x86_64_common,
         "kernel_x86_64_debug": dicts.add(x86_64_common, {
-            # Assume TRIM_NONLISTED_KMI="" in build.config.gki-debug.x86_64
             "trim_nonlisted_kmi": False,
+            "kmi_symbol_list_strict_mode": False,
         }),
     }
-
-def _filter_keys(d, valid_keys, what = "", allow_unknown_keys = False):
-    """Remove keys from `d` if the key is not in `valid_keys`.
-
-    Fail if there are unknown keys in `d`.
-    """
-    ret = {key: value for key, value in d.items() if key in valid_keys}
-    if not allow_unknown_keys and sorted(ret.keys()) != sorted(d.keys()):
-        fail("{what} contains invalid keys {invalid_keys}. Valid keys are: {valid_keys}".format(
-            what = what,
-            invalid_keys = [key for key in d.keys() if key not in valid_keys],
-            valid_keys = valid_keys,
-        ))
-    return ret
 
 # buildifier: disable=unnamed-macro
 def define_common_kernels(
@@ -329,14 +292,17 @@ def define_common_kernels(
       - `kernel_aarch64_uapi_headers_download_or_build`
 
     Note: If a device should build against downloaded prebuilts unconditionally, set
-    `--//<package>:use_prebuilt_gki` and a fixed build number in `device.bazelrc`. For example:
+    `--use_prebuilt_gki` and a fixed build number in `device.bazelrc`. For example:
     ```
     # device.bazelrc
-    build --//common:use_prebuilt_gki
+    build --use_prebuilt_gki
     build --action_env=KLEAF_DOWNLOAD_BUILD_NUMBER_MAP="gki_prebuilts=8077484"
     ```
 
     This is equivalent to specifying `--use_prebuilt_gki=8077484` for all Bazel commands.
+
+    You may set `--use_signed_prebuilts` to download the signed boot images instead
+    of the unsigned one. This requires `--use_prebuilt_gki` to be set to a signed build.
 
     Args:
       branch: **Deprecated**. This attribute is ignored.
@@ -526,7 +492,7 @@ def define_common_kernels(
         print(("\nWARNING: {package}: define_common_kernels() no longer uses the branch " +
                "attribute. Default value of --dist_dir has been changed to out/{{name}}/dist. " +
                "Please remove the branch attribute from define_common_kernels().").format(
-            package = native.package_name(),
+            package = str(native.package_relative_label(":x")).removesuffix(":x"),
         ))
 
     if visibility == None:
@@ -544,24 +510,23 @@ def define_common_kernels(
         visibility = visibility,
     )
 
-    default_target_configs = None  # _default_target_configs is lazily evaluated.
-    if target_configs == None:
-        target_configs = {}
-    for name in _ARCH_CONFIGS.keys():
-        target_configs[name] = _filter_keys(
-            target_configs.get(name, {}),
-            valid_keys = _TARGET_CONFIG_VALID_KEYS,
-            what = '//{package}:{name}: target_configs["{name}"]'.format(
-                package = native.package_name(),
-                name = name,
-            ),
+    default_target_configs = _default_target_configs()
+    new_target_configs = {}
+    for name, target_configs_names in _COMMON_KERNEL_NAMES.items():
+        new_target_config = _get_target_config(
+            name = name,
+            target_configs_names = target_configs_names,
+            target_configs = target_configs,
+            default_target_configs = default_target_configs,
         )
-        for key in _TARGET_CONFIG_VALID_KEYS:
-            if key not in target_configs[name]:
-                # Lazily evaluate default_target_configs
-                if default_target_configs == None:
-                    default_target_configs = _default_target_configs()
-                target_configs[name][key] = default_target_configs.get(name, {}).get(key)
+
+        # On android14-5.15, riscv64 is not supported. However,
+        # default_target_configs still contains riscv64 unconditionally.
+        # Filter it out.
+        if not native.glob([new_target_config["build_config"]]):
+            continue
+        new_target_configs[name] = new_target_config
+    target_configs = new_target_configs
 
     native.filegroup(
         name = "common_kernel_sources",
@@ -575,249 +540,12 @@ def define_common_kernels(
         ),
     )
 
-    for name, arch_config in _ARCH_CONFIGS.items():
-        native.alias(
-            name = name + "_sources",
-            actual = ":common_kernel_sources",
-        )
-
-        target_config = target_configs[name]
-
-        all_kmi_symbol_lists = target_config.get("additional_kmi_symbol_lists")
-        all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
-
-        # Add user KMI symbol lists to additional lists
-        target_config["additional_kmi_symbol_lists"] = all_kmi_symbol_lists + [
-            "//build/kernel/kleaf:user_kmi_symbol_lists",
-        ]
-
-        if target_config.get("kmi_symbol_list"):
-            all_kmi_symbol_lists.append(target_config.get("kmi_symbol_list"))
-        native.filegroup(
-            name = name + "_all_kmi_symbol_lists",
-            srcs = all_kmi_symbol_lists,
-        )
-
-        print_debug(
-            name = name + "_print_configs",
-            content = json.encode_indent(target_config, indent = "    ").replace("null", "None"),
-            tags = ["manual"],
-        )
-
-        kernel_build_kwargs = _filter_keys(
-            target_config,
-            valid_keys = _KERNEL_BUILD_VALID_KEYS,
-            allow_unknown_keys = True,
-        )
-
-        kernel_build_config(
-            name = name + "_build_config",
-            srcs = [
-                # do not sort
-                ":set_kernel_dir_build_config",
-                arch_config["build_config"],
-                Label("//build/kernel/kleaf:gki_build_config_fragment"),
-            ],
-        )
-
-        kernel_build(
+    for name, target_config in target_configs.items():
+        _define_common_kernel(
             name = name,
-            srcs = [name + "_sources"],
-            outs = arch_config["outs"],
-            arch = arch_config["arch"],
-            implicit_outs = [
-                # Kernel build time module signining utility and keys
-                # Only available during GKI builds
-                # Device fragments need to add: '# CONFIG_MODULE_SIG_ALL is not set'
-                "scripts/sign-file",
-                "certs/signing_key.pem",
-                "certs/signing_key.x509",
-            ],
-            build_config = name + "_build_config",
-            enable_interceptor = arch_config.get("enable_interceptor"),
-            visibility = visibility,
-            collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
-            strip_modules = _STRIP_MODULES,
             toolchain_version = toolchain_version,
-            keep_module_symvers = _KEEP_MODULE_SYMVERS,
-            **kernel_build_kwargs
-        )
-
-        kernel_abi_kwargs = _filter_keys(
-            target_config,
-            valid_keys = _KERNEL_ABI_VALID_KEYS,
-            allow_unknown_keys = True,
-        )
-
-        kernel_abi(
-            name = name + "_abi",
-            kernel_build = name,
             visibility = visibility,
-            define_abi_targets = bool(target_config.get("kmi_symbol_list")),
-            # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
-            module_grouping = None,
-            **kernel_abi_kwargs
-        )
-
-        if arch_config.get("enable_interceptor"):
-            continue
-
-        # A subset of headers in OUT_DIR that only contains scripts/. This is useful
-        # for DDK headers interpolation.
-        out_headers_allowlist_archive(
-            name = name + "_script_headers",
-            kernel_build = name,
-            subdirs = ["scripts"],
-        )
-
-        native.filegroup(
-            name = name + "_ddk_allowlist_headers",
-            srcs = [
-                name + "_script_headers",
-                name + "_uapi_headers",
-            ],
-            visibility = [
-                Label("//build/kernel/kleaf:__pkg__"),
-            ],
-        )
-
-        kernel_modules_install(
-            name = name + "_modules_install",
-            # The GKI target does not have external modules. GKI modules goes
-            # into the in-tree kernel module list, aka kernel_build.module_implicit_outs.
-            # Hence, this is empty.
-            kernel_modules = [],
-            kernel_build = name,
-        )
-
-        kernel_unstripped_modules_archive(
-            name = name + "_unstripped_modules_archive",
-            kernel_build = name,
-        )
-
-        kernel_images(
-            name = name + "_images",
-            kernel_build = name,
-            kernel_modules_install = name + "_modules_install",
-            # Sync with GKI_DOWNLOAD_CONFIGS, "images"
-            build_system_dlkm = True,
-            # Keep in sync with build.config.gki* MODULES_LIST
-            modules_list = "android/gki_system_dlkm_modules",
-        )
-
-        if target_config.get("build_gki_artifacts"):
-            gki_artifacts(
-                name = name + "_gki_artifacts",
-                kernel_build = name,
-                boot_img_sizes = target_config.get("gki_boot_img_sizes", {}),
-                arch = arch_config["arch"],
-            )
-        else:
-            native.filegroup(
-                name = name + "_gki_artifacts",
-                srcs = [],
-            )
-
-        # toolchain_version from <name>
-        native.filegroup(
-            name = name + "_" + TOOLCHAIN_VERSION_FILENAME,
-            srcs = [name],
-            output_group = TOOLCHAIN_VERSION_FILENAME,
-        )
-
-        # module_staging_archive from <name>
-        native.filegroup(
-            name = name + "_modules_staging_archive",
-            srcs = [name],
-            output_group = "modules_staging_archive",
-        )
-
-        # All GKI modules
-        native.filegroup(
-            name = name + "_modules",
-            srcs = [
-                "{}/{}".format(name, module)
-                for module in (target_config["module_implicit_outs"] or [])
-            ],
-        )
-
-        # The purpose of this target is to allow device kernel build to include reasonable
-        # defaults of artifacts from GKI. Hence, this target includes everything in name + "_dist",
-        # excluding the following:
-        # - UAPI headers, because device-specific external kernel modules may install different
-        #   headers.
-        # - DDK; see _ddk_artifacts below.
-        # - toolchain_version: avoid conflict with device kernel's kernel_build() in dist dir.
-        native.filegroup(
-            name = name + "_additional_artifacts",
-            srcs = [
-                # Sync with additional_artifacts_items
-                name + "_headers",
-                name + "_images",
-                name + "_kmi_symbol_list",
-                name + "_gki_artifacts",
-            ],
-        )
-
-        # Everything in name + "_dist" for the DDK.
-        # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
-        # development. Hence they are also added to kernel_*_dist so they can be downloaded.
-        # Note: This poke into details of kernel_build!
-        native.filegroup(
-            name = name + "_ddk_artifacts",
-            srcs = [
-                name + "_modules_prepare",
-                name + "_modules_staging_archive",
-            ],
-        )
-
-        dist_targets = [
-            name,
-            name + "_uapi_headers",
-            name + "_unstripped_modules_archive",
-            name + "_additional_artifacts",
-            name + "_ddk_artifacts",
-            name + "_modules",
-            name + "_modules_install",
-            name + "_" + TOOLCHAIN_VERSION_FILENAME,
-            # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
-            Label("//build/kernel:gki_certification_tools"),
-        ]
-
-        copy_to_dist_dir(
-            name = name + "_dist",
-            data = dist_targets,
-            flat = True,
-            dist_dir = "out/{name}/dist".format(name = name),
-            log = "info",
-        )
-
-        kernel_abi_dist(
-            name = name + "_abi_dist",
-            kernel_abi = name + "_abi",
-            kernel_build_add_vmlinux = True,
-            data = dist_targets,
-            flat = True,
-            dist_dir = "out_abi/{name}/dist".format(name = name),
-            log = "info",
-        )
-
-        _define_common_kernels_additional_tests(
-            name = name + "_additional_tests",
-            kernel_build_name = name,
-            kernel_modules_install = name + "_modules_install",
-            modules = (target_config.get("module_outs") or []) +
-                      (target_config.get("module_implicit_outs") or []),
-            arch = arch_config["arch"],
-        )
-
-        native.test_suite(
-            name = name + "_tests",
-            tests = [
-                name + "_additional_tests",
-                name + "_test",
-                name + "_modules_test",
-            ],
+            **target_config
         )
 
     native.alias(
@@ -830,55 +558,398 @@ def define_common_kernels(
         actual = ":kernel_aarch64_dist",
     )
 
-    kernel_compile_commands(
-        name = "kernel_aarch64_compile_commands",
-        kernel_build = ":kernel_aarch64",
-    )
-
-    kernel_compile_commands(
-        name = "kernel_x86_64_compile_commands",
-        kernel_build = ":kernel_x86_64",
-    )
-
     string_flag(
         name = "kernel_kythe_corpus",
         build_setting_default = "",
     )
 
-    kernel_kythe(
-        name = "kernel_aarch64_kythe",
-        kernel_build = ":kernel_aarch64",
-        corpus = ":kernel_kythe_corpus",
+    kythe_candidates = [
+        "kernel_aarch64",
+        "kernel_x86_64",
+        "kernel_riscv64",
+    ]
+
+    merge_kzip(
+        name = "kernel_kythe",
+        srcs = [name + "_kythe" for name in kythe_candidates if name in target_configs],
     )
 
     copy_to_dist_dir(
-        name = "kernel_aarch64_kythe_dist",
-        data = [
-            ":kernel_aarch64_kythe",
-        ],
+        name = "kernel_kythe_dist",
+        data = [":kernel_kythe"],
         flat = True,
     )
 
     _define_prebuilts(target_configs = target_configs, visibility = visibility)
 
+def _get_target_config(
+        name,
+        target_configs_names,
+        target_configs,
+        default_target_configs):
+    """Returns arguments to _define_common_kernel for a target."""
+    if target_configs == None:
+        target_configs = {}
+    target_config = {}
+    for target_configs_name in target_configs_names:
+        if target_configs_name in target_configs:
+            target_config = dict(target_configs[target_configs_name])
+            break
+    default_target_config = default_target_configs.get(name, {})
+    for key, default_value in default_target_config.items():
+        target_config.setdefault(key, default_value)
+    return target_config
+
+def _define_common_kernel(
+        name,
+        outs,
+        arch,
+        build_config,
+        toolchain_version,
+        visibility,
+        enable_interceptor = None,
+        kmi_symbol_list = None,
+        additional_kmi_symbol_lists = None,
+        trim_nonlisted_kmi = None,
+        kmi_symbol_list_strict_mode = None,
+        kmi_symbol_list_add_only = None,
+        module_implicit_outs = None,
+        protected_exports_list = None,
+        protected_modules_list = None,
+        gki_system_dlkm_modules = None,
+        make_goals = None,
+        abi_definition_stg = None,
+        kmi_enforced = None,
+        build_gki_artifacts = None,
+        gki_boot_img_sizes = None,
+        page_size = None):
+    json_target_config = dict(
+        name = name,
+        outs = outs,
+        arch = arch,
+        build_config = build_config,
+        toolchain_version = toolchain_version,
+        visibility = visibility,
+        enable_interceptor = enable_interceptor,
+        kmi_symbol_list = kmi_symbol_list,
+        additional_kmi_symbol_lists = additional_kmi_symbol_lists,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
+        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
+        module_implicit_outs = module_implicit_outs,
+        protected_exports_list = protected_exports_list,
+        protected_modules_list = protected_modules_list,
+        gki_system_dlkm_modules = gki_system_dlkm_modules,
+        make_goals = make_goals,
+        abi_definition_stg = abi_definition_stg,
+        kmi_enforced = kmi_enforced,
+        build_gki_artifacts = build_gki_artifacts,
+        gki_boot_img_sizes = gki_boot_img_sizes,
+        page_size = page_size,
+    )
+    json_target_config = json.encode_indent(json_target_config, indent = "    ")
+    json_target_config = json_target_config.replace("null", "None")
+
+    print_debug(
+        name = name + "_print_configs",
+        content = "_define_common_kernel(**{})".format(json_target_config),
+        tags = ["manual"],
+    )
+
+    native.alias(
+        name = name + "_sources",
+        actual = ":common_kernel_sources",
+    )
+
+    all_kmi_symbol_lists = additional_kmi_symbol_lists
+    all_kmi_symbol_lists = [] if all_kmi_symbol_lists == None else list(all_kmi_symbol_lists)
+
+    # Add user KMI symbol lists to additional lists
+    additional_kmi_symbol_lists = all_kmi_symbol_lists + [
+        "//build/kernel/kleaf:user_kmi_symbol_lists",
+    ]
+
+    if kmi_symbol_list:
+        all_kmi_symbol_lists.append(kmi_symbol_list)
+
+    native.filegroup(
+        name = name + "_all_kmi_symbol_lists",
+        srcs = all_kmi_symbol_lists,
+    )
+
+    kernel_build_config(
+        name = name + "_build_config",
+        srcs = [
+            # do not sort
+            ":set_kernel_dir_build_config",
+            build_config,
+            Label("//build/kernel/kleaf:gki_build_config_fragment"),
+        ],
+    )
+
+    kernel_build(
+        name = name,
+        srcs = [name + "_sources"],
+        outs = outs,
+        arch = arch,
+        implicit_outs = [
+            # Kernel build time module signing utility and keys
+            # Only available during GKI builds
+            # Device fragments need to add: '# CONFIG_MODULE_SIG_ALL is not set'
+            "scripts/sign-file",
+            "certs/signing_key.pem",
+            "certs/signing_key.x509",
+        ],
+        build_config = name + "_build_config",
+        enable_interceptor = enable_interceptor,
+        visibility = visibility,
+        collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
+        strip_modules = _STRIP_MODULES,
+        toolchain_version = toolchain_version,
+        keep_module_symvers = _KEEP_MODULE_SYMVERS,
+        kmi_symbol_list = kmi_symbol_list,
+        additional_kmi_symbol_lists = additional_kmi_symbol_lists,
+        trim_nonlisted_kmi = trim_nonlisted_kmi,
+        kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
+        module_implicit_outs = module_implicit_outs,
+        protected_exports_list = protected_exports_list,
+        protected_modules_list = protected_modules_list,
+        make_goals = make_goals,
+        page_size = page_size,
+    )
+
+    kernel_abi(
+        name = name + "_abi",
+        kernel_build = name,
+        visibility = visibility,
+        define_abi_targets = bool(kmi_symbol_list),
+        # Sync with KMI_SYMBOL_LIST_MODULE_GROUPING
+        module_grouping = None,
+        abi_definition_stg = abi_definition_stg,
+        kmi_enforced = kmi_enforced,
+        kmi_symbol_list_add_only = kmi_symbol_list_add_only,
+    )
+
+    if enable_interceptor:
+        return
+
+    # A subset of headers in OUT_DIR that only contains scripts/. This is useful
+    # for DDK headers interpolation.
+    out_headers_allowlist_archive(
+        name = name + "_script_headers",
+        kernel_build = name,
+        subdirs = ["scripts"],
+    )
+
+    native.filegroup(
+        name = name + "_ddk_allowlist_headers",
+        srcs = [
+            name + "_script_headers",
+            name + "_uapi_headers",
+        ],
+        visibility = [
+            Label("//build/kernel/kleaf:__pkg__"),
+        ],
+    )
+
+    kernel_modules_install(
+        name = name + "_modules_install",
+        # The GKI target does not have external modules. GKI modules goes
+        # into the in-tree kernel module list, aka kernel_build.module_implicit_outs.
+        # Hence, this is empty.
+        kernel_modules = [],
+        kernel_build = name,
+    )
+
+    kernel_unstripped_modules_archive(
+        name = name + "_unstripped_modules_archive",
+        kernel_build = name,
+    )
+
+    kernel_images(
+        name = name + "_images",
+        kernel_build = name,
+        kernel_modules_install = name + "_modules_install",
+        # Sync with GKI_DOWNLOAD_CONFIGS, "images"
+        build_system_dlkm = True,
+        # Keep in sync with build.config.gki* MODULES_LIST
+        modules_list = gki_system_dlkm_modules,
+    )
+
+    if build_gki_artifacts:
+        gki_artifacts(
+            name = name + "_gki_artifacts",
+            kernel_build = name,
+            boot_img_sizes = gki_boot_img_sizes,
+            arch = arch,
+        )
+    else:
+        native.filegroup(
+            name = name + "_gki_artifacts",
+            srcs = [],
+        )
+
+    # toolchain_version from <name>
+    native.filegroup(
+        name = name + "_" + TOOLCHAIN_VERSION_FILENAME,
+        srcs = [name],
+        output_group = TOOLCHAIN_VERSION_FILENAME,
+    )
+
+    # module_staging_archive from <name>
+    native.filegroup(
+        name = name + "_modules_staging_archive",
+        srcs = [name],
+        output_group = "modules_staging_archive",
+    )
+
+    # All GKI modules
+    native.filegroup(
+        name = name + "_modules",
+        srcs = [
+            "{}/{}".format(name, module)
+            for module in (module_implicit_outs or [])
+        ],
+    )
+
+    # The purpose of this target is to allow device kernel build to include reasonable
+    # defaults of artifacts from GKI. Hence, this target includes everything in name + "_dist",
+    # excluding the following:
+    # - UAPI headers, because device-specific external kernel modules may install different
+    #   headers.
+    # - DDK; see _ddk_artifacts below.
+    # - toolchain_version: avoid conflict with device kernel's kernel_build() in dist dir.
+    native.filegroup(
+        name = name + "_additional_artifacts",
+        srcs = [
+            # Sync with additional_artifacts_items
+            name + "_headers",
+            name + "_images",
+            name + "_kmi_symbol_list",
+            name + "_gki_artifacts",
+        ],
+    )
+
+    # Everything in name + "_dist" for the DDK.
+    # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
+    # development. Hence they are also added to kernel_*_dist so they can be downloaded.
+    # Note: This poke into details of kernel_build!
+    native.filegroup(
+        name = name + "_ddk_artifacts",
+        srcs = [
+            name + "_modules_prepare",
+            name + "_modules_staging_archive",
+        ],
+    )
+
+    dist_targets = [
+        name,
+        name + "_uapi_headers",
+        name + "_unstripped_modules_archive",
+        name + "_additional_artifacts",
+        name + "_ddk_artifacts",
+        name + "_modules",
+        name + "_modules_install",
+        name + "_" + TOOLCHAIN_VERSION_FILENAME,
+        # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
+        Label("//build/kernel:gki_certification_tools"),
+    ]
+
+    kernel_sbom(
+        name = name + "_sbom",
+        srcs = dist_targets,
+        kernel_build = name,
+    )
+
+    dist_targets.append(name + "_sbom")
+
+    copy_to_dist_dir(
+        name = name + "_dist",
+        data = dist_targets,
+        flat = True,
+        dist_dir = "out/{name}/dist".format(name = name),
+        log = "info",
+    )
+
+    kernel_abi_dist(
+        name = name + "_abi_dist",
+        kernel_abi = name + "_abi",
+        kernel_build_add_vmlinux = True,
+        data = dist_targets,
+        flat = True,
+        dist_dir = "out_abi/{name}/dist".format(name = name),
+        log = "info",
+    )
+
+    _define_common_kernels_additional_tests(
+        name = name + "_additional_tests",
+        kernel_build_name = name,
+        kernel_modules_install = name + "_modules_install",
+        modules = (module_implicit_outs or []),
+        arch = arch,
+    )
+
+    native.test_suite(
+        name = name + "_tests",
+        tests = [
+            name + "_additional_tests",
+            name + "_test",
+            name + "_modules_test",
+        ],
+    )
+
+    kernel_compile_commands(
+        name = name + "_compile_commands",
+        kernel_build = name,
+    )
+
+    kernel_kythe(
+        name = name + "_kythe",
+        kernel_build = name,
+        corpus = ":kernel_kythe_corpus",
+    )
+
+    copy_to_dist_dir(
+        name = name + "_kythe_dist",
+        data = [
+            name + "_kythe",
+        ],
+        flat = True,
+    )
+
 def _define_prebuilts(target_configs, **kwargs):
-    # Build number for GKI prebuilts
+    # Legacy flag for backwards compatibility
+    # TODO(https://github.com/bazelbuild/bazel/issues/13463): alias to bool_flag does not
+    # work. Hence we use a composite flag here.
     bool_flag(
         name = "use_prebuilt_gki",
         build_setting_default = False,
+        # emit a warning if the legacy flag is used.
+        deprecation = "Use {} or {} instead, respectively.".format(
+            Label("//build/kernel/kleaf:use_prebuilt_gki"),
+            Label("//build/kernel/kleaf:use_prebuilt_gki_is_true"),
+        ),
     )
-
-    # Matches when --use_prebuilt_gki is set.
     native.config_setting(
-        name = "use_prebuilt_gki_set",
+        name = "local_use_prebuilt_gki_set",
         flag_values = {
             ":use_prebuilt_gki": "true",
         },
+        visibility = ["//visibility:private"],
+    )
+
+    # Matches when --use_prebuilt_gki or --//<common_package>:use_prebuilt_gki is set
+    selects.config_setting_group(
+        name = "use_prebuilt_gki_set",
+        match_any = [
+            Label("//build/kernel/kleaf:use_prebuilt_gki_is_true"),
+            ":local_use_prebuilt_gki_set",
+        ],
     )
 
     for name, value in CI_TARGET_MAPPING.items():
         repo_name = value["repo_name"]
         main_target_outs = value["outs"]  # outs of target named {name}
+        gki_prebuilts_outs = value["gki_prebuilts_outs"]  # outputs of _gki_prebuilts
 
         native.filegroup(
             name = name + "_downloaded",
@@ -929,9 +1000,30 @@ def _define_prebuilts(target_configs, **kwargs):
             **kwargs
         )
 
+        gki_artifacts_prebuilts(
+            name = name + "_gki_artifacts_downloaded",
+            srcs = select({
+                Label("//build/kernel/kleaf:use_signed_prebuilts_is_true"): [name + "_boot_img_archive_signed_downloaded"],
+                "//conditions:default": [name + "_boot_img_archive_downloaded"],
+            }),
+            outs = gki_prebuilts_outs,
+        )
+
+        native.filegroup(
+            name = name + "_gki_artifacts_download_or_build",
+            srcs = select({
+                ":use_prebuilt_gki_set": [name + "_gki_artifacts_downloaded"],
+                "//conditions:default": [name + "_gki_artifacts"],
+            }),
+            **kwargs
+        )
+
         for config in GKI_DOWNLOAD_CONFIGS:
             target_suffix = config["target_suffix"]
-            suffixed_target_outs = config["outs"]  # outs of target named {name}_{target_suffix}
+
+            # outs of target named {name}_{target_suffix}
+            suffixed_target_outs = list(config.get("outs", []))
+            suffixed_target_outs += list(config.get("outs_mapping", {}).keys())
 
             native.filegroup(
                 name = name + "_" + target_suffix + "_downloaded",
@@ -1043,6 +1135,8 @@ def define_db845c(
 
     Requires [`define_common_kernels`](#define_common_kernels) to be called in the same package.
 
+    **Deprecated**. Use [`kernel_build`](#kernel_build) directly.
+
     Args:
         name: name of target. Usually `"db845c"`.
         build_config: See [kernel_build.build_config](#kernel_build-build_config). If `None`,
@@ -1060,7 +1154,19 @@ def define_db845c(
         gki_modules_list: List of gki modules to be copied to the dist directory.
           If `None`, all gki kernel modules will be copied.
         dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{name}/dist"`.
+
+    Deprecated:
+        Use [`kernel_build`](#kernel_build) directly.
     """
+
+    # buildifier: disable=print
+    print("""{}//{}:{}: define_db845c is deprecated.
+
+          Use [`kernel_build`](#kernel_build) directly.
+
+          Use https://r.android.com/2634654 and its cherry-picks as a reference
+            on how to unfold the macro and use the other rules directly.
+    """.format(native.package_relative_label(name), native.package_name(), name))
 
     if build_config == None:
         build_config = "build.config.db845c"
@@ -1097,7 +1203,7 @@ def define_db845c(
 
     # enable ABI Monitoring
     # based on the instructions here:
-    # https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/docs/abi_device.md
+    # https://android.googlesource.com/kernel/build/+/refs/heads/main/kleaf/docs/abi_device.md
     # https://android-review.googlesource.com/c/kernel/build/+/2308912
     kernel_abi(
         name = name + "_abi",

@@ -30,6 +30,9 @@ mentioned here. In particular:
 - --preserve_cmd is not listed because it only affects artifact collection.
 - lto is in these lists because incremental builds with LTO changing causes incremental build
   breakages; see (b/257288175)
+- The following is not listed because it is already handled by defconfig_fragments. See
+  kernel_env.bzl, _handle_config_tags:
+  - btf_debug_info
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
@@ -41,6 +44,8 @@ load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(":abi/trim_nonlisted_kmi_utils.bzl", "TRIM_NONLISTED_KMI_ATTR_NAME")
 load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":kgdb.bzl", "kgdb")
+
+visibility("//build/kernel/kleaf/...")
 
 def _trim_attrs_raw():
     return [TRIM_NONLISTED_KMI_ATTR_NAME]
@@ -70,6 +75,7 @@ def _kernel_build_config_settings_raw():
             "_use_kmi_symbol_list_strict_mode": "//build/kernel/kleaf:kmi_symbol_list_strict_mode",
             "_gcov": "//build/kernel/kleaf:gcov",
             "_kasan": "//build/kernel/kleaf:kasan",
+            "_kasan_sw_tags": "//build/kernel/kleaf:kasan_sw_tags",
             "_kcsan": "//build/kernel/kleaf:kcsan",
             "_preserve_kbuild_output": "//build/kernel/kleaf:preserve_kbuild_output",
         },
@@ -86,9 +92,9 @@ def _kernel_config_config_settings_raw():
         kgdb.config_settings_raw(),
         {
             "kasan": "//build/kernel/kleaf:kasan",
+            "kasan_sw_tags": "//build/kernel/kleaf:kasan_sw_tags",
             "kcsan": "//build/kernel/kleaf:kcsan",
             "gcov": "//build/kernel/kleaf:gcov",
-            "btf_debug_info": "//build/kernel/kleaf:btf_debug_info",
         },
     )
 
@@ -116,7 +122,70 @@ def _kernel_env_config_settings():
         for attr_name, label in _kernel_env_config_settings_raw().items()
     }
 
-def _kernel_env_get_config_tags(ctx):
+def _kernel_env_get_config_tags(ctx, mnemonic_prefix, defconfig_fragments):
+    """Return necessary files for KernelEnvAttrInfo's fields related to "config tags"
+
+    config_tags is the mechanism to isolate --cache_dir.
+
+    Requires `ctx.attr._cache_dir_config_tags`.
+
+    Args:
+        ctx: ctx
+        mnemonic_prefix: prefix to mnemonics for actions created within this function.
+        defconfig_fragments: a `list[File]` of defconfig fragments.
+
+    Returns:
+        A struct with two fields:
+
+        - common: A File that contains a JSON object containing build configurations
+          and defconfig fragments.
+        - env: A File that contains comments about build configurations
+          defconfig fragments, and the target name, for `kernel_env` output.
+    """
+
+    # base: just all the different config settings
+    base_config_tags = _kernel_env_get_base_config_tags(ctx)
+    base_config_tags_file = ctx.actions.declare_file("{}/base_config_tags.json".format(ctx.label.name))
+    ctx.actions.write(base_config_tags_file, json.encode_indent(base_config_tags, indent = "    "))
+
+    # common: base + defconfig_fragments
+    common_config_tags_file = ctx.actions.declare_file("{}/common_config_tags.json".format(ctx.label.name))
+    args = ctx.actions.args()
+    args.add("--base", base_config_tags_file)
+    if defconfig_fragments:
+        args.add_all("--defconfig_fragments", defconfig_fragments)
+    args.add("--dest", common_config_tags_file)
+    ctx.actions.run(
+        outputs = [common_config_tags_file],
+        inputs = depset([base_config_tags_file], transitive = [depset(defconfig_fragments)]),
+        executable = ctx.executable._cache_dir_config_tags,
+        arguments = [args],
+        mnemonic = "{}CommonConfigTags".format(mnemonic_prefix),
+        progress_message = "Creating common_config_tags {}".format(ctx.label),
+    )
+
+    # env: common + label of this kernel_env, prefixed with #
+    env_config_tags_file = ctx.actions.declare_file("{}/config_tags.txt".format(ctx.label.name))
+    args = ctx.actions.args()
+    args.add("--base", common_config_tags_file)
+    args.add("--target", str(ctx.label))
+    args.add("--dest", env_config_tags_file)
+    args.add("--comment")
+    ctx.actions.run(
+        outputs = [env_config_tags_file],
+        inputs = [common_config_tags_file],
+        executable = ctx.executable._cache_dir_config_tags,
+        arguments = [args],
+        mnemonic = "{}ConfigTags".format(mnemonic_prefix),
+        progress_message = "Creating config_tags {}".format(ctx.label),
+    )
+
+    return struct(
+        common = common_config_tags_file,
+        env = env_config_tags_file,
+    )
+
+def _kernel_env_get_base_config_tags(ctx):
     """Returns dict to compute `OUT_DIR_SUFFIX` for `kernel_env`."""
     attr_to_label = _kernel_env_config_settings_raw()
     raw_attrs = _trim_attrs_raw() + _lto_attrs_raw()
@@ -163,10 +232,17 @@ def _create_progress_message_item(attr_key, attr_val, map, interesting_list):
     else:
         return "{}={}".format(print_attr_key, attr_val)
 
-def _get_progress_message_note(ctx):
+def _get_progress_message_note(ctx, defconfig_fragments):
     """Returns a description text for progress message.
 
     This is a shortened and human-readable version of `kernel_env_get_config_tags`.
+
+    Args:
+        ctx: ctx
+        defconfig_fragments: a `list[File]` of defconfig fragments.
+
+    Returns:
+        A string to be added to the end of `progress_message`
     """
     attr_to_label = _kernel_env_config_settings_raw()
 
@@ -196,6 +272,12 @@ def _get_progress_message_note(ctx):
         if not item:
             continue
         ret.append(item)
+
+    # Files under build/kernel/kleaf/impl/defconfig are named as *_defconfig.
+    # For progress_messsage, we only care about the part before _defconfig.
+    # See kernel_build.defconfig_fragments documentation.
+    for file in defconfig_fragments:
+        ret.append(file.basename.removesuffix("_defconfig"))
 
     ret = sorted(sets.to_list(sets.make(ret)))
     ret = ";".join(ret)

@@ -24,6 +24,8 @@ load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _merged_kernel_uapi_headers_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
 

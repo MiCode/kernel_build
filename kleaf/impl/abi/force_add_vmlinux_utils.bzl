@@ -16,6 +16,8 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
+visibility("//build/kernel/kleaf/...")
+
 _FORCE_ADD_VMLINUX_SETTING = "//build/kernel/kleaf/impl:force_add_vmlinux"
 
 def _force_add_vmlinux_config_settings_raw():

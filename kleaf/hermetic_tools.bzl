@@ -17,6 +17,7 @@ Provide tools for a hermetic build.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//build/kernel/kleaf/impl:hermetic_exec.bzl",
     _hermetic_exec = "hermetic_exec",
@@ -33,22 +34,34 @@ hermetic_toolchain = _hermetic_toolchain
 
 _PY_TOOLCHAIN_TYPE = "@bazel_tools//tools/python:toolchain_type"
 
+# Deprecated.
 HermeticToolsInfo = provider(
-    doc = "Legacy information provided by [hermetic_tools](#hermetic_tools).",
+    doc = """Legacy information provided by [hermetic_tools](#hermetic_tools).
+
+Deprecated:
+    Use `hermetic_toolchain` instead. See `build/kernel/kleaf/docs/hermeticity.md`.
+""",
     fields = {
-        "deps": "the hermetic tools",
+        "deps": "A list containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """Alternative setup script that preserves original `PATH`.
+        # TODO(b/250646733): Delete this field
+        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Alternative setup script that preserves original `PATH`.
 
 After using this script, the shell environment prioritizes using hermetic tools, but falls
 back on tools from the original `PATH` if a tool cannot be found.
 
 Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
 """,
-        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
+        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
-        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
+        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
@@ -57,17 +70,14 @@ _HermeticToolchainInfo = provider(
     fields = {
         "deps": "a depset containing the hermetic tools",
         "setup": "setup script to initialize the environment to only use the hermetic tools",
-        "additional_setup": """Alternative setup script that preserves original `PATH`.
+        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
 
-After using this script, the shell environment prioritizes using hermetic tools, but falls
-back on tools from the original `PATH` if a tool cannot be found.
-
-Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
-""",
-        "run_setup": """setup script to initialize the environment to only use the hermetic tools in
+setup script to initialize the environment to only use the hermetic tools in
 [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
 e.g. for generated executables and tests""",
-        "run_additional_setup": """Like `run_setup` but preserves original `PATH`.""",
+        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
+
+Like `run_setup` but preserves original `PATH`.""",
     },
 )
 
@@ -109,7 +119,10 @@ def _handle_hermetic_tools(ctx):
             output = out,
             target_file = src,
             is_executable = True,
-            progress_message = "Creating symlinks to in-tree tools",
+            progress_message = "Creating symlinks to in-tree tools {}/{}".format(
+                ctx.label,
+                src.basename,
+            ),
         )
 
     _handle_tar(
@@ -185,6 +198,34 @@ EOF
         progress_message = "Creating wrapper for rsync: {}".format(ctx.label),
     )
 
+def _get_single_file(ctx, target):
+    files_list = target.files.to_list()
+    if len(files_list) != 1:
+        fail("{}: {} does not contain a single file".format(
+            ctx.label,
+            target.label,
+        ))
+    return files_list[0]
+
+def _handle_hermetic_symlinks(ctx):
+    hermetic_symlinks_dict = {}
+    for actual_target, tool_names in ctx.attr.symlinks.items():
+        for tool_name in tool_names.split(":"):
+            out = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, tool_name))
+            target_file = _get_single_file(ctx, actual_target)
+            ctx.actions.symlink(
+                output = out,
+                target_file = target_file,
+                is_executable = True,
+                progress_message = "Creating symlinks to in-tree tools {}/{}".format(
+                    ctx.label,
+                    tool_name,
+                ),
+            )
+            hermetic_symlinks_dict[tool_name] = out
+
+    return hermetic_symlinks_dict
+
 def _handle_host_tools(ctx, hermetic_base, deps):
     deps = list(deps)
     host_outs = []
@@ -234,6 +275,7 @@ def _hermetic_tools_impl(ctx):
     all_outputs = []
 
     hermetic_outs_dict = _handle_hermetic_tools(ctx)
+    hermetic_outs_dict.update(_handle_hermetic_symlinks(ctx))
 
     py3 = _handle_python(
         ctx = ctx,
@@ -263,42 +305,59 @@ def _hermetic_tools_impl(ctx):
            set -o pipefail
     """
 
+    hermetic_base = paths.join(
+        ctx.bin_dir.path,
+        paths.dirname(ctx.build_file_path),
+        ctx.attr.name,
+    )
+    hermetic_base_short = paths.join(
+        paths.dirname(ctx.build_file_path),
+        ctx.attr.name,
+    )
+
     setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
-""".format(path = all_outputs[0].dirname)
+                # Ensure _setup_env.sh keeps the original items in PATH
+                export KLEAF_INTERNAL_BUILDTOOLS_PREBUILT_BIN={path}
+""".format(path = hermetic_base)
     additional_setup = """
                 export PATH=$({path}/readlink -m {path}):$PATH
-""".format(path = all_outputs[0].dirname)
+""".format(path = hermetic_base)
     run_setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path})
-""".format(path = paths.dirname(all_outputs[0].short_path))
+""".format(path = hermetic_base_short)
     run_additional_setup = fail_hard + """
                 export PATH=$({path}/readlink -m {path}):$PATH
-""".format(path = paths.dirname(all_outputs[0].short_path))
-
-    hermetic_tools_info = HermeticToolsInfo(
-        deps = info_deps,
-        setup = setup,
-        additional_setup = additional_setup,
-        run_setup = run_setup,
-        run_additional_setup = run_additional_setup,
-    )
+""".format(path = hermetic_base_short)
 
     hermetic_toolchain_info = _HermeticToolchainInfo(
         deps = depset(info_deps),
         setup = setup,
-        additional_setup = additional_setup,
         run_setup = run_setup,
         run_additional_setup = run_additional_setup,
     )
 
-    return [
+    infos = [
         DefaultInfo(files = depset(all_outputs)),
-        hermetic_tools_info,
         platform_common.ToolchainInfo(
             hermetic_toolchain_info = hermetic_toolchain_info,
         ),
+        OutputGroupInfo(
+            **{file.basename: depset([file]) for file in all_outputs}
+        ),
     ]
+
+    if not ctx.attr._disable_hermetic_tools_info[BuildSettingInfo].value:
+        hermetic_tools_info = HermeticToolsInfo(
+            deps = info_deps,
+            setup = setup,
+            additional_setup = additional_setup,
+            run_setup = run_setup,
+            run_additional_setup = run_additional_setup,
+        )
+        infos.append(hermetic_tools_info)
+
+    return infos
 
 _hermetic_tools = rule(
     implementation = _hermetic_tools_impl,
@@ -310,6 +369,13 @@ _hermetic_tools = rule(
         "srcs": attr.label_list(doc = "Hermetic tools in the tree", allow_files = True),
         "deps": attr.label_list(doc = "Additional_deps", allow_files = True),
         "tar_args": attr.string_list(),
+        "symlinks": attr.label_keyed_string_dict(
+            doc = "symlinks to labels",
+            allow_files = True,
+        ),
+        "_disable_hermetic_tools_info": attr.label(
+            default = "//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info",
+        ),
         "rsync_args": attr.string_list(),
     },
     toolchains = [
@@ -325,6 +391,8 @@ def hermetic_tools(
         tar_args = None,
         rsync_args = None,
         py3_outs = None,
+        symlinks = None,
+        aliases = None,
         **kwargs):
     """Provide tools for a hermetic build.
 
@@ -333,6 +401,12 @@ def hermetic_tools(
         srcs: A list of labels referring to tools for hermetic builds. This is usually a `glob()`.
 
           Each item in `{srcs}` is treated as an executable that are added to the `PATH`.
+        symlinks: A dictionary, where keys are labels to an executable, and
+          values are names to the tool, separated with `:`. e.g.
+
+          ```
+          {"//label/to:toybox": "cp:realpath"}
+          ```
         host_tools: An allowlist of names of tools that are allowed to be used from the host.
 
           For each token `{tool}`, the label `{name}/{tool}` is created to refer to the tool.
@@ -340,18 +414,33 @@ def hermetic_tools(
         deps: additional dependencies. Unlike `srcs`, these aren't added to the `PATH`.
         tar_args: List of fixed arguments provided to `tar` commands.
         rsync_args: List of fixed arguments provided to `rsync` commands.
+        aliases: [nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
+
+          List of aliases to create to refer to a single tool.
+
+          For example, if `aliases = ["cp"],` then `<name>/cp` refers to a
+          `cp`.
+
+          **Note**: Items in `srcs`, `host_tools` and `py3_outs` already have
+          `<name>/<tool>` target created.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common
     """
 
+    if aliases == None:
+        aliases = []
+
     if host_tools:
         host_tools = ["{}/{}".format(name, tool) for tool in host_tools]
 
     outs = None
     if srcs:
-        outs = ["{}/{}".format(name, paths.basename(src)) for src in srcs]
+        outs = ["{}/{}".format(
+            name,
+            paths.basename(native.package_relative_label(src).name),
+        ) for src in srcs]
 
     if py3_outs:
         py3_outs = ["{}/{}".format(name, paths.basename(py3_name)) for py3_name in py3_outs]
@@ -365,5 +454,16 @@ def hermetic_tools(
         deps = deps,
         tar_args = tar_args,
         rsync_args = rsync_args,
+        symlinks = symlinks,
         **kwargs
     )
+
+    alias_kwargs = kwargs
+
+    for alias in aliases:
+        native.filegroup(
+            name = name + "/" + alias,
+            srcs = [name],
+            output_group = alias,
+            **alias_kwargs
+        )

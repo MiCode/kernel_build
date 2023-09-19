@@ -24,6 +24,8 @@ load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _out_headers_allowlist_archive_impl(ctx):
     out_file = ctx.actions.declare_file("{}.tar.gz".format(ctx.label.name))
     out_dir = paths.join(utils.intermediates_dir(ctx), "out_dir")

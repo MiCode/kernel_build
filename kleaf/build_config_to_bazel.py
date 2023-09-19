@@ -342,7 +342,7 @@ class BuildConfigToBazel(buildozer_command_builder.BuildozerCommandBuilder):
                 target_comment.append(
                     "FIXME: PRE_DEFCONFIG_CMDS: Don't forget to modify PRE_DEFCONFIG_CMDS "
                     "so it writes to $OUT_DIR, not the source tree: "
-                    "https://android.googlesource.com/kernel/build/+/refs/heads/master/kleaf/docs/errors.md#defconfig-readonly")
+                    "https://android.googlesource.com/kernel/build/+/refs/heads/main/kleaf/docs/errors.md#defconfig-readonly")
             elif key in (
                     "BUILD_BOOT_IMG",
                     "BUILD_VENDOR_BOOT_IMG",

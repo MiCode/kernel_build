@@ -10,7 +10,7 @@
 
 [`build.sh` build configs](docs/build_configs.md)
 
-[Running `make *config`](docs/kernel_config.md)
+[Configuring kernel\_build](docs/kernel_config.md)
 
 [Support ABI monitoring (GKI)](docs/abi.md)
 
@@ -36,6 +36,14 @@
 
 [Building `compile_commands.json`](docs/compile_commands.md)
 
+[Ensuring hermeticity](docs/hermeticity.md)
+
+[Internet Access](docs/network.md)
+
+[Toolchain resolution](docs/toolchains.md)
+
+[Checkpatch](docs/checkpatch.md)
+
 ### Configurations
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
@@ -47,6 +55,12 @@
 `--config=stamp`: [Handling SCM version](docs/scmversion.md)
 
 ### Flags
+
+For a full list of flags, run
+
+```sh
+$ tools/bazel help kleaf
+```
 
 `--gcov`: [Keep GCOV files](docs/gcov.md)
 
@@ -64,6 +78,8 @@
 
 `--gki_build_config_fragment`:
 [Supporting GKI\_BUILD\_CONFIG\_FRAGMENT on Kleaf](docs/gki_build_config_fragment.md)
+
+`--defconfig_fragment`: [Defconfig fragments](docs/kernel_config.md#defconfig-fragments)
 
 Other flags for debugging and disabling integrity checks may be found in the
 [Debugging Kleaf](docs/debugging.md) page.

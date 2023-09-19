@@ -14,6 +14,8 @@
 
 """Providers that are provided by multiple rules in different extensions."""
 
+visibility("//build/kernel/kleaf/...")
+
 KernelCmdsInfo = provider(
     doc = """Provides a directory of `.cmd` files.""",
     fields = {
@@ -21,6 +23,13 @@ KernelCmdsInfo = provider(
             the original target.""",
         "directories": """A [depset](https://bazel.build/extending/depsets) of directories
                           containing the `.cmd` files""",
+    },
+)
+
+KernelBuildConfigInfo = provider(
+    doc = """Provides build config dependencies""",
+    fields = {
+        "deps": "additional dependencies",
     },
 )
 
@@ -128,7 +137,7 @@ KernelEnvAttrInfo = provider(
         "kbuild_symtypes": "`KBUILD_SYMTYPES`, after resolving `--kbuild_symtypes` and the static value.",
         "progress_message_note": """A note in the progress message that differentiates multiple
             instances of the same action due to different configs.""",
-        "common_config_tags": "A dict denoting the configurations that are useful to isolate `OUT_DIR`.",
+        "common_config_tags": "A File denoting the configurations that are useful to isolate `OUT_DIR`.",
     },
 )
 
@@ -220,6 +229,9 @@ GcovInfo = provider(
     doc = """A provider providing information about --gcov.""",
     fields = {
         "gcno_mapping": "`gcno_mapping.json`",
+        "gcno_dir": """A [`File`](https://bazel.build/rules/lib/File) directory;
+        With the generated gcno files.
+        """,
     },
 )
 
@@ -343,5 +355,16 @@ DdkConfigInfo = provider(
             of this and its dependencies. Uses `postorder` ordering (dependencies first).""",
         "defconfig": """A [depset](https://bazel.build/extending/depsets) containing the Kconfig
             file of this and its dependencies. Uses `postorder` ordering (dependencies first).""",
+    },
+)
+
+ImagesInfo = provider(
+    doc = "Provider from individual *_image rule to [`kernel_images`](#kernel_images) rule",
+    fields = {
+        "files_dict": """A dictionary, where keys are keys in
+            [OutputGroupInfo](https://bazel.build/rules/lib/providers/OutputGroupInfo)
+            for `kernel_images`,
+            and values are [depsets](https://bazel.build/extending/depsets).
+        """,
     },
 )

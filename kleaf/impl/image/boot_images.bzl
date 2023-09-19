@@ -21,6 +21,8 @@ load(":debug.bzl", "debug")
 load(":image/initramfs.bzl", "InitramfsInfo")
 load(":utils.bzl", "utils")
 
+visibility("//build/kernel/kleaf/...")
+
 def _boot_images_impl(ctx):
     ## Declare implicit outputs of the command
     ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.

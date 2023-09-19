@@ -140,3 +140,11 @@ It is possible to see `Read-only file system` errors if a previous
 building the defconfig file.
 
 See [errors.md#defconfig-readonly](errors.md#defconfig-readonly) for solutions.
+
+If you see
+```text
+unterminated call to function 'wildcard': missing ')'.  Stop.
+```
+
+This is a known issue. See
+[errors.md](errors.md#unterminated-call-to-function-wildcard) for explanation.

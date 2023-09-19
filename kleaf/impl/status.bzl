@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Utility functions to get variables from stable-status.txt and volatile-status.txt.
-# See https://bazel.build/docs/user-manual#workspace-status-command
+"""
+Utility functions to get variables from stable-status.txt and volatile-status.txt.
+See https://bazel.build/docs/user-manual#workspace-status-command
+"""
 
-def _get_status_cmd(ctx, status_file, var):
+visibility("//build/kernel/kleaf/...")
+
+def _get_status_cmd(_ctx, status_file, var):
     return """ (while read -r name value; do if [ "$name" = "{var}" ]; then echo "$value"; fi; done < {status}) """.format(
         status = status_file.path,
         var = var,

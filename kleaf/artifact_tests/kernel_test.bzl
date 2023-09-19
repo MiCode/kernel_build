@@ -15,6 +15,8 @@
 Tests for artifacts produced by kernel_module.
 """
 
+visibility("//build/kernel/kleaf/...")
+
 def kernel_module_test(
         name,
         modules = None,
@@ -93,6 +95,17 @@ def initramfs_modules_options_test(
         kernel_images,
         expected_modules_options,
         **kwargs):
+    """Tests that initramfs has modules.options with the given content.
+
+    Args:
+        name: name of the test
+        kernel_images: name of the `kernel_images` target. It must build initramfs.
+        expected_modules_options: file with expected content for `modules.options`
+        **kwargs: Additional attributes to the internal rule, e.g.
+          [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
+          See complete list
+          [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
+    """
     script = "//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test.py"
     cpio = "//build/kernel:hermetic-tools/cpio"
     diff = "//build/kernel:hermetic-tools/diff"

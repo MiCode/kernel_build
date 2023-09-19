@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Instantiates a repository that downloads artifacts from http://ci.android.com."""
+
 _BUILD_NUM_ENV_VAR = "KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"
 
 def _sanitize_repo_name(x):
@@ -109,24 +111,35 @@ Fix by one of the following:
             build_num_var = _BUILD_NUM_ENV_VAR,
         )
     build_file = """
-load("@//build/kernel/kleaf:fail.bzl", "fail_rule")
+load("{fail_bzl}", "fail_rule")
 
 fail_rule(
     name = "file",
-    message = \"\"\"{}\"\"\"
+    message = \"\"\"{msg}\"\"\"
 )
-""".format(msg)
+""".format(
+        fail_bzl = Label(":fail.bzl"),
+        msg = msg,
+    )
 
     repository_ctx.file("file/BUILD.bazel", build_file, executable = False)
 
 def _download_from_build_number(repository_ctx, build_number):
+    local_filename = repository_ctx.attr.local_filename
+    remote_filename = repository_ctx.attr.remote_filename_fmt.format(
+        build_number = build_number,
+    )
+
+    # If there's a "/" in the remote filename, escape
+    remote_filename = remote_filename.replace("/", "%2F")
+
     # Download the requested file
     urls = [_ARTIFACT_URL_FMT.format(
         build_number = build_number,
         target = repository_ctx.attr.target,
-        filename = repository_ctx.attr.filename,
+        filename = remote_filename,
     )]
-    download_path = repository_ctx.path("file/{}".format(repository_ctx.attr.filename))
+    download_path = repository_ctx.path("file/{}".format(local_filename))
     download_info = repository_ctx.download(
         url = urls,
         output = download_path,
@@ -139,16 +152,16 @@ def _download_from_build_number(repository_ctx, build_number):
     if not download_info.success and repository_ctx.attr.allow_fail:
         srcs = ""
     else:
-        srcs = '"{}"'.format(repository_ctx.attr.filename)
+        srcs = '"{}"'.format(local_filename)
 
     build_file = """filegroup(
     name="file",
     srcs=[{srcs}],
-    visibility=["@{parent_repo}//{filename}:__pkg__"],
+    visibility=["@{parent_repo}//{local_filename}:__pkg__"],
 )
 """.format(
         srcs = srcs,
-        filename = repository_ctx.attr.filename,
+        local_filename = local_filename,
         parent_repo = repository_ctx.attr.parent_repo,
     )
     repository_ctx.file("file/BUILD.bazel", build_file, executable = False)
@@ -156,11 +169,27 @@ def _download_from_build_number(repository_ctx, build_number):
 _download_artifact_repo = repository_rule(
     implementation = _download_artifact_repo_impl,
     attrs = {
-        "build_number": attr.string(),
+        "build_number": attr.string(
+            doc = "the default build number to use if the environment variable is not set.",
+        ),
         "parent_repo": attr.string(doc = "Name of the parent `download_artifacts_repo`"),
-        "filename": attr.string(),
+        "local_filename": attr.string(
+            doc = "Filename and target name used locally to refer to the file.",
+        ),
+        "remote_filename_fmt": attr.string(
+            doc = """Format string of the filename on [ci.android.com](http://ci.android.com).
+
+            The filename on [ci.android.com](http://ci.android.com) is determined by
+            `remote_filename_fmt.format(...)`, with the following keys:
+
+            - `build_number`: the environment variable or the `build_number` attribute
+            """,
+        ),
         "target": attr.string(doc = "Name of target on [ci.android.com](http://ci.android.com), e.g. `kernel_aarch64`"),
-        "sha256": attr.string(default = ""),
+        "sha256": attr.string(
+            default = "",
+            doc = "checksum of the downloaded file",
+        ),
         "allow_fail": attr.bool(),
     },
     environ = [
@@ -168,22 +197,62 @@ _download_artifact_repo = repository_rule(
     ],
 )
 
+# Avoid dependency to paths, since we do not necessary have skylib loaded yet.
+def _basename(s):
+    return s.split("/")[-1]
+
 def _alias_repo_impl(repository_ctx):
     workspace_file = """workspace(name = "{}")
 """.format(repository_ctx.name)
     repository_ctx.file("WORKSPACE.bazel", workspace_file, executable = False)
 
-    for filename, actual in repository_ctx.attr.aliases.items():
-        build_file = """alias(name="{filename}", actual="{actual}", visibility=["//visibility:public"])
-""".format(filename = filename, actual = actual)
-        repository_ctx.file("{}/BUILD.bazel".format(filename), build_file, executable = False)
+    for local_filename, actual in repository_ctx.attr.aliases.items():
+        build_file = """\
+alias(
+    name="{local_file_basename}",
+    actual="{actual}",
+    visibility=["//visibility:public"]
+)
+""".format(local_file_basename = _basename(local_filename), actual = actual)
+        repository_ctx.file("{}/BUILD.bazel".format(local_filename), build_file, executable = False)
 
 _alias_repo = repository_rule(
     implementation = _alias_repo_impl,
     attrs = {
-        "aliases": attr.string_dict(),
+        "aliases": attr.string_dict(doc = """
+        - Keys: local filename.
+        - Value: label to the actual target.
+        """),
     },
+    environ = [
+        _BUILD_NUM_ENV_VAR,
+    ],
 )
+
+def _transform_files_arg(repo_name, files):
+    """Standardizes files / optional_files for download_artifacts_repo.
+
+    Returns dict[str, dict[str, str]]"""
+
+    if files == None:
+        files = {}
+
+    if type(files) == type([]):
+        files = {filename: None for filename in files}
+
+    if type(files) == type({}):
+        new_files = {}
+        for key, value in files.items():
+            if value == None:
+                value = {}
+            if type(value) == str:
+                value = {"sha256": value}
+            if type(value) != type({}):
+                fail("@{}: Invalid value {}".format(repo_name, value))
+            new_files[key] = value
+        files = new_files
+
+    return files
 
 def download_artifacts_repo(
         name,
@@ -226,36 +295,60 @@ def download_artifacts_repo(
         build_number: build number on [ci.android.com](http://ci.android.com)
         files: One of the following:
 
-          - If a list, this is a list of file names on [ci.android.com](http://ci.android.com).
-          - If a dict, keys are file names on [ci.android.com](http://ci.android.com), and values
-            are corresponding SHA256 hash.
+            - If a list, this is equivalent to `{file: {} for file in files}`.
+            - If a dict:
+                - Keys are the local file names. Unlike `remote_filename_fmt`, the name
+                  is used as-is.
+                - Values are one of the following:
+                - If a string, this is equivalent to `{"sha256": value}`
+                - If a dict, the dictionary may contain these keys:
+                    - "sha256": the corresponding SHA256 hash
+                    - "remote_filename_fmt": the file name on [ci.android.com](http://ci.android.com).
+                        If unspecified, use the local file name.
+                        The remote filename may be a format string that accepts the following keys:
+                        - `build_number`
+
+            Examples:
+            ```
+            files = ["vmlinux"]
+            ```
+
+            ```
+            files = {
+                "vmlinux": "34c4db6e8f4f5f7a3ce18380fb0dd26cff9b66e9ec9a4046db1499b577e4709a"
+            }
+            ```
+
+            ```
+            files = {
+                "manifest.xml": {
+                    "sha256sum": "b45303a82e281977c684838fd6f4100a73bddffacae978593a6ef16e0bcc68ac",
+                    "remote_filename_fmt": "manifest_{build_number}.xml"
+                }
+            }
+            ```
+
         optional_files: Same as `files`, but it is optional. If the file is not in the given
           build, it will not be downloaded, and the label (e.g. `@gki_prebuilts//abi_symbollist`)
           points to an empty filegroup.
     """
 
-    if type(files) == type([]):
-        files = {filename: None for filename in files}
-    elif files == None:
-        files = {}
-
-    if type(optional_files) == type([]):
-        optional_files = {filename: None for filename in optional_files}
-    elif optional_files == None:
-        optional_files = {}
+    files = _transform_files_arg(name, files)
+    optional_files = _transform_files_arg(name, optional_files)
 
     for files_dict, allow_fail in ((files, False), (optional_files, True)):
-        for filename, sha256 in files_dict.items():
+        for local_filename, file_metadata in files_dict.items():
             # Need a repo for each file because repository_ctx.download is blocking. Defining multiple
             # repos allows downloading in parallel.
             # e.g. @gki_prebuilts_vmlinux
             _download_artifact_repo(
-                name = name + "_" + _sanitize_repo_name(filename),
+                name = name + "_" + _sanitize_repo_name(local_filename),
                 parent_repo = name,
-                filename = filename,
+                local_filename = local_filename,
                 build_number = build_number,
                 target = target,
-                sha256 = sha256,
+                sha256 = file_metadata.get("sha256"),
+                remote_filename_fmt = file_metadata.get("remote_filename_fmt", local_filename),
                 allow_fail = allow_fail,
             )
 
@@ -264,7 +357,7 @@ def download_artifacts_repo(
     _alias_repo(
         name = name,
         aliases = {
-            filename: "@" + name + "_" + _sanitize_repo_name(filename) + "//file"
-            for filename in (list(files.keys()) + list(optional_files.keys()))
+            local_filename: "@" + name + "_" + _sanitize_repo_name(local_filename) + "//file"
+            for local_filename in (list(files.keys()) + list(optional_files.keys()))
         },
     )

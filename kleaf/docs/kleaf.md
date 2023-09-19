@@ -5,7 +5,7 @@
 The canonical way to
 [build Android kernels](https://source.android.com/setup/build/building-kernels)
 is with
-[`build/build.sh`](https://android.googlesource.com/kernel/build/+/refs/heads/master/build.sh).
+[`build/build.sh`](https://android.googlesource.com/kernel/build/+/refs/heads/main/build.sh).
 While proven and robust, `build.sh` exposes users, kernel engineers and kernel
 build engineers to issues that are hard to resolve within the current
 implementation. Hence, alternative approaches of building Android Kernels are

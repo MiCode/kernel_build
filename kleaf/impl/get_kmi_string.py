@@ -44,6 +44,12 @@ def get_kmi_string(kernel_release: str, keep_sublevel: bool) -> str:
     Returns:
         A string representing the KMI.
 
+    >>> get_kmi_string("5.15.123", False)
+    '5.15'
+
+    >>> get_kmi_string("5.15.123", True)
+    '5.15.123'
+
     >>> get_kmi_string("5.15.123-android14-6", True)
     '5.15.123-android14-6'
 
@@ -70,7 +76,10 @@ def get_kmi_string(kernel_release: str, keep_sublevel: bool) -> str:
         r"^(?P<version>\d+)\.(?P<patch>\d+)\.(?P<sublevel>\d+).*")
     ver_mo = ver_pat.match(kernel_release)
     if not ver_mo:
-        logging.error("Unrecognized %s", kernel_release)
+        logging.error("Unrecognized kernel release %s. This is not a valid GKI version. See "
+                      "https://source.android.com/docs/core/architecture/kernel/gki-versioning."
+                      "Check early warnings in the build log for details.",
+                      kernel_release)
         sys.exit(1)
 
     version = ver_mo.group("version")
@@ -88,8 +97,11 @@ def get_kmi_string(kernel_release: str, keep_sublevel: bool) -> str:
         r"^(\d+)\.(\d+)\.(\d+)-(?P<release>android\d+)-(?P<gen>\d+)(?:-.*)?$")
     kmi_mo = kmi_pat.match(kernel_release)
     if not kmi_mo:
-        logging.error("Unrecognized %s", kernel_release)
-        sys.exit(1)
+        logging.warning("Unrecognized kernel release %s. This is not a valid GKI version. See "
+                        "https://source.android.com/docs/core/architecture/kernel/gki-versioning."
+                        "Check early warnings in the build log for details.",
+                        kernel_release)
+        return ver_string
 
     android_release = kmi_mo.group("release")
     kmi_generation = kmi_mo.group("gen")

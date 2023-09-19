@@ -17,6 +17,8 @@
 load(":common_providers.bzl", "KernelEnvInfo")
 load(":debug.bzl", "debug")
 
+visibility("//build/kernel/kleaf/...")
+
 def _btf_impl(ctx):
     inputs = [
         ctx.file.vmlinux,

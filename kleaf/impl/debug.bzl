@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Utility functions for debugging Kleaf.
+"""Utility functions for debugging Kleaf."""
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
+visibility("//build/kernel/kleaf/...")
 
 def _print_scripts(ctx, command, what = None):
     """Print scripts at analysis phase.
@@ -27,6 +29,7 @@ def _print_scripts(ctx, command, what = None):
         what: an optional text to distinguish actions within a target.
     """
     if ctx.attr._debug_print_scripts[BuildSettingInfo].value:
+        # buildifier: disable=print
         print("""
         # Script that runs %s%s:%s""" % (ctx.label, (" " + what if what else ""), command))
 

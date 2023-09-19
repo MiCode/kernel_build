@@ -35,6 +35,8 @@ load(
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 
+visibility("//build/kernel/kleaf/...")
+
 def _reverse_dict(d):
     """Reverse a dictionary of {key: [value, ...]}
 
@@ -180,7 +182,9 @@ def _write_depset(ctx, d, out):
         d: the depset
         out: name of the output file
     Returns:
-        the declared output file.
+        A struct with the following fields:
+        - depset_file: the declared output file.
+        - depset: a depset that contains `d` and `depset_file`
     """
     out_file = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, out))
 
@@ -194,7 +198,10 @@ def _write_depset(ctx, d, out):
         mnemonic = "WriteDepset",
         progress_message = "Dumping depset to {}: {}".format(out, ctx.label),
     )
-    return out_file
+    return struct(
+        depset_file = out_file,
+        depset = depset([out_file], transitive = [d]),
+    )
 
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.

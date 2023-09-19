@@ -19,10 +19,11 @@ load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
     "KernelEnvAndOutputsInfo",
-    "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
 load(":utils.bzl", "utils")
+
+visibility("//build/kernel/kleaf/...")
 
 def _protected_exports_impl(ctx):
     if ctx.attr.kernel_build[KernelBuildAbiInfo].trim_nonlisted_kmi:

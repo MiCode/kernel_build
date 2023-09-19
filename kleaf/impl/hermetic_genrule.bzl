@@ -16,6 +16,8 @@
 
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 
+visibility("//build/kernel/kleaf/...")
+
 def _hermetic_genrule_toolchain_setup_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     setup_sh = ctx.actions.declare_file("{}/setup.sh".format(ctx.label.name))

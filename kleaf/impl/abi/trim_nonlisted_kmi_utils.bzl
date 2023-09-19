@@ -14,6 +14,8 @@
 
 """Utilities for configuring trim_nonlisted_kmi."""
 
+visibility("//build/kernel/kleaf/...")
+
 FORCE_DISABLE_TRIM = "//build/kernel/kleaf/impl:force_disable_trim"
 _FORCE_DISABLE_TRIM_IS_TRUE = "//build/kernel/kleaf/impl:force_disable_trim_is_true"
 _KASAN_IS_TRUE = "//build/kernel/kleaf:kasan_is_true"

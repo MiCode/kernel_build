@@ -18,15 +18,18 @@
 # rules and macros. The implementations stays in sub-extensions,
 # which is not expected to be loaded directly by users.
 
+load("//build/kernel/kleaf/impl:gki_artifacts.bzl", _gki_artifacts = "gki_artifacts", _gki_artifacts_prebuilts = "gki_artifacts_prebuilts")
 load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", _kernel_module_test = "kernel_module_test")
 load("//build/kernel/kleaf/impl:abi/extracted_symbols.bzl", _extract_symbols = "extracted_symbols")
 load("//build/kernel/kleaf/impl:abi/kernel_abi.bzl", _kernel_abi = "kernel_abi")
 load("//build/kernel/kleaf/impl:abi/kernel_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist")
 load("//build/kernel/kleaf/impl:android_filegroup.bzl", _android_filegroup = "android_filegroup")
+load("//build/kernel/kleaf/impl:checkpatch.bzl", _checkpatch = "checkpatch")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_submodule.bzl", _ddk_submodule = "ddk_submodule")
 load("//build/kernel/kleaf/impl:image/kernel_images.bzl", _kernel_images = "kernel_images")
+load("//build/kernel/kleaf/impl:image/super_image.bzl", _super_image = "super_image", _unsparsed_image = "unsparsed_image")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", _kernel_build_macro = "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_build_config.bzl", _kernel_build_config = "kernel_build_config")
 load("//build/kernel/kleaf/impl:kernel_compile_commands.bzl", _kernel_compile_commands = "kernel_compile_commands")
@@ -42,10 +45,13 @@ load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_
 
 # Re-exports. This is the list of public rules and macros.
 android_filegroup = _android_filegroup
+checkpatch = _checkpatch
 ddk_headers = _ddk_headers
 ddk_module = _ddk_module
 ddk_submodule = _ddk_submodule
 extract_symbols = _extract_symbols
+gki_artifacts = _gki_artifacts
+gki_artifacts_prebuilts = _gki_artifacts_prebuilts
 kernel_abi = _kernel_abi
 kernel_abi_dist = _kernel_abi_dist
 kernel_build = _kernel_build_macro
@@ -61,6 +67,8 @@ kernel_modules_install = _kernel_modules_install
 kernel_uapi_headers_cc_library = _kernel_uapi_headers_cc_library
 kernel_unstripped_modules_archive = _kernel_unstripped_modules_archive
 merged_kernel_uapi_headers = _merged_kernel_uapi_headers
+super_image = _super_image
+unsparsed_image = _unsparsed_image
 
 # Tests
 kernel_module_test = _kernel_module_test

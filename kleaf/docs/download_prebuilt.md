@@ -57,6 +57,16 @@ Sample command to build `raviole-android13-5.15` against prebuilts from
 $ tools/bazel run --use_prebuilt_gki=8728678 //gs/google-modules/soc-modules:slider_dist
 ```
 
+### Downloading the signed boot images
+
+If you want to download the signed boot images instead of the unsigned one, you may
+specify `--use_signed_prebuilts`. This requires the build number in `--use_prebuilt_gki`.
+Hypothetical example: (this does not work because 8728678 is unsigned):
+
+```shell
+$ tools/bazel run --use_prebuilt_gki=8728678 --use_signed_prebuilts //gs/google-modules/soc-modules:slider_dist
+```
+
 ## Common errors
 
 You may see an error about failing to download a file because it does not
