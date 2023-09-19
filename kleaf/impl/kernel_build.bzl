@@ -2295,7 +2295,7 @@ def _repack_modules_staging_archive(
         return modules_staging_archive_self
 
     modules_staging_archive = ctx.actions.declare_file(
-        "{}_module_staging_archive/{}".format(ctx.label.name, MODULES_STAGING_ARCHIVE),
+        "{}/{}".format(ctx.label.name, MODULES_STAGING_ARCHIVE),
     )
 
     # Re-package module_staging_dir to also include the one from base_kernel.
@@ -2323,7 +2323,7 @@ def _repack_modules_staging_archive(
         out_archive = modules_staging_archive.path,
         all_module_basenames_file = all_module_basenames_file.path,
     )
-    debug.print_scripts(ctx, cmd, what = "repackage_module_staging_archive")
+    debug.print_scripts(ctx, cmd, what = "repackage_modules_staging_archive")
     ctx.actions.run_shell(
         mnemonic = "KernelBuildModuleStagingArchive",
         inputs = [
@@ -2333,7 +2333,7 @@ def _repack_modules_staging_archive(
         ],
         outputs = [modules_staging_archive],
         tools = hermetic_tools.deps,
-        progress_message = "Repackaging module_staging_archive {}".format(_progress_message_suffix(ctx)),
+        progress_message = "Repackaging modules_staging_archive {}".format(_progress_message_suffix(ctx)),
         command = cmd,
     )
     return modules_staging_archive

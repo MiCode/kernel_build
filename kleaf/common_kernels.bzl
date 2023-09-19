@@ -804,7 +804,7 @@ def _define_common_kernel(
         output_group = TOOLCHAIN_VERSION_FILENAME,
     )
 
-    # module_staging_archive from <name>
+    # modules_staging_archive from <name>
     native.filegroup(
         name = name + "_modules_staging_archive",
         srcs = [name],
