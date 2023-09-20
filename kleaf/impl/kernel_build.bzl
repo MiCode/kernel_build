@@ -1746,13 +1746,15 @@ def _create_infos(
         pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
         restore_outputs_cmd_deps = [],
         restore_outputs_cmd = "",
-        extra_inputs = module_srcs.module_scripts,
+        extra_inputs = depset(transitive = [
+            module_srcs.module_scripts,
+            module_srcs.module_kconfig,
+        ]),
     )
 
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
-        module_kconfig = module_srcs.module_kconfig,
         config_env_and_outputs_info = config_env_and_outputs_info,
         modules_env_and_minimal_outputs_info = ext_mod_env_and_outputs_info,
         modules_env_and_all_outputs_info = ext_mod_env_and_all_outputs_info,

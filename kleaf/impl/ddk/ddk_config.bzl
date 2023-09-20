@@ -148,7 +148,6 @@ def _create_main_action(
 
     transitive_inputs = [
         config_env_and_outputs_info.inputs,
-        ctx.attr.kernel_build[KernelBuildExtModuleInfo].module_kconfig,
     ]
 
     tools = config_env_and_outputs_info.tools
