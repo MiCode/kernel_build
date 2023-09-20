@@ -18,6 +18,7 @@ Utilities for kleaf.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
@@ -395,6 +396,41 @@ def _set_src_arch_cmd():
         fi
     """
 
+def _eval_restore_out_dir_cmd():
+    """Returns a command that evaluates `KLEAF_RESTORE_OUT_DIR_CMD`.
+
+    `KLEAF_RESTORE_OUT_DIR_CMD` should be set beforehand to a command line
+    that restores the value of `OUT_DIR`. The variable is set by
+    `kernel_utils.setup_serialized_env_cmd`.
+    """
+    return """
+        if [[ -z "${KLEAF_RESTORE_OUT_DIR_CMD}" ]]; then
+            echo "ERROR: FATAL: KLEAF_RESTORE_OUT_DIR_CMD is not defined!" >&2
+            exit 1
+        fi
+        eval "${KLEAF_RESTORE_OUT_DIR_CMD}"
+    """
+
+def _setup_serialized_env_cmd(serialized_env_info, restore_out_dir_cmd):
+    """Returns a command that sets up `KernelSerializedEnvInfo`.
+
+    Args:
+        serialized_env_info: `KernelSerializedEnvInfo`
+        restore_out_dir_cmd: The command to restore value of `OUT_DIR`.
+    """
+
+    if not restore_out_dir_cmd:
+        restore_out_dir_cmd = ":"
+
+    return """
+        KLEAF_RESTORE_OUT_DIR_CMD={quoted_restore_out_dir_cmd}
+        . {setup_script}
+        unset KLEAF_RESTORE_OUT_DIR_CMD
+    """.format(
+        quoted_restore_out_dir_cmd = shell.quote(restore_out_dir_cmd),
+        setup_script = serialized_env_info.setup_script.path,
+    )
+
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
@@ -404,4 +440,6 @@ kernel_utils = struct(
     set_src_arch_cmd = _set_src_arch_cmd,
     create_kernel_module_kernel_build_info = _create_kernel_module_kernel_build_info,
     create_kernel_module_dep_info = _create_kernel_module_dep_info,
+    eval_restore_out_dir_cmd = _eval_restore_out_dir_cmd,
+    setup_serialized_env_cmd = _setup_serialized_env_cmd,
 )

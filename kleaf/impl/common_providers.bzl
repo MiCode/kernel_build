@@ -87,7 +87,9 @@ KernelEnvToolchainsInfo = provider(
 )
 
 KernelEnvAndOutputsInfo = provider(
-    doc = """Like `KernelEnvInfo` but also restores artifacts.
+    doc = """**DEPRECATED.** Use `KernelSerializedEnvInfo` instead.
+
+Like `KernelEnvInfo` but also restores artifacts.
 
 It is expected to use these infos in the following way:
 
@@ -120,6 +122,58 @@ The function should return a string that contains the setup script.
                    included. `inputs` are compiled against the target platform.""",
         "tools": """A [depset](https://bazel.build/extending/depsets) containing tools used
                    by `get_setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
+                   included. `tools` are compiled against the execution platform.""",
+    },
+)
+
+KernelSerializedEnvInfo = provider(
+    doc = """Like `KernelEnvInfo` but also restores artifacts.
+
+It is expected to be created like the following:
+
+```
+setup_script = ctx.actions.declare_file("{}/setup.sh".format(ctx.attr.name))
+ctx.actions.write(
+    output = setup_script,
+    content = \"""
+        {pre_setup}
+        {eval_restore_out_dir_cmd}
+    \""".format(
+        pre_setup = pre_setup, # sets up hermetic toolchain and environment variables
+        eval_restore_out_dir_cmd = kernel_utils.eval_restore_out_dir_cmd(),
+    )
+)
+
+serialized_env_info = KernelSerializedEnvInfo(
+    setup_script = setup_script,
+    tools = ...,
+    inputs = depset([setup_script], ...),
+)
+```
+
+It is expected to use these infos in the following way:
+
+```
+command = \"""
+    KLEAF_RESTORE_OUT_DIR_CMD="{restore_out_dir_cmd}"
+    . {setup_script}
+\""".format(
+    restore_out_dir_cmd = cache_dir_step.cmd, # or utils.get_check_sandbox_cmd(),
+    setup_script = ctx.attr.dep[KernelSerializedEnvInfo].setup_script
+)
+```
+""",
+    fields = {
+        "setup_script": "A file containing the setup script.",
+        "inputs": """A [depset](https://bazel.build/extending/depsets) containing inputs used
+                   by `setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
+                   included. `inputs` are compiled against the target platform.
+
+                   For convenience for the caller / user of the info, `inputs` should include
+                   `setup_script`.
+                   """,
+        "tools": """A [depset](https://bazel.build/extending/depsets) containing tools used
+                   by `setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
                    included. `tools` are compiled against the execution platform.""",
     },
 )
