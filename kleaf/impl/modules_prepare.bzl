@@ -20,6 +20,7 @@ load(
     ":common_providers.bzl",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
+    "KernelSerializedEnvInfo",
 )
 load(":debug.bzl", "debug")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
@@ -37,8 +38,8 @@ def _modules_prepare_impl(ctx):
 
     outputs = [ctx.outputs.outdir_tar_gz]
 
-    transitive_tools.append(ctx.attr.config[KernelEnvAndOutputsInfo].tools)
-    transitive_inputs.append(ctx.attr.config[KernelEnvAndOutputsInfo].inputs)
+    transitive_tools.append(ctx.attr.config[KernelSerializedEnvInfo].tools)
+    transitive_inputs.append(ctx.attr.config[KernelSerializedEnvInfo].inputs)
 
     cache_dir_step = cache_dir.get_step(
         ctx = ctx,
@@ -49,8 +50,8 @@ def _modules_prepare_impl(ctx):
     outputs += cache_dir_step.outputs
     tools += cache_dir_step.tools
 
-    command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.config[KernelSerializedEnvInfo],
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
 
@@ -105,24 +106,29 @@ def _modules_prepare_impl(ctx):
             get_setup_script = _env_and_outputs_info_get_setup_script,
             inputs = depset(
                 [ctx.outputs.outdir_tar_gz],
-                transitive = [ctx.attr.config[KernelEnvAndOutputsInfo].inputs],
+                transitive = [ctx.attr.config[KernelSerializedEnvInfo].inputs],
             ),
-            tools = ctx.attr.config[KernelEnvAndOutputsInfo].tools,
+            tools = ctx.attr.config[KernelSerializedEnvInfo].tools,
             data = struct(
-                config_env_and_outputs_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+                config_serialized_env_info = ctx.attr.config[KernelSerializedEnvInfo],
                 restore_outputs_cmd = restore_outputs_cmd,
             ),
         ),
     ]
 
 def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
-    config_env_and_outputs_info = data.config_env_and_outputs_info
+    config_serialized_env_info = data.config_serialized_env_info
     restore_outputs_cmd = data.restore_outputs_cmd
-    script = config_env_and_outputs_info.get_setup_script(
-        data = config_env_and_outputs_info.data,
+
+    # Set up env var, esp. OUT_DIR
+    script = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = config_serialized_env_info,
         restore_out_dir_cmd = restore_out_dir_cmd,
     )
+
+    # Restore files to $OUT_DIR
     script += restore_outputs_cmd
+
     return script
 
 def _modules_prepare_additional_attrs():
@@ -137,7 +143,7 @@ modules_prepare = rule(
     attrs = {
         "config": attr.label(
             mandatory = True,
-            providers = [KernelEnvAttrInfo, KernelEnvAndOutputsInfo],
+            providers = [KernelEnvAttrInfo, KernelSerializedEnvInfo],
             doc = "the kernel_config target",
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),

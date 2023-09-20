@@ -22,10 +22,10 @@ load(
     ":common_providers.bzl",
     "KernelBuildOriginalEnvInfo",
     "KernelConfigArchiveInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelEnvMakeGoalsInfo",
+    "KernelSerializedEnvInfo",
     "KernelToolchainInfo",
 )
 load(":config_utils.bzl", "config_utils")
@@ -478,21 +478,34 @@ def _kernel_config_impl(ctx):
         # at the absolute path specified in abi_symbollist.raw.abspath
         post_setup_deps += ctx.files.raw_kmi_symbol_list  # This is 0 or 1 file
 
-    env_and_outputs_info = KernelEnvAndOutputsInfo(
-        get_setup_script = _env_and_outputs_get_setup_script,
-        tools = ctx.attr.env[KernelEnvInfo].tools,
-        inputs = depset(post_setup_deps, transitive = transitive_inputs),
-        data = struct(
+    # <kernel_build>_config_setup.sh
+    serialized_env_info_setup_script = ctx.actions.declare_file("{name}/{name}_setup.sh".format(name = ctx.attr.name))
+    ctx.actions.write(
+        output = serialized_env_info_setup_script,
+        content = """
+            {pre_setup}
+            {eval_restore_out_dir_cmd}
+            {post_setup}
+        """.format(
             pre_setup = ctx.attr.env[KernelEnvInfo].setup,
+            eval_restore_out_dir_cmd = kernel_utils.eval_restore_out_dir_cmd(),
             post_setup = post_setup,
         ),
+    )
+
+    serialized_env_info = KernelSerializedEnvInfo(
+        setup_script = serialized_env_info_setup_script,
+        tools = ctx.attr.env[KernelEnvInfo].tools,
+        inputs = depset(post_setup_deps + [
+            serialized_env_info_setup_script,
+        ], transitive = transitive_inputs),
     )
 
     config_script_ret = _get_config_script(ctx, inputs)
     outdir_tar_gz = _package_config_outdir(ctx, out_dir)
 
     return [
-        env_and_outputs_info,
+        serialized_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
         ctx.attr.env[KernelEnvMakeGoalsInfo],
         ctx.attr.env[KernelToolchainInfo],
@@ -508,24 +521,6 @@ def _kernel_config_impl(ctx):
             outdir_tar_gz = outdir_tar_gz,
         ),
     ]
-
-def _env_and_outputs_get_setup_script(data, restore_out_dir_cmd):
-    """Setup script generator for `KernelEnvAndOutputsInfo`.
-
-    Args:
-        data: `data` from `KernelEnvAndOutputsInfo`
-        restore_out_dir_cmd: See `KernelEnvAndOutputsInfo`. Provided by user of the info.
-    Returns:
-        The setup script."""
-    return """
-        {pre_setup}
-        {restore_out_dir_cmd}
-        {post_setup}
-    """.format(
-        pre_setup = data.pre_setup,
-        restore_out_dir_cmd = restore_out_dir_cmd,
-        post_setup = data.post_setup,
-    )
 
 def _get_config_script(ctx, inputs):
     """Handles config.sh."""

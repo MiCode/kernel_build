@@ -45,6 +45,7 @@ load(
     "KernelEnvAttrInfo",
     "KernelEnvMakeGoalsInfo",
     "KernelImagesInfo",
+    "KernelSerializedEnvInfo",
     "KernelToolchainInfo",
     "KernelUnstrippedModulesInfo",
 )
@@ -1444,8 +1445,8 @@ def _build_main_action(
     )
 
     # Build the command for the main action.
-    command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.config[KernelSerializedEnvInfo],
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
 
@@ -1525,7 +1526,7 @@ def _build_main_action(
     transitive_inputs = [target.files for target in ctx.attr.srcs]
     transitive_inputs += [target.files for target in ctx.attr.deps]
     transitive_inputs.append(
-        ctx.attr.config[KernelEnvAndOutputsInfo].inputs,
+        ctx.attr.config[KernelSerializedEnvInfo].inputs,
     )
     inputs = [] + check_toolchain_outs
     inputs += kbuild_mixed_tree_ret.outputs
@@ -1537,7 +1538,7 @@ def _build_main_action(
         ctx.executable._search_and_cp_output,
     ]
     transitive_tools = [
-        ctx.attr.config[KernelEnvAndOutputsInfo].tools,
+        ctx.attr.config[KernelSerializedEnvInfo].tools,
     ]
     for step in steps:
         tools += step.tools
@@ -1587,13 +1588,27 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
         restore_out_dir_cmd: See `KernelEnvAndOutputsInfo`. Provided by user of the info.
     Returns:
         The setup script."""
+
+    # This may be KernelEnvAndOutputsInfo or KernelSerializedEnvInfo
     pre_info = data.pre_info
+
     restore_outputs_cmd = data.restore_outputs_cmd
 
-    script = pre_info.get_setup_script(
-        data = pre_info.data,
-        restore_out_dir_cmd = restore_out_dir_cmd,
-    )
+    # Set up env variables, esp. OUT_DIR
+    if hasattr(pre_info, "get_setup_script"):
+        script = pre_info.get_setup_script(
+            data = pre_info.data,
+            restore_out_dir_cmd = restore_out_dir_cmd,
+        )
+    elif hasattr(pre_info, "setup_script"):
+        script = kernel_utils.setup_serialized_env_cmd(
+            serialized_env_info = pre_info,
+            restore_out_dir_cmd = restore_out_dir_cmd,
+        )
+    else:
+        fail("FATAL: pre_info is {}".format(pre_info))
+
+    # Restore files to $OUT_DIR
     script += restore_outputs_cmd
 
     return script
@@ -1606,7 +1621,7 @@ def _create_env_and_outputs_info(
     """Creates an KernelEnvAndOutputsInfo.
 
     Args:
-        pre_info: pre setup script and dependencies
+        pre_info: KernelEnvAndOutputsInfo or KernelSerializedEnvInfo
         restore_outputs_cmd_deps: list of outputs to restore
         restore_outputs_cmd: command to restore these outputs
         extra_inputs: a depset attached to `inputs` of returned object
@@ -1674,7 +1689,7 @@ def _create_infos(
     env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
 
     env_and_outputs_info = _create_env_and_outputs_info(
-        pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+        pre_info = ctx.attr.config[KernelSerializedEnvInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
         extra_inputs = depset(),
@@ -1743,7 +1758,7 @@ def _create_infos(
 
     # For ddk_config()
     config_env_and_outputs_info = _create_env_and_outputs_info(
-        pre_info = ctx.attr.config[KernelEnvAndOutputsInfo],
+        pre_info = ctx.attr.config[KernelSerializedEnvInfo],
         restore_outputs_cmd_deps = [],
         restore_outputs_cmd = "",
         extra_inputs = depset(transitive = [
@@ -1949,7 +1964,7 @@ _kernel_build = rule(
         "config": attr.label(
             mandatory = True,
             providers = [
-                KernelEnvAndOutputsInfo,
+                KernelSerializedEnvInfo,
                 KernelEnvAttrInfo,
                 KernelEnvMakeGoalsInfo,
                 KernelToolchainInfo,
@@ -2163,14 +2178,14 @@ def _kmi_symbol_list_strict_mode(ctx, all_output_files, all_module_names_file):
         all_module_names_file,
     ]
     inputs += ctx.files.raw_kmi_symbol_list  # This is 0 or 1 file
-    transitive_inputs = [ctx.attr.config[KernelEnvAndOutputsInfo].inputs]
+    transitive_inputs = [ctx.attr.config[KernelSerializedEnvInfo].inputs]
     tools = [ctx.executable._verify_ksymtab]
-    transitive_tools = [ctx.attr.config[KernelEnvAndOutputsInfo].tools]
+    transitive_tools = [ctx.attr.config[KernelSerializedEnvInfo].tools]
 
     out = ctx.actions.declare_file("{}_kmi_strict_out/kmi_symbol_list_strict_mode_checked".format(ctx.attr.name))
 
-    command = ctx.attr.config[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.config[KernelEnvAndOutputsInfo].data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.config[KernelSerializedEnvInfo],
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """
