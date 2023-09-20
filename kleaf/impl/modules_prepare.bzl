@@ -18,7 +18,6 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
-    "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelSerializedEnvInfo",
 )
@@ -94,42 +93,35 @@ def _modules_prepare_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    restore_outputs_cmd = """
-         # Restore modules_prepare outputs. Assumes env setup.
-           [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
-           mkdir -p ${{OUT_DIR}}
-           tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
-           """.format(outdir_tar_gz = ctx.outputs.outdir_tar_gz.path)
+    setup_script_cmd = """
+        . {config_setup_script}
+        # Restore modules_prepare outputs. Assumes env setup.
+        [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
+        mkdir -p ${{OUT_DIR}}
+        tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
+    """.format(
+        config_setup_script = ctx.attr.config[KernelSerializedEnvInfo].setup_script.path,
+        outdir_tar_gz = ctx.outputs.outdir_tar_gz.path,
+    )
+
+    # <kernel_build>_modules_prepare_setup.sh
+    setup_script = ctx.actions.declare_file("{name}/{name}_setup.sh".format(name = ctx.attr.name))
+    ctx.actions.write(
+        output = setup_script,
+        content = setup_script_cmd,
+    )
 
     return [
-        KernelEnvAndOutputsInfo(
-            get_setup_script = _env_and_outputs_info_get_setup_script,
+        KernelSerializedEnvInfo(
+            setup_script = setup_script,
             inputs = depset(
-                [ctx.outputs.outdir_tar_gz],
+                [ctx.outputs.outdir_tar_gz, setup_script],
                 transitive = [ctx.attr.config[KernelSerializedEnvInfo].inputs],
             ),
             tools = ctx.attr.config[KernelSerializedEnvInfo].tools,
-            data = struct(
-                config_serialized_env_info = ctx.attr.config[KernelSerializedEnvInfo],
-                restore_outputs_cmd = restore_outputs_cmd,
-            ),
         ),
+        DefaultInfo(files = depset([ctx.outputs.outdir_tar_gz, setup_script])),
     ]
-
-def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
-    config_serialized_env_info = data.config_serialized_env_info
-    restore_outputs_cmd = data.restore_outputs_cmd
-
-    # Set up env var, esp. OUT_DIR
-    script = kernel_utils.setup_serialized_env_cmd(
-        serialized_env_info = config_serialized_env_info,
-        restore_out_dir_cmd = restore_out_dir_cmd,
-    )
-
-    # Restore files to $OUT_DIR
-    script += restore_outputs_cmd
-
-    return script
 
 def _modules_prepare_additional_attrs():
     return dicts.add(

@@ -1595,18 +1595,10 @@ def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
     restore_outputs_cmd = data.restore_outputs_cmd
 
     # Set up env variables, esp. OUT_DIR
-    if hasattr(pre_info, "get_setup_script"):
-        script = pre_info.get_setup_script(
-            data = pre_info.data,
-            restore_out_dir_cmd = restore_out_dir_cmd,
-        )
-    elif hasattr(pre_info, "setup_script"):
-        script = kernel_utils.setup_serialized_env_cmd(
-            serialized_env_info = pre_info,
-            restore_out_dir_cmd = restore_out_dir_cmd,
-        )
-    else:
-        fail("FATAL: pre_info is {}".format(pre_info))
+    script = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = pre_info,
+        restore_out_dir_cmd = restore_out_dir_cmd,
+    )
 
     # Restore files to $OUT_DIR
     script += restore_outputs_cmd
@@ -1621,7 +1613,7 @@ def _create_env_and_outputs_info(
     """Creates an KernelEnvAndOutputsInfo.
 
     Args:
-        pre_info: KernelEnvAndOutputsInfo or KernelSerializedEnvInfo
+        pre_info: KernelSerializedEnvInfo
         restore_outputs_cmd_deps: list of outputs to restore
         restore_outputs_cmd: command to restore these outputs
         extra_inputs: a depset attached to `inputs` of returned object
@@ -1734,7 +1726,7 @@ def _create_infos(
 
     # For kernel_module()
     ext_mod_env_and_outputs_info = _create_env_and_outputs_info(
-        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
         restore_outputs_cmd_deps = ext_mod_env_and_outputs_info_deps,
         restore_outputs_cmd = ext_mod_env_and_outputs_info_setup_restore_outputs,
         extra_inputs = module_srcs.module_scripts,
@@ -1742,7 +1734,7 @@ def _create_infos(
 
     # For kernel_module() that require all kernel_build outputs
     ext_mod_env_and_all_outputs_info = _create_env_and_outputs_info(
-        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
         extra_inputs = module_srcs.module_scripts,
@@ -1750,7 +1742,7 @@ def _create_infos(
 
     # For kernel_modules_install()
     ext_modinst_env_and_outputs_info = _create_env_and_outputs_info(
-        pre_info = ctx.attr.modules_prepare[KernelEnvAndOutputsInfo],
+        pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
         restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
         extra_inputs = module_srcs.module_scripts,
@@ -2030,7 +2022,7 @@ _kernel_build = rule(
         # dependencies so KernelBuildExtModuleInfo and KernelBuildUapiInfo works.
         # There are no real dependencies. Bazel does not build these targets before building the
         # `_kernel_build` target.
-        "modules_prepare": attr.label(providers = [KernelEnvAndOutputsInfo]),
+        "modules_prepare": attr.label(providers = [KernelSerializedEnvInfo]),
         "kernel_uapi_headers": attr.label(),
         "combined_abi_symbollist": attr.label(
             doc = """The **combined** `abi_symbollist` file, consist of `kmi_symbol_list` and
