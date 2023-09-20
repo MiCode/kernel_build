@@ -1637,6 +1637,49 @@ def _create_env_and_outputs_info(
         ),
     )
 
+def _create_serialized_env_info(
+        ctx,
+        setup_script_name,
+        pre_info,
+        restore_outputs_cmd,
+        extra_inputs):
+    """Creates an KernelSerializedEnvInfo.
+
+    Args:
+        ctx: ctx,
+        setup_script_name: name of the setup script
+        pre_info: KernelSerializedEnvInfo
+        restore_outputs_cmd: command to restore these outputs
+        extra_inputs: a depset attached to `inputs` of returned object
+
+    Returns:
+        A KernelSerializedEnvInfo that runs pre_info, then restore outputs given the list of
+        outputs and cmd."""
+
+    setup_script = ctx.actions.declare_file(setup_script_name)
+    setup_script_cmd = """
+        . {pre_setup_script}
+        {restore_outputs_cmd}
+    """.format(
+        pre_setup_script = pre_info.setup_script.path,
+        restore_outputs_cmd = restore_outputs_cmd,
+    )
+    ctx.actions.write(
+        output = setup_script,
+        content = setup_script_cmd,
+    )
+    return KernelSerializedEnvInfo(
+        setup_script = setup_script,
+        inputs = depset(
+            [setup_script],
+            transitive = [
+                pre_info.inputs,
+                extra_inputs,
+            ],
+        ),
+        tools = pre_info.tools,
+    )
+
 def _create_infos(
         ctx,
         kbuild_mixed_tree_ret,
@@ -1725,33 +1768,46 @@ def _create_infos(
         )
 
     # For kernel_module()
-    ext_mod_env_and_outputs_info = _create_env_and_outputs_info(
+    mod_min_env = _create_serialized_env_info(
+        ctx = ctx,
+        setup_script_name = "{name}/{name}_mod_min_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd_deps = ext_mod_env_and_outputs_info_deps,
         restore_outputs_cmd = ext_mod_env_and_outputs_info_setup_restore_outputs,
-        extra_inputs = module_srcs.module_scripts,
+        extra_inputs = depset(
+            ext_mod_env_and_outputs_info_deps,
+            transitive = [module_srcs.module_scripts],
+        ),
     )
 
     # For kernel_module() that require all kernel_build outputs
-    ext_mod_env_and_all_outputs_info = _create_env_and_outputs_info(
+    mod_full_env = _create_serialized_env_info(
+        ctx = ctx,
+        setup_script_name = "{name}/{name}_mod_full_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
-        extra_inputs = module_srcs.module_scripts,
+        extra_inputs = depset(
+            env_and_outputs_info_dependencies,
+            transitive = [module_srcs.module_scripts],
+        ),
     )
 
     # For kernel_modules_install()
-    ext_modinst_env_and_outputs_info = _create_env_and_outputs_info(
+    modinst_env = _create_serialized_env_info(
+        ctx = ctx,
+        setup_script_name = "{name}/{name}_modinst_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
-        extra_inputs = module_srcs.module_scripts,
+        extra_inputs = depset(
+            env_and_outputs_info_dependencies,
+            transitive = [module_srcs.module_scripts],
+        ),
     )
 
     # For ddk_config()
-    config_env_and_outputs_info = _create_env_and_outputs_info(
+    ddk_config_env = _create_serialized_env_info(
+        ctx = ctx,
+        setup_script_name = "{name}/{name}_ddk_config_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.config[KernelSerializedEnvInfo],
-        restore_outputs_cmd_deps = [],
         restore_outputs_cmd = "",
         extra_inputs = depset(transitive = [
             module_srcs.module_scripts,
@@ -1762,10 +1818,10 @@ def _create_infos(
     kernel_build_module_info = KernelBuildExtModuleInfo(
         modules_staging_archive = modules_staging_archive,
         module_hdrs = module_srcs.module_hdrs,
-        config_env_and_outputs_info = config_env_and_outputs_info,
-        modules_env_and_minimal_outputs_info = ext_mod_env_and_outputs_info,
-        modules_env_and_all_outputs_info = ext_mod_env_and_all_outputs_info,
-        modules_install_env_and_outputs_info = ext_modinst_env_and_outputs_info,
+        ddk_config_env = ddk_config_env,
+        mod_min_env = mod_min_env,
+        mod_full_env = mod_full_env,
+        modinst_env = modinst_env,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
     )

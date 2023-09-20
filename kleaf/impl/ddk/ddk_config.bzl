@@ -18,7 +18,7 @@ load(
     ":common_providers.bzl",
     "DdkConfigInfo",
     "KernelBuildExtModuleInfo",
-    "KernelEnvAndOutputsInfo",
+    "KernelSerializedEnvInfo",
 )
 load(":config_utils.bzl", "config_utils")
 load(":debug.bzl", "debug")
@@ -36,14 +36,14 @@ def _ddk_config_impl(ctx):
         ddk_config_info = ddk_config_info,
     )
 
-    env_and_outputs_info = _create_env_and_outputs_info(
+    serialized_env_info = _create_serialized_env_info(
         ctx = ctx,
         out_dir = out_dir,
     )
 
     return [
         DefaultInfo(files = depset([out_dir])),
-        env_and_outputs_info,
+        serialized_env_info,
         ddk_config_info,
     ]
 
@@ -148,13 +148,13 @@ def _create_main_action(
     kconfig_depset_written = utils.write_depset(ctx, ddk_config_info.kconfig, "kconfig_depset.txt")
     defconfig_depset_written = utils.write_depset(ctx, ddk_config_info.defconfig, "defconfig_depset.txt")
 
-    config_env_and_outputs_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].config_env_and_outputs_info
+    ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env
 
     transitive_inputs = [
-        config_env_and_outputs_info.inputs,
+        ddk_config_env.inputs,
     ]
 
-    tools = config_env_and_outputs_info.tools
+    tools = ddk_config_env.tools
 
     merge_dot_config_step = _create_merge_dot_config_step(
         defconfig_depset_written = defconfig_depset_written,
@@ -178,8 +178,8 @@ def _create_main_action(
     for step in steps:
         transitive_inputs.append(step.inputs)
 
-    command = config_env_and_outputs_info.get_setup_script(
-        data = config_env_and_outputs_info.data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ddk_config_env,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += kernel_utils.set_src_arch_cmd()
@@ -207,45 +207,35 @@ def _create_main_action(
         progress_message = "Creating DDK module configuration {}".format(ctx.label),
     )
 
-def _create_env_and_outputs_info(ctx, out_dir):
+def _create_serialized_env_info(ctx, out_dir):
     """Creates info for module build."""
 
     # Info from kernel_build
     if ctx.attr.generate_btf:
         # All outputs are required for BTF generation, including vmlinux image
-        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_all_outputs_info
+        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].mod_full_env
     else:
-        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].modules_env_and_minimal_outputs_info
+        pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].mod_min_env
 
     # Overlay module-specific configs
-    restore_outputs_cmd = """
+    setup_script_cmd = """
+        . {pre_setup_script}
         rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
         rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
     """.format(
+        pre_setup_script = pre_info.setup_script.path,
         out_dir = out_dir.path,
     )
-    return KernelEnvAndOutputsInfo(
-        get_setup_script = _env_and_outputs_info_get_setup_script,
-        inputs = depset([out_dir], transitive = [pre_info.inputs]),
+    setup_script = ctx.actions.declare_file("{name}/{name}_setup.sh".format(name = ctx.attr.name))
+    ctx.actions.write(
+        output = setup_script,
+        content = setup_script_cmd,
+    )
+    return KernelSerializedEnvInfo(
+        setup_script = setup_script,
+        inputs = depset([out_dir, setup_script], transitive = [pre_info.inputs]),
         tools = pre_info.tools,
-        data = struct(
-            pre_info = pre_info,
-            restore_ddk_config_outputs_cmd = restore_outputs_cmd,
-        ),
     )
-
-def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
-    """Returns the script for setting up module build."""
-    pre_info = data.pre_info
-    restore_ddk_config_outputs_cmd = data.restore_ddk_config_outputs_cmd
-
-    script = pre_info.get_setup_script(
-        data = pre_info.data,
-        restore_out_dir_cmd = restore_out_dir_cmd,
-    )
-    script += restore_ddk_config_outputs_cmd
-
-    return script
 
 def _create_ddk_config_info(ctx):
     module_label = Label(str(ctx.label).removesuffix("_config"))
