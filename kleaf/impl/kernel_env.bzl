@@ -210,6 +210,13 @@ def _kernel_env_impl(ctx):
             quoted_clangtools_bin = shell.quote(bindgen.dirname),
         )
 
+    env_setup_cmds = _get_env_setup_cmds(ctx)
+    pre_env_script = ctx.actions.declare_file("{}/pre_env.sh".format(ctx.attr.name))
+    ctx.actions.write(pre_env_script, env_setup_cmds.pre_env)
+    post_env_script = ctx.actions.declare_file("{}/post_env.sh".format(ctx.attr.name))
+    ctx.actions.write(post_env_script, env_setup_cmds.post_env)
+    inputs += [pre_env_script, post_env_script]
+
     command += """
         # create a build environment
           source {build_utils_sh}
@@ -225,8 +232,15 @@ def _kernel_env_impl(ctx):
           cp -p {config_tags_comment_file} {out}
           chmod +w {out}
           echo >> {out}
+
+          cat {pre_env_script} >> {out}
+          echo >> {out}
+
         # capture it as a file to be sourced in downstream rules
           {preserve_env} >> {out}
+          echo >> {out}
+
+          cat {post_env_script} >> {out}
         """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
@@ -238,6 +252,8 @@ def _kernel_env_impl(ctx):
         preserve_env = preserve_env.path,
         out = out_file.path,
         config_tags_comment_file = config_tags_out.env.path,
+        pre_env_script = pre_env_script.path,
+        post_env_script = post_env_script.path,
     )
 
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx, defconfig_fragments)
@@ -252,16 +268,15 @@ def _kernel_env_impl(ctx):
         command = command,
     )
 
-    env_setup_cmds = _get_env_setup_cmds(ctx)
     setup = hermetic_tools.setup
-    setup += env_setup_cmds.pre_env
     setup += """
+        source {build_utils_sh}
         # source the build environment
         source {env}
     """.format(
+        build_utils_sh = ctx.file._build_utils_sh.path,
         env = out_file.path,
     )
-    setup += env_setup_cmds.post_env
 
     setup_tools = [
         ctx.file._build_utils_sh,
@@ -308,16 +323,6 @@ def _get_env_setup_cmds(ctx):
     pre_env = ""
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         pre_env += debug.trap()
-
-    pre_env += """
-        # error on failures
-        set -e
-        set -o pipefail
-        # utility functions
-        source {build_utils_sh}
-    """.format(
-        build_utils_sh = ctx.file._build_utils_sh.path,
-    )
 
     post_env = """
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
