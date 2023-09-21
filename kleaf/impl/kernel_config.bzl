@@ -412,6 +412,8 @@ def _kernel_config_impl(ctx):
     outputs += cache_dir_step.outputs
     tools += cache_dir_step.tools
 
+    inputs.append(localversion_file)
+
     command = ctx.attr.env[KernelEnvInfo].setup + """
           {cache_dir_cmd}
         # Pre-defconfig commands
@@ -427,6 +429,7 @@ def _kernel_config_impl(ctx):
         # Grab outputs
           rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
           rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
+          rsync -aL {localversion_file} {out_dir}/localversion
 
         # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
           sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
@@ -441,6 +444,7 @@ def _kernel_config_impl(ctx):
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         reconfig_cmd = reconfig.cmd,
+        localversion_file = localversion_file.path,
     )
 
     debug.print_scripts(ctx, command)
@@ -457,20 +461,19 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    post_setup_deps = [out_dir, localversion_file]
+    post_setup_deps = [out_dir]
     post_setup = """
            [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
            mkdir -p ${{OUT_DIR}}/include/
            rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
-           rsync -aL --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
+           rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
     """.format(
         out_dir = out_dir.path,
-        localversion_file = localversion_file.path,
     )
 
     if trim_nonlisted_kmi_utils.get_value(ctx):
