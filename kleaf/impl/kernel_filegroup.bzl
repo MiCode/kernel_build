@@ -39,7 +39,6 @@ load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(
     ":utils.bzl",
-    "kernel_utils",
     "utils",
 )
 
@@ -93,13 +92,12 @@ def _kernel_filegroup_impl(ctx):
 
     all_deps = ctx.files.srcs + ctx.files.deps
 
-    module_srcs = kernel_utils.filter_module_srcs(ctx.files.kernel_srcs)
-
     # TODO(b/219112010): Implement KernelSerializedEnvInfo properly
     kernel_module_dev_info = KernelBuildExtModuleInfo(
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
-        # TODO(b/211515836): module_hdrs / module_scripts might also be downloaded
-        module_hdrs = module_srcs.module_hdrs,
+        # TODO(b/211515836): module_scripts might also be downloaded
+        # Building kernel_module (excluding ddk_module) on top of kernel_filegroup is unsupported.
+        # module_hdrs = None,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
     )
 
