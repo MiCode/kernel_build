@@ -252,55 +252,16 @@ def _kernel_env_impl(ctx):
         command = command,
     )
 
+    env_setup_cmds = _get_env_setup_cmds(ctx)
     setup = hermetic_tools.setup
-    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
-        setup += debug.trap()
-
-    set_up_jobs_cmd = """
-        # Increase parallelism # TODO(b/192655643): do not use -j anymore
-          export MAKEFLAGS="${{MAKEFLAGS}} -j$(
-            make_jobs="$({get_make_jobs_cmd})"
-            if [[ -n "$make_jobs" ]]; then
-              echo "$make_jobs"
-            else
-              nproc
-            fi
-          )"
-    """.format(
-        get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
-    )
-
+    setup += env_setup_cmds.pre_env
     setup += """
-         # error on failures
-           set -e
-           set -o pipefail
-         # utility functions
-           source {build_utils_sh}
-         # source the build environment
-           source {env}
-           {set_up_jobs_cmd}
-         # setup LD_LIBRARY_PATH for prebuilts
-           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
-         # Set up KCONFIG_EXT
-           if [ -n "${{KCONFIG_EXT}}" ]; then
-             export KCONFIG_EXT_PREFIX=$(realpath $(dirname ${{KCONFIG_EXT}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
-           fi
-           if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
-             export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
-           fi
-         # Set up KCPPFLAGS
-         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
-         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
-         # workspace root, making $abs_srctree not under $ROOT_DIR.
-           if [[ "$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})" != "${{ROOT_DIR}}/${{KERNEL_DIR}}" ]]; then
-             export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
-           fi
-           """.format(
+        # source the build environment
+        source {env}
+    """.format(
         env = out_file.path,
-        build_utils_sh = ctx.file._build_utils_sh.path,
-        linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
-        set_up_jobs_cmd = set_up_jobs_cmd,
     )
+    setup += env_setup_cmds.post_env
 
     setup_tools = [
         ctx.file._build_utils_sh,
@@ -342,6 +303,56 @@ def _kernel_env_impl(ctx):
         ),
         DefaultInfo(files = depset([out_file])),
     ]
+
+def _get_env_setup_cmds(ctx):
+    pre_env = ""
+    if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
+        pre_env += debug.trap()
+
+    pre_env += """
+        # error on failures
+        set -e
+        set -o pipefail
+        # utility functions
+        source {build_utils_sh}
+    """.format(
+        build_utils_sh = ctx.file._build_utils_sh.path,
+    )
+
+    post_env = """
+        # Increase parallelism # TODO(b/192655643): do not use -j anymore
+        export MAKEFLAGS="${{MAKEFLAGS}} -j$(
+            make_jobs="$({get_make_jobs_cmd})"
+            if [[ -n "$make_jobs" ]]; then
+                echo "$make_jobs"
+            else
+                nproc
+            fi
+        )"
+        # setup LD_LIBRARY_PATH for prebuilts
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
+        # Set up KCONFIG_EXT
+        if [ -n "${{KCONFIG_EXT}}" ]; then
+            export KCONFIG_EXT_PREFIX=$(realpath $(dirname ${{KCONFIG_EXT}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
+        fi
+        if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
+            export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
+        fi
+        # Set up KCPPFLAGS
+        # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
+        # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
+        # workspace root, making $abs_srctree not under $ROOT_DIR.
+        if [[ "$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})" != "${{ROOT_DIR}}/${{KERNEL_DIR}}" ]]; then
+            export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
+        fi
+    """.format(
+        get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
+        linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
+    )
+    return struct(
+        pre_env = pre_env,
+        post_env = post_env,
+    )
 
 def _get_make_verbosity_command(ctx):
     command = """
