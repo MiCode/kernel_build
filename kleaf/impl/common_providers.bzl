@@ -366,3 +366,10 @@ ImagesInfo = provider(
         """,
     },
 )
+
+KernelConfigArchiveInfo = provider(
+    doc = "For `kernel_config` to provide `$OUT_DIR` archive",
+    fields = {
+        "outdir_tar_gz": "`$OUT_DIR` archive",
+    },
+)

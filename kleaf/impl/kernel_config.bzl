@@ -21,6 +21,7 @@ load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "KernelBuildOriginalEnvInfo",
+    "KernelConfigArchiveInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
@@ -488,6 +489,7 @@ def _kernel_config_impl(ctx):
     )
 
     config_script_ret = _get_config_script(ctx, inputs)
+    outdir_tar_gz = _package_config_outdir(ctx, out_dir)
 
     return [
         env_and_outputs_info,
@@ -501,6 +503,9 @@ def _kernel_config_impl(ctx):
             files = depset([out_dir]),
             executable = config_script_ret.executable,
             runfiles = config_script_ret.runfiles,
+        ),
+        KernelConfigArchiveInfo(
+            outdir_tar_gz = outdir_tar_gz,
         ),
     ]
 
@@ -577,6 +582,39 @@ def _get_config_script(ctx, inputs):
         executable = executable,
         runfiles = runfiles,
     )
+
+def _package_config_outdir(ctx, out_dir):
+    """Package OUT_DIR.
+
+    Args:
+        ctx: ctx
+        out_dir: declared directory `out_dir`
+    Returns:
+        tarball
+    """
+
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
+    # <kernel_build>_config_outdir.tar.gz
+    outdir_tar_gz = ctx.actions.declare_file("{name}/{name}_outdir.tar.gz".format(name = ctx.attr.name))
+    cmd = hermetic_tools.setup + """
+        tar czf {outdir_tar_gz} --dereference -C {out_dir} .
+    """.format(
+        outdir_tar_gz = outdir_tar_gz.path,
+        out_dir = out_dir.path,
+    )
+    ctx.actions.run_shell(
+        inputs = [out_dir],
+        outputs = [outdir_tar_gz],
+        tools = hermetic_tools.deps,
+        command = cmd,
+        progress_message = "Packaging OUT_DIR {}".format(
+            ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
+            ctx.label,
+        ),
+        mnemonic = "KernelConfigPackageOutDir",
+    )
+    return outdir_tar_gz
 
 def _kernel_config_additional_attrs():
     return dicts.add(
