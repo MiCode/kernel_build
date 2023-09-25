@@ -50,4 +50,4 @@ SYSTEM_DLKM_COMMON_OUTS = [
 
 MODULES_STAGING_ARCHIVE = "modules_staging_dir.tar.gz"
 
-MODULE_SCRIPTS_ARCHIVE_SUFFIX = "_module_scripts.tar.gz"
+MODULE_ENV_ARCHIVE_SUFFIX = "_module_env.tar.gz"

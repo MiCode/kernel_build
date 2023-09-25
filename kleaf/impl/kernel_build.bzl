@@ -53,9 +53,9 @@ load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(
     ":constants.bzl",
     "MODULES_STAGING_ARCHIVE",
+    "MODULE_ENV_ARCHIVE_SUFFIX",
     "MODULE_OUTS_FILE_OUTPUT_GROUP",
     "MODULE_OUTS_FILE_SUFFIX",
-    "MODULE_SCRIPTS_ARCHIVE_SUFFIX",
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load(":debug.bzl", "debug")
@@ -116,7 +116,7 @@ def kernel_build(
         modules_prepare_force_generate_headers = None,
         defconfig_fragments = None,
         page_size = None,
-        pack_module_scripts = None,
+        pack_module_env = None,
         sanitizers = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
@@ -411,13 +411,10 @@ def kernel_build(
           `"default"`, the defconfig is left as-is.
 
           16k / 64k page size is only supported on `arch = "arm64"`.
-        pack_module_scripts: If `True`, create `{name}_module_scripts.tar.gz` as
-          part of the default output of this target.
+        pack_module_env: If `True`, create `{name}_module_env.tar.gz`
+          and other archives as part of the default output of this target.
 
-          The archive contains necessary scripts to build external modules.
-
-          **IMPLEMENTATION DETAIL**: The list of scripts is defined by
-          `kernel_utils.filter_module_srcs().module_scripts`.
+          These archives contains necessary files to build external modules.
         sanitizers: **non-configurable**. A list of sanitizer configurations.
           By default, no sanitizers are explicity configured; values in defconfig are
           respected. Possible values are:
@@ -610,7 +607,7 @@ def kernel_build(
         src_protected_modules_list = protected_modules_list,
         src_kmi_symbol_list = kmi_symbol_list,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
-        pack_module_scripts = pack_module_scripts,
+        pack_module_env = pack_module_env,
         sanitizers = sanitizers,
         **kwargs
     )
@@ -2145,7 +2142,7 @@ _kernel_build = rule(
         "src_protected_exports_list": attr.label(allow_single_file = True),
         "src_protected_modules_list": attr.label(allow_single_file = True),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
-        "pack_module_scripts": attr.bool(default = False, doc = "Create `<name>_module_scripts.tar.gz`."),
+        "pack_module_env": attr.bool(default = False, doc = "Create `<name>_module_scripts.tar.gz`."),
         "sanitizers": attr.string_list(
             allow_empty = False,
             default = ["default"],
@@ -2477,43 +2474,51 @@ def _create_module_scripts_archive(
         ctx: ctx
         module_srcs: from `kernel_utils.filter_module_srcs`
     """
-    if not ctx.attr.pack_module_scripts:
+    if not ctx.attr.pack_module_env:
         return None
 
     intermediates_dir = utils.intermediates_dir(ctx)
     env_info = ctx.attr.config[KernelBuildOriginalEnvInfo].env_info
     out = ctx.actions.declare_file("{name}/{name}{suffix}".format(
         name = ctx.label.name,
-        suffix = MODULE_SCRIPTS_ARCHIVE_SUFFIX,
+        suffix = MODULE_ENV_ARCHIVE_SUFFIX,
     ))
+
+    tar_srcs = depset(transitive = [
+        module_srcs.module_scripts,
+        module_srcs.module_kconfig,
+    ])
+
     cmd = env_info.setup + """
-        # Create archive of module_scripts below ${{KERNEL_DIR}}
+        # Create archive of module_scripts/module_kconfig below ${{KERNEL_DIR}}
         mkdir -p {intermediates_dir}
         for file in "$@"; do
             if [[ "${{file}}" =~ ^"${{KERNEL_DIR}}"/ ]]; then
                 echo "${{file#"${{KERNEL_DIR}}"/}}"
             fi
-        done > {intermediates_dir}/module_scripts_file_list.txt
-        tar cf {out} --dereference -T {intermediates_dir}/module_scripts_file_list.txt -C ${{KERNEL_DIR}}
+        done > {intermediates_dir}/file_list.txt
+        tar cf {out} --dereference -T {intermediates_dir}/file_list.txt -C ${{KERNEL_DIR}}
     """.format(
         out = out.path,
         intermediates_dir = intermediates_dir,
     )
 
     args = ctx.actions.args()
-    args.add_all(module_srcs.module_scripts)
+
+    # Uniquify for shorter script, and due to https://github.com/landley/toybox/issues/457
+    args.add_all(tar_srcs, uniquify = True)
 
     ctx.actions.run_shell(
         mnemonic = "KernelBuildModuleScriptsArchive",
         inputs = depset(transitive = [
             env_info.inputs,
-            module_srcs.module_scripts,
+            tar_srcs,
         ]),
         outputs = [out],
         tools = env_info.tools,
         command = cmd,
         arguments = [args],
-        progress_message = "Archiving scripts for ext module {}".format(_progress_message_suffix(ctx)),
+        progress_message = "Archiving scripts/kconfig for ext module {}".format(_progress_message_suffix(ctx)),
     )
     return out
 
@@ -2527,7 +2532,7 @@ def _create_internal_outs_archive(
         main_action_ret: from `_build_main_action`
     """
 
-    if not ctx.attr.pack_module_scripts:
+    if not ctx.attr.pack_module_env:
         return None
 
     hermetic_tools = hermetic_toolchain.get(ctx)
