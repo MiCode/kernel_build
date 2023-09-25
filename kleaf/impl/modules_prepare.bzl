@@ -93,15 +93,9 @@ def _modules_prepare_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    setup_script_cmd = """
-        . {config_setup_script}
-        # Restore modules_prepare outputs. Assumes env setup.
-        [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
-        mkdir -p ${{OUT_DIR}}
-        tar xf {outdir_tar_gz} -C ${{OUT_DIR}}
-    """.format(
-        config_setup_script = ctx.attr.config[KernelSerializedEnvInfo].setup_script.path,
-        outdir_tar_gz = ctx.outputs.outdir_tar_gz.path,
+    setup_script_cmd = modules_prepare_setup_command(
+        config_setup_script = ctx.attr.config[KernelSerializedEnvInfo].setup_script,
+        modules_prepare_outdir_tar_gz = ctx.outputs.outdir_tar_gz,
     )
 
     # <kernel_build>_modules_prepare_setup.sh
@@ -122,6 +116,20 @@ def _modules_prepare_impl(ctx):
         ),
         DefaultInfo(files = depset([ctx.outputs.outdir_tar_gz, setup_script])),
     ]
+
+def modules_prepare_setup_command(
+        config_setup_script,
+        modules_prepare_outdir_tar_gz):
+    return """
+        source {config_setup_script}
+        # Restore modules_prepare outputs. Assumes env setup.
+        [ -z ${{OUT_DIR}} ] && echo "ERROR: modules_prepare setup run without OUT_DIR set!" >&2 && exit 1
+        mkdir -p ${{OUT_DIR}}
+        tar xf {modules_prepare_outdir_tar_gz} -C ${{OUT_DIR}}
+    """.format(
+        config_setup_script = config_setup_script.path,
+        modules_prepare_outdir_tar_gz = modules_prepare_outdir_tar_gz.path,
+    )
 
 def _modules_prepare_additional_attrs():
     return dicts.add(

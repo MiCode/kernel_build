@@ -312,6 +312,9 @@ KernelBuildFilegroupDeclInfo = provider(
 
             See [`KernelConfigInfo`](#KernelConfigInfo).""",
         "config_out_dir": """The output directory of `kernel_config`.""",
+        "internal_outs": """[depset](https://bazel.build/extending/depsets) of `kernel_build`'s
+            `internal_outs`. May be `None`.""",
+        "ruledir": "`ruledir` from `kernel_build` that signifies the root for `internal_outs`.",
     },
 )
 

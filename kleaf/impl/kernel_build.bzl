@@ -1738,6 +1738,38 @@ def _create_serialized_env_info(
         tools = pre_info.tools,
     )
 
+def get_ext_mod_env_and_outputs_info_setup_restore_outputs_command(outputs):
+    """Returns the `restore_outputs` command for the environment to build kernel_module.
+
+    Args:
+        outputs: dictionary where
+            keys are `File`, and values are the relative paths under $OUT_DIR as the
+            destinastion
+    Returns:
+        the `restore_outputs` command for the environment to build kernel_module.
+    """
+
+    # Create a fake System.map because `make modules` does not need it. For kernel_module(),
+    # make modules_install needs it, but we aren't running depmod in kernel_module, so a fake one
+    # is good enough.
+    ext_mod_env_and_outputs_info_setup_restore_outputs = """
+        # Fake System.map for kernel_module
+          touch ${OUT_DIR}/System.map
+    """
+    ext_mod_env_and_outputs_info_setup_restore_outputs += """
+        # Restore kernel build outputs necessary for building external modules
+    """
+    for dep, relpath in outputs.items():
+        ext_mod_env_and_outputs_info_setup_restore_outputs += """
+            mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
+            rsync -aL {dep} ${{OUT_DIR}}/{relpath}
+        """.format(
+            dep = dep.path,
+            relpath = relpath,
+        )
+
+    return ext_mod_env_and_outputs_info_setup_restore_outputs
+
 def _create_infos(
         ctx,
         kbuild_mixed_tree_ret,
@@ -1807,24 +1839,12 @@ def _create_infos(
 
     ext_mod_env_and_outputs_info_deps = all_output_files["internal_outs"].values()
 
-    # Create a fake System.map because `make modules` does not need it. For kernel_module(),
-    # make modules_install needs it, but we aren't running depmod in kernel_module, so a fake one
-    # is good enough.
-    ext_mod_env_and_outputs_info_setup_restore_outputs = """
-        # Fake System.map for kernel_module
-          touch ${OUT_DIR}/System.map
-    """
-    ext_mod_env_and_outputs_info_setup_restore_outputs += """
-        # Restore kernel build outputs necessary for building external modules
-    """
-    for dep in ext_mod_env_and_outputs_info_deps:
-        relpath = paths.relativize(dep.path, main_action_ret.ruledir)
-        ext_mod_env_and_outputs_info_setup_restore_outputs += """
-            mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
-            rsync -aL {dep} ${{OUT_DIR}}/{relpath}
-        """.format(
-            dep = dep.path,
-            relpath = relpath,
+    ext_mod_env_and_outputs_info_setup_restore_outputs = \
+        get_ext_mod_env_and_outputs_info_setup_restore_outputs_command(
+            outputs = {
+                dep: paths.relativize(dep.path, main_action_ret.ruledir)
+                for dep in ext_mod_env_and_outputs_info_deps
+            },
         )
 
     # For kernel_module()
@@ -1996,6 +2016,8 @@ def _create_infos(
         arch = ctx.attr.arch,
         env_setup_script = ctx.attr.config[KernelConfigInfo].env_setup_script,
         config_out_dir = ctx.file.config,
+        internal_outs = depset(all_output_files["internal_outs"].values()),
+        ruledir = main_action_ret.ruledir,
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
@@ -2083,6 +2105,8 @@ def _kernel_build_impl(ctx):
         ctx = ctx,
         module_srcs = module_srcs,
     )
+
+    # TODO(b/291918087): Delete internal_outs_archive; it is no longer used anywhere.
     internal_outs_archive = _create_internal_outs_archive(
         ctx = ctx,
         main_action_ret = main_action_ret,
