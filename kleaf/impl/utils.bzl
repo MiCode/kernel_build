@@ -313,9 +313,11 @@ def _create_kernel_module_kernel_build_info(kernel_build):
     return KernelModuleKernelBuildInfo(
         label = kernel_build.label,
         ext_module_info = kernel_build[KernelBuildExtModuleInfo],
-        env_and_outputs_info = kernel_build[KernelEnvAndOutputsInfo],
-        kernel_build_info = kernel_build[KernelBuildInfo],
-        images_info = kernel_build[KernelImagesInfo],
+        # TODO(b/308492731): Implement the following for kernel_filegroup
+        #   in order to build images
+        env_and_outputs_info = kernel_build[KernelEnvAndOutputsInfo] if KernelEnvAndOutputsInfo in kernel_build else None,
+        kernel_build_info = kernel_build[KernelBuildInfo] if KernelBuildInfo in kernel_build else None,
+        images_info = kernel_build[KernelImagesInfo] if KernelImagesInfo in kernel_build else None,
     )
 
 def _local_exec_requirements(ctx):
