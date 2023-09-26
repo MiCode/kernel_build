@@ -236,6 +236,10 @@ def _kernel_env_impl(ctx):
 
         # capture it as a file to be sourced in downstream rules
           ( export -p; export -f ) | \\
+            # Remove TMPDIR, set by build bots. Other targets built by the
+            # current `bazel` command are affected by the same TMPDIR env var.
+            # However, we do not want kernel_filegroup to inherit TMPDIR.
+            sed '/^declare -x TMPDIR=/d' | \\
             # Remove the reference to PWD itself
             sed '/^declare -x PWD=/d' | \\
             # Now ensure, new PWD gets expanded
