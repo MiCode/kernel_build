@@ -995,7 +995,6 @@ def _define_prebuilts(target_configs, **kwargs):
                     # unstripped modules come from {name} in srcs, KernelUnstrippedModulesInfo
                 ],
             }),
-            kernel_srcs = [name + "_sources"],
             kernel_uapi_headers = name + "_uapi_headers_download_or_build",
             collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
             images = name + "_images_download_or_build",

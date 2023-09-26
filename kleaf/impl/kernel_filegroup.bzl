@@ -230,15 +230,6 @@ This usually contains a list of prebuilts.
 
 Unlike srcs, these labels are NOT added to the [`DefaultInfo`](https://docs.bazel.build/versions/main/skylark/lib/DefaultInfo.html)""",
         ),
-        "kernel_srcs": attr.label_list(
-            allow_files = True,
-            doc = """A list of files that would have been listed as `srcs` if this rule were a [`kernel_build`](#kernel_build).
-
-This is usually a `glob()` of source files.
-
-Not to be confused with [`srcs`](#kernel_filegroup-srcs).
-""",
-        ),
         "kernel_uapi_headers": attr.label(
             allow_files = True,
             doc = """The label pointing to `kernel-uapi-headers.tar.gz`.
