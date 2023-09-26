@@ -23,7 +23,7 @@ load(":print_flags.bzl", "print_flags")
 
 # Build flags
 
-# LTO setting. Values can be one of default, none, fast, thin, full
+# LTO setting. Values can be one of default, none, thin, full
 string_flag(
     name = "lto",
     build_setting_default = "default",

@@ -18,8 +18,5 @@
 # Let rules know what configs we are using now
 build:fast --//build/kernel/kleaf:config_fast
 
-# Also let the config decide what is best for LTO
-build:fast --lto=fast
-
 # Inherit from local: reduce sandboxes.
 build:fast --config=local

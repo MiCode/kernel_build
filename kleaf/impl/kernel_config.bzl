@@ -139,6 +139,12 @@ def _config_lto(ctx):
     lto_config_flag = ctx.attr.lto
 
     lto_configs = []
+
+    if lto_config_flag == "fast":
+        # buildifier: disable=print
+        print("\nWARNING: --lto=fast is deprecated. Falling back to none.")
+        lto_config_flag = "none"
+
     if lto_config_flag == "none":
         lto_configs += [
             _config.disable("LTO_CLANG"),
@@ -163,15 +169,6 @@ def _config_lto(ctx):
             _config.disable("LTO_CLANG_THIN"),
             _config.enable("LTO_CLANG_FULL"),
             _config.disable("THINLTO"),
-        ]
-    elif lto_config_flag == "fast":
-        # Set lto=thin only if LTO full is enabled.
-        lto_configs += [
-            _config.enable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG"),
-            _config.disable_if(condition = "LTO_CLANG_FULL", config = "LTO_NONE"),
-            _config.enable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG_THIN"),
-            _config.enable_if(condition = "LTO_CLANG_FULL", config = "THINLTO"),
-            _config.disable_if(condition = "LTO_CLANG_FULL", config = "LTO_CLANG_FULL"),
         ]
 
     return struct(configs = lto_configs, deps = [])
