@@ -112,7 +112,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         },
     )
 
-    for target, mapping in CI_TARGET_MAPPING.items():
+    for repo_name, mapping in CI_TARGET_MAPPING.items():
         gki_prebuilts_files = {out: {} for out in mapping["outs"]}
         gki_prebuilts_optional_files = {mapping["protected_modules"]: {}}
         for config in GKI_DOWNLOAD_CONFIGS:
@@ -128,10 +128,10 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
                 files_dict.update({out: file_metadata})
 
         download_artifacts_repo(
-            name = mapping["repo_name"],
+            name = repo_name,
             files = gki_prebuilts_files,
             optional_files = gki_prebuilts_optional_files,
-            target = target,
+            target = mapping["target"],
             artifact_url_fmt = artifact_url_fmt,
         )
 

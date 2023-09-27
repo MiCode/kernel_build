@@ -960,8 +960,8 @@ def _define_prebuilts(target_configs, **kwargs):
         ],
     )
 
-    for name, value in CI_TARGET_MAPPING.items():
-        repo_name = value["repo_name"]
+    for repo_name, value in CI_TARGET_MAPPING.items():
+        name = value["target"]
         main_target_outs = value["outs"]  # outs of target named {name}
         gki_prebuilts_outs = value["gki_prebuilts_outs"]  # outputs of _gki_prebuilts
 
