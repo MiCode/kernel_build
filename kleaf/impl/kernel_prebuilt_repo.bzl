@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Instantiates a repository that downloads artifacts from a given download location."""
+"""Repository for kernel prebuilts."""
+
+load(
+    ":kernel_prebuilt_utils.bzl",
+    "CI_TARGET_MAPPING",
+    "GKI_DOWNLOAD_CONFIGS",
+)
 
 visibility("//build/kernel/kleaf/...")
 
@@ -237,74 +243,33 @@ _alias_repo = repository_rule(
     ],
 )
 
-def download_artifacts_repo(
+def kernel_prebuilt_repo(
         name,
-        target,
-        files = None,
-        optional_files = None,
-        build_number = None,
-        artifact_url_fmt = None):
-    """Create a [repository](https://docs.bazel.build/versions/main/build-ref.html#repositories) that contains artifacts downloaded from [ci.android.com](http://ci.android.com).
-
-    For each item `file` in `files`, the label `@{name}//{file}` can refer to the downloaded file.
-
-    For example:
-    ```
-    download_artifacts_repo(
-        name = "gki_prebuilts",
-        target = "kernel_aarch64",
-        build_number = "9359437"
-        files = ["vmlinux"],
-        optional_files = ["abi_symbollist"],
-    )
-    ```
-
-    You may refer to the file with the label `@gki_prebuilts//vmlinux`, etc.
-
-    To refer to all downloaded files, you may use `@gki_prebuilts//...`
-
-    You may leave the build_number empty. If so, you must override the build number at build time.
-    See below.
-
-    For the repo `gki_prebuilts`, you may override the build number with `--use_prebuilt_gki`,
-    e.g.
-
-    ```
-    bazel build --use_prebuilt_gki=8078291 @gki_prebuilts//vmlinux
-    ```
+        artifact_url_fmt,
+        build_number = None):
+    """Define a repository that downloads kernel prebuilts.
 
     Args:
-        name: name of the repository.
-        target: build target on [ci.android.com](http://ci.android.com)
+        name: name of repository
+        artifact_url_fmt: see [`define_kleaf_workspace.artifact_url_fmt`](#define_kleaf_workspace-artifact_url_fmt)
         build_number: build number on [ci.android.com](http://ci.android.com)
-        files: A dictionary.
-            - Keys are the local file names. Unlike `remote_filename_fmt`, the name
-                is used as-is.
-            - Values is a dictionary of metadata with these keys:
-                - "remote_filename_fmt": the file name on [ci.android.com](http://ci.android.com).
-                    If unspecified, use the local file name.
-                    The remote filename may be a format string that accepts the following keys:
-                    - `build_number`
-
-            Examples:
-
-            ```
-            files = {
-                "manifest.xml": {
-                    "remote_filename_fmt": "manifest_{build_number}.xml"
-                }
-            }
-            ```
-
-        optional_files: Same as `files`, but it is optional. If the file is not in the given
-          build, it will not be downloaded, and the label (e.g. `@gki_prebuilts//abi_symbollist`)
-          points to an empty filegroup.
-        artifact_url_fmt: API endpoint for Android CI artifacts.
-          The format may include anchors for the following properties:
-            * {build_number}
-            * {target}
-            * {filename}
     """
+    mapping = CI_TARGET_MAPPING[name]
+    target = mapping["target"]
+
+    files = {out: {} for out in mapping["outs"]}
+    optional_files = {mapping["protected_modules"]: {}}
+    for config in GKI_DOWNLOAD_CONFIGS:
+        if config.get("mandatory", True):
+            files_dict = files
+        else:
+            files_dict = optional_files
+
+        files_dict.update({out: {} for out in config.get("outs", [])})
+
+        for out, remote_filename_fmt in config.get("outs_mapping", {}).items():
+            file_metadata = {"remote_filename_fmt": remote_filename_fmt}
+            files_dict.update({out: file_metadata})
 
     for files_dict, allow_fail in ((files, False), (optional_files, True)):
         for local_filename, file_metadata in files_dict.items():
