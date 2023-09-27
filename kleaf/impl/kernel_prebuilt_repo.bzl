@@ -14,6 +14,8 @@
 
 """Instantiates a repository that downloads artifacts from a given download location."""
 
+visibility("//build/kernel/kleaf/...")
+
 _BUILD_NUM_ENV_VAR = "KLEAF_DOWNLOAD_BUILD_NUMBER_MAP"
 
 def _sanitize_repo_name(x):
