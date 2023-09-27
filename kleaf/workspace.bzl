@@ -17,15 +17,15 @@ Defines repositories in a Kleaf workspace.
 """
 
 load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
-load(
-    "//build/kernel/kleaf:constants.bzl",
-    "CI_TARGET_MAPPING",
-    "GKI_DOWNLOAD_CONFIGS",
-)
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
 load(
     "//build/kernel/kleaf/impl:kernel_prebuilt_repo.bzl",
     "download_artifacts_repo",
+)
+load(
+    "//build/kernel/kleaf/impl:kernel_prebuilt_utils.bzl",
+    "CI_TARGET_MAPPING",
+    "GKI_DOWNLOAD_CONFIGS",
 )
 load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_repo")
 load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")

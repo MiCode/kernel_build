@@ -82,6 +82,7 @@ bzl_library(
         "kernel_modules_install.bzl",
         "kernel_platform_toolchain.bzl",
         "kernel_prebuilt_repo.bzl",
+        "kernel_prebuilt_utils.bzl",
         "kernel_sbom.bzl",
         "kernel_toolchains.bzl",
         "kernel_toolchains_utils.bzl",

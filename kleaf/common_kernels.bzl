@@ -28,14 +28,17 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
+load(
+    "//build/kernel/kleaf/impl:kernel_prebuilt_utils.bzl",
+    "CI_TARGET_MAPPING",
+    "GKI_DOWNLOAD_CONFIGS",
+)
 load("//build/kernel/kleaf/impl:kernel_sbom.bzl", "kernel_sbom")
 load("//build/kernel/kleaf/impl:merge_kzip.bzl", "merge_kzip")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
 load(
     ":constants.bzl",
-    "CI_TARGET_MAPPING",
     "DEFAULT_GKI_OUTS",
-    "GKI_DOWNLOAD_CONFIGS",
     "X86_64_OUTS",
 )
 load(
