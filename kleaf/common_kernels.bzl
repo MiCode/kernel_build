@@ -629,7 +629,8 @@ def _define_common_kernel(
         build_gki_artifacts = None,
         gki_boot_img_sizes = None,
         page_size = None,
-        deprecation = None):
+        deprecation = None,
+        ddk_headers_archive = None):
     json_target_config = dict(
         name = name,
         outs = outs,
@@ -653,6 +654,7 @@ def _define_common_kernel(
         gki_boot_img_sizes = gki_boot_img_sizes,
         page_size = page_size,
         deprecation = deprecation,
+        ddk_headers_archive = ddk_headers_archive,
     )
     json_target_config = json.encode_indent(json_target_config, indent = "    ")
     json_target_config = json_target_config.replace("null", "None")
@@ -846,12 +848,15 @@ def _define_common_kernel(
     # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
     # development. Hence they are also added to kernel_*_dist so they can be downloaded.
     # Note: This poke into details of kernel_build!
+    ddk_artifacts = [
+        name + "_modules_prepare",
+        name + "_modules_staging_archive",
+    ]
+    if ddk_headers_archive:
+        ddk_artifacts.append(ddk_headers_archive)
     native.filegroup(
         name = name + "_ddk_artifacts",
-        srcs = [
-            name + "_modules_prepare",
-            name + "_modules_staging_archive",
-        ],
+        srcs = ddk_artifacts,
     )
 
     dist_targets = [
