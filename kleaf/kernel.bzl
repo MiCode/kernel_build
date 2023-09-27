@@ -25,6 +25,7 @@ load("//build/kernel/kleaf/impl:abi/kernel_abi_dist.bzl", _kernel_abi_dist = "ke
 load("//build/kernel/kleaf/impl:android_filegroup.bzl", _android_filegroup = "android_filegroup")
 load("//build/kernel/kleaf/impl:checkpatch.bzl", _checkpatch = "checkpatch")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
+load("//build/kernel/kleaf/impl:ddk/ddk_headers_archive.bzl", _ddk_headers_archive = "ddk_headers_archive")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
 load("//build/kernel/kleaf/impl:ddk/ddk_submodule.bzl", _ddk_submodule = "ddk_submodule")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", _gki_artifacts = "gki_artifacts", _gki_artifacts_prebuilts = "gki_artifacts_prebuilts")
@@ -47,6 +48,7 @@ load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_
 android_filegroup = _android_filegroup
 checkpatch = _checkpatch
 ddk_headers = _ddk_headers
+ddk_headers_archive = _ddk_headers_archive
 ddk_module = _ddk_module
 ddk_submodule = _ddk_submodule
 extract_symbols = _extract_symbols
