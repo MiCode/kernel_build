@@ -145,7 +145,6 @@ def _download_from_build_number(repository_ctx, build_number):
     download_info = repository_ctx.download(
         url = urls,
         output = download_path,
-        sha256 = repository_ctx.attr.sha256,
         allow_fail = repository_ctx.attr.allow_fail,
     )
 
@@ -187,10 +186,6 @@ _download_artifact_repo = repository_rule(
             """,
         ),
         "target": attr.string(doc = "Name of target on the download location, e.g. `kernel_aarch64`"),
-        "sha256": attr.string(
-            default = "",
-            doc = "checksum of the downloaded file",
-        ),
         "allow_fail": attr.bool(),
         "artifact_url_fmt": attr.string(
             doc = """API endpoint for Android CI artifacts.
@@ -242,31 +237,6 @@ _alias_repo = repository_rule(
     ],
 )
 
-def _transform_files_arg(repo_name, files):
-    """Standardizes files / optional_files for download_artifacts_repo.
-
-    Returns dict[str, dict[str, str]]"""
-
-    if files == None:
-        files = {}
-
-    if type(files) == type([]):
-        files = {filename: None for filename in files}
-
-    if type(files) == type({}):
-        new_files = {}
-        for key, value in files.items():
-            if value == None:
-                value = {}
-            if type(value) == str:
-                value = {"sha256": value}
-            if type(value) != type({}):
-                fail("@{}: Invalid value {}".format(repo_name, value))
-            new_files[key] = value
-        files = new_files
-
-    return files
-
 def download_artifacts_repo(
         name,
         target,
@@ -307,36 +277,20 @@ def download_artifacts_repo(
         name: name of the repository.
         target: build target on [ci.android.com](http://ci.android.com)
         build_number: build number on [ci.android.com](http://ci.android.com)
-        files: One of the following:
-
-            - If a list, this is equivalent to `{file: {} for file in files}`.
-            - If a dict:
-                - Keys are the local file names. Unlike `remote_filename_fmt`, the name
-                  is used as-is.
-                - Values are one of the following:
-                - If a string, this is equivalent to `{"sha256": value}`
-                - If a dict, the dictionary may contain these keys:
-                    - "sha256": the corresponding SHA256 hash
-                    - "remote_filename_fmt": the file name on [ci.android.com](http://ci.android.com).
-                        If unspecified, use the local file name.
-                        The remote filename may be a format string that accepts the following keys:
-                        - `build_number`
+        files: A dictionary.
+            - Keys are the local file names. Unlike `remote_filename_fmt`, the name
+                is used as-is.
+            - Values is a dictionary of metadata with these keys:
+                - "remote_filename_fmt": the file name on [ci.android.com](http://ci.android.com).
+                    If unspecified, use the local file name.
+                    The remote filename may be a format string that accepts the following keys:
+                    - `build_number`
 
             Examples:
-            ```
-            files = ["vmlinux"]
-            ```
-
-            ```
-            files = {
-                "vmlinux": "34c4db6e8f4f5f7a3ce18380fb0dd26cff9b66e9ec9a4046db1499b577e4709a"
-            }
-            ```
 
             ```
             files = {
                 "manifest.xml": {
-                    "sha256sum": "b45303a82e281977c684838fd6f4100a73bddffacae978593a6ef16e0bcc68ac",
                     "remote_filename_fmt": "manifest_{build_number}.xml"
                 }
             }
@@ -352,9 +306,6 @@ def download_artifacts_repo(
             * {filename}
     """
 
-    files = _transform_files_arg(name, files)
-    optional_files = _transform_files_arg(name, optional_files)
-
     for files_dict, allow_fail in ((files, False), (optional_files, True)):
         for local_filename, file_metadata in files_dict.items():
             # Need a repo for each file because repository_ctx.download is blocking. Defining multiple
@@ -366,7 +317,6 @@ def download_artifacts_repo(
                 local_filename = local_filename,
                 build_number = build_number,
                 target = target,
-                sha256 = file_metadata.get("sha256"),
                 remote_filename_fmt = file_metadata.get("remote_filename_fmt", local_filename),
                 allow_fail = allow_fail,
                 artifact_url_fmt = artifact_url_fmt,

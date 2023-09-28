@@ -113,15 +113,15 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     )
 
     for target, mapping in CI_TARGET_MAPPING.items():
-        gki_prebuilts_files = {out: None for out in mapping["outs"]}
-        gki_prebuilts_optional_files = {mapping["protected_modules"]: None}
+        gki_prebuilts_files = {out: {} for out in mapping["outs"]}
+        gki_prebuilts_optional_files = {mapping["protected_modules"]: {}}
         for config in GKI_DOWNLOAD_CONFIGS:
             if config.get("mandatory", True):
                 files_dict = gki_prebuilts_files
             else:
                 files_dict = gki_prebuilts_optional_files
 
-            files_dict.update({out: None for out in config.get("outs", [])})
+            files_dict.update({out: {} for out in config.get("outs", [])})
 
             for out, remote_filename_fmt in config.get("outs_mapping", {}).items():
                 file_metadata = {"remote_filename_fmt": remote_filename_fmt}
