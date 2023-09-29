@@ -110,9 +110,16 @@ def _system_dlkm_image_impl(ctx):
         else:
             system_dlkm_img = ctx.actions.declare_file("{}/system_dlkm.{}.img".format(ctx.label.name, fs_type))
             system_dlkm_img_name = "system_dlkm.{}.img".format(fs_type)
-
         outputs.append(system_dlkm_img)
         outputs_to_compare.append(system_dlkm_img_name)
+
+        system_dlkm_flatten_img = None
+        system_dlkm_flatten_img_name = None
+        if ctx.attr.build_system_dlkm_flatten_image:
+            system_dlkm_flatten_img = ctx.actions.declare_file("{}/system_dlkm.flatten.{}.img".format(ctx.label.name, fs_type))
+            outputs.append(system_dlkm_flatten_img)
+            system_dlkm_flatten_img_name = "system_dlkm.flatten.{}.img".format(fs_type)
+            outputs_to_compare.append(system_dlkm_flatten_img_name)
 
         command += """
                    {extract_staging_archive_cmd}
@@ -123,11 +130,15 @@ def _system_dlkm_image_impl(ctx):
                      SYSTEM_DLKM_FS_TYPE={system_dlkm_fs_type}
                      SYSTEM_DLKM_STAGING_DIR={system_dlkm_staging_dir}
                      SYSTEM_DLKM_IMAGE_NAME={system_dlkm_img_name}
+                     SYSTEM_DLKM_GEN_FLATTEN_IMAGE={build_flatten_image}
                      {extra_flags_cmd}
                      build_system_dlkm
                    )
                  # Move output files into place
                    mv "${{DIST_DIR}}/{system_dlkm_img_name}" {system_dlkm_img}
+                   if [[ {build_flatten_image} == "1" ]]; then
+                     mv "${{DIST_DIR}}/{system_dlkm_flatten_img_name}" {system_dlkm_flatten_img}
+                   fi
                    mv "${{DIST_DIR}}/system_dlkm.modules.load" {system_dlkm_modules_load}
                    mv "${{DIST_DIR}}/system_dlkm_staging_archive.tar.gz" {system_dlkm_staging_archive}
                    if [ -f "${{DIST_DIR}}/system_dlkm.modules.blocklist" ]; then
@@ -139,11 +150,14 @@ def _system_dlkm_image_impl(ctx):
                  # Remove staging directories
                    rm -rf {system_dlkm_staging_dir}
         """.format(
+            build_flatten_image = int(ctx.attr.build_system_dlkm_flatten_image),
             extract_staging_archive_cmd = extract_staging_archive_cmd,
             extra_flags_cmd = extra_flags_cmd,
             modules_staging_dir = modules_staging_dir,
             system_dlkm_fs_type = fs_type,
             system_dlkm_staging_dir = system_dlkm_staging_dir,
+            system_dlkm_flatten_img = system_dlkm_flatten_img.path if system_dlkm_flatten_img else "/dev/null",
+            system_dlkm_flatten_img_name = system_dlkm_flatten_img_name,
             system_dlkm_img = system_dlkm_img.path,
             system_dlkm_img_name = system_dlkm_img_name,
             system_dlkm_modules_load = system_dlkm_modules_load.path,
@@ -180,12 +194,17 @@ system_dlkm_image = rule(
 
 When included in a `copy_to_dist_dir` rule, this rule copies the following to `DIST_DIR`:
 - `system_dlkm.img` if system_dlkm_fs_type is specified
-- `system_dlkm.[erfos|ext4].img` if system_dlkm_fs_types is specified
+- `system_dlkm.[erofs|ext4].img` if system_dlkm_fs_types is specified
+- `system_dlkm.flatten.[erofs|ext4].img` if build_system_dlkm_flatten_image is True
 - `system_dlkm.modules.load`
 
 """,
     attrs = image_utils.build_modules_image_attrs_common({
         "base_kernel_images": attr.label(allow_files = True),
+        "build_system_dlkm_flatten_image": attr.bool(
+            default = False,
+            doc = "When True it builds system_dlkm image with no `uname -r` in the path.",
+        ),
         "modules_list": attr.label(allow_single_file = True),
         "modules_blocklist": attr.label(allow_single_file = True),
         "system_dlkm_fs_type": attr.string(doc = """Deprecated. system_dlkm image fs type""", values = ["ext4", "erofs"]),
