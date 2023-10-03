@@ -28,7 +28,10 @@ load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_re
 load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
 # buildifier: disable=unnamed-macro
-def define_kleaf_workspace(common_kernel_package = None, include_remote_java_tools_repo = False, artifact_url_fmt = None):
+def define_kleaf_workspace(
+        common_kernel_package = None,
+        include_remote_java_tools_repo = False,
+        artifact_url_fmt = None):
     """Common macro for defining repositories in a Kleaf workspace.
 
     **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
@@ -55,10 +58,11 @@ def define_kleaf_workspace(common_kernel_package = None, include_remote_java_too
           * {target}
           * {filename}
     """
+
     if common_kernel_package == None:
-        common_kernel_package = "@//common"
+        common_kernel_package = str(Label("//common:x")).removesuffix(":x")
     if not common_kernel_package.startswith("@") and not common_kernel_package.startswith("//"):
-        common_kernel_package = "@//" + common_kernel_package
+        common_kernel_package = str(Label("//{}:x".format(common_kernel_package))).removesuffix(":x")
 
         # buildifier: disable=print
         print("""
@@ -176,9 +180,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         "@local_jdk//:all",
     )
 
+    # Label(): Resolve the label against this extension (register.bzl) so the
+    # workspace name is injected properly when //prebuilts is in a subworkspace.
+    # str(): register_toolchains() only accepts strings, not Labels.
     native.register_toolchains(
-        "//prebuilts/build-tools:py_toolchain",
-        "//build/kernel:hermetic_tools_toolchain",
+        str(Label("//prebuilts/build-tools:py_toolchain")),
+        str(Label("//build/kernel:hermetic_tools_toolchain")),
     )
 
     register_clang_toolchains()
