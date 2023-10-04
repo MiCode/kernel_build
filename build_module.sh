@@ -310,6 +310,11 @@ for EXT_MOD in ${EXT_MODULES}; do
       build_flags+=("--allow_ddk_unsafe_headers")
     fi
 
+    if [ -n "$EXTRA_DDK_ARGS" ]; then
+      IFS=" " read -r -a extra_args <<< "$EXTRA_DDK_ARGS"
+      build_flags+=("${extra_args[@]}")
+    fi
+
     # Run the dist command passing in the output directory from Android build system
     ./tools/bazel run "${build_flags[@]}" "$build_target" \
       -- --dist_dir="${OUT_DIR}/${EXT_MOD_REL}"
