@@ -862,6 +862,7 @@ def _define_common_kernel(
         name + "_" + TOOLCHAIN_VERSION_FILENAME,
         # BUILD_GKI_CERTIFICATION_TOOLS=1 for all kernel_build defined here.
         Label("//build/kernel:gki_certification_tools"),
+        "build.config.constants",
     ]
 
     kernel_sbom(
