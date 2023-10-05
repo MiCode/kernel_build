@@ -27,7 +27,8 @@ def _boot_images_impl(ctx):
     ## Declare implicit outputs of the command
     ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.
     outdir_short = paths.join(
-        paths.dirname(ctx.build_file_path),
+        ctx.label.workspace_root,
+        ctx.label.package,
         ctx.label.name,
     )
     outdir = paths.join(

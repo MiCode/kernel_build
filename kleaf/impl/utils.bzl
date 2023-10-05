@@ -99,6 +99,24 @@ def find_files(files, suffix = None):
             result.append(file)
     return result
 
+def _package_bin_dir(ctx):
+    """Return the directory for output files in this package.
+
+    This is similar to
+
+    ```
+    dirname(ctx.actions.declare_directory("x"))
+    ```
+
+    ... but not actually declare any directory, so there's no `File` object
+    and no need to add it to the list of outputs of an action.
+    """
+    return paths.join(
+        ctx.bin_dir.path,
+        ctx.label.workspace_root,
+        ctx.label.package,
+    )
+
 def _intermediates_dir(ctx):
     """Return a good directory for intermediates.
 
@@ -119,8 +137,7 @@ def _intermediates_dir(ctx):
     a previous build may remain and affect a later build. Use with caution.
     """
     return paths.join(
-        ctx.bin_dir.path,
-        paths.dirname(ctx.build_file_path),
+        _package_bin_dir(ctx),
         ctx.attr.name + "_intermediates",
     )
 
@@ -207,6 +224,7 @@ def _write_depset(ctx, d, out):
 # Utilities that applies to all Bazel stuff in general. These functions are
 # not Kleaf specific.
 utils = struct(
+    package_bin_dir = _package_bin_dir,
     intermediates_dir = _intermediates_dir,
     reverse_dict = _reverse_dict,
     getoptattr = _getoptattr,

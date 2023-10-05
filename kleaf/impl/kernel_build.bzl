@@ -1370,8 +1370,7 @@ def _build_main_action(
     ## Declare implicit outputs of the command
     ## This is like ctx.actions.declare_directory(ctx.label.name) without actually declaring it.
     ruledir = paths.join(
-        ctx.bin_dir.path,
-        paths.dirname(ctx.build_file_path),
+        utils.package_bin_dir(ctx),
         ctx.label.name,
     )
 

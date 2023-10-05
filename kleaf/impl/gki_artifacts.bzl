@@ -215,8 +215,7 @@ def _gki_artifacts_prebuilts_impl(ctx):
 
         # The result of ctx.actions.declare_directory(ctx.label.name).path without declaring it
         ruledir = paths.join(
-            ctx.bin_dir.path,
-            paths.dirname(ctx.build_file_path),
+            utils.package_bin_dir(ctx),
             ctx.attr.name,
         )
 

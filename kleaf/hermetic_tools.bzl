@@ -24,6 +24,7 @@ load(
 )
 load("//build/kernel/kleaf/impl:hermetic_genrule.bzl", _hermetic_genrule = "hermetic_genrule")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", _hermetic_toolchain = "hermetic_toolchain")
+load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 
 # Re-export functions
 hermetic_exec = _hermetic_exec
@@ -130,12 +131,12 @@ def _hermetic_tools_impl(ctx):
     """
 
     hermetic_base = paths.join(
-        ctx.bin_dir.path,
-        paths.dirname(ctx.build_file_path),
+        utils.package_bin_dir(ctx),
         ctx.attr.name,
     )
     hermetic_base_short = paths.join(
-        paths.dirname(ctx.build_file_path),
+        ctx.label.workspace_root,
+        ctx.label.package,
         ctx.attr.name,
     )
 
