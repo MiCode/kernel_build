@@ -75,7 +75,7 @@ def _partition(lst: list[str], index: Optional[int]) \
 
 
 class BazelWrapper(object):
-    def __init__(self, root_dir: pathlib.Path, bazel_args: list[str], env):
+    def __init__(self, kleaf_repo_dir: pathlib.Path, bazel_args: list[str], env):
         """Splits arguments to the bazel binary based on the functionality.
 
         bazel [startup_options] command         [command_args] --               [target_patterns]
@@ -84,15 +84,15 @@ class BazelWrapper(object):
         See https://bazel.build/reference/command-line-reference
 
         Args:
-            root_dir: root of repository
+            kleaf_repo_dir: root of repository
             bazel_args: The list of arguments the user provides through command line
             env: existing environment
         """
 
-        self.root_dir = root_dir
+        self.kleaf_repo_dir = kleaf_repo_dir
         self.env = env.copy()
 
-        self.bazel_path = self.root_dir / _BAZEL_REL_PATH
+        self.bazel_path = self.kleaf_repo_dir / _BAZEL_REL_PATH
 
         command_idx = None
         for idx, arg in enumerate(bazel_args):
@@ -127,7 +127,7 @@ class BazelWrapper(object):
             "--output_root",
             metavar="PATH",
             type=_require_absolute_path,
-            default=_require_absolute_path(self.root_dir / "out"),
+            default=_require_absolute_path(self.kleaf_repo_dir / "out"),
             help="Absolute path to output directory",
         )
         group.add_argument(
@@ -314,13 +314,13 @@ class BazelWrapper(object):
         # final_args:
         # bazel [startup_options] [additional_startup_options] command [transformed_command_args] -- [target_patterns]
 
-        bazel_jdk_path = self.root_dir / _BAZEL_JDK_REL_PATH
+        bazel_jdk_path = self.kleaf_repo_dir / _BAZEL_JDK_REL_PATH
         final_args = [self.bazel_path] + self.transformed_startup_options
 
         if not self.known_startup_options.help:
             final_args += [
                 f"--server_javabase={bazel_jdk_path}",
-                f"--bazelrc={self.root_dir / _BAZEL_RC_NAME}",
+                f"--bazelrc={self.kleaf_repo_dir / _BAZEL_RC_NAME}",
             ]
         if self.command is not None:
             final_args.append(self.command)
@@ -363,16 +363,17 @@ class BazelWrapper(object):
 
         self._add_command_args_to_parser(parser)
         bazelrc_parser = FlagsBazelrcParser(
-            self.root_dir / _FLAGS_BAZEL_RC)
-        bazelrc_parser.add_to(parser, root_dir=self.root_dir)
+            self.kleaf_repo_dir / _FLAGS_BAZEL_RC)
+        bazelrc_parser.add_to(parser, kleaf_repo_dir=self.kleaf_repo_dir)
 
         config_group = parser.add_argument_group(
             title="Args - configs"
         )
-        for f in os.listdir(self.root_dir / _BAZEL_RC_DIR):
+        for f in os.listdir(self.kleaf_repo_dir / _BAZEL_RC_DIR):
             bazelrc_parser = ConfigBazelrcParser(
-                self.root_dir / _BAZEL_RC_DIR / f)
-            bazelrc_parser.add_to(config_group, root_dir=self.root_dir)
+                self.kleaf_repo_dir / _BAZEL_RC_DIR / f)
+            bazelrc_parser.add_to(
+                config_group, kleaf_repo_dir=self.kleaf_repo_dir)
 
         # Additional helper queries for target discovery.
         kleaf_group = parser.add_argument_group(
@@ -481,7 +482,7 @@ class BazelrcSection(object):
     def handle_line(self, line):
         pass
 
-    def add_to(self, parser_or_group, root_dir: pathlib.Path):
+    def add_to(self, parser_or_group, kleaf_repo_dir: pathlib.Path):
         raise NotImplementedError
 
 
@@ -504,11 +505,11 @@ class BazelrcParser(object):
     def new_section(self) -> BazelrcSection:
         raise NotImplementedError
 
-    def add_to(self, parser_or_group, root_dir: pathlib.Path):
+    def add_to(self, parser_or_group, kleaf_repo_dir: pathlib.Path):
         parser_or_group.add_argument_group("Args - Kleaf flags")
 
         for section in self.sections:
-            section.add_to(parser_or_group, root_dir=root_dir)
+            section.add_to(parser_or_group, kleaf_repo_dir=kleaf_repo_dir)
 
 
 @dataclasses.dataclass
@@ -519,12 +520,12 @@ class FlagAlias(object):
 
     _build_file_cache = {}
 
-    def read_flag_comment(self, root_dir: pathlib.Path):
+    def read_flag_comment(self, kleaf_repo_dir: pathlib.Path):
         # TODO(b/256052600): Use buildozer
         build_file_rel = self.label.removeprefix('//')
         build_file_rel = build_file_rel[:build_file_rel.index(":")]
         label_name = self.label[self.label.index(":") + 1:]
-        build_file = root_dir / build_file_rel / "BUILD.bazel"
+        build_file = kleaf_repo_dir / build_file_rel / "BUILD.bazel"
 
         self._rule = None
         self._description = ""
@@ -550,8 +551,8 @@ class FlagAlias(object):
                 line.removeprefix("#").strip() for line in comment.split("\n")
             )
 
-    def add_to_group(self, group, root_dir: pathlib.Path):
-        self.read_flag_comment(root_dir=root_dir)
+    def add_to_group(self, group, kleaf_repo_dir: pathlib.Path):
+        self.read_flag_comment(kleaf_repo_dir=kleaf_repo_dir)
 
         kwargs = {
             "help": self._description,
@@ -584,7 +585,7 @@ class FlagsSection(BazelrcSection):
             label=mo.group("label")
         ))
 
-    def add_to(self, parser: argparse.ArgumentParser, root_dir: pathlib.Path):
+    def add_to(self, parser: argparse.ArgumentParser, kleaf_repo_dir: pathlib.Path):
         if not self.flags:
             # Skip for license header
             return
@@ -605,7 +606,7 @@ class FlagsSection(BazelrcSection):
 
         for alias in self.flags:
             try:
-                alias.add_to_group(group, root_dir=root_dir)
+                alias.add_to_group(group, kleaf_repo_dir=kleaf_repo_dir)
             except argparse.ArgumentError:
                 # For flags like --use_prebuilt_gki, its help is already printed by the wrapper.
                 # Skip them.
@@ -618,7 +619,7 @@ class FlagsBazelrcParser(BazelrcParser):
 
 
 class ConfigSection(BazelrcSection):
-    def add_to(self, group, root_dir: pathlib.Path):
+    def add_to(self, group, kleaf_repo_dir: pathlib.Path):
         if not self.comments:
             return
         mo = _CONFIG_PATTERN.match(self.comments[0])
@@ -668,5 +669,5 @@ async def run(command, env, filter_regex):
 
 
 if __name__ == "__main__":
-    BazelWrapper(root_dir=pathlib.Path(sys.argv[1]),
+    BazelWrapper(kleaf_repo_dir=pathlib.Path(sys.argv[1]),
                  bazel_args=sys.argv[2:], env=os.environ).run()
