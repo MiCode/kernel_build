@@ -28,9 +28,6 @@ build --experimental_writable_outputs
 # build --java_runtime_version=local_jdk
 build --tool_java_runtime_version=local_jdk
 
-# By default, do not embed scmversion.
-build --workspace_status_command=build/kernel/kleaf/workspace_status_common.sh
-
 # Always dump full test results
 test --test_output=errors --test_summary=terse
 

@@ -320,6 +320,21 @@ class BazelWrapper(KleafHelpPrinter):
         self.transformed_startup_options += self._transform_bazelrc_files([
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/stamp.bazelrc",
         ])
+        stamp_extra_bazelrc = self.gen_bazelrc_dir / "stamp_extra.bazelrc"
+        with open(stamp_extra_bazelrc, "w") as f:
+            workspace_status_common_sh = self._kleaf_repo_rel() / \
+                "build/kernel/kleaf/workspace_status_common.sh"
+            workspace_status_sh = self._kleaf_repo_rel() / \
+                "build/kernel/kleaf/workspace_status.sh"
+            f.write(textwrap.dedent(f"""\
+                # By default, do not embed scmversion.
+                build --workspace_status_command={shlex.quote(str(workspace_status_common_sh))}
+                # With --config=stamp, embed scmversion.
+                build:stamp --workspace_status_command={shlex.quote(str(workspace_status_sh))}
+            """))
+        self.transformed_startup_options += self._transform_bazelrc_files([
+            stamp_extra_bazelrc,
+        ])
 
         self.transformed_startup_options += self._transform_bazelrc_files([
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/release.bazelrc",
@@ -412,6 +427,17 @@ class BazelWrapper(KleafHelpPrinter):
         # in bazelrc may be referred to as @kleaf//, then _rewrite_bazelrc_file
         # may be deleted.
         return f"@kleaf"
+
+    def _kleaf_repo_rel(self):
+        """Return root of the Kleaf repository relative to the top-level workspace.
+
+        If the root of the Kleaf repository is not relative to the top-level workspace,
+        return the absolute path as-is.
+        """
+        kleaf_repo_rel = self.kleaf_repo_dir
+        if kleaf_repo_rel.is_relative_to(self.workspace_dir):
+            kleaf_repo_rel = kleaf_repo_rel.relative_to(self.workspace_dir)
+        return kleaf_repo_rel
 
     def _print_help(self):
         print("===============================")
