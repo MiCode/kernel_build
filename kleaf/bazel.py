@@ -381,11 +381,11 @@ class BazelWrapper(object):
         )
         kleaf_group.add_argument(
             "targets",
-            help = "List kernel_build targets under current WORKSPACE",
+            help="List kernel_build targets under current WORKSPACE",
         )
         kleaf_group.add_argument(
             "abi_targets",
-            help = "List ABI related targets under current WORKSPACE",
+            help="List ABI related targets under current WORKSPACE",
         )
 
         parser.add_argument_group(
@@ -422,8 +422,9 @@ class BazelWrapper(object):
     def _rebuild_kleaf_help_args(self):
         show_kleaf_targets = self.command == "help" and self.transformed_command_args and \
             self.transformed_command_args[0] == "kleaf" and \
-            len(self.transformed_command_args) > 1  and \
-            (self.transformed_command_args[1] in ["targets", "abi-targets", "abi_targets"])
+            len(self.transformed_command_args) > 1 and \
+            (self.transformed_command_args[1] in [
+             "targets", "abi-targets", "abi_targets"])
 
         if not show_kleaf_targets:
             return
@@ -631,8 +632,8 @@ class ConfigSection(BazelrcSection):
         description += self.comments[1:]
         description = "\n".join(description)
         group.add_argument(f"--config={config}",
-                            help=description,
-                            action="store_true")
+                           help=description,
+                           action="store_true")
 
 
 class ConfigBazelrcParser(BazelrcParser):
