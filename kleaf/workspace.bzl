@@ -27,6 +27,11 @@ load(
     "CI_TARGET_MAPPING",
 )
 load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_repo")
+load(
+    "//build/kernel/kleaf/impl:local_repository.bzl",
+    "kleaf_local_repository",
+    "new_kleaf_local_repository",
+)
 load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
 
 # buildifier: disable=unnamed-macro
@@ -74,19 +79,19 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         ))
 
     maybe(
-        repo_rule = native.local_repository,
+        repo_rule = kleaf_local_repository,
         name = "bazel_skylib",
         path = "external/bazel-skylib",
     )
 
     maybe(
-        repo_rule = native.local_repository,
+        repo_rule = kleaf_local_repository,
         name = "io_abseil_py",
         path = "external/python/absl-py",
     )
 
     maybe(
-        repo_rule = native.local_repository,
+        repo_rule = kleaf_local_repository,
         name = "io_bazel_stardoc",
         path = "external/stardoc",
     )
@@ -108,7 +113,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
 
     # The prebuilt NDK does not support Bazel.
     # https://docs.bazel.build/versions/main/external.html#non-bazel-projects
-    native.new_local_repository(
+    new_kleaf_local_repository(
         name = "prebuilt_ndk",
         path = "prebuilts/ndk-r23",
         build_file = "build/kernel/kleaf/ndk.BUILD",
@@ -129,7 +134,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         )
 
     # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
-    native.local_repository(
+    kleaf_local_repository(
         name = "rules_python",
         path = "build/bazel_common_rules/rules/python/stubs",
     )
@@ -137,12 +142,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     # The following 2 repositories contain prebuilts that are necessary to the Java Rules.
     # They are vendored locally to avoid the need for CI bots to download them.
     if include_remote_java_tools_repo:
-        native.local_repository(
+        kleaf_local_repository(
             name = "remote_java_tools",
             path = "prebuilts/bazel/common/remote_java_tools",
         )
 
-        native.local_repository(
+        kleaf_local_repository(
             name = "remote_java_tools_linux",
             path = "prebuilts/bazel/linux-x86_64/remote_java_tools_linux",
         )
@@ -152,20 +157,20 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     # Note: This was not added directly to avoid conflicts with roboleaf,
     #   see https://android-review.googlesource.com/c/platform/build/bazel/+/2457390
     #   for more details.
-    native.new_local_repository(
+    new_kleaf_local_repository(
         name = "local_jdk",
         path = "prebuilts/jdk/jdk11/linux-x86",
         build_file = "build/kernel/kleaf/jdk11.BUILD",
     )
 
     # Fake rules_cc to avoid fetching it for any py_binary targets.
-    native.local_repository(
+    kleaf_local_repository(
         name = "rules_cc",
         path = "build/kernel/kleaf/impl/fake_rules_cc",
     )
 
     # Stub out @remote_coverage_tools required for testing.
-    native.local_repository(
+    kleaf_local_repository(
         name = "remote_coverage_tools",
         path = "build/bazel_common_rules/rules/coverage/remote_coverage_tools",
     )

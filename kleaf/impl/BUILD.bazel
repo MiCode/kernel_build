@@ -93,6 +93,7 @@ bzl_library(
         "kgdb.bzl",
         "kleaf_host_tools_repo.bzl",
         "kmi_symbol_list.bzl",
+        "local_repository.bzl",
         "merge_kzip.bzl",
         "merged_kernel_uapi_headers.bzl",
         "modules_prepare.bzl",
