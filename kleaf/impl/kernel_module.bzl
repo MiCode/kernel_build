@@ -258,7 +258,11 @@ def _kernel_module_impl(ctx):
     _check_module_symvers_restore_path(kernel_module_deps, ctx.label)
 
     # Define where to build the external module (default to the package name)
-    ext_mod = ctx.attr.makefile[0].label.package if ctx.attr.makefile else ctx.label.package
+    if ctx.attr.makefile:
+        ext_mod_label = ctx.attr.makefile[0].label
+    else:
+        ext_mod_label = ctx.label
+    ext_mod = paths.join(ext_mod_label.workspace_root, ext_mod_label.package)
 
     if ctx.files.makefile and ctx.file.internal_ddk_makefiles_dir:
         fail("{}: must not define `makefile` for `ddk_module`")
