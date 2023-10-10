@@ -109,3 +109,22 @@ due to backwards compatibility of the API, they might not be completely
   * E.g. Use `depsets` instead of `lists`; `depsets` are a tree of objects that
   can be concatenated effortlessly.`lists` are concatenated by copying contents.
 
+#### Prefer depset over `ctx.files.X` in rules
+
+In general, in rule implementations, prefer depsets and avoid using `ctx.files.X`.
+
+- If you need a `depset`, prefer
+  `depset(transitive = [target.files for target in ctx.attr.X])`. This is more
+  memory efficient because it does not retain the `ctx.files.X` list.
+  Instead, it only creates the depset tree using existing depsets in memory.
+  - If there are too many labels in attribute `X`, you may micro-optimize by
+    assingning the depset to a variable instead of computing it every time,
+    or using an intermediate `filegroup`. Use Bazel profiles to confirm time
+    reduction before doing micro-optimization.
+- If you need a `list[File]`, and the list is generally small, `ctx.files.X`
+  is okay to use. Note that `ctx.files.X` is lazily computed when you request
+  the list. If you keep a large list around, there may be a memory impact.
+- If you need a `list[File]` but it is large, consider optimizing your
+  implementation so it works with `depset`s.
+- `ctx.file.X` is okay to use because there's only a single file.
+
