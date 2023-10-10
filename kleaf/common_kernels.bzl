@@ -18,6 +18,26 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
+load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
+load(
+    "//build/kernel/kleaf/impl:constants.bzl",
+    "MODULE_OUTS_FILE_OUTPUT_GROUP",
+    "MODULE_OUTS_FILE_SUFFIX",
+    "TOOLCHAIN_VERSION_FILENAME",
+)
+load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
+load("//build/kernel/kleaf/impl:kernel_sbom.bzl", "kernel_sbom")
+load("//build/kernel/kleaf/impl:merge_kzip.bzl", "merge_kzip")
+load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
+load(
+    ":constants.bzl",
+    "CI_TARGET_MAPPING",
+    "DEFAULT_GKI_OUTS",
+    "GKI_DOWNLOAD_CONFIGS",
+    "X86_64_OUTS",
+)
 load(
     ":kernel.bzl",
     "kernel_abi",
@@ -31,26 +51,6 @@ load(
     "kernel_modules_install",
     "kernel_unstripped_modules_archive",
     "merged_kernel_uapi_headers",
-)
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
-load("//build/kernel/kleaf/artifact_tests:kernel_test.bzl", "initramfs_modules_options_test")
-load("//build/kernel/kleaf/artifact_tests:device_modules_test.bzl", "device_modules_test")
-load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
-load("//build/kernel/kleaf/impl:kernel_sbom.bzl", "kernel_sbom")
-load("//build/kernel/kleaf/impl:merge_kzip.bzl", "merge_kzip")
-load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
-load(
-    "//build/kernel/kleaf/impl:constants.bzl",
-    "MODULE_OUTS_FILE_OUTPUT_GROUP",
-    "MODULE_OUTS_FILE_SUFFIX",
-    "TOOLCHAIN_VERSION_FILENAME",
-)
-load(
-    ":constants.bzl",
-    "CI_TARGET_MAPPING",
-    "DEFAULT_GKI_OUTS",
-    "GKI_DOWNLOAD_CONFIGS",
-    "X86_64_OUTS",
 )
 load(":print_debug.bzl", "print_debug")
 
