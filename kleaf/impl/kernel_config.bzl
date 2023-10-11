@@ -597,16 +597,8 @@ def _package_config_outdir(ctx, out_dir):
 
     # <kernel_build>_config_outdir.tar.gz
     outdir_tar_gz = ctx.actions.declare_file("{name}/{name}_outdir.tar.gz".format(name = ctx.attr.name))
-
-    # To workaround https://github.com/landley/toybox/issues/456, directly
-    # provide the list of files by using find.
     cmd = hermetic_tools.setup + """
-        find {out_dir} ! -type d -print0 | \\
-            LC_ALL=C sort -z | \\
-            tar czf {outdir_tar_gz} \\
-                --dereference \\
-                --transform 's:^{out_dir}/::g' \\
-                --null -T -
+        tar czf {outdir_tar_gz} --dereference -C {out_dir} .
     """.format(
         outdir_tar_gz = outdir_tar_gz.path,
         out_dir = out_dir.path,
