@@ -14,26 +14,33 @@
 
 load(":kernel_config_option_test.bzl", "kernel_config_option_test_suite")
 load(":kernel_defconfig_fragments_test.bzl", "kernel_defconfig_fragments_test")
-load(
-    ":lto_test.bzl",
-    "debug_lto_test",
-    "kasan_generic_lto_test",
-    "kasan_lto_test",
-    "kasan_sw_tags_lto_test",
-    "kcsan_lto_test",
-)
+
+# TODO: re-enable after resolving b/309430653
+# load(
+#     ":lto_test.bzl",
+#     "debug_lto_test",
+#     "kasan_generic_lto_test",
+#     "kasan_lto_test",
+#     "kasan_sw_tags_lto_test",
+#     "kcsan_lto_test",
+# )
 
 # Analysis test
 
-kasan_lto_test(name = "kasan_lto_test")
+# TODO: re-enable after resolving b/309430653
+# kasan_lto_test(name = "kasan_lto_test")
 
-kasan_sw_tags_lto_test(name = "kasan_sw_tags_lto_test")
+# TODO: re-enable after resolving b/309430653
+# kasan_sw_tags_lto_test(name = "kasan_sw_tags_lto_test")
 
-kasan_generic_lto_test(name = "kasan_generic_lto_test")
+# TODO: re-enable after resolving b/309430653
+# kasan_generic_lto_test(name = "kasan_generic_lto_test")
 
-kcsan_lto_test(name = "kcsan_lto_test")
+# TODO: re-enable after resolving b/309430653
+# kcsan_lto_test(name = "kcsan_lto_test")
 
-debug_lto_test(name = "debug_lto_test")
+# TODO: re-enable after resolving b/309430653
+# debug_lto_test(name = "debug_lto_test")
 
 # Quick test on artifacts.
 

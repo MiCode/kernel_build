@@ -7,6 +7,16 @@ the `--kasan` flag. Example:
 $ tools/bazel build --kasan //common:kernel_aarch64
 ```
 
+Alternatively, use the `sanitizers` attribute of `kernel_build`:
+
+```python
+kernel_build(
+    name = "tuna_kasan",
+    sanitizers = ["kasan_any_mode"],
+    ...
+)
+```
+
 Kasan builds automatically disable LTO by setting its value to `none`.
 If `--lto` is explicitly specified, it must be set to `none`. Otherwise the
 build fails.
