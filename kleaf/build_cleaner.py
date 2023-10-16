@@ -73,7 +73,8 @@ class Label(object):
         # We don't support subworkspaces yet.
         mo = re.match(r"@?//([^:]*):(.*)", s)
         if not mo:
-            raise ValueError("{} is not a label known to build_cleaner".format(s))
+            raise ValueError(
+                "{} is not a label known to build_cleaner".format(s))
         self.package = mo.group(1)
         self.name = mo.group(2)
 
@@ -144,7 +145,8 @@ class DdkCleaner(SingleCleaner):
         query_args = [
             self._bazel(),
             "query",
-            'kind("kernel_module rule", deps({}))'.format(" union ".join(self._args.targets))
+            'kind("kernel_module rule", deps({}))'.format(
+                " union ".join(self._args.targets))
         ]
         if self._color:
             query_args.append("--color=yes")
@@ -154,36 +156,40 @@ class DdkCleaner(SingleCleaner):
                                                      stderr=self.stderr,
                                                      env=self.environ)
         except subprocess.CalledProcessError:
-            raise BuildCleanerError("Unable to query kernel_module deps for %s" % self._args.targets)
+            raise BuildCleanerError(
+                "Unable to query kernel_module deps for %s" % self._args.targets)
 
         kernel_module_target_strs = query_out.splitlines()
 
         # Build all these kernel_module's with --debug_modpost_warn
         try:
             subprocess.check_call([
-                                      self._bazel(),
-                                      "build",
-                                      "--debug_modpost_warn",
-                                  ] + kernel_module_target_strs,
-                                  stderr=self.stderr, env=self.environ,
-                                  stdout=self.stdout)
+                self._bazel(),
+                "build",
+                "--debug_modpost_warn",
+            ] + kernel_module_target_strs,
+                stderr=self.stderr, env=self.environ,
+                stdout=self.stdout)
         except subprocess.CalledProcessError:
             raise BuildCleanerError("Unable to build the following with --debug_modpost_warn: %s" %
                                     kernel_module_target_strs)
 
-        kernel_module_targets = [Label(target) for target in kernel_module_target_strs]
+        kernel_module_targets = [Label(target)
+                                 for target in kernel_module_target_strs]
 
-        symbols: dict[str, list[SymbolLocation]] = collections.defaultdict(list)
+        symbols: dict[str, list[SymbolLocation]
+                      ] = collections.defaultdict(list)
 
         for target in kernel_module_targets:
             logging.info("Looking up symbols for %s", target)
             with open(target.module_symvers_path()) as f:
-                for mo in re.finditer(_MODULE_SYMBOL_PATTERN, f.read()):
-                    symbol = mo.group(1)
-                    symbols[symbol].append(SymbolLocation(
-                        target=target,
-                        module_file=mo.group(2),
-                    ))
+                for line in f.readlines():
+                    for mo in re.finditer(_MODULE_SYMBOL_PATTERN, line):
+                        symbol = mo.group(1)
+                        symbols[symbol].append(SymbolLocation(
+                            target=target,
+                            module_file=mo.group(2),
+                        ))
 
         errors = []
 
@@ -235,7 +241,8 @@ class BuildCleaner(buildozer_command_builder.BuildozerCommandBuilder):
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("-v", "--verbose", help="verbose mode", action="store_true")
+    parser.add_argument("-v", "--verbose",
+                        help="verbose mode", action="store_true")
     parser.add_argument("-k", "--keep-going",
                         help="Keeps going on errors. Use when targets are already "
                              "defined. There may be duplicated FIXME comments.",
