@@ -30,7 +30,7 @@ from typing import Optional, TextIO, Any
 _SOURCE_SUFFIXES = (
     ".c",
     ".rs",
-    ".s",
+    ".S",
 )
 
 
@@ -274,7 +274,7 @@ def _check_srcs_valid(rel_srcs: list[dict[str, Any]],
     for rel_item in rel_srcs:
         files = rel_item["files"]
         rel_srcs_flat.extend(
-            file for file in files if file.suffix.lower() in _SOURCE_SUFFIXES)
+            file for file in files if file.suffix in _SOURCE_SUFFIXES)
 
     source_files_with_name_of_kernel_module = \
         [src for src in rel_srcs_flat if src.with_suffix(
@@ -295,9 +295,9 @@ def _handle_src(
         obj_suffix: str,
 ):
     # Ignore non-exported headers specified in srcs
-    if src.suffix.lower() in (".h",):
+    if src.suffix in (".h",):
         return
-    if src.suffix.lower() not in _SOURCE_SUFFIXES:
+    if src.suffix not in _SOURCE_SUFFIXES:
         die("Invalid source %s", src)
     if not src.is_relative_to(kernel_module_out.parent):
         die("%s is not a valid source because it is not under %s",
