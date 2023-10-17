@@ -37,6 +37,7 @@ _INTERESTING_FLAGS = (
     "//build/kernel/kleaf:debug",
     "//build/kernel/kleaf:kasan",
     "//build/kernel/kleaf:kasan_sw_tags",
+    "//build/kernel/kleaf:kasan_generic",
     "//build/kernel/kleaf:kcsan",
 )
 
@@ -209,6 +210,7 @@ def kernel_defconfig_fragments_test(name):
                     flag_values = [
                         _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
                         _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "True"),
+                        _FlagValue(flag = "//build/kernel/kleaf:kasan_generic", value = "False"),
                         _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
                     ],
                     configs = ["CONFIG_KASAN_SW_TAGS=y"],
@@ -270,6 +272,7 @@ def kernel_defconfig_fragments_test(name):
                         flag_values = [
                             _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "True"),
                             _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_generic", value = "False"),
                             _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
                         ],
                         configs = ["CONFIG_KASAN=y"],
@@ -278,6 +281,16 @@ def kernel_defconfig_fragments_test(name):
                         flag_values = [
                             _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
                             _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_generic", value = "True"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
+                        ],
+                        configs = ["CONFIG_KASAN_GENERIC=y", "CONFIG_KASAN_OUTLINE=y"],
+                    ),
+                    _FlagValuesConfigs(
+                        flag_values = [
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_generic", value = "False"),
                             _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "True"),
                         ],
                         configs = ["CONFIG_KCSAN=y"],
@@ -286,6 +299,7 @@ def kernel_defconfig_fragments_test(name):
                         flag_values = [
                             _FlagValue(flag = "//build/kernel/kleaf:kasan", value = "False"),
                             _FlagValue(flag = "//build/kernel/kleaf:kasan_sw_tags", value = "False"),
+                            _FlagValue(flag = "//build/kernel/kleaf:kasan_generic", value = "False"),
                             _FlagValue(flag = "//build/kernel/kleaf:kcsan", value = "False"),
                         ],
                         configs = [],

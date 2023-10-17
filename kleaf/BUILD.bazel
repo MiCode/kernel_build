@@ -32,7 +32,7 @@ string_flag(
 )
 
 # The final LTO setting is "default" (use defconfig value).
-# If --lto=default, and none of --kasan/--kcsan/--kasan_sw_tags/--debug, LTO is default
+# If --lto=default, and none of --kasan/--kcsan/--kasan_sw_tags/--kasan_generic/--debug, LTO is default
 selects.config_setting_group(
     name = "lto_is_default",
     match_all = [
@@ -45,7 +45,7 @@ selects.config_setting_group(
 )
 
 # The final LTO setting is "none".
-# If --lto=none, or if --lto=default AND --kasan/--kcsan/--kasan_sw_tags/--debug, LTO should be set to none.
+# If --lto=none, or if --lto=default AND --kasan/--kcsan/--kasan_sw_tags/--kasan_generic/--debug, LTO should be set to none.
 selects.config_setting_group(
     name = "lto_is_none",
     match_any = [
@@ -130,22 +130,6 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-alias(
-    name = "kasan_generic_is_true",
-    actual = "kasan_any_mode_is_true",
-    deprecation = """This target is a misnomer. It enables KASAN with mode unspecified
-        (default to value in defconfig). Use kasan_any_mode_is_true instead.
-    """,
-)
-
-alias(
-    name = "kasan_generic_is_false",
-    actual = "kasan_any_mode_is_false",
-    deprecation = """This target is a misnomer. It enables KASAN with mode unspecified
-        (default to value in defconfig). Use kasan_any_mode_is_false instead.
-    """,
-)
-
 # If true, enable kasan sw tags.
 # This assumes --lto=none, but :print_flags only shows
 # values from the command line.
@@ -176,22 +160,54 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# Either kasan or kasan_sw_tags is enabled in the final build.
+# If true, enable kasan generic.
+# This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kasan_generic",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+# KASAN (Generic) is enabled in the final build.
+# One of the following:
+# --kasan_generic --lto=default
+# --kasan_generic --lto=none
+selects.config_setting_group(
+    name = "kasan_generic_is_true",
+    match_all = [
+        "//build/kernel/kleaf/impl:lto_is_set_to_default_or_none",
+        "//build/kernel/kleaf/impl:kasan_generic_is_set_to_true",
+    ],
+    # All kernel_* from different packages can see this
+    visibility = ["//visibility:public"],
+)
+
+# --kasan_generic=false
+config_setting(
+    name = "kasan_generic_is_false",
+    flag_values = {":kasan_generic": "0"},
+    visibility = ["//visibility:public"],
+)
+
+# Either kasan or kasan_sw_tags or kasan_generic is enabled in the final build.
 selects.config_setting_group(
     name = "kasan_is_true",
     match_any = [
         ":kasan_any_mode_is_true",
         ":kasan_sw_tags_is_true",
+        ":kasan_generic_is_true",
     ],
     visibility = ["//visibility:public"],
 )
 
-# Neither kasan nor kasan_sw_tags is enabled in the final build
+# Neither kasan nor kasan_sw_tags nor kasan_generic is enabled in the final build
 selects.config_setting_group(
     name = "kasan_is_false",
     match_all = [
         ":kasan_any_mode_is_false",
         ":kasan_sw_tags_is_false",
+        ":kasan_generic_is_false",
     ],
     visibility = ["//visibility:public"],
 )
@@ -581,6 +597,7 @@ print_flags(
     flags = [
         ":kasan",
         ":kasan_sw_tags",
+        ":kasan_generic",
         ":kcsan",
         ":kbuild_symtypes",
         ":lto",

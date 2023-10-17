@@ -287,6 +287,25 @@ def _config_kasan_sw_tags(ctx):
 
     return struct(configs = [], deps = [])
 
+def _config_kasan_generic(ctx):
+    """Return configs for --kasan_generic.
+
+    Args:
+        ctx: ctx
+    Returns:
+        A struct, where `configs` is a list of arguments to `scripts/config`,
+        and `deps` is a list of input files.
+    """
+    kasan_generic = ctx.attr.kasan_generic[BuildSettingInfo].value
+
+    if not kasan_generic:
+        return struct(configs = [], deps = [])
+
+    if trim_nonlisted_kmi_utils.get_value(ctx):
+        fail("{}: --kasan_generic requires trimming to be disabled".format(ctx.label))
+
+    return struct(configs = [], deps = [])
+
 def _config_kcsan(ctx):
     """Return configs for --kcsan.
 
@@ -320,6 +339,7 @@ def _reconfig(ctx):
         _config_kcsan,
         _config_kasan,
         _config_kasan_sw_tags,
+        _config_kasan_generic,
         _config_gcov,
         _config_keys,
         kgdb.get_scripts_config_args,

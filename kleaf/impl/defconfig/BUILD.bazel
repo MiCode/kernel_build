@@ -81,6 +81,21 @@ fail_rule(
     message = "--kasan requires --lto=none or default.",
 )
 
+filegroup(
+    name = "kasan_generic",
+    srcs = select({
+        "//build/kernel/kleaf:kasan_generic_is_true": ["kasan_generic_defconfig"],
+        "//build/kernel/kleaf:kasan_generic_is_false": [],
+        "//conditions:default": [":fail_kasan_generic_lto"],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+fail_rule(
+    name = "fail_kasan_generic_lto",
+    message = "--kasan_generic requires --lto=none or default.",
+)
+
 # --kasan_sw_tags is arm64 only. See lib/Kconfig.kasan in kernel tree.
 filegroup(
     name = "arm64_kasan_sw_tags",

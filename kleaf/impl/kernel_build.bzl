@@ -698,6 +698,10 @@ def _skip_build_checks(ctx, what):
         print("\nWARNING: {this_label}: {what} was\
               IGNORED because --kasan_sw_tags is set!".format(this_label = ctx.label, what = what))
         return True
+    if ctx.attr._kasan_generic[BuildSettingInfo].value:
+        print("\nWARNING: {this_label}: {what} was\
+              IGNORED because --kasan_generic is set!".format(this_label = ctx.label, what = what))
+        return True
     if ctx.attr._kcsan[BuildSettingInfo].value:
         print("\nWARNING: {this_label}: {what} was\
               IGNORED because --kcsan is set!".format(this_label = ctx.label, what = what))
@@ -730,6 +734,7 @@ def _get_defconfig_fragments(
         Label("//build/kernel/kleaf/impl/defconfig:debug"),
         Label("//build/kernel/kleaf/impl/defconfig:kasan_any_mode"),
         Label("//build/kernel/kleaf/impl/defconfig:{}_kasan_sw_tags".format(kernel_build_arch)),
+        Label("//build/kernel/kleaf/impl/defconfig:kasan_generic"),
         Label("//build/kernel/kleaf/impl/defconfig:kcsan"),
     ]
 

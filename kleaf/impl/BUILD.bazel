@@ -218,6 +218,7 @@ selects.config_setting_group(
 # * --debug
 # * --kasan
 # * --kasan_sw_tags
+# * --kasan_generic
 # * --kcsan
 selects.config_setting_group(
     name = "lto_should_be_none",
@@ -225,6 +226,7 @@ selects.config_setting_group(
         ":debug_is_set_to_true",
         ":kasan_any_mode_is_set_to_true",
         ":kasan_sw_tags_is_set_to_true",
+        ":kasan_generic_is_set_to_true",
         ":kcsan_is_set_to_true",
     ],
 )
@@ -233,6 +235,7 @@ selects.config_setting_group(
 # * --lto=default --debug
 # * --lto=default --kasan
 # * --lto=default --kasan_sw_tags
+# * --lto=default --kasan_generic
 # * --lto=default --kcsan
 selects.config_setting_group(
     name = "lto_is_set_to_default_but_lto_should_be_none",
@@ -255,6 +258,13 @@ config_setting(
 config_setting(
     name = "kasan_sw_tags_is_set_to_true",
     flag_values = {"//build/kernel/kleaf:kasan_sw_tags": "1"},
+    visibility = ["//visibility:public"],
+)
+
+# --kasan_generic
+config_setting(
+    name = "kasan_generic_is_set_to_true",
+    flag_values = {"//build/kernel/kleaf:kasan_generic": "1"},
     visibility = ["//visibility:public"],
 )
 

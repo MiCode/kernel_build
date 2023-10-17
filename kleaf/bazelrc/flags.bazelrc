@@ -37,6 +37,7 @@ build --flag_alias=user_kmi_symbol_lists=//build/kernel/kleaf:user_kmi_symbol_li
 build --flag_alias=gcov=//build/kernel/kleaf:gcov
 build --flag_alias=kasan=//build/kernel/kleaf:kasan
 build --flag_alias=kasan_sw_tags=//build/kernel/kleaf:kasan_sw_tags
+build --flag_alias=kasan_generic=//build/kernel/kleaf:kasan_generic
 build --flag_alias=kcsan=//build/kernel/kleaf:kcsan
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=notrim=//build/kernel/kleaf/impl:force_disable_trim

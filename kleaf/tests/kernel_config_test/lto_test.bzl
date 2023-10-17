@@ -161,6 +161,33 @@ def kasan_sw_tags_lto_test(name):
         test_rules = _kasan_sw_tags_tests,
     )
 
+_kasan_generic_tests = _make_lto_tests_for_flag(
+    flag = Label("//build/kernel/kleaf:kasan_generic"),
+    flag_values = (True, False),
+    expect_failure_message = "--kasan_generic requires --lto=none or default",
+)
+
+# Hack to fix "Invalid rule class hasn't been exported by a bzl file"
+# List all values in _kasan_generic_tests explicitly.
+_kasan_generic_true_default_test = _kasan_generic_tests[True, "default"]  # @unused
+_kasan_generic_true_thin_test = _kasan_generic_tests[True, "thin"]  # @unused
+_kasan_generic_true_full_test = _kasan_generic_tests[True, "full"]  # @unused
+_kasan_generic_true_none_test = _kasan_generic_tests[True, "none"]  # @unused
+_kasan_generic_true_fast_test = _kasan_generic_tests[True, "fast"]  # @unused
+_kasan_generic_false_default_test = _kasan_generic_tests[False, "default"]  # @unused
+_kasan_generic_false_thin_test = _kasan_generic_tests[False, "thin"]  # @unused
+_kasan_generic_false_full_test = _kasan_generic_tests[False, "full"]  # @unused
+_kasan_generic_false_none_test = _kasan_generic_tests[False, "none"]  # @unused
+_kasan_generic_false_fast_test = _kasan_generic_tests[False, "fast"]  # @unused
+
+def kasan_generic_lto_test(name):
+    _lto_test_for_flag_common(
+        name = name,
+        flag = Label("//build/kernel/kleaf:kasan_generic"),
+        flag_values = (True, False),
+        test_rules = _kasan_generic_tests,
+    )
+
 _kcsan_tests = _make_lto_tests_for_flag(
     flag = Label("//build/kernel/kleaf:kcsan"),
     flag_values = (True, False),
