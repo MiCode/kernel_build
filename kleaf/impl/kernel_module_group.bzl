@@ -126,7 +126,7 @@ ddk_module(
 )
 
 # my_subsystem is the public target that the device should depend on.
-ddk_module_group(
+kernel_module_group(
     name = "my_subsystem",
     srcs = [":a", ":b"],
     visibility = ["//package/my_device:__subpackages__"],
