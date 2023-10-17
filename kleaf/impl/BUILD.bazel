@@ -223,7 +223,7 @@ selects.config_setting_group(
     name = "lto_should_be_none",
     match_any = [
         ":debug_is_set_to_true",
-        ":kasan_generic_is_set_to_true",
+        ":kasan_any_mode_is_set_to_true",
         ":kasan_sw_tags_is_set_to_true",
         ":kcsan_is_set_to_true",
     ],
@@ -246,7 +246,7 @@ selects.config_setting_group(
 
 # --kasan
 config_setting(
-    name = "kasan_generic_is_set_to_true",
+    name = "kasan_any_mode_is_set_to_true",
     flag_values = {"//build/kernel/kleaf:kasan": "1"},
     visibility = ["//visibility:public"],
 )

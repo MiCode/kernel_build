@@ -117,7 +117,7 @@ selects.config_setting_group(
     name = "kasan_any_mode_is_true",
     match_all = [
         "//build/kernel/kleaf/impl:lto_is_set_to_default_or_none",
-        "//build/kernel/kleaf/impl:kasan_generic_is_set_to_true",
+        "//build/kernel/kleaf/impl:kasan_any_mode_is_set_to_true",
     ],
     # All kernel_* from different packages can see this
     visibility = ["//visibility:public"],
