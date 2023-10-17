@@ -293,7 +293,7 @@ class Stamp(object):
         all_projects |= set(self.projects)
 
         if self.ignore_missing_projects:
-            all_projects = filter(pathlib.path.is_dir, all_projects)
+            all_projects = filter(pathlib.Path.is_dir, all_projects)
 
         scmversion_map = {}
         for project in all_projects:
@@ -346,7 +346,7 @@ class Stamp(object):
         all_projects |= set(self.projects)
 
         if self.ignore_missing_projects:
-            all_projects = filter(pathlib.path.is_dir, all_projects)
+            all_projects = filter(pathlib.Path.is_dir, all_projects)
 
         return {
             proj: self.async_get_source_date_epoch(proj)
