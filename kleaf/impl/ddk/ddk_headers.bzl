@@ -59,7 +59,7 @@ def get_include_depset(label, deps, includes, info_attr_name):
             transitive_includes.append(getattr(dep[DdkHeadersInfo], info_attr_name))
 
     return depset(
-        [paths.normalize(paths.join(label.package, d)) for d in includes],
+        [paths.normalize(paths.join(label.workspace_root, label.package, d)) for d in includes],
         transitive = transitive_includes,
         # At this time of writing (2022-11-01), this is what cc_library does;
         # includes of this target, then includes of deps
