@@ -14,6 +14,7 @@
 
 """Rules to run checkpatch."""
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
@@ -38,7 +39,7 @@ def _checkpatch_impl(ctx):
         checkpatch_pl = ctx.file.checkpatch_pl.short_path,
         checkpatch_sh = ctx.executable._checkpatch_sh.short_path,
         ignorelist = ctx.file.ignorelist.short_path,
-        dir = ctx.label.package,
+        dir = paths.join(ctx.label.workspace_root, ctx.label.package),
     )
 
     ctx.actions.write(script_file, script, is_executable = True)
