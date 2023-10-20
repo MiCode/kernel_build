@@ -588,7 +588,7 @@ See [documentation for all rules].
 ## SYSTEM\_DLKM\_FS\_TYPE
 
 ```python
-kernel_images(system_dlkm_fs_type=[ext4, erofs])
+kernel_images(system_dlkm_fs_types=["ext4", "erofs"])
 ```
 
 See [documentation for all rules].
