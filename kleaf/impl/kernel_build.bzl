@@ -2477,8 +2477,7 @@ def _create_module_scripts_archive(
     if not ctx.attr.pack_module_env:
         return None
 
-    intermediates_dir = utils.intermediates_dir(ctx)
-    env_info = ctx.attr.config[KernelBuildOriginalEnvInfo].env_info
+    hermetic_tools = hermetic_toolchain.get(ctx)
     out = ctx.actions.declare_file("{name}/{name}{suffix}".format(
         name = ctx.label.name,
         suffix = MODULE_ENV_ARCHIVE_SUFFIX,
@@ -2489,21 +2488,15 @@ def _create_module_scripts_archive(
         module_srcs.module_kconfig,
     ])
 
-    cmd = env_info.setup + """
-        # Create archive of module_scripts/module_kconfig below ${{KERNEL_DIR}}
-        mkdir -p {intermediates_dir}
-        for file in "$@"; do
-            if [[ "${{file}}" =~ ^"${{KERNEL_DIR}}"/ ]]; then
-                echo "${{file#"${{KERNEL_DIR}}"/}}"
-            fi
-        done > {intermediates_dir}/file_list.txt
-        tar cf {out} --dereference -T {intermediates_dir}/file_list.txt -C ${{KERNEL_DIR}}
+    cmd = hermetic_tools.setup + """
+        # Create archive of module_scripts/module_kconfig
+        tar cf {out} --dereference -T "$@"
     """.format(
         out = out.path,
-        intermediates_dir = intermediates_dir,
     )
 
     args = ctx.actions.args()
+    args.use_param_file("%s", use_always = True)
 
     # Uniquify for shorter script, and due to https://github.com/landley/toybox/issues/457
     args.add_all(tar_srcs, uniquify = True)
@@ -2511,11 +2504,10 @@ def _create_module_scripts_archive(
     ctx.actions.run_shell(
         mnemonic = "KernelBuildModuleScriptsArchive",
         inputs = depset(transitive = [
-            env_info.inputs,
             tar_srcs,
         ]),
         outputs = [out],
-        tools = env_info.tools,
+        tools = hermetic_tools.deps,
         command = cmd,
         arguments = [args],
         progress_message = "Archiving scripts/kconfig for ext module {}".format(_progress_message_suffix(ctx)),
