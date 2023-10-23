@@ -96,6 +96,7 @@ def _check_signature_for_modules_install(
 
 def _create_one_device_modules_test(
         name,
+        srcs,
         arch,
         base_kernel_label,
         base_kernel_module,
@@ -134,6 +135,7 @@ def _create_one_device_modules_test(
     kernel_build(
         name = name + "_kernel_build",
         tags = ["manual"],
+        srcs = srcs,
         arch = arch,
         build_config = name + "_build_config",
         outs = [],
@@ -163,6 +165,7 @@ def _create_one_device_modules_test(
 
 def device_modules_test(
         name,
+        srcs,
         base_kernel_label,
         base_kernel_module,
         arch):
@@ -172,6 +175,7 @@ def device_modules_test(
 
     Args:
         name: name of the test
+        srcs: `kernel_build.srcs`
         base_kernel_label: GKI kernel; must be a full [Label](https://bazel.build/rules/lib/Label).
         base_kernel_module: Any module from `base_kernel`. If `base_kernel`
           does not contain any in-tree modules, this should be `None`, and
@@ -186,6 +190,7 @@ def device_modules_test(
     tests = []
     _create_one_device_modules_test(
         name = name + "_use_gki_module",
+        srcs = srcs,
         arch = arch,
         base_kernel_module = base_kernel_module,
         base_kernel_label = base_kernel_label,
@@ -195,6 +200,7 @@ def device_modules_test(
 
     _create_one_device_modules_test(
         name = name + "_use_device_module",
+        srcs = srcs,
         arch = arch,
         base_kernel_module = base_kernel_module,
         base_kernel_label = base_kernel_label,
