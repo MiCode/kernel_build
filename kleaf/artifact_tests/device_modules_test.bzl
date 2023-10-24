@@ -116,7 +116,6 @@ def _create_one_device_modules_test(
                 . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.{cross_compiler_name}
 
                 {set_src_arch_cmd}
-                MAKE_GOALS="modules"
                 DEFCONFIG="device_modules_test_gki_defconfig"
                 PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{SRCARCH}}/configs/gki_defconfig && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}};"
                 POST_DEFCONFIG_CMDS=""
@@ -141,6 +140,7 @@ def _create_one_device_modules_test(
         outs = [],
         base_kernel = base_kernel_label,
         module_outs = module_outs,
+        make_goals = ["modules"],
     )
 
     kernel_modules_install(
