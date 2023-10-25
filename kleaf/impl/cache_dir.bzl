@@ -23,9 +23,7 @@ _FLOCK_FD = 0x41F  # KLF
 
 def _get_flock_cmd(ctx):
     if ctx.attr._debug_cache_dir_conflict[BuildSettingInfo].value == "none":
-        pre_cmd = """
-                unset KLEAF_CACHED_COMMON_OUT_DIR
-            """
+        pre_cmd = ""
         post_cmd = ""
         return struct(
             pre_cmd = pre_cmd,
@@ -45,9 +43,9 @@ def _get_flock_cmd(ctx):
 
     pre_cmd = """
         (
-            echo "DEBUG: [$(date -In)] {label}: Locking ${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json before using" >&2
+            echo "DEBUG: [$(date -In)] {label}: Locking ${{COMMON_OUT_DIR}}/kleaf_config_tags.json before using" >&2
             if ! flock -x {lock_args} {flock_fd}; then
-                echo "ERROR: [$(date -In)] {label}: Unable to lock ${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json." >&2
+                echo "ERROR: [$(date -In)] {label}: Unable to lock ${{COMMON_OUT_DIR}}/kleaf_config_tags.json." >&2
                 echo "    Please file a bug! See build/kernel/kleaf/docs/errors.md" >&2
                 exit 1
             fi
@@ -57,8 +55,8 @@ def _get_flock_cmd(ctx):
         flock_fd = _FLOCK_FD,
     )
     post_cmd = """
-        ) {flock_fd}<"${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
-        echo "DEBUG: [$(date -In)] {label}: Unlocked ${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json after using" >&2
+        ) {flock_fd}<"${{COMMON_OUT_DIR}}/kleaf_config_tags.json"
+        echo "DEBUG: [$(date -In)] {label}: Unlocked ${{COMMON_OUT_DIR}}/kleaf_config_tags.json after using" >&2
     """.format(
         label = ctx.label,
         flock_fd = _FLOCK_FD,
@@ -117,15 +115,15 @@ def _get_step(ctx, common_config_tags, symlink_name):
 
             export OUT_DIR_SUFFIX=$(cat ${{KLEAF_CONFIG_TAGS_TMP}} | sha1sum -b | cut -c-8)
 
-            KLEAF_CACHED_COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
-            export OUT_DIR=${{KLEAF_CACHED_COMMON_OUT_DIR}}/${{KERNEL_DIR}}
+            export COMMON_OUT_DIR={cache_dir}/${{OUT_DIR_SUFFIX}}
+            export OUT_DIR=${{COMMON_OUT_DIR}}/${{KERNEL_DIR}}
             mkdir -p "${{OUT_DIR}}"
 
             # Reconcile differences between expected file and target file, if any,
             # to prevent hash collision.
             {cache_dir_config_tags} \\
                 --base "${{KLEAF_CONFIG_TAGS_TMP}}" \\
-                --dest "${{KLEAF_CACHED_COMMON_OUT_DIR}}/kleaf_config_tags.json"
+                --dest "${{COMMON_OUT_DIR}}/kleaf_config_tags.json"
 
             rm -f "${{KLEAF_CONFIG_TAGS_TMP}}"
             unset KLEAF_CONFIG_TAGS_TMP
