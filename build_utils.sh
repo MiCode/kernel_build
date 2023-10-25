@@ -14,14 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(b/266980402): remove it
-# rel_path <to> <from>
-# Generate relative directory path to reach directory <to> from <from>
-function rel_path() {
-  echo "ERROR: rel_path is deprecated. For Kleaf builds, use 'realpath $1 --relative-to $2' instead." >&2
-  exit 1
-}
-
 # $1 directory of kernel modules ($1/lib/modules/x.y)
 # $2 flags to pass to depmod
 # $3 kernel version
