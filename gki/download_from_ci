@@ -76,11 +76,17 @@ def download(url_base, dest_dir, filename, dest_filename = None):
 def parse_args():
   global _args
 
+  def build_id(id: str):
+    if not (id.isdecimal() or (id[0] == "P" and id[1:].isdecimal())):
+      raise argparse.ArgumentTypeError("Invalid build id value.")
+    return id
+
   parser = argparse.ArgumentParser()
   parser.add_argument(
       "build_id",
-      type=int,
-      help="the build id to download the build for, e.g. 6148204")
+      type=build_id,
+      help="the build id to download the build for, e.g. 6148204",
+  )
   parser.add_argument(
       "build_target",
       nargs="?",
