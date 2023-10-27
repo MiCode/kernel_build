@@ -367,6 +367,10 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   mkdir ${ANDROID_KERNEL_OUT}/kp-dtbs
   cp ${ANDROID_KP_OUT_DIR}/dist/*.dtb* ${ANDROID_KERNEL_OUT}/kp-dtbs/
 
+  if [ -f "${ANDROID_KP_OUT_DIR}/dist/dpm.img" ]; then
+    cp "${ANDROID_KP_OUT_DIR}/dist/dpm.img" "${ANDROID_KERNEL_OUT}/kp-dtbs/"
+  fi
+
   rm -rf ${ANDROID_KERNEL_OUT}/host
   cp -r ${ANDROID_KP_OUT_DIR}/host ${ANDROID_KERNEL_OUT}/
 
