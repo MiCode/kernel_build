@@ -16,11 +16,7 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 exports_files([
     "build.config.modules",
-    "check_module_signature.py",
     "fake_modules_options.txt",
-    "kernel_build_test.py",
-    "kernel_module_test.py",
-    "initramfs_modules_options_test.py",
 ])
 
 bzl_library(
@@ -28,11 +24,58 @@ bzl_library(
     srcs = [
         "device_modules_test.bzl",
         "kernel_test.bzl",
+        "py_test_hack.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
         "//build/kernel/kleaf/impl",
         "//build/kernel/kleaf/tests:empty_test",
         "@bazel_skylib//rules:write_file",
+    ],
+)
+
+py_binary(
+    name = "kernel_module_test",
+    srcs = ["kernel_module_test.py"],
+    python_version = "PY3",
+    # All packages that uses kernel_module must be able to see this.
+    visibility = ["//visibility:public"],
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
+py_binary(
+    name = "kernel_build_test",
+    srcs = ["kernel_build_test.py"],
+    python_version = "PY3",
+    # All packages that uses kernel_module must be able to see this.
+    visibility = ["//visibility:public"],
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+        "@io_abseil_py//absl/testing:parameterized",
+    ],
+)
+
+py_binary(
+    name = "initramfs_modules_options_test",
+    srcs = ["initramfs_modules_options_test.py"],
+    python_version = "PY3",
+    # All packages that uses kernel_module must be able to see this.
+    visibility = ["//visibility:public"],
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
+py_binary(
+    name = "check_module_signature",
+    srcs = ["check_module_signature.py"],
+    python_version = "PY3",
+    # All packages that uses kernel_module must be able to see this.
+    visibility = ["//visibility:public"],
+    deps = [
+        "@io_abseil_py//absl/flags",
+        "@io_abseil_py//absl/testing:absltest",
     ],
 )
