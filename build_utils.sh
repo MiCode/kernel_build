@@ -91,7 +91,7 @@ function create_modules_staging() {
         else
           # We need to fail here; otherwise, you risk the module(s) not getting
           # included in modules.load.
-          echo "Failed to find ${modules_order_file}" >&2
+          echo "ERROR: Failed to find ${modules_order_file}" >&2
           exit 1
         fi
       done
@@ -114,10 +114,10 @@ function create_modules_staging() {
     if [[ -f "${ROOT_DIR}/${modules_list_file}" ]]; then
       modules_list_file="${ROOT_DIR}/${modules_list_file}"
     elif [[ "${modules_list_file}" != /* ]]; then
-      echo "modules list must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}"
+      echo "ERROR: modules list must be an absolute path or relative to ${ROOT_DIR}: ${modules_list_file}" >&2
       exit 1
     elif [[ ! -f "${modules_list_file}" ]]; then
-      echo "Failed to find modules list: ${modules_list_file}"
+      echo "ERROR: Failed to find modules list: ${modules_list_file}" >&2
       exit 1
     fi
 
@@ -143,10 +143,10 @@ function create_modules_staging() {
     if [[ -f "${ROOT_DIR}/${modules_blocklist_file}" ]]; then
       modules_blocklist_file="${ROOT_DIR}/${modules_blocklist_file}"
     elif [[ "${modules_blocklist_file}" != /* ]]; then
-      echo "modules blocklist must be an absolute path or relative to ${ROOT_DIR}: ${modules_blocklist_file}"
+      echo "ERROR: modules blocklist must be an absolute path or relative to ${ROOT_DIR}: ${modules_blocklist_file}" >&2
       exit 1
     elif [[ ! -f "${modules_blocklist_file}" ]]; then
-      echo "Failed to find modules blocklist: ${modules_blocklist_file}"
+      echo "ERROR: Failed to find modules blocklist: ${modules_blocklist_file}" >&2
       exit 1
     fi
 
@@ -154,8 +154,6 @@ function create_modules_staging() {
   fi
 
   if [ -n "${TRIM_UNUSED_MODULES}" ]; then
-    echo "========================================================"
-    echo " Trimming unused modules"
     local used_blocklist_modules=$(mktemp)
     if [ -f ${dest_dir}/modules.blocklist ]; then
       # TODO: the modules blocklist could contain module aliases instead of the filename
@@ -177,9 +175,6 @@ function create_modules_staging() {
 }
 
 function build_system_dlkm() {
-  echo "========================================================"
-  echo " Creating system_dlkm image"
-
   rm -rf ${SYSTEM_DLKM_STAGING_DIR}
   create_modules_staging "${SYSTEM_DLKM_MODULES_LIST:-${MODULES_LIST}}" "${MODULES_STAGING_DIR}" \
     ${SYSTEM_DLKM_STAGING_DIR} "${SYSTEM_DLKM_MODULES_BLOCKLIST:-${MODULES_BLOCKLIST}}" "-e"
@@ -195,7 +190,7 @@ function build_system_dlkm() {
 
   local system_dlkm_default_fs_type="ext4"
   if [[ "${SYSTEM_DLKM_FS_TYPE}" != "ext4" && "${SYSTEM_DLKM_FS_TYPE}" != "erofs" ]]; then
-    echo "WARNING: Invalid SYSTEM_DLKM_FS_TYPE = ${SYSTEM_DLKM_FS_TYPE}"
+    echo "WARNING: Invalid SYSTEM_DLKM_FS_TYPE = ${SYSTEM_DLKM_FS_TYPE}" >&2
     SYSTEM_DLKM_FS_TYPE="${system_dlkm_default_fs_type}"
     echo "INFO: Defaulting SYSTEM_DLKM_FS_TYPE to ${SYSTEM_DLKM_FS_TYPE}"
   fi
@@ -220,10 +215,10 @@ function build_system_dlkm() {
     if [[ -f "${ROOT_DIR}/${system_dlkm_props_file}" ]]; then
       system_dlkm_props_file="${ROOT_DIR}/${system_dlkm_props_file}"
     elif [[ "${system_dlkm_props_file}" != /* ]]; then
-      echo "SYSTEM_DLKM_PROPS must be an absolute path or relative to ${ROOT_DIR}: ${system_dlkm_props_file}"
+      echo "ERROR: SYSTEM_DLKM_PROPS must be an absolute path or relative to ${ROOT_DIR}: ${system_dlkm_props_file}" >&2
       exit 1
     elif [[ ! -f "${system_dlkm_props_file}" ]]; then
-      echo "Failed to find SYSTEM_DLKM_PROPS: ${system_dlkm_props_file}"
+      echo "ERROR: Failed to find SYSTEM_DLKM_PROPS: ${system_dlkm_props_file}" >&2
       exit 1
     fi
   fi
@@ -289,9 +284,6 @@ function build_system_dlkm() {
 function build_vendor_dlkm() {
   local vendor_dlkm_archive=$1
 
-  echo "========================================================"
-  echo " Creating vendor_dlkm image"
-
   create_modules_staging "${VENDOR_DLKM_MODULES_LIST}" "${MODULES_STAGING_DIR}" \
     "${VENDOR_DLKM_STAGING_DIR}" "${VENDOR_DLKM_MODULES_BLOCKLIST}"
 
@@ -315,7 +307,7 @@ function build_vendor_dlkm() {
 
   local vendor_dlkm_default_fs_type="ext4"
   if [[ "${VENDOR_DLKM_FS_TYPE}" != "ext4" && "${VENDOR_DLKM_FS_TYPE}" != "erofs" ]]; then
-    echo "WARNING: Invalid VENDOR_DLKM_FS_TYPE = ${VENDOR_DLKM_FS_TYPE}"
+    echo "WARNING: Invalid VENDOR_DLKM_FS_TYPE = ${VENDOR_DLKM_FS_TYPE}" >&2
     VENDOR_DLKM_FS_TYPE="${vendor_dlkm_default_fs_type}"
     echo "INFO: Defaulting VENDOR_DLKM_FS_TYPE to ${VENDOR_DLKM_FS_TYPE}"
   fi
@@ -333,10 +325,10 @@ function build_vendor_dlkm() {
     if [[ -f "${ROOT_DIR}/${vendor_dlkm_props_file}" ]]; then
       vendor_dlkm_props_file="${ROOT_DIR}/${vendor_dlkm_props_file}"
     elif [[ "${vendor_dlkm_props_file}" != /* ]]; then
-      echo "VENDOR_DLKM_PROPS must be an absolute path or relative to ${ROOT_DIR}: ${vendor_dlkm_props_file}"
+      echo "ERROR: VENDOR_DLKM_PROPS must be an absolute path or relative to ${ROOT_DIR}: ${vendor_dlkm_props_file}" >&2
       exit 1
     elif [[ ! -f "${vendor_dlkm_props_file}" ]]; then
-      echo "Failed to find VENDOR_DLKM_PROPS: ${vendor_dlkm_props_file}"
+      echo "ERROR: Failed to find VENDOR_DLKM_PROPS: ${vendor_dlkm_props_file}"
       exit 1
     fi
   fi
@@ -403,7 +395,7 @@ function check_mkbootimg_path() {
     MKBOOTIMG_PATH="tools/mkbootimg/mkbootimg.py"
   fi
   if [ ! -f "${MKBOOTIMG_PATH}" ]; then
-    echo "mkbootimg.py script not found. MKBOOTIMG_PATH = ${MKBOOTIMG_PATH}"
+    echo "ERROR: mkbootimg.py script not found. MKBOOTIMG_PATH = ${MKBOOTIMG_PATH}" >&2
     exit 1
   fi
 }
@@ -435,7 +427,7 @@ function build_boot_images() {
   DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb" | sort)
   if [ -z "${DTB_FILE_LIST}" ]; then
     if [ -z "${SKIP_VENDOR_BOOT}" ]; then
-      echo "No *.dtb files found in ${DIST_DIR}"
+      echo "ERROR: No *.dtb files found in ${DIST_DIR}" >&2
       exit 1
     fi
   else
@@ -453,18 +445,17 @@ function build_boot_images() {
       rm -f "${VENDOR_RAMDISK_CPIO}"
       for vendor_ramdisk_binary in ${VENDOR_RAMDISK_BINARY}; do
         if ! [ -f "${vendor_ramdisk_binary}" ]; then
-          echo "Unable to locate vendor ramdisk ${vendor_ramdisk_binary}."
+          echo "ERROR: Unable to locate vendor ramdisk ${vendor_ramdisk_binary}." >&2
           exit 1
         fi
         if ${DECOMPRESS_GZIP} "${vendor_ramdisk_binary}" 2>/dev/null >> "${VENDOR_RAMDISK_CPIO}"; then
-          echo "${vendor_ramdisk_binary} is GZIP compressed"
+          :
         elif ${DECOMPRESS_LZ4} "${vendor_ramdisk_binary}" 2>/dev/null >> "${VENDOR_RAMDISK_CPIO}"; then
-          echo "${vendor_ramdisk_binary} is LZ4 compressed"
+          :
         elif cpio -t < "${vendor_ramdisk_binary}" &>/dev/null; then
-          echo "${vendor_ramdisk_binary} is plain CPIO archive"
           cat "${vendor_ramdisk_binary}" >> "${VENDOR_RAMDISK_CPIO}"
         else
-          echo "Unable to identify type of vendor ramdisk ${vendor_ramdisk_binary}"
+          echo "ERROR: Unable to identify type of vendor ramdisk ${vendor_ramdisk_binary}" >&2
           rm -f "${VENDOR_RAMDISK_CPIO}"
           exit 1
         fi
@@ -501,7 +492,7 @@ function build_boot_images() {
   fi
 
   if [ -z "${HAS_RAMDISK}" ] && [ -z "${SKIP_VENDOR_BOOT}" ]; then
-    echo "No ramdisk found. Please provide a GKI and/or a vendor ramdisk."
+    echo "ERROR: No ramdisk found. Please provide a GKI and/or a vendor ramdisk." >&2
     exit 1
   fi
 
@@ -515,7 +506,7 @@ function build_boot_images() {
 
   if [ -n "${BUILD_BOOT_IMG}" ]; then
     if [ ! -f "${DIST_DIR}/$KERNEL_BINARY" ]; then
-      echo "kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}"
+      echo "ERROR: kernel binary(KERNEL_BINARY = $KERNEL_BINARY) not present in ${DIST_DIR}" >&2
       exit 1
     fi
     MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
@@ -579,14 +570,10 @@ function build_boot_images() {
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
 
   if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
-    echo "boot image created at ${DIST_DIR}/${BOOT_IMAGE_FILENAME}"
-
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
       if [ -n "${AVB_BOOT_PARTITION_SIZE}" ] \
           && [ -n "${AVB_BOOT_KEY}" ] \
           && [ -n "${AVB_BOOT_ALGORITHM}" ]; then
-        echo "Signing ${BOOT_IMAGE_FILENAME}..."
-
         if [ -z "${AVB_BOOT_PARTITION_NAME}" ]; then
           AVB_BOOT_PARTITION_NAME=${BOOT_IMAGE_FILENAME%%.*}
         fi
@@ -598,22 +585,14 @@ function build_boot_images() {
             --algorithm ${AVB_BOOT_ALGORITHM} \
             --key ${AVB_BOOT_KEY}
       else
-        echo "Missing the AVB_* flags. Failed to sign the boot image" 1>&2
+        echo "ERROR: Missing the AVB_* flags. Failed to sign the boot image" 1>&2
         exit 1
       fi
     fi
   fi
-
-  if [ -z "${SKIP_VENDOR_BOOT}" ] \
-    && [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ] \
-    && [ -f "${DIST_DIR}/${VENDOR_BOOT_NAME}" ]; then
-      echo "Created ${VENDOR_BOOT_NAME} at ${DIST_DIR}/${VENDOR_BOOT_NAME}"
-  fi
 }
 
 function make_dtbo() {
-  echo "========================================================"
-  echo " Creating dtbo image at ${DIST_DIR}/dtbo.img"
   (
     cd ${OUT_DIR}
     mkdtimg create "${DIST_DIR}"/dtbo.img ${MKDTIMG_FLAGS} ${MKDTIMG_DTBOS}
@@ -755,7 +734,6 @@ function build_gki_boot_images() {
   done
 
   GKI_BOOT_IMG_ARCHIVE="boot-img.tar.gz"
-  echo "Creating ${GKI_BOOT_IMG_ARCHIVE} for" "${images_to_pack[@]}"
   tar -czf "${DIST_DIR}/${GKI_BOOT_IMG_ARCHIVE}" -C "${DIST_DIR}" \
     "${images_to_pack[@]}"
 }
@@ -794,10 +772,10 @@ function menuconfig() {
     if [[ -f "${ROOT_DIR}/${FRAGMENT_CONFIG}" ]]; then
       FRAGMENT_CONFIG="${ROOT_DIR}/${FRAGMENT_CONFIG}"
     elif [[ "${FRAGMENT_CONFIG}" != /* ]]; then
-      echo "FRAGMENT_CONFIG must be an absolute path or relative to ${ROOT_DIR}: ${FRAGMENT_CONFIG}"
+      echo "ERROR: FRAGMENT_CONFIG must be an absolute path or relative to ${ROOT_DIR}: ${FRAGMENT_CONFIG}" >&2
       exit 1
     elif [[ ! -f "${FRAGMENT_CONFIG}" ]]; then
-      echo "Failed to find FRAGMENT_CONFIG: ${FRAGMENT_CONFIG}"
+      echo "ERROR: Failed to find FRAGMENT_CONFIG: ${FRAGMENT_CONFIG}" >&2
       exit 1
     fi
   fi
