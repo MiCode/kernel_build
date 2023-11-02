@@ -15,6 +15,9 @@
 Tests for artifacts produced by kernel_module.
 """
 
+load("//build/kernel/kleaf/impl:hermetic_exec.bzl", "hermetic_exec_test")
+load(":py_test_hack.bzl", "run_py_binary_cmd")
+
 visibility("//build/kernel/kleaf/...")
 
 def kernel_module_test(
@@ -32,26 +35,20 @@ def kernel_module_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    script = "//build/kernel/kleaf/artifact_tests:kernel_module_test.py"
-    modinfo = "//build/kernel:hermetic-tools/modinfo"
-    args = ["--modinfo", "$(location {})".format(modinfo)]
-    data = [modinfo]
+    test_binary = "//build/kernel/kleaf/artifact_tests:kernel_module_test"
+    args = []
+    data = [test_binary]
     if modules:
         args.append("--modules")
-        args += ["$(locations {})".format(module) for module in modules]
+        args += ["$(rootpaths {})".format(module) for module in modules]
         data += modules
 
-    native.py_test(
+    hermetic_exec_test(
         name = name,
-        main = script,
-        srcs = [script],
-        python_version = "PY3",
         data = data,
+        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
-        deps = [
-            "@io_abseil_py//absl/testing:absltest",
-        ],
         **kwargs
     )
 
@@ -69,24 +66,19 @@ def kernel_build_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    script = "//build/kernel/kleaf/artifact_tests:kernel_build_test.py"
-    strings = "//build/kernel:hermetic-tools/llvm-strings"
-    args = ["--strings", "$(location {})".format(strings)]
+    test_binary = "//build/kernel/kleaf/artifact_tests:kernel_build_test"
+    args = []
+    data = [test_binary]
     if target:
-        args += ["--artifacts", "$(locations {})".format(target)]
+        args += ["--artifacts", "$(rootpaths {})".format(target)]
+        data.append(target)
 
-    native.py_test(
+    hermetic_exec_test(
         name = name,
-        main = script,
-        srcs = [script],
-        python_version = "PY3",
-        data = [target, strings],
+        data = data,
+        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
-        deps = [
-            "@io_abseil_py//absl/testing:absltest",
-            "@io_abseil_py//absl/testing:parameterized",
-        ],
         **kwargs
     )
 
@@ -106,38 +98,22 @@ def initramfs_modules_options_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    script = "//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test.py"
-    cpio = "//build/kernel:hermetic-tools/cpio"
-    diff = "//build/kernel:hermetic-tools/diff"
-    gzip = "//build/kernel:hermetic-tools/gzip"
+    test_binary = "//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test"
     args = [
-        "--cpio",
-        "$(location {})".format(cpio),
-        "--diff",
-        "$(location {})".format(diff),
-        "--gzip",
-        "$(location {})".format(gzip),
         "--expected",
-        "$(location {})".format(expected_modules_options),
-        "$(locations {})".format(kernel_images),
+        "$(rootpath {})".format(expected_modules_options),
+        "$(rootpaths {})".format(kernel_images),
     ]
 
-    native.py_test(
+    hermetic_exec_test(
         name = name,
-        main = script,
-        srcs = [script],
-        python_version = "PY3",
         data = [
-            cpio,
-            diff,
             expected_modules_options,
-            gzip,
             kernel_images,
+            test_binary,
         ],
+        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
-        deps = [
-            "@io_abseil_py//absl/testing:absltest",
-        ],
         **kwargs
     )

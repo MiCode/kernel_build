@@ -14,21 +14,16 @@
 
 import argparse
 import os
-import re
 import subprocess
 import sys
 import tempfile
 import unittest
-import time
 
 from absl.testing import absltest
 
 
 def load_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cpio", default="cpio")
-    parser.add_argument("--diff", default="diff")
-    parser.add_argument("--gzip", default="gzip")
     parser.add_argument("--expected")
     parser.add_argument("files", nargs="*", default=[])
     return parser.parse_known_args()
@@ -46,10 +41,10 @@ class InitramfsModulesOptions(unittest.TestCase):
         with open(arguments.expected) as expected:
             with tempfile.TemporaryDirectory() as temp_dir:
                 with open(initramfs) as initramfs_file:
-                    with subprocess.Popen([os.path.abspath(arguments.cpio), "-i"], cwd=temp_dir,
+                    with subprocess.Popen(["cpio", "-i"], cwd=temp_dir,
                                           stdin=subprocess.PIPE, stdout=subprocess.PIPE) as cpio_sp:
                         # Assume LZ4_RAMDISK is not set for this target.
-                        with subprocess.Popen([arguments.gzip, "-c", "-d"], stdin=initramfs_file,
+                        with subprocess.Popen(["gzip", "-c", "-d"], stdin=initramfs_file,
                                               stdout=cpio_sp.stdin) as gzip_sp:
                             gzip_sp.communicate()
                             self.assertEqual(0, gzip_sp.returncode)
