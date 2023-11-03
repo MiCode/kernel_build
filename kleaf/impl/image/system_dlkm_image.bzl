@@ -104,7 +104,8 @@ def _system_dlkm_image_impl(ctx):
     outputs = []
     outputs_to_compare = []
     for fs_type in system_dlkm_fs_types:
-        if system_dlkm_fs_type:
+        # Name ext4 image as system_dlkm.img for backward compatibility
+        if system_dlkm_fs_type or fs_type == "ext4":
             system_dlkm_img = ctx.actions.declare_file("{}/system_dlkm.img".format(ctx.label.name))
             system_dlkm_img_name = "system_dlkm.img"
         else:
