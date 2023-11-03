@@ -144,12 +144,25 @@ class Exec(object):
 
 class KleafIntegrationTestBase(unittest.TestCase):
 
+    @staticmethod
+    def _modify_python_path_for_wrapper(**kwargs):
+        """Modify `PYTHONPATH` for bazel.py so it can import relative modules."""
+
+        kleaf_dir = pathlib.Path("build/kernel/kleaf").absolute()
+
+        kwargs.setdefault("env", os.environ)
+        kwargs["env"].setdefault("PYTHONPATH", "")
+        kwargs["env"]["PYTHONPATH"] = f"{kleaf_dir}:{kwargs['env']['PYTHONPATH']}"
+        return kwargs
+
     def _check_call(self,
                     command: str,
                     command_args: list[str],
                     startup_options=(),
                     **kwargs) -> None:
         """Executes a bazel command."""
+
+        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         startup_options = list(startup_options)
         startup_options.append(f"--bazelrc={self._bazel_rc.name}")
         command_args = list(command_args)
@@ -167,6 +180,7 @@ class KleafIntegrationTestBase(unittest.TestCase):
                       **kwargs) -> str:
         """Returns output of a bazel command."""
 
+        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         args = [str(_BAZEL)]
         if use_bazelrc:
             args.append(f"--bazelrc={self._bazel_rc.name}")
@@ -180,6 +194,7 @@ class KleafIntegrationTestBase(unittest.TestCase):
                       **kwargs) -> str:
         """Returns errors of a bazel command."""
 
+        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         args = [str(_BAZEL)]
         if use_bazelrc:
             args.append(f"--bazelrc={self._bazel_rc.name}")
@@ -190,6 +205,7 @@ class KleafIntegrationTestBase(unittest.TestCase):
 
     def _popen(self, command: str, command_args: list[str], **kwargs) \
             -> subprocess.Popen:
+        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         return Exec.popen([
             str(_BAZEL),
             f"--bazelrc={self._bazel_rc.name}",
