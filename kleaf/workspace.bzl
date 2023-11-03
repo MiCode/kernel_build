@@ -195,10 +195,11 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         build_file = "build/kernel/kleaf/jdk11.BUILD",
     )
 
-    # Fake rules_cc to avoid fetching it for any py_binary targets.
-    kleaf_local_repository(
+    # Need rules_cc for any py_binary targets (especially copy_to_dist_dir).
+    maybe(
+        repo_rule = kleaf_local_repository,
         name = "rules_cc",
-        path = "build/kernel/kleaf/impl/fake_rules_cc",
+        path = "external/bazelbuild-rules_cc",
     )
 
     # Stub out @remote_coverage_tools required for testing.
