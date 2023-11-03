@@ -35,7 +35,7 @@ def kernel_module_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = "//build/kernel/kleaf/artifact_tests:kernel_module_test"
+    test_binary = Label("//build/kernel/kleaf/artifact_tests:kernel_module_test")
     args = []
     data = [test_binary]
     if modules:
@@ -66,7 +66,7 @@ def kernel_build_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = "//build/kernel/kleaf/artifact_tests:kernel_build_test"
+    test_binary = Label("//build/kernel/kleaf/artifact_tests:kernel_build_test")
     args = []
     data = [test_binary]
     if target:
@@ -98,7 +98,7 @@ def initramfs_modules_options_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = "//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test"
+    test_binary = Label("//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test")
     args = [
         "--expected",
         "$(rootpath {})".format(expected_modules_options),

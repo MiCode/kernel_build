@@ -48,7 +48,7 @@ def _check_signature(
         base_kernel_module,
         expect_signature,
         directory):
-    test_binary = "//build/kernel/kleaf/artifact_tests:check_module_signature"
+    test_binary = Label("//build/kernel/kleaf/artifact_tests:check_module_signature")
     args = [
         "--module",
         base_kernel_module,
