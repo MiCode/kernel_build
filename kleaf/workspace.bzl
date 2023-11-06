@@ -171,10 +171,10 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
             artifact_url_fmt = artifact_url_fmt,
         )
 
-    # TODO(b/200202912): Re-route this when rules_python is pulled into AOSP.
-    kleaf_local_repository(
+    maybe(
+        repo_rule = kleaf_local_repository,
         name = "rules_python",
-        path = "build/bazel_common_rules/rules/python/stubs",
+        path = "external/bazelbuild-rules_python",
     )
 
     # The following 2 repositories contain prebuilts that are necessary to the Java Rules.
