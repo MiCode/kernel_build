@@ -512,6 +512,7 @@ def kernel_config_option_test_suite(name):
             srcs = ["//common:kernel_{}_sources".format(arch)],
             arch = kernel_build_arch,
             build_config = "//common:build.config.gki.{}".format(arch),
+            make_goals = ["FAKE_MAKE_GOALS"],
             outs = [],
             tags = ["manual"],
         )
@@ -523,6 +524,7 @@ def kernel_config_option_test_suite(name):
             build_config = "//common:build.config.gki.{}".format(arch),
             trim_nonlisted_kmi = True,
             kmi_symbol_list = "data/fake_kmi_symbol_list",
+            make_goals = ["FAKE_MAKE_GOALS"],
             outs = [],
             tags = ["manual"],
         )
@@ -534,6 +536,7 @@ def kernel_config_option_test_suite(name):
             build_config = "//common:build.config.gki.{}".format(arch),
             trim_nonlisted_kmi = False,
             kmi_symbol_list = "data/fake_kmi_symbol_list",
+            make_goals = ["FAKE_MAKE_GOALS"],
             outs = [],
             tags = ["manual"],
         )
