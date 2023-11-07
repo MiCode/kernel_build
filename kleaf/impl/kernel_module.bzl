@@ -264,6 +264,14 @@ def _kernel_module_impl(ctx):
         ext_mod_label = ctx.label
     ext_mod = paths.join(ext_mod_label.workspace_root, ext_mod_label.package)
 
+    if not ext_mod:
+        fail("""{label}: kernel_module must not be defined at the top-level package of the main repository.
+                Move it to a sub-package, e.g. @{workspace_name}//{label_name}:{label_name}""".format(
+            label = ctx.label,
+            workspace_name = ctx.label.workspace_name,
+            label_name = ctx.label.name,
+        ))
+
     if ctx.files.makefile and ctx.file.internal_ddk_makefiles_dir:
         fail("{label}: must not define `makefile` for `ddk_module`".format(ctx.label))
 
