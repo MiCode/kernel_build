@@ -119,6 +119,7 @@ def kernel_build(
         page_size = None,
         pack_module_env = None,
         sanitizers = None,
+        ddk_module_defconfig_fragments = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -404,6 +405,8 @@ def kernel_build(
           (e.g. `kasan_defconfig`) or `<prop>_<value>_defconfig` (e.g. `lto_none_defconfig`)
           to provide human-readable hints during the build. The prefix should
           describe what the defconfig does. However, this is not a requirement.
+          These configs are also applied to external modules, including
+          `kernel_module`s and `ddk_module`s.
         page_size: Default is `"default"`. Page size of the kernel build.
 
           Value may be one of `"default"`, `"4k"`, `"16k"` or `"64k"`. If
@@ -421,6 +424,10 @@ def kernel_build(
             - `["kasan_sw_tags"]`
             - `["kasan_generic"]`
             - `["kcsan"]`
+        ddk_module_defconfig_fragments: A list of additional defconfigs, to be used
+          in `ddk_module`s building against this kernel.
+          Unlike `defconfig_fragments`, `ddk_module_defconfig_fragments` is not applied
+          to this `kernel_build` target, nor dependent legacy `kernel_module`s.
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -608,6 +615,7 @@ def kernel_build(
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         pack_module_env = pack_module_env,
         sanitizers = sanitizers,
+        ddk_module_defconfig_fragments = ddk_module_defconfig_fragments,
         **kwargs
     )
 
@@ -1870,6 +1878,10 @@ def _create_infos(
         modinst_env = modinst_env,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
+        ddk_module_defconfig_fragments = depset(transitive = [
+            target.files
+            for target in ctx.attr.ddk_module_defconfig_fragments
+        ]),
     )
 
     kernel_uapi_depsets = []
@@ -2158,6 +2170,10 @@ _kernel_build = rule(
         "sanitizers": attr.string_list(
             allow_empty = False,
             default = ["default"],
+        ),
+        "ddk_module_defconfig_fragments": attr.label_list(
+            doc = "Additional defconfig fragments for dependant DDK modules.",
+            allow_empty = True,
         ),
     } | _kernel_build_additional_attrs(),
     toolchains = [hermetic_toolchain.type],

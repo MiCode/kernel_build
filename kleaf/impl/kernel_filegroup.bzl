@@ -99,6 +99,10 @@ def _kernel_filegroup_impl(ctx):
         # Building kernel_module (excluding ddk_module) on top of kernel_filegroup is unsupported.
         # module_hdrs = None,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
+        ddk_module_defconfig_fragments = depset(transitive = [
+            target.files
+            for target in ctx.attr.ddk_module_defconfig_fragments
+        ]),
     )
 
     kernel_uapi_depsets = []
@@ -296,6 +300,10 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             default = "//build/kernel/kleaf/impl:cache_dir_config_tags",
             executable = True,
             cfg = "exec",
+        ),
+        "ddk_module_defconfig_fragments": attr.label_list(
+            doc = "Additional defconfig fragments for dependant DDK modules.",
+            allow_empty = True,
         ),
     } | _kernel_filegroup_additional_attrs(),
     toolchains = [hermetic_toolchain.type],
