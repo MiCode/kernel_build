@@ -265,7 +265,7 @@ def _kernel_module_impl(ctx):
     ext_mod = paths.join(ext_mod_label.workspace_root, ext_mod_label.package)
 
     if ctx.files.makefile and ctx.file.internal_ddk_makefiles_dir:
-        fail("{}: must not define `makefile` for `ddk_module`")
+        fail("{label}: must not define `makefile` for `ddk_module`".format(ctx.label))
 
     inputs = []
     inputs += ctx.files.makefile
