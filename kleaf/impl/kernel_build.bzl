@@ -803,10 +803,10 @@ def _get_defconfig_fragments(
     file_selector(
         name = sanitizer_target,
         first_selector = select({
-            Label("//build/kernel/kleaf:kasan_any_mode_is_true"): "kasan_any_mode",
-            Label("//build/kernel/kleaf:kasan_sw_tags_is_true"): "kasan_sw_tags",
-            Label("//build/kernel/kleaf:kasan_generic_is_true"): "kasan_generic",
-            Label("//build/kernel/kleaf:kcsan_is_true"): "kcsan",
+            Label("//build/kernel/kleaf/impl:kasan_any_mode_is_set_to_true"): "kasan_any_mode",
+            Label("//build/kernel/kleaf/impl:kasan_sw_tags_is_set_to_true"): "kasan_sw_tags",
+            Label("//build/kernel/kleaf/impl:kasan_generic_is_set_to_true"): "kasan_generic",
+            Label("//build/kernel/kleaf/impl:kcsan_is_set_to_true"): "kcsan",
             "//conditions:default": None,
         }),
         second_selector = kernel_build_sanitizer,
