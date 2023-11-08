@@ -296,6 +296,14 @@ bool_flag(
     visibility = ["//build/kernel:__pkg__"],
 )
 
+# If true, fail_action() does not fail to build, but write failure
+# message to its default output file.
+bool_setting(
+    name = "fail_action_write_to_file",
+    build_setting_default = False,
+    visibility = ["//build/kernel/kleaf:__pkg__"],
+)
+
 py_binary(
     name = "ddk/gen_makefiles",
     srcs = ["ddk/gen_makefiles.py"],
