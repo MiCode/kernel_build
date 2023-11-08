@@ -808,5 +808,14 @@ test_suite(
     ],
 )
 
-# Needed for checkpatch script.
-exports_files(["kleaf_help.py"])
+# Declare py_library for Bazel wrapper for testing purposes.
+
+py_library(
+    name = "wrapper",
+    srcs = [
+        "bazel.py",
+        "kleaf_help.py",
+    ],
+    imports = ["."],
+    visibility = ["//build/kernel:__subpackages__"],
+)

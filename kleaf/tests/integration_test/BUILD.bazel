@@ -29,6 +29,7 @@ py_binary(
     name = "integration_test",
     srcs = ["integration_test.py"],
     deps = [
+        "//build/kernel/kleaf:wrapper",
         "//build/kernel/kleaf/analysis:inputs",
         "@io_abseil_py//absl/testing:absltest",
         "@io_abseil_py//absl/testing:xml_reporter",

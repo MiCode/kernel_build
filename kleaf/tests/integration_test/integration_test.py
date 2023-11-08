@@ -144,17 +144,6 @@ class Exec(object):
 
 class KleafIntegrationTestBase(unittest.TestCase):
 
-    @staticmethod
-    def _modify_python_path_for_wrapper(**kwargs):
-        """Modify `PYTHONPATH` for bazel.py so it can import relative modules."""
-
-        kleaf_dir = pathlib.Path("build/kernel/kleaf").absolute()
-
-        kwargs.setdefault("env", os.environ)
-        kwargs["env"].setdefault("PYTHONPATH", "")
-        kwargs["env"]["PYTHONPATH"] = f"{kleaf_dir}:{kwargs['env']['PYTHONPATH']}"
-        return kwargs
-
     def _check_call(self,
                     command: str,
                     command_args: list[str],
@@ -162,7 +151,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
                     **kwargs) -> None:
         """Executes a bazel command."""
 
-        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         startup_options = list(startup_options)
         startup_options.append(f"--bazelrc={self._bazel_rc.name}")
         command_args = list(command_args)
@@ -180,7 +168,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
                       **kwargs) -> str:
         """Returns output of a bazel command."""
 
-        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         args = [str(_BAZEL)]
         if use_bazelrc:
             args.append(f"--bazelrc={self._bazel_rc.name}")
@@ -194,7 +181,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
                       **kwargs) -> str:
         """Returns errors of a bazel command."""
 
-        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         args = [str(_BAZEL)]
         if use_bazelrc:
             args.append(f"--bazelrc={self._bazel_rc.name}")
@@ -205,7 +191,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
 
     def _popen(self, command: str, command_args: list[str], **kwargs) \
             -> subprocess.Popen:
-        kwargs = KleafIntegrationTestBase._modify_python_path_for_wrapper(**kwargs)
         return Exec.popen([
             str(_BAZEL),
             f"--bazelrc={self._bazel_rc.name}",
@@ -462,23 +447,26 @@ class QuickIntegrationTest(KleafIntegrationTestBase):
         """Tests that out/ can be overridden.
 
         See b/267580482."""
-        default_out = pathlib.Path("out")
-        new_out = tempfile.TemporaryDirectory()
-        self.addCleanup(new_out.cleanup)
-        try:
-            shutil.rmtree(default_out)
-        except FileNotFoundError:
-            pass
-        self._check_call(command="build",
-                         command_args=["//build/kernel/kleaf:empty_test"] +
-                         _FASTEST)
-        self.assertTrue(default_out.exists())
-        shutil.rmtree(default_out)
-        self._check_call(startup_options=[f"--output_root={new_out.name}"],
+        new_out1 = tempfile.TemporaryDirectory()
+        new_out2 = tempfile.TemporaryDirectory()
+        self.addCleanup(new_out1.cleanup)
+        self.addCleanup(new_out2.cleanup)
+        shutil.rmtree(new_out1.name)
+        shutil.rmtree(new_out2.name)
+
+        self._check_call(startup_options=[f"--output_root={new_out1.name}"],
                          command="build",
                          command_args=["//build/kernel/kleaf:empty_test"] +
                          _FASTEST)
-        self.assertFalse(default_out.exists())
+        self.assertTrue(pathlib.Path(new_out1.name).exists())
+        self.assertFalse(pathlib.Path(new_out2.name).exists())
+        shutil.rmtree(new_out1.name)
+        self._check_call(startup_options=[f"--output_root={new_out2.name}"],
+                         command="build",
+                         command_args=["//build/kernel/kleaf:empty_test"] +
+                         _FASTEST)
+        self.assertFalse(pathlib.Path(new_out1.name).exists())
+        self.assertTrue(pathlib.Path(new_out2.name).exists())
 
     def test_config_uapi_header_test(self):
         """Tests that CONFIG_UAPI_HEADER_TEST is not deleted.
