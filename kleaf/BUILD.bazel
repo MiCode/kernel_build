@@ -807,3 +807,6 @@ test_suite(
         "//prebuilts/build-tools/tests",
     ],
 )
+
+# Needed for checkpatch script.
+exports_files(["kleaf_help.py"])
