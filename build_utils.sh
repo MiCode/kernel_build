@@ -137,7 +137,7 @@ function create_modules_order_lists() {
 
       # Remove all lines starting with "#" (comments)
       # Exclamation point makes interpreter ignore the exit code under set -e
-      ! grep -v "^\#" ${mod_list_file} > ${modules_list_filter}
+      ! grep -v "^#" ${mod_list_file} > ${modules_list_filter}
 
       # Append a new line at the end of file
       # If file doesn't end in newline the last module is skipped from filter
