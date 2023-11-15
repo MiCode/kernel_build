@@ -157,3 +157,9 @@ fail_action(
     message = "--kcsan requires --lto=none or default.",
     visibility = ["//visibility:private"],
 )
+
+filegroup(
+    name = "signing_modules_disabled",
+    srcs = ["signing_modules_disabled_defconfig"],
+    visibility = ["//visibility:public"],
+)
