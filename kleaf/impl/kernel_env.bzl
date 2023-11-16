@@ -127,7 +127,6 @@ def _kernel_env_impl(ctx):
         dtstree_srcs = ctx.attr.dtstree[DtstreeInfo].srcs
 
     setup_env = ctx.file.setup_env
-    preserve_env = ctx.executable.preserve_env
     out_file = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
 
     hermetic_tools = hermetic_toolchain.get(ctx)
@@ -145,7 +144,6 @@ def _kernel_env_impl(ctx):
     tools = [
         setup_env,
         ctx.file._build_utils_sh,
-        preserve_env,
     ]
     transitive_tools = [hermetic_tools.deps]
 
@@ -237,7 +235,21 @@ def _kernel_env_impl(ctx):
           echo >> {out}
 
         # capture it as a file to be sourced in downstream rules
-          {preserve_env} >> {out}
+          ( export -p; export -f ) | \\
+            # Remove the reference to PWD itself
+            sed '/^declare -x PWD=/d' | \\
+            # Now ensure, new PWD gets expanded
+            sed "s|${{PWD}}|\\$PWD|g" | \\
+            # Drop reference to bin_dir and replace with variable;
+            # Replace $PWD/<not out> with $KLEAF_REPO_DIR/$1
+            sed "s|\\$PWD/{bin_dir}|\\$PWD/\\$KLEAF_BIN_DIR|g" | \\
+            sed "s|{bin_dir}|\\$KLEAF_BIN_DIR|g" | \\
+            # List of packages that //build/kernel/... depends on. This excludes
+            # external/ because they are in different Bazel repositories.
+            sed "s|\\$PWD/build|\\$KLEAF_REPO_DIR/build|g" | \\
+            sed "s|\\$PWD/prebuilts|\\$KLEAF_REPO_DIR/prebuilts|g" \\
+            >> {out}
+
           echo >> {out}
 
           cat {post_env_script} >> {out}
@@ -249,11 +261,11 @@ def _kernel_env_impl(ctx):
         check_arch_cmd = _get_check_arch_cmd(ctx),
         toolchains_setup_env_var_cmd = toolchains.setup_env_var_cmd,
         make_goals_deprecation_warning = make_goals_deprecation_warning,
-        preserve_env = preserve_env.path,
         out = out_file.path,
         config_tags_comment_file = config_tags_out.env.path,
         pre_env_script = pre_env_script.path,
         post_env_script = post_env_script.path,
+        bin_dir = ctx.bin_dir.path,
     )
 
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx, defconfig_fragments)
@@ -323,6 +335,22 @@ def _get_env_setup_cmds(ctx):
     pre_env = ""
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         pre_env += debug.trap()
+
+    pre_env += """
+        # KLEAF_REPO_WORKSPACE_ROOT: workspace_root of the Kleaf repository. See Label.workspace_root.
+        # This should either be an empty string or (usually) external/kleaf.
+        # This needs to be defined by the user.
+
+        # bin_dir for Kleaf repository, relative to execroot
+        #  This is either bazel-out/k8-fastbuild/bin or bazel-out/k8-fastbuild/bin/external/kleaf.
+        KLEAF_BIN_DIR="{bin_dir}${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
+
+        # Root of Kleaf repository (under execroot aka PWD)
+        #  This is either $PWD or $PWD/external/kleaf.
+        KLEAF_REPO_DIR="$PWD${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
+    """.format(
+        bin_dir = ctx.bin_dir.path,
+    )
 
     post_env = """
         # Increase parallelism # TODO(b/192655643): do not use -j anymore
@@ -421,7 +449,7 @@ def _get_run_env(ctx, srcs, toolchains):
         # Variables from resolved toolchain
           {toolchains_setup_env_var_cmd}
         # setup LD_LIBRARY_PATH for prebuilts
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{KLEAF_REPO_DIR}}/{linux_x86_libs_path}
     """.format(
         build_utils_sh = ctx.file._build_utils_sh.short_path,
         build_config = ctx.file.build_config.short_path,
@@ -502,12 +530,6 @@ kernel_env = rule(
             default = Label("//build/kernel:_setup_env"),
             doc = "label referring to _setup_env.sh",
             cfg = "exec",
-        ),
-        "preserve_env": attr.label(
-            default = Label("//build/kernel/kleaf:preserve_env"),
-            doc = "label referring to the script capturing the environment",
-            cfg = "exec",
-            executable = True,
         ),
         "rust_toolchain_version": attr.string(
             doc = "the version of the rust toolchain to use for this environment",
