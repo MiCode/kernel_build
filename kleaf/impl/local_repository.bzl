@@ -19,6 +19,18 @@ paths are resolved against Kleaf sub-repository.
 
 visibility("//build/kernel/kleaf/...")
 
+def _common_attrs():
+    return {
+        "path": attr.string(doc = "the path relative to Kleaf repository"),
+        "path_candidates": attr.string_list(doc = """Candidate `path`s to use, relative to Kleaf repository.
+
+            Order matters. These paths are tested one by one for existence. The
+            first directory that exists is used.
+
+            `path` and `path_candidates` cannot be set simultaneously.
+        """),
+    }
+
 def _get_kleaf_repo_dir(repository_ctx):
     """Returns the root dir of the repository that contains Kleaf tools.
 
@@ -30,16 +42,28 @@ def _get_kleaf_repo_dir(repository_ctx):
     return repository_ctx.path(kleaf_repo_dir)
 
 def _kleaf_local_repository_impl(repository_ctx):
+    if repository_ctx.attr.path and repository_ctx.attr.path_candidates:
+        fail("@{}: path and path_candidates cannot be set simultaneously".format(repository_ctx.name))
+
     kleaf_repo_dir = _get_kleaf_repo_dir(repository_ctx)
 
-    target = kleaf_repo_dir.get_child(repository_ctx.attr.path)
+    target = None
+    if repository_ctx.attr.path:
+        target = kleaf_repo_dir.get_child(repository_ctx.attr.path)
+    else:
+        target_candidates = [kleaf_repo_dir.get_child(path_candidate) for path_candidate in repository_ctx.attr.path_candidates]
+        for target_candidate in target_candidates:
+            if target_candidate.exists:
+                target = target_candidate
+                break
+        if not target:
+            fail("@{}: None of path_candidates exists: {}".format(repository_ctx.name, target_candidates))
+
     for child in target.readdir():
         repository_ctx.symlink(child, repository_ctx.path(child.basename))
 
 kleaf_local_repository = repository_rule(
-    attrs = {
-        "path": attr.string(doc = "the path relative to Kleaf repository"),
-    },
+    attrs = _common_attrs(),
     implementation = _kleaf_local_repository_impl,
 )
 
@@ -58,8 +82,7 @@ workspace({name_repr})
 """.format(name_repr = repr(repository_ctx.attr.name)))
 
 new_kleaf_local_repository = repository_rule(
-    attrs = {
-        "path": attr.string(doc = "the path relative to Kleaf repository"),
+    attrs = _common_attrs() | {
         "build_file": attr.string(doc = "build file. Path is calculated with `repository_ctx.path(build_file)`"),
     },
     implementation = _new_kleaf_local_repository_impl,
