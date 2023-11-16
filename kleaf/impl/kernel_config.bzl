@@ -538,7 +538,7 @@ def _kernel_config_impl(ctx):
             runfiles = config_script_ret.runfiles,
         ),
         KernelConfigArchiveInfo(
-            outdir_tar_gz = outdir_tar_gz,
+            files = depset([outdir_tar_gz], transitive = [ctx.attr.env.files]),
         ),
     ]
 

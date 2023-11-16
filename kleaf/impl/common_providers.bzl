@@ -421,8 +421,8 @@ ImagesInfo = provider(
 )
 
 KernelConfigArchiveInfo = provider(
-    doc = "For `kernel_config` to provide `$OUT_DIR` archive",
+    doc = "For `kernel_config` to provide files to replay the environment",
     fields = {
-        "outdir_tar_gz": "`$OUT_DIR` archive",
+        "files": "depset of files",
     },
 )
