@@ -255,7 +255,7 @@ function create_modules_staging() {
       sed -n -E -e 's/blocklist (.+)/\1/p' ${dest_dir}/modules.blocklist > $used_blocklist_modules
     fi
 
-    # Trim modules from tree that aren't mentioned in modules.order
+    # Remove modules from tree that aren't mentioned in modules.order
     (
       cd ${dest_dir}
       local grep_flags="-v -w -f modules.order -f ${used_blocklist_modules} "
