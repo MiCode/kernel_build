@@ -161,6 +161,9 @@ case "${KERNEL_TARGET}" in
   taro)
     KERNEL_TARGET="waipio"
     ;;
+  volcano)
+    KERNEL_TARGET="pineapple"
+    ;;
 esac
 
 ################################################################################
