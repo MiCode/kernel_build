@@ -16,7 +16,7 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//build/kernel/kleaf/impl:abi/abi_transitions.bzl", "notrim_transition")
+load("//build/kernel/kleaf/impl:abi/abi_transitions.bzl", "abi_common_attrs", "notrim_transition")
 load("//build/kernel/kleaf/impl:abi/base_kernel_utils.bzl", "base_kernel_utils")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load(
@@ -53,7 +53,7 @@ _fake_extracted_symbols = rule(
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
-    },
+    } | abi_common_attrs(),
     cfg = notrim_transition,
 )
 

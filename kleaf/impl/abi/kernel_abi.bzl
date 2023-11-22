@@ -18,7 +18,7 @@ load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load("//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
 load(":abi/abi_dump.bzl", "abi_dump")
 load(":abi/abi_stgdiff.bzl", "stgdiff")
-load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
+load(":abi/abi_transitions.bzl", "abi_common_attrs", "with_vmlinux_transition")
 load(":abi/abi_update.bzl", "abi_update")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
@@ -43,7 +43,7 @@ kmi_symbol_checks = rule(
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
-    },
+    } | abi_common_attrs(),
     cfg = with_vmlinux_transition,
 )
 
@@ -58,6 +58,7 @@ def kernel_abi(
         unstripped_modules_archive = None,
         kmi_symbol_list_add_only = None,
         kernel_modules_exclude_list = None,
+        enable_add_vmlinux = None,
         **kwargs):
     """Declare multiple targets to support ABI monitoring.
 
@@ -145,6 +146,10 @@ def kernel_abi(
         property is intended to prevent unintentional shrinkage of a stable ABI.
 
         This should be set to `True` if `KMI_SYMBOL_LIST_ADD_ONLY=1`.
+      enable_add_vmlinux: If unspecified or `None`, it is `True` by default.
+        If `True`, enable the `kernel_build_add_vmlinux`
+        [transition](https://bazel.build/extending/config#user-defined-transitions) from all targets
+        instantiated by this macro (e.g. produced by abi_dump, extracted_symbols, etc).
       **kwargs: Additional attributes to the internal rule, e.g.
         [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
         See complete list
@@ -168,6 +173,7 @@ def kernel_abi(
         name = name + "_dump",
         kernel_build = kernel_build,
         kernel_modules = kernel_modules,
+        enable_add_vmlinux = enable_add_vmlinux,
         **private_kwargs
     )
 
@@ -188,6 +194,7 @@ def kernel_abi(
             kmi_enforced = kmi_enforced,
             abi_dump_target = name + "_dump",
             kernel_modules_exclude_list = kernel_modules_exclude_list,
+            enable_add_vmlinux = enable_add_vmlinux,
             **kwargs
         )
 
@@ -245,6 +252,7 @@ def _define_abi_targets(
         kmi_enforced,
         abi_dump_target,
         kernel_modules_exclude_list,
+        enable_add_vmlinux,
         **kwargs):
     """Helper to `_define_other_targets` when `define_abi_targets = True.`
 
@@ -270,6 +278,7 @@ def _define_abi_targets(
     kmi_symbol_checks(
         name = name + "_kmi_symbol_checks",
         kernel_build = kernel_build,
+        enable_add_vmlinux = enable_add_vmlinux,
         **private_kwargs
     )
 
@@ -282,6 +291,7 @@ def _define_abi_targets(
         src = name + "_src_kmi_symbol_list",
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
         kernel_modules_exclude_list = kernel_modules_exclude_list,
+        enable_add_vmlinux = enable_add_vmlinux,
         **private_kwargs
     )
 

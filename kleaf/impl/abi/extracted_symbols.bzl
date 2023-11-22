@@ -14,7 +14,7 @@
 
 """Extracts symbols from kernel binaries."""
 
-load(":abi/abi_transitions.bzl", "notrim_transition")
+load(":abi/abi_transitions.bzl", "abi_common_attrs", "notrim_transition")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
@@ -145,6 +145,6 @@ extracted_symbols = rule(
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
-    },
+    } | abi_common_attrs(),
     cfg = notrim_transition,
 )

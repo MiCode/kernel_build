@@ -14,7 +14,7 @@
 
 """Rules for ABI extraction."""
 
-load(":abi/abi_transitions.bzl", "with_vmlinux_transition")
+load(":abi/abi_transitions.bzl", "abi_common_attrs", "with_vmlinux_transition")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
@@ -162,7 +162,7 @@ abi_dump = rule(
             cfg = "exec",
             executable = True,
         ),
-    },
+    } | abi_common_attrs(),
     cfg = with_vmlinux_transition,
     toolchains = [hermetic_toolchain.type],
 )

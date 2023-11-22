@@ -29,8 +29,11 @@ _WITH_VMLINUX_TRANSITION_OUTPUT_SETTINGS = [
     FORCE_IGNORE_BASE_KERNEL_SETTING,
 ]
 
-def _with_vmlinx_transition_impl(_settings, _attr):
+def _with_vmlinx_transition_impl(_settings, attr):
     """with_vmlinux: outs += [vmlinux]; base_kernel = None; kbuild_symtypes = True"""
+    if not attr.enable_add_vmlinux:
+        return {}
+
     return {
         _FORCE_ADD_VMLINUX_SETTING: True,
         FORCE_IGNORE_BASE_KERNEL_SETTING: True,
@@ -55,3 +58,11 @@ notrim_transition = transition(
         FORCE_DISABLE_TRIM,
     ],
 )
+
+def abi_common_attrs():
+    return {
+        "enable_add_vmlinux": attr.bool(
+            doc = "If `True` enables `kernel_build_add_vmlinux` transition.",
+            default = True,
+        ),
+    }
