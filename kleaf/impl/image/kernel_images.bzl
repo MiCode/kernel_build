@@ -39,6 +39,7 @@ def kernel_images(
         build_vendor_boot = None,
         build_vendor_kernel_boot = None,
         build_system_dlkm = None,
+        build_system_dlkm_flatten = None,
         build_dtbo = None,
         dtbo_srcs = None,
         mkbootimg = None,
@@ -141,6 +142,8 @@ def kernel_images(
           - The list contains `dtb.img`
         build_initramfs: Whether to build initramfs. Keep in sync with `BUILD_INITRAMFS`.
         build_system_dlkm: Whether to build system_dlkm.img an image with GKI modules.
+        build_system_dlkm_flatten: Whether to build system_dlkm.flatten.<fs>.img.
+          This image have directory structure as `/lib/modules/*.ko` i.e. no `uname -r` in the path.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `vendor_dlkm_modules_list` is set.
 
@@ -406,6 +409,7 @@ def kernel_images(
             kernel_modules_install = kernel_modules_install,
             # For device system_dlkm, give GKI's system_dlkm_staging_archive.tar.gz
             base_kernel_images = base_kernel_images,
+            build_system_dlkm_flatten_image = build_system_dlkm_flatten,
             deps = deps,
             modules_list = modules_list,
             modules_blocklist = modules_blocklist,
