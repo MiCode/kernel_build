@@ -56,3 +56,5 @@ try-import %workspace%/device.bazelrc
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 
+# TODO: Bug: 276493276 Enable Blzmod after migrating.
+common --noenable_bzlmod
