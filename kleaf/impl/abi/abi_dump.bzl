@@ -89,7 +89,7 @@ def _abi_dump_full_stg(ctx):
         )
 
     command = hermetic_tools.setup + """
-        {stg} --output {full_abi_out_file} --elf {vmlinux} {all_modules}
+        {stg} --files '*.h' --output {full_abi_out_file} --elf {vmlinux} {all_modules}
     """.format(
         stg = ctx.file._stg.path,
         full_abi_out_file = full_abi_out_file.path,
