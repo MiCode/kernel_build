@@ -1921,12 +1921,31 @@ def _create_infos(
         gcno_dir = main_action_ret.gcno_dir,
     )
 
+    # List of artifacts to be used when creating a kernel_filegroup that mimics this target.
+    internal_ddk_artifacts = [
+        all_module_names_file,
+    ]
+    if module_scripts_archive:
+        internal_ddk_artifacts.append(module_scripts_archive)
+    if internal_outs_archive:
+        internal_ddk_artifacts.append(internal_outs_archive)
+    if ctx.file.src_protected_modules_list:
+        internal_ddk_artifacts.append(ctx.file.src_protected_modules_list)
+    transitive_internal_ddk_artifacts = [
+        ctx.attr.config[KernelConfigArchiveInfo].files,
+    ]
+    internal_ddk_artifacts_depset = depset(
+        internal_ddk_artifacts,
+        transitive = transitive_internal_ddk_artifacts,
+    )
+
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
     output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
     output_group_kwargs[MODULE_OUTS_FILE_OUTPUT_GROUP] = depset([all_module_names_file])
     output_group_kwargs[TOOLCHAIN_VERSION_FILENAME] = depset([toolchain_version_out])
+    output_group_kwargs["internal_ddk_artifacts"] = internal_ddk_artifacts_depset
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     kbuild_mixed_tree_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
@@ -1940,24 +1959,14 @@ def _create_infos(
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
-    default_info_files.append(all_module_names_file)
-    if module_scripts_archive:
-        default_info_files.append(module_scripts_archive)
-    if internal_outs_archive:
-        default_info_files.append(internal_outs_archive)
     if kmi_strict_mode_out:
         default_info_files.append(kmi_strict_mode_out)
     default_info_files.extend(main_action_ret.module_symvers_outputs)
     default_info_files.extend(main_action_ret.gcno_outputs)
     if kmi_symbol_list_violations_check_out:
         default_info_files.append(kmi_symbol_list_violations_check_out)
-    if ctx.file.src_protected_modules_list:
-        default_info_files.append(ctx.file.src_protected_modules_list)
-    transitive_default_info_files = [
-        ctx.attr.config[KernelConfigArchiveInfo].files,
-    ]
     default_info = DefaultInfo(
-        files = depset(default_info_files, transitive = transitive_default_info_files),
+        files = depset(default_info_files),
         # For kernel_build_test
         runfiles = ctx.runfiles(files = default_info_files),
     )
