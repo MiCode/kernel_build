@@ -24,7 +24,7 @@ from typing import Tuple, Optional
 
 from kleaf_help import KleafHelpPrinter
 
-_BAZEL_REL_PATH = "prebuilts/bazel/linux-x86_64/bazel"
+_BAZEL_REL_PATH = "prebuilts/kernel-build-tools/bazel/linux-x86_64/bazel"
 _BAZEL_JDK_REL_PATH = "prebuilts/jdk/jdk11/linux-x86"
 _BAZEL_RC_NAME = "build/kernel/kleaf/common.bazelrc"
 
