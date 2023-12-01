@@ -96,6 +96,18 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         path = "external/stardoc",
     )
 
+    maybe(
+        repo_rule = kleaf_local_repository,
+        name = "rules_license",
+        path = "external/bazelbuild-rules_license",
+    )
+
+    maybe(
+        repo_rule = kleaf_local_repository,
+        name = "rules_pkg",
+        path = "external/bazelbuild-rules_pkg",
+    )
+
     # Superset of all tools we need from host.
     # For the subset of host tools we typically use for a kernel build,
     # see //build/kernel:hermetic-tools.
