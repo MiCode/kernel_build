@@ -78,6 +78,9 @@ _STRIP_MODULES = True
 # Always keep a copy of Module.symvers for common kernels.
 _KEEP_MODULE_SYMVERS = True
 
+# This transition is not needed for GKI
+_GKI_ADD_VMLINUX = False
+
 # glob() must be executed in a BUILD thread, so this cannot be a global
 # variable.
 def _default_target_configs():
@@ -740,6 +743,7 @@ def _define_common_kernel(
         kmi_enforced = kmi_enforced,
         kmi_symbol_list_add_only = kmi_symbol_list_add_only,
         deprecation = deprecation,
+        enable_add_vmlinux = _GKI_ADD_VMLINUX,
     )
 
     if enable_interceptor:
@@ -899,7 +903,7 @@ def _define_common_kernel(
     kernel_abi_dist(
         name = name + "_abi_dist",
         kernel_abi = name + "_abi",
-        kernel_build_add_vmlinux = True,
+        kernel_build_add_vmlinux = _GKI_ADD_VMLINUX,
         data = dist_targets,
         flat = True,
         dist_dir = "out_abi/{name}/dist".format(name = name),
