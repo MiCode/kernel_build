@@ -22,6 +22,11 @@ local_repository(
     path = "external/bazelbuild-rules_java",
 )
 
+local_repository(
+    name = "io_bazel_stardoc",
+    path = "external/stardoc",
+)
+
 # Optional epilog for analysis testing.
 load("//build/kernel/kleaf:workspace_epilog.bzl", "define_kleaf_workspace_epilog")
 

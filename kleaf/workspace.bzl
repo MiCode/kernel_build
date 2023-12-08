@@ -92,12 +92,6 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
 
     maybe(
         repo_rule = kleaf_local_repository,
-        name = "io_bazel_stardoc",
-        path = "external/stardoc",
-    )
-
-    maybe(
-        repo_rule = kleaf_local_repository,
         name = "rules_license",
         path = "external/bazelbuild-rules_license",
     )
