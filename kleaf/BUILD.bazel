@@ -15,7 +15,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
-load("//build/bazel_common_rules/docs:docs.bzl", "docs")
 load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load(":constants.bzl", "LTO_VALUES")
@@ -720,39 +719,90 @@ bzl_library(
     deps = [":hermetic_tools_def"],
 )
 
-# Kleaf API Docs. To view them:
-#   Refer to kleaf/docs/api_reference.md
-docs(
+# Export bzl files to docs/ package
+
+filegroup(
+    name = "common_kernels_bzl",
+    srcs = ["common_kernels.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "constants_bzl",
+    srcs = ["constants.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "directory_with_structure_bzl",
+    srcs = ["directory_with_structure.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "fail_bzl",
+    srcs = ["fail.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "hermetic_tools_bzl",
+    srcs = ["hermetic_tools.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "kernel_bzl",
+    srcs = ["kernel.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "key_value_repo_bzl",
+    srcs = ["key_value_repo.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "print_debug_bzl",
+    srcs = ["print_debug.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "update_source_file_bzl",
+    srcs = ["update_source_file.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "workspace_bzl",
+    srcs = ["workspace.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+filegroup(
+    name = "workspace_epilog_bzl",
+    srcs = ["workspace_epilog.bzl"],
+    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
+)
+
+alias(
     name = "docs",
-    srcs = [
-        "common_kernels.bzl",
-        "constants.bzl",
-        "directory_with_structure.bzl",
-        "fail.bzl",
-        "hermetic_tools.bzl",
-        "kernel.bzl",
-        "key_value_repo.bzl",
-        "print_debug.bzl",
-        "update_source_file.bzl",
-        "workspace.bzl",
-        "workspace_epilog.bzl",
-    ],
-    default = "kernel.bzl",
-    deps = [
-        "//build/bazel_common_rules/dist",
-        "//build/bazel_common_rules/exec",
-        "//build/bazel_common_rules/workspace",
-        "//build/kernel/kleaf/artifact_tests",
-        "//build/kernel/kleaf/impl",
-        "//prebuilts/clang/host/linux-x86/kleaf:register",
-        "@bazel_skylib//:workspace",
-        "@bazel_skylib//lib:dicts",
-        "@bazel_skylib//lib:paths",
-        "@bazel_skylib//lib:selects",
-        "@bazel_skylib//lib:unittest",
-        "@bazel_skylib//rules:common_settings",
-        "@kernel_toolchain_info//:dict",
-    ],
+    actual = "//build/kernel/kleaf/docs",
+    deprecation = "Use //build/kernel/kleaf/docs instead.",
+)
+
+alias(
+    name = "docs_server",
+    actual = "//build/kernel/kleaf/docs:docs_server",
+    deprecation = "Use //build/kernel/kleaf/docs:docs_server instead.",
+)
+
+alias(
+    name = "docs_dist",
+    actual = "//build/kernel/kleaf/docs:docs_dist",
+    deprecation = "Use //build/kernel/kleaf/docs:docs_dist instead.",
 )
 
 #
