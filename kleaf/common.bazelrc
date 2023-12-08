@@ -39,6 +39,8 @@ import %workspace%/build/kernel/kleaf/bazelrc/hermetic_cc.bazelrc
 import %workspace%/build/kernel/kleaf/bazelrc/platforms.bazelrc
 # Control Network access - with no internet by default.
 import %workspace%/build/kernel/kleaf/bazelrc/network.bazelrc
+# Experimental bzlmod support
+import %workspace%/build/kernel/kleaf/bazelrc/bzlmod.bazelrc
 
 # Ensure to always use @local_jdk; the checked-in JDK.
 # build --java_runtime_version=local_jdk
@@ -56,5 +58,5 @@ try-import %workspace%/device.bazelrc
 # Support a local user-specific bazelrc file.
 try-import %workspace%/user.bazelrc
 
-# TODO: Bug: 276493276 Enable Blzmod after migrating.
-common --noenable_bzlmod
+# Do not add more flags below so that the flags set by device.bazelrc
+# and user.bazelrc are respected.

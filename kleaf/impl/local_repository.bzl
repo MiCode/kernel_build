@@ -17,7 +17,10 @@ Drop-in replacement for `{new_,}local_repository` such that
 paths are resolved against Kleaf sub-repository.
 """
 
-visibility("//build/kernel/kleaf/...")
+visibility([
+    "//build/kernel/kleaf/...",
+    "//",  # for root MODULE.bazel
+])
 
 def _common_attrs():
     return {
