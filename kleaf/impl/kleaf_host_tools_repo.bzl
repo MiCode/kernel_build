@@ -34,10 +34,35 @@ exports_files(
     for host_tool in repository_ctx.attr.host_tools:
         repository_ctx.symlink(repository_ctx.which(host_tool), host_tool)
 
+# TODO(b/276493276): Hide this once workspace.bzl is deleted.
 kleaf_host_tools_repo = repository_rule(
     doc = "Creates symlinks to host tools.",
     implementation = _kleaf_host_tools_repo_impl,
     attrs = {
         "host_tools": attr.string_list(doc = "List of host tools"),
+    },
+)
+
+def _kleaf_host_tools_ext_impl(module_ctx):
+    host_tools = []
+    for module in module_ctx.modules:
+        for declared in module.tags.declare:
+            host_tools += declared.host_tools
+
+    kleaf_host_tools_repo(
+        name = "kleaf_host_tools",
+        host_tools = host_tools,
+    )
+
+kleaf_host_tools_ext = module_extension(
+    doc = "Declares an extension named `kleaf_host_tools` that contains symlinks to host tools.",
+    implementation = _kleaf_host_tools_ext_impl,
+    tag_classes = {
+        "declare": tag_class(
+            doc = "Declares a list of host tools to be symlinked in the extension `kleaf_host_tools.",
+            attrs = {
+                "host_tools": attr.string_list(doc = "List of host tools"),
+            },
+        ),
     },
 )
