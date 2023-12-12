@@ -103,6 +103,10 @@ def parse_args():
       action="store_true",
       help="update Microdroid kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
   parser.add_argument(
+      "--update-microdroid-gki",
+      action="store_true",
+      help="update GKI prebuilts for Microdroid in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
       "-r",
       "--repo-branch",
       action="store_true",
@@ -120,7 +124,8 @@ def parse_args():
     _args.update_gki,
     _args.update_16k,
     _args.update_u_boot,
-    _args.update_microdroid)):
+    _args.update_microdroid,
+    _args.update_microdroid_gki)):
     if _args.build_target is not None:
       raise Exception("build_target cannot be specified when updating prebuilts")
     if "ANDROID_BUILD_TOP" not in os.environ:
@@ -157,7 +162,7 @@ def get_u_boot_dir():
 
 def get_build_kernel_version(data):
   """Given a build's BUILD_INFO in json format, return the kernel version as a string."""
-  branch = json.loads(data)["branch"]
+  branch = json.loads(data)["branch"].removesuffix("-pkvm-experimental")
   if branch == "aosp_kernel-common-android-mainline":
     return "mainline"
   else:
@@ -681,6 +686,35 @@ def update_microdroid_kernel():
     gitlog = get_git_log(old_sha, new_sha)
     commit_prebuilts(directory, gitlog)
 
+def update_microdroid_gki_kernel():
+  url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_aarch64")
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  branch = json.loads(data)["branch"]
+  version = get_build_kernel_version(data)
+
+  output_dir = os.environ["ANDROID_BUILD_TOP"]
+  base_dir = os.path.join(output_dir, "kernel", "prebuilts", version)
+
+  for arch in "arm64", "x86_64":
+    arch_suffix = "aarch64" if arch == "arm64" else arch
+    directory = os.path.join(base_dir, arch, "microdroid-gki")
+    kernel = os.path.join(directory, "kernel-" + version)
+    old_sha = None
+    if os.path.isfile(kernel):
+      old_version, old_sha = get_binary_kernel_version(kernel)
+
+    clean_download_dir(directory)
+    download_kernel("kernel_" + arch_suffix, version, directory)
+    download_kernel_modules("kernel_" + arch_suffix, directory)
+    write_prebuilt_info(directory)
+    (new_version, new_sha) = get_binary_kernel_version(kernel)
+    if old_sha is not None:
+      gitlog = get_git_log(old_sha, new_sha)
+    else:
+      gitlog = "Initial prebuilts at commit {}\n".format(new_sha)
+    commit_prebuilts(directory, gitlog)
 
 def main():
   global _pool
@@ -702,6 +736,10 @@ def main():
 
   if _args.update_microdroid:
     update_microdroid_kernel()
+    return
+
+  if _args.update_microdroid_gki:
+    update_microdroid_gki_kernel()
     return
 
   url_base = BASE_URL.format(build_id=_args.build_id, target=_args.build_target)
