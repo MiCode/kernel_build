@@ -17,7 +17,6 @@ import os
 import re
 import sys
 import subprocess
-import unittest
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -25,7 +24,6 @@ from absl.testing import parameterized
 
 def load_arguments():
   parser = argparse.ArgumentParser()
-  parser.add_argument("--strings", default="strings")
   parser.add_argument("--artifacts", nargs="*", default=[])
   return parser.parse_known_args()
 
@@ -66,7 +64,7 @@ class ScmVersionTestCase(parameterized.TestCase):
     for artifact in arguments.artifacts:
       if os.path.basename(artifact) != "vmlinux":
         continue
-      strings = subprocess.check_output([arguments.strings, artifact],
+      strings = subprocess.check_output(["llvm-strings", artifact],
                                         text=True).strip().splitlines()
       matches = any(self.matches_any_pattern(s) for s in strings)
       msg = "scmversion not found for vmlinux, found {}".format(

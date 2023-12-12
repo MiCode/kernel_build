@@ -24,7 +24,6 @@ from absl.testing import absltest
 
 def load_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modinfo", default="modinfo")
     parser.add_argument("--modules", nargs="*", default=[])
     return parser.parse_known_args()
 
@@ -47,7 +46,7 @@ class ScmVersionTestCase(unittest.TestCase):
             self.skipTest("{} is not a kernel module".format(basename))
         try:
             scmversion = subprocess.check_output(
-                [arguments.modinfo, module, "-F", "scmversion"],
+                ["modinfo", module, "-F", "scmversion"],
                 text=True, stderr=subprocess.PIPE).strip()
         except subprocess.CalledProcessError as e:
             self.fail("modinfo returns {}: {}".format(e.returncode, e.stderr))
