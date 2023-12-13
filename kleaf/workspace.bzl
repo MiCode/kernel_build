@@ -115,12 +115,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     # https://docs.bazel.build/versions/main/external.html#non-bazel-projects
     new_kleaf_local_repository(
         name = "prebuilt_ndk",
-        path_candidates = [
-            # do not sort
-            "prebuilts/ndk-r26",
-            # TODO(b/309695443): Delete once all branches have switched to r26
-            "prebuilts/ndk-r23",
-        ],
+        path = "prebuilts/ndk-r26",
         build_file = "build/kernel/kleaf/ndk.BUILD",
     )
 
