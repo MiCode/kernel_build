@@ -720,70 +720,20 @@ bzl_library(
 )
 
 # Export bzl files to docs/ package
-
-filegroup(
-    name = "common_kernels_bzl",
-    srcs = ["common_kernels.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "constants_bzl",
-    srcs = ["constants.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "directory_with_structure_bzl",
-    srcs = ["directory_with_structure.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "fail_bzl",
-    srcs = ["fail.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "hermetic_tools_bzl",
-    srcs = ["hermetic_tools.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "kernel_bzl",
-    srcs = ["kernel.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "key_value_repo_bzl",
-    srcs = ["key_value_repo.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "print_debug_bzl",
-    srcs = ["print_debug.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "update_source_file_bzl",
-    srcs = ["update_source_file.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "workspace_bzl",
-    srcs = ["workspace.bzl"],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)
-
-filegroup(
-    name = "workspace_epilog_bzl",
-    srcs = ["workspace_epilog.bzl"],
+exports_files(
+    [
+        "common_kernels.bzl",
+        "constants.bzl",
+        "directory_with_structure.bzl",
+        "fail.bzl",
+        "hermetic_tools.bzl",
+        "kernel.bzl",
+        "key_value_repo.bzl",
+        "print_debug.bzl",
+        "update_source_file.bzl",
+        "workspace.bzl",
+        "workspace_epilog.bzl",
+    ],
     visibility = ["//build/kernel/kleaf/docs:__pkg__"],
 )
 
