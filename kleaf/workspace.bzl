@@ -32,7 +32,7 @@ load(
     "kleaf_local_repository",
     "new_kleaf_local_repository",
 )
-load("//prebuilts/clang/host/linux-x86/kleaf:register.bzl", "register_clang_toolchains")
+load("//prebuilts/clang/host/linux-x86/kleaf:clang_toolchain_repository.bzl", "clang_toolchain_repository")
 
 # buildifier: disable=unnamed-macro
 def define_kleaf_workspace(
@@ -221,4 +221,7 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         str(Label("//build/kernel:hermetic_tools_toolchain")),
     )
 
-    register_clang_toolchains()
+    clang_toolchain_repository(
+        name = "kleaf_clang_toolchain",
+    )
+    native.register_toolchains("@kleaf_clang_toolchain//:all")
