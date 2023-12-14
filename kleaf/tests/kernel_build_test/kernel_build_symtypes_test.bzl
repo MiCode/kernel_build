@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test `kbuild_symtypes`.
+"""Test `kbuild_symtypes`."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
@@ -35,8 +35,6 @@ def _kbuild_symtypes_test_make_vars(ctx, env):
     )
 
 def _kbuild_symtypes_test_output(ctx, env):
-    kernel_build = analysistest.target_under_test(env)
-
     action = test_utils.find_action(env, "KernelBuild")
     symtypes_dir = test_utils.find_output(action, "symtypes")
 
@@ -66,7 +64,7 @@ def _make_kbuild_symtypes_test(kbuild_symtypes_flag_value):
             "expect_kbuild_symtypes": attr.bool(),
         },
         config_settings = {
-            "@//build/kernel/kleaf:kbuild_symtypes": kbuild_symtypes_flag_value,
+            str(Label("//build/kernel/kleaf:kbuild_symtypes")): kbuild_symtypes_flag_value,
         },
         extra_target_under_test_aspects = [kernel_env_aspect],
     )

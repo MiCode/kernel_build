@@ -52,8 +52,8 @@ def _create_make_goals_test(kgdb_value = False, force_vmlinux = False, additiona
     return analysistest.make(
         impl = _make_goals_test_impl,
         config_settings = {
-            "@//build/kernel/kleaf:kgdb": kgdb_value,
-            "@//build/kernel/kleaf/impl:force_add_vmlinux": force_vmlinux,
+            str(Label("//build/kernel/kleaf:kgdb")): kgdb_value,
+            str(Label("//build/kernel/kleaf/impl:force_add_vmlinux")): force_vmlinux,
         },
         attrs = {
             "must_have_make_goals": attr.string_list(allow_empty = True),
