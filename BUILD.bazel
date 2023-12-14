@@ -25,6 +25,8 @@ filegroup(
     visibility = [
         ":__subpackages__",
         "//prebuilts/clang/host/linux-x86/kleaf:__subpackages__",
+        "@kleaf_clang_toolchain//:__subpackages__",
+        # TODO(b/276493276): remove
         "@kleaf_user_clang_toolchain//:__subpackages__",
     ],
 )
