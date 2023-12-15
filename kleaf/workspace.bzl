@@ -139,6 +139,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         build_file = "build/kernel/kleaf/zopfli.BUILD",
     )
 
+    new_kleaf_local_repository(
+        name = "pigz",
+        path = "external/pigz",
+        build_file = "build/kernel/kleaf/pigz.BUILD",
+    )
+
     key_value_repo(
         name = "kernel_toolchain_info",
         srcs = ["{}:build.config.constants".format(common_kernel_package)],
