@@ -49,6 +49,8 @@ build --flag_alias=noset_ext_modules=no//build/kernel/kleaf:set_ext_modules
 build --flag_alias=gki_build_config_fragment=//build/kernel/kleaf:gki_build_config_fragment
 build --flag_alias=defconfig_fragment=//build/kernel/kleaf:defconfig_fragment
 build --flag_alias=page_size=//build/kernel/kleaf:page_size
+build --flag_alias=rust=//build/kernel/kleaf:rust
+build --flag_alias=norust=no//build/kernel/kleaf:rust
 
 # flags that control the distribution
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes

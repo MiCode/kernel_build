@@ -137,6 +137,7 @@ own defconfig fragments to avoid fragmentation in the ecosystem (pun intended).
 *   `--kasan_generic`
 *   `--kcsan`
 *   `--page_size`
+*   `--rust` / `--norust`
 
 ### User-defined flags
 

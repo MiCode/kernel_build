@@ -60,6 +60,15 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "rust",
+    srcs = select({
+        "//build/kernel/kleaf:rust_is_enabled": ["rust_defconfig"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)
+
 fail_action(
     name = "fail_debug_lto",
     message = "--debug requires --lto=none or default.",

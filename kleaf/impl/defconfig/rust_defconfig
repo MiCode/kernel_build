@@ -1,0 +1,3 @@
+# Rust Support
+# Until Rust is enabled in the primary GKI builds, this fragment will enable
+# support for Rust and Rust drivers being tested.

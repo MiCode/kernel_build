@@ -546,6 +546,19 @@ label_flag(
     visibility = ["//visibility:public"],
 )
 
+# If true, enable Rust support and drivers under development.
+bool_flag(
+    name = "rust",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "rust_is_enabled",
+    flag_values = {":rust": "1"},
+    visibility = ["//visibility:public"],
+)
+
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
 # If additional hacks are needed, put `select()` on the build_config.
 # See kleaf/docs/kgdb.md for details.
