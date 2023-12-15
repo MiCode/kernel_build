@@ -845,8 +845,8 @@ def _define_common_kernel(
     )
 
     # Everything in name + "_dist" for the DDK.
-    # These aren't in DIST_DIR for build.sh-style builds, but necessary for driver
-    # development. Hence they are also added to kernel_*_dist so they can be downloaded.
+    # These are necessary for driver development. Hence they are also added to
+    # kernel_*_dist so they can be downloaded.
     # Note: This poke into details of kernel_build!
     native.filegroup(
         name = name + "_internal_ddk_artifacts",

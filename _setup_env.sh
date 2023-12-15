@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is an implementation detail of build.sh and friends. Do not source
-# directly as it will spoil your shell and make build.sh unusable. You have
-# been warned! If you have a good reason to source the result of this file into
-# a shell, please let kernel-team@android.com know and we are happy to help
-# with your use case.
+# This is an implementation detail of Kleaf. Do not source directly as it will
+# spoil your shell. You have been warned! If you have a good reason to source
+# the result of this file into a shell, please let kernel-team@android.com know
+# and we will be happy to help with your use case.
 
 [ -n "$_SETUP_ENV_SH_INCLUDED" ] && return || export _SETUP_ENV_SH_INCLUDED=1
 

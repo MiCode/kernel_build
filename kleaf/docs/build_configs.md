@@ -1,7 +1,7 @@
-# `build.sh` Build configs
+# Build configs
 
 This document provides reference to the Bazel equivalent or alternative for
-build configs that `build.sh` and `build_abi.sh` supports.
+the legacy build configs.
 
 For build configs with a Bazel equivalent / alternative, a code snippet and a
 link to the [documentation for all rules] is provided. You may look up the
@@ -118,8 +118,7 @@ Not used in Bazel. Alternatives:
 
 You may disable LTO or use thin LTO; see [`LTO`](#LTO).
 
-You may use `--config=fast` to build faster. Note
-that this is **NOT** equivalent to `FAST_BUILD=1 build/build.sh`.
+You may use `--config=fast` to build faster.
 See [fast.md](fast.md) for details.
 
 You may build just the kernel binary and GKI modules, without headers and
@@ -428,13 +427,8 @@ See [documentation for all rules].
 kernel_images(build_vendor_boot=...)
 ```
 
-**Note**: In `build.sh`, `BUILD_BOOT_IMG` and `BUILD_VENDOR_BOOT_IMG` are
-confusingly the same flag. `vendor_boot` is only built if either
-`BUILD_BOOT_IMG` or `BUILD_VENDOR_BOOT_IMG` is set, and `SKIP_VENDOR_BOOT`
-is not set.
-
-In Bazel, the flags are rather straightforward. `build_boot` controls the
-`boot` image. `build_vendor_boot` controls the `vendor_boot` image. Setting
+The flags are rather straightforward. `build_boot` controls the `boot` image.
+`build_vendor_boot` controls the `vendor_boot` image. Setting
 `build_vendor_boot = True` requires `build_boot = True`.
 
 See [documentation for all rules].

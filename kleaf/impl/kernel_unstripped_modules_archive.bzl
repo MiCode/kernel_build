@@ -76,8 +76,6 @@ kernel_unstripped_modules_archive = rule(
     implementation = _kernel_unstripped_modules_archive_impl,
     doc = """Compress the unstripped modules into a tarball.
 
-This is the equivalent of `COMPRESS_UNSTRIPPED_MODULES=1` in `build.sh`.
-
 Add this target to a `copy_to_dist_dir` rule to copy it to the distribution
 directory, or `DIST_DIR`.
 """,

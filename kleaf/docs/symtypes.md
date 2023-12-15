@@ -1,7 +1,7 @@
 # `KBUILD_SYMTYPES`
 
-The equivalent of setting `KBUILD_SYMTYPES=1` in `build/build.sh` is the
-`--kbuild_symtypes` flag. For example:
+Build symtypes files can be enabled with the `--kbuild_symtypes` flag.
+For example:
 
 ```shell
 $ bazel build --kbuild_symtypes //common:kernel_aarch64

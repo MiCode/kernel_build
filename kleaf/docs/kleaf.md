@@ -1,26 +1,5 @@
 # Kleaf - Building Android Kernels with Bazel
 
-## Background
-
-The canonical way to
-[build Android kernels](https://source.android.com/setup/build/building-kernels)
-is with
-[`build/build.sh`](https://android.googlesource.com/kernel/build/+/refs/heads/main/build.sh).
-While proven and robust, `build.sh` exposes users, kernel engineers and kernel
-build engineers to issues that are hard to resolve within the current
-implementation. Hence, alternative approaches of building Android Kernels are
-being researched. This project aims to implement Android Kernel builds with
-[Bazel](https://bazel.build/) while preserving all relevant features that make
-`build.sh` so well accepted in the Android ecosystem. Bazel has been chosen as
-the
-[future build system for the Android platform](https://opensource.googleblog.com/2020/11/welcome-android-open-source-project.html).
-
-## Using Kleaf
-
-As of today, *Kleaf* does not support the same feature set as `build/build.sh`.
-Nevertheless, some targets work and can be exercised. In particular this might
-be helpful to evaluate any future infrastructure integrations.
-
 ### Prerequisites
 
 There are no additional host dependencies. The Bazel toolchain and environment
@@ -115,13 +94,6 @@ kernel_build(
 )
 ```
 
-`bazel build kernel` is then comparable the equivalent `build/build.sh`
-invocation (though limited to the currently available features in *Kleaf*):
-
-```
- $ BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
-```
-
 The `kernel_module()` macro defines a kernel module target. Example:
 
 ```
@@ -148,10 +120,7 @@ See [API Reference and Documentation for all rules](api_reference.md)
 
 ## Availability
 
-Current plans are to make *Kleaf* available for Android 13 and later kernels. As
-of now (Jul 2021), these are `android13-5.10` and `android-mainline`. During
-development, `android-mainline` will usually work, while `android13-5.10` might
-occasionally be broken or missing latest backports.
+*Kleaf* is available for Android 13 and later kernels.
 
 ## FAQ
 
@@ -166,11 +135,6 @@ Yes! `build.config` files still describe the build environment. Though they get
 treated as hermetic input. Further, some features might not be supported yet or
 never will be as they do not make sense in a Bazel-based build (e.g.
 `SKIP_MRPROPER` is implicit).
-
-**Question:** When will it be available?
-
-Plans are to support Bazel-based Android Kernel builds with Android 13, that is
-on `android13-*` or later kernel branches.
 
 **Question:** Why the name "*Kleaf*"?
 

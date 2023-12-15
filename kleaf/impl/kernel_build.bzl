@@ -363,8 +363,6 @@ def kernel_build(
           and the KMI resulting from the build, to ensure
           they match 1-1.
         collect_unstripped_modules: If `True`, provide all unstripped in-tree.
-
-          Approximately equivalent to `UNSTRIPPED_MODULES=*` in `build.sh`.
         enable_interceptor: If set to `True`, enable interceptor so it can be
           used in [`kernel_compile_commands`](#kernel_compile_commands).
         kbuild_symtypes: The value of `KBUILD_SYMTYPES`.

@@ -31,8 +31,7 @@ without the sandbox when `--config=local`. The exact list of types of actions
 are an implementation detail. If other types of actions were executed without
 the sandbox, they might interfere with each other when executed in parallel.
 
-When building with `--config=local`, `$OUT_DIR` is cached. This is approximately
-equivalent to building with `SKIP_MRPROPER=1 build/build.sh`.
+When building with `--config=local`, `$OUT_DIR` is cached.
 
 To clean the cache, run
 

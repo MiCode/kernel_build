@@ -1,11 +1,11 @@
 # `get_kernel_output`
 
-The `OUT_DIR` is hidden inside kleaf, unlike build.sh, we cannot get the path of `OUT_DIR`
+The `OUT_DIR` is hidden inside Kleaf, and we cannot get the path of `OUT_DIR`
 before build system starting. Unfortunately, some of automatically debugging and
 analyzing tools which need static `OUT_DIR` path would be broken.
 
-`--preserve_kbuild_output` is for compatibility with Linux build and build.sh build
-which get `O`, a.k.a. `OUT_DIR` in kleaf, easily and get everything unconditionally.
+`--preserve_kbuild_output` is for compatibility with Linux build which get `O`,
+a.k.a. `OUT_DIR` in Kleaf, easily and get everything unconditionally.
 
 This is only for debugging or analyzing which would NOT affect any sandbox or caching
 mechanism (e.g. config=local) in Bazel.

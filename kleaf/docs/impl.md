@@ -223,8 +223,7 @@ copy_to_dist_dir(
 )
 ```
 
-Add the following to the `data` attribute of the `copy_to_dist_dir` target so
-that the outputs are analogous to those produced by `build/build.sh`:
+Add the following to the `data` attribute of the `copy_to_dist_dir` target:
 
 * The name of the `kernel_build` you have created in Step 1,
   e.g. `:tuna`. This adds all `outs`
