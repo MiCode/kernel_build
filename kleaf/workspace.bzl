@@ -133,6 +133,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         build_file = "build/kernel/kleaf/libcap_ng.BUILD",
     )
 
+    new_kleaf_local_repository(
+        name = "zopfli",
+        path = "external/zopfli",
+        build_file = "build/kernel/kleaf/zopfli.BUILD",
+    )
+
     key_value_repo(
         name = "kernel_toolchain_info",
         srcs = ["{}:build.config.constants".format(common_kernel_package)],
