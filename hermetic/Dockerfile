@@ -22,6 +22,11 @@ RUN ln -s $(which git) /l/bin/
 COPY build /l/build
 RUN chmod a+rx /l/build
 
+# Satisfy some bazel requirements to locate a writable cache directory
+RUN chmod 777 /home
+ENV USER=build
+ENV HOME=/home
+
 # Run the build runner if no other command is given
 CMD /l/build
 
