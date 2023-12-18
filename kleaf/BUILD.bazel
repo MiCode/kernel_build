@@ -401,6 +401,20 @@ config_setting(
     visibility = ["//build/kernel:__pkg__"],
 )
 
+# Default is false.
+# If true, use pigz as drop-in replacement for gzip.
+bool_flag(
+    name = "gzip_is_pigz",
+    build_setting_default = False,
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "gzip_is_pigz_is_true",
+    flag_values = {":gzip_is_pigz": "1"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
 # Debug options
 
 # Flag to control whether enable debug features in the kernel

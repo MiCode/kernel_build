@@ -67,7 +67,6 @@ _HERMETIC_TOOLS = [
     "build-tools/path/linux-x86/flex",
     "build-tools/path/linux-x86/getconf",
     "build-tools/path/linux-x86/grep",
-    "build-tools/path/linux-x86/gzip",
     "build-tools/path/linux-x86/head",
     "build-tools/path/linux-x86/hostname",
     "build-tools/path/linux-x86/id",
@@ -304,6 +303,13 @@ hermetic_tools(
         },
         "//conditions:default": {
             "build-tools/path/linux-x86/find": "find",
+        },
+    }) | select({
+        "//build/kernel/kleaf:gzip_is_pigz_is_true": {
+            "@pigz": "gzip",
+        },
+        "//conditions:default": {
+            "build-tools/path/linux-x86/gzip": "gzip",
         },
     }) | {
         "//prebuilts/build-tools:linux-x86/bin/toybox": ":".join(_ADDITIONAL_TOYS),
