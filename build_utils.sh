@@ -680,12 +680,12 @@ function gki_get_boot_img_size() {
   echo "${!boot_size_var}"
 }
 
-# gki_add_avb_footer <image> <partition_size> <security_patch_month>
+# gki_add_avb_footer <image> <partition_size> <security_patch_level>
 function gki_add_avb_footer() {
-  local spl_month="$3"
+  local spl_date="$3"
   local additional_props=""
-  if [ -n "${spl_month}" ]; then
-    additional_props="--prop com.android.build.boot.security_patch:$(date +'%Y')-${spl_month}-05"
+  if [ -n "${spl_date}" ]; then
+    additional_props="--prop com.android.build.boot.security_patch:${spl_date}"
   fi
 
   avbtool add_hash_footer --image "$1" \
@@ -693,18 +693,18 @@ function gki_add_avb_footer() {
     ${additional_props}
 }
 
-# gki_dry_run_certify_bootimg <boot_image> <gki_artifacts_info_file> <security_patch_month>
+# gki_dry_run_certify_bootimg <boot_image> <gki_artifacts_info_file> <security_patch_level>
 # The certify_bootimg script will be executed on a server over a GKI
 # boot.img during the official certification process, which embeds
 # a GKI certificate into the boot.img. The certificate is for Android
 # VTS to verify that a GKI boot.img is authentic.
 # Dry running the process here so we can catch related issues early.
 function gki_dry_run_certify_bootimg() {
-  local spl_month="$3"
+  local spl_date="$3"
   local additional_props=()
-  if [ -n "${spl_month}" ]; then
+  if [ -n "${spl_date}" ]; then
     additional_props+=("--extra_footer_args" \
-      "--prop com.android.build.boot.security_patch:$(date +'%Y')-${spl_month}-05")
+      "--prop com.android.build.boot.security_patch:${spl_date}")
   fi
 
   certify_bootimg --boot_img "$1" \
@@ -776,16 +776,28 @@ function build_gki_boot_images() {
     "${MKBOOTIMG_PATH}" "${GKI_MKBOOTIMG_ARGS[@]}"
 
     if [[ -z "${BUILD_GKI_BOOT_SKIP_AVB}" ]]; then
-      local spl_month=$(date +'%m')
+      # Pick a SPL date far enough in the future so that you can flash
+      # development GKI kernels on an unlocked device without wiping the
+      # userdata. This is for development purposes only and should be
+      # overwritten by the Android platform build to include an accurate SPL.
+      # Note, the certified GKI release builds will not include the SPL
+      # property.
+      local spl_month=$((($(date +'%m') + 3) % 12))
+      local spl_year="$(date +'%Y')"
       if [ $((${spl_month} % 3)) -gt 0 ]; then
-        # Round up to the closest quarterly month
+        # Round up to the next quarterly platform release (QPR) month
         spl_month=$((${spl_month} + 3 - (${spl_month} % 3)))
       fi
+      if [ "${spl_month}" -lt "$(date +'%m')" ]; then
+        # rollover to the next year
+        spl_year="$((${spl_year} + 1))"
+      fi
+      local spl_date=$(printf "%d-%02d-05\n" ${spl_year} ${spl_month})
 
       gki_add_avb_footer "${boot_image_path}" \
-        "$(gki_get_boot_img_size "${compression}")" "${spl_month}"
+        "$(gki_get_boot_img_size "${compression}")" "${spl_date}"
       gki_dry_run_certify_bootimg "${boot_image_path}" \
-        "${GKI_ARTIFACTS_INFO_FILE}" "${spl_month}"
+        "${GKI_ARTIFACTS_INFO_FILE}" "${spl_date}"
     fi
     images_to_pack+=("${boot_image}")
   done
