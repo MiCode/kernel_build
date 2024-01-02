@@ -47,6 +47,8 @@ def kernel_images(
         boot_image_outs = None,
         gki_ramdisk_prebuilt_binary = None,
         modules_list = None,
+        modules_recovery_list = None,
+        modules_charger_list = None,
         modules_blocklist = None,
         modules_options = None,
         vendor_ramdisk_binaries = None,
@@ -118,6 +120,8 @@ def kernel_images(
           - For `initramfs`:
             - The file specified by `MODULES_LIST`
             - The file specified by `MODULES_BLOCKLIST`, if `MODULES_BLOCKLIST` is set
+            - The file containing the list of modules needed for booting into recovery.
+            - The file containing the list of modules needed for booting into charger mode.
           - For `vendor_dlkm` image:
             - The file specified by `VENDOR_DLKM_MODULES_LIST`
             - The file specified by `VENDOR_DLKM_MODULES_BLOCKLIST`, if set
@@ -212,6 +216,10 @@ def kernel_images(
         modules_list: A file containing list of modules to use for `vendor_boot.modules.load`.
 
           This corresponds to `MODULES_LIST` in `build.config` for `build.sh`.
+        modules_recovery_list: A file containing a list of modules to load when booting into
+          recovery.
+        modules_charger_list: A file containing a list of modules to load when booting into
+          charger mode.
         modules_blocklist: A file containing a list of modules which are
           blocked from being loaded.
 
@@ -374,12 +382,23 @@ def kernel_images(
     if build_vendor_kernel_boot and "vendor_kernel_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_kernel_boot.img")
 
+    vendor_boot_name = None
+    if build_vendor_boot:
+        vendor_boot_name = "vendor_boot"
+    elif build_vendor_kernel_boot:
+        vendor_boot_name = "vendor_kernel_boot"
+
     vendor_boot_modules_load = None
+    vendor_boot_modules_load_recovery = None
+    vendor_boot_modules_load_charger = None
     if build_initramfs:
-        if build_vendor_boot:
-            vendor_boot_modules_load = "{}_initramfs/vendor_boot.modules.load".format(name)
-        elif build_vendor_kernel_boot:
-            vendor_boot_modules_load = "{}_initramfs/vendor_kernel_boot.modules.load".format(name)
+        vendor_boot_modules_load = "{}_initramfs/{}.modules.load".format(name, vendor_boot_name)
+
+        if modules_recovery_list:
+            vendor_boot_modules_load_recovery = "{}_initramfs/{}.modules.load.recovery".format(name, vendor_boot_name)
+
+        if modules_charger_list:
+            vendor_boot_modules_load_charger = "{}_initramfs/{}.modules.load.charger".format(name, vendor_boot_name)
 
         if ramdisk_compression_args and ramdisk_compression != "lz4":
             fail(
@@ -393,7 +412,11 @@ def kernel_images(
             kernel_modules_install = kernel_modules_install,
             deps = deps,
             vendor_boot_modules_load = vendor_boot_modules_load,
+            vendor_boot_modules_load_recovery = vendor_boot_modules_load_recovery,
+            vendor_boot_modules_load_charger = vendor_boot_modules_load_charger,
             modules_list = modules_list,
+            modules_recovery_list = modules_recovery_list,
+            modules_charger_list = modules_charger_list,
             modules_blocklist = modules_blocklist,
             modules_options = modules_options,
             ramdisk_compression = ramdisk_compression,
@@ -445,12 +468,6 @@ def kernel_images(
         all_rules.append(":{}_vendor_dlkm_image".format(name))
 
     if build_any_boot_image:
-        if build_vendor_kernel_boot:
-            vendor_boot_name = "vendor_kernel_boot"
-        elif build_vendor_boot:
-            vendor_boot_name = "vendor_boot"
-        else:
-            vendor_boot_name = None
         boot_images(
             name = "{}_boot_images".format(name),
             kernel_build = kernel_build,
