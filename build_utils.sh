@@ -537,11 +537,21 @@ function build_boot_images() {
   if [ -n "${KERNEL_CMDLINE}" ]; then
     MKBOOTIMG_ARGS+=("--cmdline" "${KERNEL_CMDLINE}")
   fi
+  # TODO: b/236012223 - [Kleaf] Migrate all build configs to BUILD.bazel
+  #
+  # These *_OFFSET variables should be migrated to be specified as attributes
+  # for the kernel_images() macro.
   if [ -n "${TAGS_OFFSET}" ]; then
     MKBOOTIMG_ARGS+=("--tags_offset" "${TAGS_OFFSET}")
   fi
   if [ -n "${RAMDISK_OFFSET}" ]; then
     MKBOOTIMG_ARGS+=("--ramdisk_offset" "${RAMDISK_OFFSET}")
+  fi
+  if [ -n "${DTB_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--dtb_offset" "${DTB_OFFSET}")
+  fi
+  if [ -n "${KERNEL_OFFSET}" ]; then
+    MKBOOTIMG_ARGS+=("--kernel_offset" "${KERNEL_OFFSET}")
   fi
 
   DTB_FILE_LIST=$(find ${DIST_DIR} -name "*.dtb" | sort)
