@@ -105,7 +105,7 @@ def ddk_headers_common_impl(label, hdrs, includes, linux_includes):
 def _ddk_headers_impl(ctx):
     ddk_headers_info = ddk_headers_common_impl(
         ctx.label,
-        ctx.attr.hdrs,
+        ctx.attr.hdrs + ctx.attr.textual_hdrs,
         ctx.attr.includes,
         ctx.attr.linux_includes,
     )
@@ -123,7 +123,8 @@ Example:
 ```
 ddk_headers(
    name = "headers",
-   hdrs = ["include/module.h"]
+   hdrs = ["include/module.h"],
+   textual_hdrs = ["template.c"],
    includes = ["include"],
 )
 ```
@@ -150,6 +151,14 @@ ddk_headers(
 - Local header files to be exported. You may also need to set the `includes` attribute.
 - Other `ddk_headers` targets to be re-exported.
 """),
+        "textual_hdrs": attr.label_list(
+            allow_files = True,
+            doc = """The list of header files to be textually included by sources.
+
+This is the location for declaring header files that cannot be compiled on their own;
+that is, they always need to be textually included by other source files to build valid code.
+""",
+        ),
         "includes": attr.string_list(
             doc = """A list of directories, relative to the current package, that are re-exported as include directories.
 

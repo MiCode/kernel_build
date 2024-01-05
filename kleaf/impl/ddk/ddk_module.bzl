@@ -27,6 +27,7 @@ def ddk_module(
         srcs = None,
         deps = None,
         hdrs = None,
+        textual_hdrs = None,
         includes = None,
         conditional_srcs = None,
         linux_includes = None,
@@ -49,6 +50,7 @@ def ddk_module(
         out = "my_module.ko",
         # Exported headers
         hdrs = ["include/my_module_exported.h"],
+        textual_hdrs = ["my_template.c"],
         includes = ["include"],
     )
     ```
@@ -66,11 +68,11 @@ def ddk_module(
       are multiple `ddk_module`s depending on a
       [`glob`](https://bazel.build/reference/be/functions#glob) of headers or a large list
       of headers.
-    - Using `hdrs` and `includes` of this target.
+    - Using `hdrs`, `textual_hdrs` and `includes` of this target.
 
-    `hdrs` and `includes` have the same semantics as [`ddk_headers`](#ddk_headers). That is,
-    this target effectively acts as a `ddk_headers` target when specified in the `deps` attribute
-    of another `ddk_module`. In other words, the following code snippet:
+    `hdrs`, `textual_hdrs` and `includes` have the same semantics as [`ddk_headers`](#ddk_headers).
+    That is, this target effectively acts as a `ddk_headers` target when specified in the `deps`
+    attribute of another `ddk_module`. In other words, the following code snippet:
 
     ```
     ddk_module(name = "module_A", hdrs = [...], includes = [...], ...)
@@ -218,6 +220,7 @@ def ddk_module(
             - [`ddk_module`](#ddk_module)
             - [`ddk_headers`](#ddk_headers).
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
+        textual_hdrs: See [`ddk_headers.textual_hdrs`](#ddk_headers-textual_hdrs)
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         linux_includes: See [`ddk_headers.linux_includes`](#ddk_headers-linux_includes)
         kernel_build: [`kernel_build`](#kernel_build)
@@ -402,6 +405,7 @@ def ddk_module(
         name = name + "_makefiles",
         module_srcs = (srcs or []) + flattened_conditional_srcs,
         module_hdrs = hdrs,
+        module_textual_hdrs = textual_hdrs,
         module_includes = includes,
         module_linux_includes = linux_includes,
         module_out = out,

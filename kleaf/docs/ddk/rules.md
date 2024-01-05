@@ -13,6 +13,7 @@ DDK provides the following rules and macros to define DDK modules.
 A `ddk_headers` target consists of the following:
 
 - A list of header `.h` files, that `ddk_module`s depending on it can use.
+- A list of textual header files, that `ddk_module`s depending on it can use.
 - A list of include directories that `ddk_module`s depending on it
   will add to their include lookup path (corresponding to the `-I` option).
 
