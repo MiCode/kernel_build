@@ -212,7 +212,8 @@ def define_common_kernels(
     kernels and their variants. They are defined based on the conventionally
     used `BUILD_CONFIG` file and produce usual output files.
 
-    Targets declared for kernel build (parent list item depends on child list item):
+    Targets declared for kernel build (parent list item depends on child list item;
+    deprecated targets not listed):
     - `kernel_aarch64_sources`
     - `kernel_aarch64_dist`
       - `kernel_aarch64`
@@ -222,8 +223,6 @@ def define_common_kernels(
     - `kernel_aarch64_16k_dist`
       - `kernel_aarch64_16k`
       - `kernel_aarch64_modules`
-    - `kernel_aarch64_debug_dist`
-      - `kernel_aarch64_debug`
     - `kernel_riscv64_dist`
       - `kernel_riscv64`
     - `kernel_x86_64_sources`
@@ -231,10 +230,8 @@ def define_common_kernels(
       - `kernel_x86_64`
       - `kernel_x86_64_uapi_headers`
       - `kernel_x86_64_additional_artifacts`
-    - `kernel_x86_64_debug_dist`
-      - `kernel_x86_64_debug`
 
-    `<name>` (aka `kernel_{aarch64,riscv64,x86_64}{_16k,_debug}`) targets build the
+    `<name>` (aka `kernel_{aarch64,riscv64,x86_64}{_16k,}`) targets build the
     main kernel build artifacts, e.g. `vmlinux`, etc.
 
     `<name>_sources` are convenience filegroups that refers to all sources required to
@@ -259,11 +256,8 @@ def define_common_kernels(
 
     Targets declared for Bazel rules analysis for debugging purposes:
     - `kernel_aarch64_print_configs`
-    - `kernel_aarch64_debug_print_configs`
     - `kernel_riscv64_print_configs`
-    - `kernel_riscv64_debug_print_configs`
     - `kernel_x86_64_print_configs`
-    - `kernel_x86_64_debug_print_configs`
 
     **ABI monitoring**
     On branches with ABI monitoring turned on (aka KMI symbol lists are checked
@@ -344,10 +338,8 @@ def define_common_kernels(
         The keys of the `target_configs` may be one of the following:
         - `kernel_aarch64`
         - `kernel_aarch64_16k`
-        - `kernel_aarch64_debug`
         - `kernel_riscv64`
         - `kernel_x86_64`
-        - `kernel_x86_64_debug`
 
         The values of the `target_configs` should be a dictionary, where keys
         are one of the following, and values are passed to the corresponding
@@ -398,11 +390,6 @@ def define_common_kernels(
           - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
           - `TRIM_NONLISTED_KMI` is not specified in `build.config`
           - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
-        - `kernel_aarch64_debug`:
-          - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
-          - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
-          - `TRIM_NONLISTED_KMI=""` in `build.config`
-          - `KMI_SYMBOL_LIST_STRICT_MODE=""` in `build.config`
         - `kernel_riscv64`:
           - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
           - `TRIM_NONLISTED_KMI` is not specified in `build.config`
@@ -410,10 +397,6 @@ def define_common_kernels(
         - `kernel_x86_64`:
           - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
           - `TRIM_NONLISTED_KMI` is not specified in `build.config`
-          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
-        - `kernel_x86_64_debug`:
-          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
-          - `TRIM_NONLISTED_KMI=""` in `build.config`
           - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
 
         That is, the default value is:
@@ -440,17 +423,9 @@ def define_common_kernels(
             },
             "kernel_aarch64_16k": {
             },
-            "kernel_aarch64_debug": {
-                "kmi_symbol_list": aarch64_kmi_symbol_list,
-                "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-                "trim_nonlisted_kmi": False,
-            },
             "kernel_riscv64": {
             },
             "kernel_x86_64": {
-            },
-            "kernel_x86_64_debug": {
-                "trim_nonlisted_kmi": False,
             },
         }
         ```
@@ -470,17 +445,11 @@ def define_common_kernels(
         |`kernel_aarch64_16k`               |NO TRIM       |
         |(`trim_nonlisted_kmi=None`)        |              |
         |-----------------------------------|--------------|
-        |`kernel_aarch64_debug`             |NO TRIM       |
-        |(`trim_nonlisted_kmi=False`)       |              |
-        |-----------------------------------|--------------|
         |`kernel_riscv64`                   |NO TRIM       |
         |(`trim_nonlisted_kmi=None`)        |              |
         |-----------------------------------|--------------|
         |`kernel_x86_64`                    |NO TRIM       |
         |(`trim_nonlisted_kmi=None`)        |              |
-        |-----------------------------------|--------------|
-        |`kernel_x86_64_debug`              |NO TRIM       |
-        |(`trim_nonlisted_kmi=False`)       |              |
 
         To print the actual configurations for debugging purposes for e.g.
         `//common:kernel_aarch64`:
