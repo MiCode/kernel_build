@@ -157,7 +157,7 @@ def _kernel_env_impl(ctx):
         command += """
               export KCONFIG_EXT={kconfig_ext}
             """.format(
-            kconfig_ext = kconfig_ext.short_path,
+            kconfig_ext = kconfig_ext.path,
         )
     if dtstree_makefile:
         command += """
