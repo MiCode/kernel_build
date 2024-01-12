@@ -182,6 +182,17 @@ def get_git_log(old_sha, new_sha, path=get_kernel_dir()):
                                             cwd=path) + "\n"
   return gitlog
 
+def get_android_version(branch):
+  """Given a branch name, return the android version as an int.
+
+  Note: It does not handle aosp_kernel-common-android-mainline case.
+  """
+  pattern = "android(?P<android_version>\d\d)-(\d+\.\d+|\w\+)(-lts)?(-\d{4}-\d{2})?$"
+  result = re.search(pattern, branch)
+  if not result:
+    raise Exception("Could not determine android version in branch " + branch)
+  return int(result.group('android_version'))
+
 def commit_prebuilts(output_dir, gitlog, name="kernel"):
   commit_message = ("Update {} to builds {}\n"
                     "\n"
@@ -487,7 +498,7 @@ def update_androidx_cf(gitlog, output_dir, version):
   if os.path.exists(i686_cf_dir) or os.path.exists(rockpi_cf_dir):
     commit_prebuilts(cf_dir, gitlog)
 
-def update_androidx(output_dir, version):
+def update_androidx(output_dir, version, android_version):
   arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", version, "arm64")
   x86_64_dir = os.path.join(output_dir, "kernel", "prebuilts", version,
                             "x86_64")
@@ -499,7 +510,10 @@ def update_androidx(output_dir, version):
   download_kernel("kernel_debug_aarch64", version, arm64_dir)
   download_kernel("kernel_aarch64", version, arm64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_aarch64", arm64_dir)
-  get_abi_definition("kernel_abi_aarch64", arm64_dir)
+  if android_version >= 15:
+    get_abi_definition("kernel_aarch64", arm64_dir)
+  else:
+    get_abi_definition("kernel_abi_aarch64", arm64_dir)
   write_prebuilt_info(arm64_dir)
   (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
   gitlog = get_git_log(old_sha, new_sha)
@@ -510,8 +524,8 @@ def update_androidx(output_dir, version):
   download_kernel("kernel_debug_x86_64", version, x86_64_dir)
   download_kernel("kernel_x86_64", version, x86_64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_x86_64", x86_64_dir)
-  # TODO(b/151893768) Re-enable when support for x86_64 was added.
-  # get_abi_definition("kernel_x86_64", x86_64_dir)
+  if android_version >= 15:
+    get_abi_definition("kernel_x86_64", x86_64_dir)
   write_prebuilt_info(x86_64_dir)
   commit_prebuilts(x86_64_dir, gitlog)
 
@@ -546,7 +560,7 @@ def update_android_mainline(output_dir):
   download_kernel("kernel_debug_aarch64", "mainline", arm64_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_aarch64", arm64_dir)
   write_prebuilt_info(arm64_dir)
-  get_abi_definition("kernel_abi_aarch64", arm64_dir)
+  get_abi_definition("kernel_aarch64", arm64_dir)
 
   (new_version, new_sha) = get_binary_kernel_version(x86_64_kernel)
 
@@ -609,7 +623,7 @@ def update_gki():
   elif branch == "aosp_kernel-common-android-mainline":
     update_android_mainline(output_dir)
   else:
-    update_androidx(output_dir, get_build_kernel_version(data))
+    update_androidx(output_dir, get_build_kernel_version(data), get_android_version(branch))
 
 def download_u_boot(target, output_dir):
   if not os.path.isdir(output_dir):
