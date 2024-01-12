@@ -151,7 +151,7 @@ def _get_top_level_file_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     command = hermetic_tools.setup + """
         if [[ -f {src} ]]; then
-            cp -pl {src} {out}
+            cp -pL {src} {out}
         else
             : > {out}
         fi
