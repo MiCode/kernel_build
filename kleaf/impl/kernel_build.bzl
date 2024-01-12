@@ -867,7 +867,7 @@ def _create_kbuild_mixed_tree(ctx):
             rm -rf ${{KBUILD_MIXED_TREE}}
             mkdir -p ${{KBUILD_MIXED_TREE}}
             for base_kernel_file in {base_kernel_files}; do
-              ln -s $(readlink -m ${{base_kernel_file}}) ${{KBUILD_MIXED_TREE}}
+              cp -a -t ${{KBUILD_MIXED_TREE}} $(readlink -m ${{base_kernel_file}})
             done
         """.format(
             base_kernel_files = " ".join([file.path for file in base_kernel_files.to_list()]),
