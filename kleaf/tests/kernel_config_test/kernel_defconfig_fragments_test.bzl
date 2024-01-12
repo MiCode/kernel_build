@@ -73,7 +73,7 @@ def _get_config_impl(ctx):
     out = ctx.actions.declare_file("{}/.config".format(ctx.label.name))
     hermetic_tools = hermetic_toolchain.get(ctx)
     command = hermetic_tools.setup + """
-        cp -pl {out_dir}/.config {out}
+        cp -pL {out_dir}/.config {out}
     """.format(
         out_dir = out_dir.path,
         out = out.path,
