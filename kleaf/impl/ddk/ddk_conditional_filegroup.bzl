@@ -122,7 +122,7 @@ This should be set to `_DDK_CONDITIONAL_TRUE` when `True` is in
 """,
         ),
         "srcs": attr.label_list(
-            allow_files = [".c", ".h", ".s", ".rs"],
+            allow_files = [".c", ".h", ".S", ".rs"],
             doc = "See [`ddk_module.srcs`](#ddk_module-srcs).",
         ),
     },
