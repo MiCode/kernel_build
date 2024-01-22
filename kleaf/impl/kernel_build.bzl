@@ -1201,7 +1201,7 @@ def _get_grab_gcno_step(ctx):
                 inputs.append(base_kernel[GcovInfo].gcno_dir)
                 base_kernel_gcno_dir_cmd = """
                     # Copy all *.gcno files and its subdirectories recursively.
-                    rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' {base_gcno_dir}/ {gcno_dir}/
+                    rsync -a -L --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' {base_gcno_dir}/ {gcno_dir}/
                 """.format(
                     base_gcno_dir = base_kernel[GcovInfo].gcno_dir.path,
                     gcno_dir = gcno_dir.path,
