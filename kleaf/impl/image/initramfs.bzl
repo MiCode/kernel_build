@@ -31,6 +31,8 @@ def _initramfs_impl(ctx):
     initramfs_img = ctx.actions.declare_file("{}/initramfs.img".format(ctx.label.name))
     modules_load = ctx.actions.declare_file("{}/modules.load".format(ctx.label.name))
     vendor_boot_modules_load = ctx.outputs.vendor_boot_modules_load
+    vendor_boot_modules_load_recovery = ctx.outputs.vendor_boot_modules_load_recovery
+    vendor_boot_modules_load_charger = ctx.outputs.vendor_boot_modules_load_charger
     initramfs_staging_archive = ctx.actions.declare_file("{}/initramfs_staging_archive.tar.gz".format(ctx.label.name))
 
     outputs = [
@@ -39,6 +41,12 @@ def _initramfs_impl(ctx):
     ]
     if vendor_boot_modules_load:
         outputs.append(vendor_boot_modules_load)
+
+    if vendor_boot_modules_load_recovery:
+        outputs.append(vendor_boot_modules_load_recovery)
+
+    if vendor_boot_modules_load_charger:
+        outputs.append(vendor_boot_modules_load_charger)
 
     modules_staging_dir = initramfs_img.dirname + "/staging"
     initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
@@ -49,6 +57,30 @@ def _initramfs_impl(ctx):
                cp ${{modules_root_dir}}/modules.load {vendor_boot_modules_load}
         """.format(
             vendor_boot_modules_load = vendor_boot_modules_load.path,
+        )
+
+    cp_vendor_boot_modules_load_recovery_cmd = ""
+    if vendor_boot_modules_load_recovery:
+        modules_load_recovery = ctx.actions.declare_file("{}/modules.load.recovery".format(ctx.label.name))
+        outputs.append(modules_load_recovery)
+        cp_vendor_boot_modules_load_recovery_cmd = """
+               cp ${{modules_root_dir}}/modules.load.recovery {modules_load_recovery}
+               cp ${{modules_root_dir}}/modules.load.recovery {vendor_boot_modules_load_recovery}
+        """.format(
+            modules_load_recovery = modules_load_recovery.path,
+            vendor_boot_modules_load_recovery = vendor_boot_modules_load_recovery.path,
+        )
+
+    cp_vendor_boot_modules_load_charger_cmd = ""
+    if vendor_boot_modules_load_charger:
+        modules_load_charger = ctx.actions.declare_file("{}/modules.load.charger".format(ctx.label.name))
+        outputs.append(modules_load_charger)
+        cp_vendor_boot_modules_load_charger_cmd = """
+               cp ${{modules_root_dir}}/modules.load.charger {modules_load_charger}
+               cp ${{modules_root_dir}}/modules.load.charger {vendor_boot_modules_load_charger}
+        """.format(
+            modules_load_charger = modules_load_charger.path,
+            vendor_boot_modules_load_charger = vendor_boot_modules_load_charger.path,
         )
 
     additional_inputs = []
@@ -75,10 +107,13 @@ def _initramfs_impl(ctx):
                mkdir -p {initramfs_staging_dir}
              # Build initramfs
                create_modules_staging "${{MODULES_LIST}}" {modules_staging_dir} \
-                 {initramfs_staging_dir} "${{MODULES_BLOCKLIST}}" "-e"
+                       {initramfs_staging_dir} "${{MODULES_BLOCKLIST}}" \
+                       "${{MODULES_RECOVERY_LIST:-""}}" "${{MODULES_CHARGER_LIST:-""}}" "-e"
                modules_root_dir=$(readlink -e {initramfs_staging_dir}/lib/modules/*) || exit 1
                cp ${{modules_root_dir}}/modules.load {modules_load}
                {cp_vendor_boot_modules_load_cmd}
+               {cp_vendor_boot_modules_load_recovery_cmd}
+               {cp_vendor_boot_modules_load_charger_cmd}
                {cp_modules_options_cmd}
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
                {ramdisk_compress} "{modules_staging_dir}/initramfs.cpio" >"{initramfs_img}"
@@ -94,6 +129,8 @@ def _initramfs_impl(ctx):
         initramfs_img = initramfs_img.path,
         initramfs_staging_archive = initramfs_staging_archive.path,
         cp_vendor_boot_modules_load_cmd = cp_vendor_boot_modules_load_cmd,
+        cp_vendor_boot_modules_load_recovery_cmd = cp_vendor_boot_modules_load_recovery_cmd,
+        cp_vendor_boot_modules_load_charger_cmd = cp_vendor_boot_modules_load_charger_cmd,
         cp_modules_options_cmd = cp_modules_options_cmd,
     )
 
@@ -125,7 +162,11 @@ initramfs = rule(
 When included in a `copy_to_dist_dir` rule, this rule copies the following to `DIST_DIR`:
 - `initramfs.img`
 - `modules.load`
+- `modules.load.recovery`
+- `modules.load.charger`
 - `vendor_boot.modules.load`
+- `vendor_boot.modules.load.recovery`
+- `vendor_boot.modules.load.charger`
 
 An additional label, `{name}/vendor_boot.modules.load`, is declared to point to the
 corresponding files.
@@ -134,7 +175,15 @@ corresponding files.
         "vendor_boot_modules_load": attr.output(
             doc = "`vendor_boot.modules.load` or `vendor_kernel_boot.modules.load`",
         ),
+        "vendor_boot_modules_load_recovery": attr.output(
+            doc = "`vendor_boot.modules.load.recovery` or `vendor_kernel_boot.modules.load.recovery`",
+        ),
+        "vendor_boot_modules_load_charger": attr.output(
+            doc = "`vendor_boot.modules.load.charger` or `vendor_kernel_boot.modules.load.charger`",
+        ),
         "modules_list": attr.label(allow_single_file = True),
+        "modules_recovery_list": attr.label(allow_single_file = True),
+        "modules_charger_list": attr.label(allow_single_file = True),
         "modules_blocklist": attr.label(allow_single_file = True),
         "modules_options": attr.label(allow_single_file = True),
         "ramdisk_compression": attr.string(
