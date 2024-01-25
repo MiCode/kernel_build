@@ -16,7 +16,7 @@
 Defines repositories in a Kleaf workspace.
 """
 
-load("//build/bazel_common_rules/workspace:external.bzl", "import_external_repositories")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//build/kernel/kleaf:constants.bzl",
     "CI_TARGET_MAPPING",
@@ -61,11 +61,28 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
             repr(common_kernel_package),
         ))
 
-    import_external_repositories(
-        # keep sorted
-        bazel_skylib = True,
-        io_abseil_py = True,
-        io_bazel_stardoc = True,
+    maybe(
+        repo_rule = native.local_repository,
+        name = "bazel_skylib",
+        path = "external/bazel-skylib",
+    )
+
+    maybe(
+        repo_rule = native.local_repository,
+        name = "io_abseil_py",
+        path = "external/python/absl-py",
+    )
+
+    maybe(
+        repo_rule = native.local_repository,
+        name = "io_bazel_stardoc",
+        path = "external/stardoc",
+    )
+
+    maybe(
+        repo_rule = native.local_repository,
+        name = "rules_rust",
+        path = "external/bazelbuild-rules_rust",
     )
 
     # The prebuilt NDK does not support Bazel.
