@@ -81,8 +81,7 @@ register_toolchains(
     "//prebuilts/build-tools:py_toolchain",
 )
 
-# BCR_UPDATER_MARKER: <bazel_dep>
-
+# TODO(b/276493276): Resolve the issue of these versions getting outdated.
 bazel_dep(
     name = "abseil-py",
     version = "1.4.0",
@@ -105,7 +104,6 @@ bazel_dep(
     version = "0.9.1",
 )
 
-# Dev dependencies
 bazel_dep(
     name = "stardoc",
     version = "0.5.3",
@@ -113,59 +111,53 @@ bazel_dep(
     repo_name = "io_bazel_stardoc",
 )
 
-# BCR_UPDATER_MARKER: </bazel_dep>
-
-# DO NOT EDIT TEXT BELOW MANUALLY!
-# BCR_UPDATER_MARKER: <single_version_override>
-
-single_version_override(
+local_path_override(
     module_name = "abseil-py",
-    version = "1.4.0",
+    path = "external/python/absl-py",
 )
 
-single_version_override(
+local_path_override(
     module_name = "apple_support",
-    version = "1.11.1",
+    path = "external/bazelbuild-apple_support",
 )
 
-single_version_override(
+local_path_override(
     module_name = "bazel_skylib",
-    version = "1.5.0",
+    path = "external/bazel-skylib",
 )
 
-single_version_override(
+local_path_override(
     module_name = "platforms",
-    version = "0.0.8",
+    path = "external/bazelbuild-platforms",
 )
 
-single_version_override(
+local_path_override(
     module_name = "rules_cc",
-    version = "0.0.4",
+    path = "external/bazelbuild-rules_cc",
 )
 
-single_version_override(
+local_path_override(
     module_name = "rules_java",
-    version = "6.1.1",
+    path = "external/bazelbuild-rules_java",
 )
 
-single_version_override(
+local_path_override(
     module_name = "rules_license",
-    version = "0.0.4",
+    path = "external/bazelbuild-rules_license",
 )
 
-single_version_override(
+local_path_override(
     module_name = "rules_pkg",
-    version = "0.9.1",
+    path = "external/bazelbuild-rules_pkg",
 )
 
-single_version_override(
+local_path_override(
     module_name = "rules_python",
-    version = "0.25.0",
+    path = "external/bazelbuild-rules_python",
 )
 
-single_version_override(
-    module_name = "stardoc",
-    version = "0.5.3",
-)
-
-# BCR_UPDATER_MARKER: </single_version_override>
+# TODO(b/276493276): Update stardoc to contain MODULE.bazel
+# local_path_override(
+#     module_name = "stardoc",
+#     path = "external/stardoc",
+# )
