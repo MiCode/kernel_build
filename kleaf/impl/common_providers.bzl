@@ -340,6 +340,10 @@ KernelModuleInfo = provider(
             For other rules that contains multiple `kernel_module`s, a [depset] containing package
             names of all external modules in an unspecified order.""",
         "label": "Label to the `kernel_module` target.",
+        "modules_order": """A [depset](https://bazel.build/extending/depsets) of `modules.order`
+            files from ddk_module's, kernel_module, etc.
+            It uses [`postorder`](https://bazel.build/rules/lib/builtins/depset) ordering (dependencies
+            first).""",
     },
 )
 

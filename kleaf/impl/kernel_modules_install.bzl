@@ -190,6 +190,10 @@ def _kernel_modules_install_impl(ctx):
                 for target in ctx.attr.kernel_modules
             ]),
             label = ctx.label,
+            modules_order = depset(transitive = [
+                target[KernelModuleInfo].modules_order
+                for target in ctx.attr.kernel_modules
+            ], order = "postorder"),
         ),
         cmds_info,
     ]

@@ -65,6 +65,10 @@ def _kernel_module_group_impl(ctx):
         ]),
         packages = depset(transitive = [target[KernelModuleInfo].packages for target in targets]),
         label = ctx.label,
+        modules_order = depset(
+            transitive = [target[KernelModuleInfo].modules_order for target in targets],
+            order = "postorder",
+        ),
     )
 
     unstripped_modules_info = KernelUnstrippedModulesInfo(
