@@ -1,6 +1,12 @@
 # Customize Workspace
 
-## Using the provided `WORKSPACE` file (recommended)
+## Using bzlmod (recommended)
+
+See [bzlmod support in Kleaf.](bzlmod.md)
+
+## Legacy `WORKSPACE` support
+
+### Using the provided `WORKSPACE` file
 
 Usually, the common kernel is checked out to `common/`. In this case, it is
 recommended to use `build/kernel/kleaf/bazel.WORKSPACE` as the `WORKSPACE`
@@ -9,7 +15,7 @@ file.
 To make use of the provided `WORKSPACE` file, define `WORKSPACE` in the repo
 manifest as symbolic link that points to `build/kernel/kleaf/bazel.WORKSPACE`.
 
-## Using a customized `WORKSPACE` file
+### Using a customized `WORKSPACE` file
 
 If the common kernel is checked out to a path other than `common`, you need to
 provide a customized `WORKSPACE` file.

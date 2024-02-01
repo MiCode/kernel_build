@@ -84,4 +84,4 @@ until `MODULE.bazel` is updated.
 
 ## See also
 
-[https://bazel.build/external/module](Bazel modules)
+[Bazel modules](https://bazel.build/external/module)

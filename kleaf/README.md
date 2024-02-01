@@ -26,6 +26,8 @@
 
 [Customize workspace](docs/workspace.md)
 
+[Bzlmod support for Kleaf](docs/bzlmod.md)
+
 [Cheatsheet](docs/cheatsheet.md)
 
 [Kleaf Development](docs/kleaf_development.md)
