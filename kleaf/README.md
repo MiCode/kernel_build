@@ -2,39 +2,47 @@
 
 ## Table of contents
 
+### Getting started
+
 [Introduction to Kleaf](docs/kleaf.md)
 
 [Building your kernels and drivers with Bazel](docs/impl.md)
 
 [Creating distributions](docs/dist.md)
 
+[Driver Development Kit (DDK)](docs/ddk/main.md)
+
+[Cheatsheet](docs/cheatsheet.md)
+
+### Configuring your build
+
 [`build.sh` build configs](docs/build_configs.md)
 
 [Configuring kernel\_build](docs/kernel_config.md)
+
+### ABI monitoring
 
 [Support ABI monitoring (GKI)](docs/abi.md)
 
 [Support ABI monitoring (Device)](docs/abi_device.md)
 
-[Handling SCM version](docs/scmversion.md)
+### Debugging and testing
 
 [Resolving common errors](docs/errors.md)
 
 [Kleaf testing](docs/testing.md)
+
+[Debugging Kleaf](docs/debugging.md)
+
+### Advanced topics
+
+[Handling SCM version](docs/scmversion.md)
 
 [Building against downloaded prebuilts](docs/download_prebuilt.md)
 
 [Customize workspace](docs/workspace.md)
 
 [Bzlmod support for Kleaf](docs/bzlmod.md)
-
-[Cheatsheet](docs/cheatsheet.md)
-
-[Kleaf Development](docs/kleaf_development.md)
-
-[Driver Development Kit (DDK)](docs/ddk/main.md)
-
-[Debugging Kleaf](docs/debugging.md)
 
 [Building `compile_commands.json`](docs/compile_commands.md)
 
@@ -46,7 +54,9 @@
 
 [Checkpatch](docs/checkpatch.md)
 
-### Configurations
+[Kleaf Development](docs/kleaf_development.md)
+
+### Configurations in command line
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
 
