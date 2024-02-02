@@ -1,3 +1,5 @@
 # Rust Support
-# Until Rust is enabled in the primary GKI builds, this fragment will enable
+# Until Rust is enabled in the primary GKI builds, this fragment enables
 # support for Rust and Rust drivers being tested.
+
+CONFIG_RUST=y
