@@ -28,7 +28,7 @@ After bzlmod migration, this file may be removed.
 **Note 2**: If `build.config.constants` exists elsewhere other than `common/`,
 the `build/kernel_toolchain_ext.bzl` should link to a file that
 contains different content. See comments in
-[default_kernel_toolchain_ext.bzl](default_kernel_toolchain_ext.bzl)
+[default_kernel_toolchain_ext.bzl](../bzlmod/default_kernel_toolchain_ext.bzl)
 for details.
 
 **Note 3**: A list of external repositories are required for bzlmod to work.
@@ -48,7 +48,8 @@ bazel_dep version <= actual version in external/
 
 ### bazel\_dep version
 
-This refers to the version of a given module declared in `bazel_dep` in [MODULE.bazel](MODULE.bazel).
+This refers to the version of a given module declared in `bazel_dep` in
+[MODULE.bazel](../bzlmod/bazel.MODULE.bazel).
 
 This is the version that `@kleaf` expects from the dependent module. For
 example, if `@kleaf` uses feature A from `rules_cc@1.5`, then the `bazel_dep`
