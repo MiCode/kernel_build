@@ -89,7 +89,7 @@ def _handle_no_build_number(repository_ctx):
 ERROR: {parent_repo}: No build_number specified. Fix by specifying `--use_prebuilt_gki=<build_number>"`, e.g.
     bazel build --use_prebuilt_gki={build_number} @{parent_repo}//{filename}
 """.format(
-            filename = repository_ctx.attr.filename,
+            filename = repository_ctx.attr.local_filename,
             parent_repo = repository_ctx.attr.parent_repo,
             build_number = SAMPLE_BUILD_NUMBER,
         )
@@ -105,7 +105,7 @@ Fix by one of the following:
       --action_env={build_num_var}="{parent_repo}={build_number}" \\
       @{parent_repo}//{filename}
 """.format(
-            filename = repository_ctx.attr.filename,
+            filename = repository_ctx.attr.local_filename,
             parent_repo = repository_ctx.attr.parent_repo,
             build_number = SAMPLE_BUILD_NUMBER,
             build_num_var = _BUILD_NUM_ENV_VAR,
