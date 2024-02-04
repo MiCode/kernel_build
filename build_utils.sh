@@ -104,8 +104,8 @@ function create_modules_order_lists() {
 
   declare -A module_lists_arr
   module_lists_arr["modules.order"]=${modules_list_file}
-  module_lists_arr["modules.order.recovery"]=${modules_recoverylist_file}
-  module_lists_arr["modules.order.charger"]=${modules_chargerlist_file}
+  module_lists_arr["modules.order.recovery"]=${modules_recovery_list_file}
+  module_lists_arr["modules.order.charger"]=${modules_charger_list_file}
 
   for mod_order_file in ${!module_lists_arr[@]}; do
     local mod_list_file=${module_lists_arr[${mod_order_file}]}
@@ -172,8 +172,8 @@ function create_modules_staging() {
   local dest_dir=$3/lib/modules/${version}
   local dest_stage=$3
   local modules_blocklist_file=$4
-  local modules_recoverylist_file=$5
-  local modules_chargerlist_file=$6
+  local modules_recovery_list_file=$5
+  local modules_charger_list_file=$6
   local depmod_flags=$7
 
   rm -rf ${dest_dir}
