@@ -56,7 +56,7 @@ def _get_config_file(ctx, kernel_build, filename):
 
     hermetic_tools = hermetic_toolchain.get(ctx)
     command = hermetic_tools.setup + """
-        cp -pl {out_dir}/.config {out}
+        cp -pL {out_dir}/.config {out}
     """.format(
         out_dir = out_dir.path,
         out = out.path,
