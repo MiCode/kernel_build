@@ -15,6 +15,7 @@
 """Functions that are useful in the common kernel package (usually `//common`)."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
@@ -478,8 +479,11 @@ def define_common_kernels(
 
     # Workaround to set KERNEL_DIR correctly and
     #  avoid using the fallback (directory of the config).
-    set_kernel_dir_cmd = "KERNEL_DIR=\"{common_package}\"".format(
-        common_package = native.package_name(),
+    set_kernel_dir_cmd = "KERNEL_DIR=\"{kernel_dir}\"".format(
+        kernel_dir = paths.join(
+            native.package_relative_label(":x").workspace_root,
+            native.package_relative_label(":x").package,
+        ),
     )
     write_file(
         name = "set_kernel_dir_build_config",
