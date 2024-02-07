@@ -580,28 +580,22 @@ def update_16k():
 
   arm64_16k_dir = os.path.join(output_dir, "kernel", "prebuilts", version, "arm64", "16k")
   arm64_kernel = os.path.join(arm64_16k_dir, "kernel-" + version)
-
-  # Although we don't update the x86_64 kernel for 16k,
-  # we use its path to compute the  binary kernel version,
-  # as the version parser only supports x86 images.
-  x86_64_kernel = os.path.join(output_dir, "kernel", "prebuilts", "mainline",
-                               "x86_64", "kernel-mainline-allsyms")
-  (old_version, old_sha) = get_binary_kernel_version(x86_64_kernel)
+  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
 
   clean_download_dir(arm64_16k_dir)
   download_kernel("kernel_aarch64_16k", version, arm64_16k_dir, fetch_system_dlkm=True)
   download_kernel_modules("kernel_aarch64_16k", arm64_16k_dir)
   write_prebuilt_info(arm64_16k_dir)
-  (new_version, new_sha) = get_binary_kernel_version(x86_64_kernel)
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
   gitlog = get_git_log(old_sha, new_sha)
-  commit_prebuilts(arm64_16k_dir, gitlog)
+  commit_prebuilts(arm64_16k_dir, gitlog, "16KB page size kernel")
 
   arm64_16k_mods_dir = os.path.join(output_dir, "kernel", "prebuilts", "common-modules",
                                     "virtual-device", version, "arm64", "16k")
 
   clean_download_dir(arm64_16k_mods_dir)
   download_kernel_modules("kernel_virt_aarch64_16k", arm64_16k_mods_dir, fetch_initramfs=True)
-  commit_prebuilts(arm64_16k_mods_dir, gitlog)
+  commit_prebuilts(arm64_16k_mods_dir, gitlog, "16KB page size kernel")
 
 def update_gki():
   url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_aarch64")
