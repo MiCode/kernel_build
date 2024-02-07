@@ -67,6 +67,21 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "cpp_linux_x86_64",
+    srcs = ["cpp.cpp"],
+    target_compatible_with = _LINUX_X86_64,
+)
+
+cc_binary(
+    name = "pthread_linux_x86_64",
+    srcs = ["pthread.c"],
+    linkopts = [
+        "-lpthread",
+    ],
+    target_compatible_with = _LINUX_X86_64,
+)
+
 # genrule that applies the `cfg = exec` transition. This ensures that all these
 # tools are built for the execution platform, not the target platform.
 hermetic_genrule(
@@ -78,8 +93,10 @@ hermetic_genrule(
         $(location :mybin_full_static_linux_x86_64) >> $@
         $(location :mybin_static_linux_x86_64) >> $@
         $(location :openssl_client_linux_x86_64) >> $@
+        $(location :cpp_linux_x86_64) >> $@
     """,
     tools = [
+        ":cpp_linux_x86_64",
         ":hello_world_linux_x86_64",
         ":mybin_dynamic_linux_x86_64",
         ":mybin_full_static_linux_x86_64",
