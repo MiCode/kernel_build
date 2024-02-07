@@ -73,9 +73,9 @@ def main():
   # Set difference to get elements in symbol list but not in ksymtab
   missing_ksymtab_symbols = set(kmi_symbols) - set(ksymtab_symbols)
   if missing_ksymtab_symbols:
-    print("Symbols missing from the ksymtab:")
+    print("Symbols missing from the ksymtab:", file=sys.stderr)
     for symbol in sorted(missing_ksymtab_symbols):
-      print(f"  {symbol}")
+      print(f"  {symbol}", file=sys.stderr)
     return 1
 
   return 0
