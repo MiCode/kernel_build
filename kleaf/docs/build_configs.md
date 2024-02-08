@@ -164,8 +164,10 @@ See [documentation for all rules].
 ## EXT\_MODULES
 
 ```python
-kernel_module()
+ddk_module()
 ```
+
+NOTE: Prefer `ddk_module` over the legacy `kernel_module`.
 
 See [documentation for all rules].
 
