@@ -31,26 +31,12 @@ def _initramfs_impl(ctx):
     initramfs_img = ctx.actions.declare_file("{}/initramfs.img".format(ctx.label.name))
     modules_load = ctx.actions.declare_file("{}/modules.load".format(ctx.label.name))
     vendor_boot_modules_load = ctx.outputs.vendor_boot_modules_load
-    vendor_boot_modules_load_recovery = ctx.outputs.vendor_boot_modules_load_recovery
-    vendor_boot_modules_load_charger = ctx.outputs.vendor_boot_modules_load_charger
     initramfs_staging_archive = ctx.actions.declare_file("{}/initramfs_staging_archive.tar.gz".format(ctx.label.name))
 
     outputs = [
         initramfs_img,
         modules_load,
     ]
-    if vendor_boot_modules_load:
-        outputs.append(vendor_boot_modules_load)
-
-    if vendor_boot_modules_load_recovery:
-        outputs.append(vendor_boot_modules_load_recovery)
-
-    if vendor_boot_modules_load_charger:
-        outputs.append(vendor_boot_modules_load_charger)
-
-    modules_staging_dir = initramfs_img.dirname + "/staging"
-    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
-
     cp_vendor_boot_modules_load_cmd = ""
     if vendor_boot_modules_load:
         cp_vendor_boot_modules_load_cmd = """
@@ -58,30 +44,50 @@ def _initramfs_impl(ctx):
         """.format(
             vendor_boot_modules_load = vendor_boot_modules_load.path,
         )
+        outputs.append(vendor_boot_modules_load)
 
-    cp_vendor_boot_modules_load_recovery_cmd = ""
-    if vendor_boot_modules_load_recovery:
+    cp_modules_load_recovery_cmd = ""
+    if ctx.attr.modules_recovery_list:
         modules_load_recovery = ctx.actions.declare_file("{}/modules.load.recovery".format(ctx.label.name))
-        outputs.append(modules_load_recovery)
-        cp_vendor_boot_modules_load_recovery_cmd = """
+        cp_modules_load_recovery_cmd = """
                cp ${{modules_root_dir}}/modules.load.recovery {modules_load_recovery}
-               cp ${{modules_root_dir}}/modules.load.recovery {vendor_boot_modules_load_recovery}
         """.format(
             modules_load_recovery = modules_load_recovery.path,
+        )
+        outputs.append(modules_load_recovery)
+
+    cp_vendor_boot_modules_load_recovery_cmd = ""
+    vendor_boot_modules_load_recovery = ctx.outputs.vendor_boot_modules_load_recovery
+    if vendor_boot_modules_load_recovery:
+        cp_vendor_boot_modules_load_recovery_cmd = """
+               cp ${{modules_root_dir}}/modules.load.recovery {vendor_boot_modules_load_recovery}
+        """.format(
             vendor_boot_modules_load_recovery = vendor_boot_modules_load_recovery.path,
         )
+        outputs.append(vendor_boot_modules_load_recovery)
 
-    cp_vendor_boot_modules_load_charger_cmd = ""
-    if vendor_boot_modules_load_charger:
+    cp_modules_load_charger_cmd = ""
+    if ctx.attr.modules_charger_list:
         modules_load_charger = ctx.actions.declare_file("{}/modules.load.charger".format(ctx.label.name))
-        outputs.append(modules_load_charger)
-        cp_vendor_boot_modules_load_charger_cmd = """
+        cp_modules_load_charger_cmd = """
                cp ${{modules_root_dir}}/modules.load.charger {modules_load_charger}
-               cp ${{modules_root_dir}}/modules.load.charger {vendor_boot_modules_load_charger}
         """.format(
             modules_load_charger = modules_load_charger.path,
+        )
+        outputs.append(modules_load_charger)
+
+    cp_vendor_boot_modules_load_charger_cmd = ""
+    vendor_boot_modules_load_charger = ctx.outputs.vendor_boot_modules_load_charger
+    if vendor_boot_modules_load_charger:
+        cp_vendor_boot_modules_load_charger_cmd = """
+               cp ${{modules_root_dir}}/modules.load.charger {vendor_boot_modules_load_charger}
+        """.format(
             vendor_boot_modules_load_charger = vendor_boot_modules_load_charger.path,
         )
+        outputs.append(vendor_boot_modules_load_charger)
+
+    modules_staging_dir = initramfs_img.dirname + "/staging"
+    initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
 
     additional_inputs = []
     if ctx.file.modules_options:
@@ -112,7 +118,9 @@ def _initramfs_impl(ctx):
                modules_root_dir=$(readlink -e {initramfs_staging_dir}/lib/modules/*) || exit 1
                cp ${{modules_root_dir}}/modules.load {modules_load}
                {cp_vendor_boot_modules_load_cmd}
+               {cp_modules_load_recovery_cmd}
                {cp_vendor_boot_modules_load_recovery_cmd}
+               {cp_modules_load_charger_cmd}
                {cp_vendor_boot_modules_load_charger_cmd}
                {cp_modules_options_cmd}
                mkbootfs "{initramfs_staging_dir}" >"{modules_staging_dir}/initramfs.cpio"
@@ -129,7 +137,9 @@ def _initramfs_impl(ctx):
         initramfs_img = initramfs_img.path,
         initramfs_staging_archive = initramfs_staging_archive.path,
         cp_vendor_boot_modules_load_cmd = cp_vendor_boot_modules_load_cmd,
+        cp_modules_load_recovery_cmd = cp_modules_load_recovery_cmd,
         cp_vendor_boot_modules_load_recovery_cmd = cp_vendor_boot_modules_load_recovery_cmd,
+        cp_modules_load_charger_cmd = cp_modules_load_charger_cmd,
         cp_vendor_boot_modules_load_charger_cmd = cp_vendor_boot_modules_load_charger_cmd,
         cp_modules_options_cmd = cp_modules_options_cmd,
     )
