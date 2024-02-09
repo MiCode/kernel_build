@@ -193,7 +193,11 @@ function create_modules_staging() {
   cp ${src_dir}/modules.builtin ${dest_dir}/modules.builtin
   cp ${src_dir}/modules.builtin.modinfo ${dest_dir}/modules.builtin.modinfo
 
-  if [[ -n "${EXT_MODULES}" ]] || [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
+  if [[ -n "${KLEAF_MODULES_ORDER}" ]] && [[ -d "${src_dir}/extra" ]]; then
+    mkdir -p ${dest_dir}/extra/
+    cp -r ${src_dir}/extra/* ${dest_dir}/extra/
+    cat ${KLEAF_MODULES_ORDER} >> ${dest_dir}/modules.order
+  elif [[ -n "${EXT_MODULES}" ]] || [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
     mkdir -p ${dest_dir}/extra/
     cp -r ${src_dir}/extra/* ${dest_dir}/extra/
 
