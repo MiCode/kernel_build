@@ -103,6 +103,10 @@ bazel_dep(
     name = "rules_pkg",
     version = "0.9.1",
 )
+bazel_dep(
+    name = "rules_rust",
+    version = "0.20.0",
+)
 
 bazel_dep(
     name = "stardoc",
@@ -154,6 +158,11 @@ local_path_override(
 local_path_override(
     module_name = "rules_python",
     path = "external/bazelbuild-rules_python",
+)
+
+local_path_override(
+    module_name = "rules_rust",
+    path = "external/bazelbuild-rules_rust",
 )
 
 # TODO(b/276493276): Update stardoc to contain MODULE.bazel
