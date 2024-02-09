@@ -25,7 +25,6 @@ from typing import Tuple, Optional
 from kleaf_help import KleafHelpPrinter, FLAGS_BAZEL_RC
 
 _BAZEL_REL_PATH = "prebuilts/kernel-build-tools/bazel/linux-x86_64/bazel"
-_BAZEL_JDK_REL_PATH = "prebuilts/jdk/jdk11/linux-x86"
 
 # Sync with the following files:
 #   kleaf/impl/kernel_build.bzl
@@ -84,11 +83,8 @@ class BazelWrapper(KleafHelpPrinter):
         # Root of the top level workspace (named "@"), where WORKSPACE
         # is located. This is not necessarily
         # equal to kleaf_repo_dir, especially when Kleaf tooling is in a subworkspace.
-        bazel_jdk_path = self.kleaf_repo_dir / _BAZEL_JDK_REL_PATH
         self.workspace_dir = pathlib.Path(subprocess.check_output(
-            [self.bazel_path,
-             f"--server_javabase={bazel_jdk_path}",
-             "info", "workspace"],
+            [self.bazel_path, "info", "workspace"],
             text=True).strip())
 
         command_idx = None
@@ -294,11 +290,6 @@ class BazelWrapper(KleafHelpPrinter):
 
         if self.known_args.user_clang_toolchain is not None:
             self.env["KLEAF_USER_CLANG_TOOLCHAIN_PATH"] = self.known_args.user_clang_toolchain
-
-        bazel_jdk_path = self.kleaf_repo_dir / _BAZEL_JDK_REL_PATH
-        self.transformed_startup_options.append(
-            f"--server_javabase={bazel_jdk_path}"
-        )
 
         self._handle_bazelrc()
 
