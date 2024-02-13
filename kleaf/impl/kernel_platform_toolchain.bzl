@@ -46,6 +46,9 @@ def _kernel_platform_toolchain_impl(ctx):
             # "cxx_builtin_include_directory doesn't work with non-absolute path"
             # Disable it.
             "kleaf-no-canonical-prefixes",
+            # Disable flags for C++. These only applies to cc_* rules with
+            # C++ code.
+            "kleaf-host-cc-rules-flags",
         ],
     )
     compile_variables = cc_common.create_compile_variables(
