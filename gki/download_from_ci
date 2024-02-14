@@ -175,9 +175,15 @@ def get_build_kernel_version(data):
     return result.group('version')
 
 def get_git_log(old_sha, new_sha, path=get_kernel_dir()):
-  """Return a string containing the git log between two commits."""
-  gitlog = "git log --first-parent -{} --oneline --no-decorate {}..{}".format(GIT_COMMIT_LOG_LENGTH,
-                                                                              old_sha,new_sha)
+  """Return a string containing the git log between two commits.
+
+  If |old_sha| is None, then git log until the |new_sha| commit is returned.
+  """
+  gitlog = f"git log --first-parent -{GIT_COMMIT_LOG_LENGTH} --oneline --no-decorate "
+  if old_sha is None:
+    gitlog += new_sha
+  else:
+    gitlog += f"{old_sha}..{new_sha}"
   gitlog += ":\n" + subprocess.check_output(shlex.split(gitlog), text=True,
                                             cwd=path) + "\n"
   return gitlog
@@ -734,15 +740,19 @@ def update_microdroid_kernel():
   branch = json.loads(data)["branch"]
   version = get_build_kernel_version(data)
 
+  short_branch = branch.removeprefix("aosp_kernel-common-")
   output_dir = os.environ["ANDROID_BUILD_TOP"]
   base_dir = os.path.join(output_dir, "packages", "modules", "Virtualization",
-                          "microdroid", "kernel")
+                          "microdroid", "kernel", short_branch)
 
   for arch in "arm64", "x86_64":
     arch_suffix = "aarch64" if arch == "arm64" else arch
     directory = os.path.join(base_dir, arch)
+    os.makedirs(directory, exist_ok=True)
     kernel = os.path.join(directory, "kernel-" + version)
-    (old_version, old_sha) = get_binary_kernel_version(kernel)
+    old_version, old_sha = None, None
+    if os.path.exists(kernel):
+      (old_version, old_sha) = get_binary_kernel_version(kernel)
 
     clean_download_dir(directory)
     download_kernel("kernel_microdroid_" + arch_suffix, version, directory)
