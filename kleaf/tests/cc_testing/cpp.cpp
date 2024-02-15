@@ -13,7 +13,7 @@ class MyClass {
   }
 
  private:
-  [[maybe_unused]] std::vector<int> myvec_;
+  std::vector<int> myvec_;
 };
 
 int main() {
