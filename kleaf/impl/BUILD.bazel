@@ -60,6 +60,7 @@ bzl_library(
         "ddk/makefiles.bzl",
         "debug.bzl",
         "declare_host_tools.bzl",
+        "declare_kernel_prebuilts.bzl",
         "declare_toolchain_constants.bzl",
         "file.bzl",
         "file_selector.bzl",
