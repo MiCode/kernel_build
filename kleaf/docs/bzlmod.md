@@ -12,11 +12,9 @@ Set up your repo manifest to conform with the following filesystem layout.
     |- WORKSPACE.bzlmod        -> build/kernel/kleaf/bzlmod/bazel.WORKSPACE.bzlmod
     |- MODULE.bazel            -> build/kernel/kleaf/bzlmod/bazel.MODULE.bazel
     |- build/
-    |    |- BUILD.bazel              -> kernel/kleaf/bzlmod/empty_BUILD.bazel
-    |    |- kernel_toolchain_ext.bzl -> kernel/kleaf/bzlmod/default_kernel_toolchain_ext.bzl # Note 2
     |    `- kernel/
-    |- common/                 # Note 2
-    |    `- build.config.constants
+    |- common/
+    |    `- build.config.constants              # Note 2
     `- external/
          |- bazelbuild-bazel-central-registry
          `- <other external repositories>       # Note 3
@@ -26,10 +24,8 @@ Set up your repo manifest to conform with the following filesystem layout.
 After bzlmod migration, this file may be removed.
 
 **Note 2**: If `build.config.constants` exists elsewhere other than `common/`,
-the `build/kernel_toolchain_ext.bzl` should link to a file that
-contains different content. See comments in
-[default_kernel_toolchain_ext.bzl](../bzlmod/default_kernel_toolchain_ext.bzl)
-for details.
+create the symlink `common/build.config.constants` to the file. This may be
+done with `<linkfile>` in your repo manifest.
 
 **Note 3**: A list of external repositories are required for bzlmod to work.
 For the up-to-date list, refer to the repo manifest of the ACK branch.

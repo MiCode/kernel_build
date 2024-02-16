@@ -755,6 +755,7 @@ exports_files(
         "fail.bzl",
         "hermetic_tools.bzl",
         "kernel.bzl",
+        "kernel_toolchain_ext.bzl",
         "key_value_repo.bzl",
         "print_debug.bzl",
         "update_source_file.bzl",

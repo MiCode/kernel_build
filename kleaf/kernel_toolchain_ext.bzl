@@ -23,7 +23,7 @@ def _kernel_toolchain_ext_impl(module_ctx):
     toolchain_constants = []
     for module in module_ctx.modules:
         for installed in module.tags.install:
-            toolchain_constants.append(installed._toolchain_constants)
+            toolchain_constants.append(installed.toolchain_constants)
 
     if not toolchain_constants:
         fail("kernel_toolchain_ext is not installed")
@@ -39,16 +39,15 @@ def _kernel_toolchain_ext_impl(module_ctx):
         name = "kleaf_clang_toolchain",
     )
 
-def make_kernel_toolchain_ext(toolchain_constants):
-    return module_extension(
-        doc = "Declares an extension named `kernel_toolchain_info` that contains toolchain information.",
-        implementation = _kernel_toolchain_ext_impl,
-        tag_classes = {
-            "install": tag_class(
-                doc = "Declares a potential location that contains toolchain information.",
-                attrs = {
-                    "_toolchain_constants": attr.label(default = toolchain_constants),
-                },
-            ),
-        },
-    )
+kernel_toolchain_ext = module_extension(
+    doc = "Declares an extension named `kernel_toolchain_info` that contains toolchain information.",
+    implementation = _kernel_toolchain_ext_impl,
+    tag_classes = {
+        "install": tag_class(
+            doc = "Declares a potential location that contains toolchain information.",
+            attrs = {
+                "toolchain_constants": attr.label(mandatory = True),
+            },
+        ),
+    },
+)
