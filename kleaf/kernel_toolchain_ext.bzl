@@ -20,20 +20,31 @@ load("//prebuilts/clang/host/linux-x86/kleaf:clang_toolchain_repository.bzl", "c
 visibility("public")
 
 def _kernel_toolchain_ext_impl(module_ctx):
-    toolchain_constants = []
+    root_toolchain_constants = []
+    kleaf_toolchain_constants = []
     for module in module_ctx.modules:
-        for installed in module.tags.install:
-            toolchain_constants.append(installed.toolchain_constants)
+        installed_constants = [installed.toolchain_constants for installed in module.tags.install]
+        if module.is_root:
+            root_toolchain_constants += installed_constants
+        if module.name == "kleaf":
+            kleaf_toolchain_constants += installed_constants
+
+    toolchain_constants = None
+    if root_toolchain_constants:
+        if len(root_toolchain_constants) > 1:
+            fail("kernel_toolchain_ext is installed {} times at root module, expected once".format(len(toolchain_constants)))
+        toolchain_constants = root_toolchain_constants[0]
+    elif kleaf_toolchain_constants:
+        if len(kleaf_toolchain_constants) > 1:
+            fail("kernel_toolchain_ext is installed {} times at @kleaf, expected once".format(len(toolchain_constants)))
+        toolchain_constants = kleaf_toolchain_constants[0]
 
     if not toolchain_constants:
         fail("kernel_toolchain_ext is not installed")
 
-    if len(toolchain_constants) > 1:
-        fail("kernel_toolchain_ext is installed {} times, expected once".format(len(toolchain_constants)))
-
     key_value_repo(
         name = "kernel_toolchain_info",
-        srcs = [toolchain_constants[0]],
+        srcs = [toolchain_constants],
     )
     clang_toolchain_repository(
         name = "kleaf_clang_toolchain",
