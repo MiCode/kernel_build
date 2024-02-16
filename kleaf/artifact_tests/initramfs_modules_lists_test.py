@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import re
 
 from absl.testing import absltest
 
@@ -27,6 +28,8 @@ def load_arguments():
     parser.add_argument("--expected_modules_list")
     parser.add_argument("--expected_modules_recovery_list")
     parser.add_argument("--expected_modules_charger_list")
+    parser.add_argument("--build_vendor_boot")
+    parser.add_argument("--build_vendor_kernel_boot")
     parser.add_argument("files", nargs="*", default=[])
     return parser.parse_known_args()
 
@@ -126,6 +129,44 @@ class InitramfsModulesLists(unittest.TestCase):
             for v in kernel_versions:
                 modules_dir = os.path.join(lib_modules, v)
                 self._diff_modules_lists(modules_lists_map, modules_dir)
+
+    def _verify_modules_load_lists(self, modules_list_name, vendor_boot_name, image_files):
+        """Given a modules.load* name, ensures that no extraneous such files exist.
+
+        This tests to ensure that if a modules.load* file exists, then no other
+        modules.load* file must exist, except for vendor_boot.modules.load* or
+        vendor_kernel_boot.modules.load.
+
+        Args:
+            modules_list_name: The name of the modules.load list.
+            vendor_boot_name: Either vendor_boot or vendor_kernel_boot.
+            image_files: The files associated with the kernel_images() target.
+        """
+        modules_load_lists = [modules_list_name]
+        if vendor_boot_name:
+            modules_load_lists.append(f"{vendor_boot_name}.{modules_list_name}")
+
+        modules_load_list_re = re.compile(f".*{modules_list_name}$")
+        modules_load_list_matches = [os.path.basename(f) for f in image_files if modules_load_list_re.fullmatch(os.path.basename(f))]
+
+        self.assertCountEqual(modules_load_lists, modules_load_list_matches)
+
+    def test_modules_lists_existence(self):
+        vendor_boot_name = None
+
+        if arguments.build_vendor_boot:
+            vendor_boot_name = "vendor_boot"
+        elif arguments.build_vendor_kernel_boot:
+            vendor_boot_name = "vendor_kernel_boot"
+
+        if arguments.expected_modules_list:
+            self._verify_modules_load_lists("modules.load", vendor_boot_name, arguments.files)
+
+        if arguments.expected_modules_recovery_list:
+            self._verify_modules_load_lists("modules.load.recovery", vendor_boot_name, arguments.files)
+
+        if arguments.expected_modules_charger_list:
+            self._verify_modules_load_lists("modules.load.charger", vendor_boot_name, arguments.files)
 
 if __name__ == '__main__':
     arguments, unknown = load_arguments()
