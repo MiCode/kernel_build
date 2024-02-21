@@ -103,9 +103,16 @@ bazel_dep(
     name = "rules_pkg",
     version = "0.9.1",
 )
+
 bazel_dep(
     name = "rules_rust",
     version = "0.39.0",
+)
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    # If in a future we need to specify a version, keep it in sync with //prebuilts/rust/linux-x86/
+    # versions = ["1.70.2"],
 )
 
 bazel_dep(
