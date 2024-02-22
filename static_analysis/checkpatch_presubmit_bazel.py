@@ -151,8 +151,11 @@ def main(
         targets.append((path_targets, git_sha1_list[0]))
 
     checkpatch_log = dist_dir / "checkpatch.log"
+    checkpatch_full_log = dist_dir / "checkpatch_full.log"
     if checkpatch_log.exists():
         os.unlink(checkpatch_log)
+    if checkpatch_full_log.exists():
+        os.unlink(checkpatch_full_log)
     return_codes = []
     for path_targets, git_sha1 in targets:
         for target in path_targets:
@@ -162,6 +165,12 @@ def main(
                 log=checkpatch_log,
                 checkpatch_args=checkpatch_args,
             ))
+            _run_checkpatch(
+                target=target,
+                git_sha1=git_sha1,
+                log=checkpatch_full_log,
+                checkpatch_args=checkpatch_args + ["--ignored_checks", ""],
+            )
 
     success = sum(return_codes) == 0
 
