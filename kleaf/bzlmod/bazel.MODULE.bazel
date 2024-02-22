@@ -107,8 +107,22 @@ bazel_dep(
 bazel_dep(
     name = "rules_rust",
     version = "0.39.0",
+
+    # If RUSTC_VERSION is set in kernel_toolchain_ext, kernel_build depends
+    # on rules_rust, so rules_rust is needed for at least GKI.
+    # However, if @kleaf is used as a dependent module in a DDKv2 set up and
+    # drivers are building against prebuilts, kernel_build might not be
+    # involved, and rules_rust might not be needed. If a DDKv2 driver is
+    # building against a core kernel built from source, it needs to have
+    # a direct dependency against rules_rust and call rust.toolchain() as well.
+    dev_dependency = True,
 )
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust = use_extension(
+    "@rules_rust//rust:extensions.bzl",
+    "rust",
+    # See bazel_dep(name = "rules_rust")
+    dev_dependency = True,
+)
 rust.toolchain(
     edition = "2021",
     # If in a future we need to specify a version, keep it in sync with //prebuilts/rust/linux-x86/
