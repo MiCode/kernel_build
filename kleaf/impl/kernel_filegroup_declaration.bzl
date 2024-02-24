@@ -100,6 +100,7 @@ kernel_filegroup(
     config_out_dir = {config_out_dir_repr},
     env_setup_script = {env_setup_script_repr},
     modules_prepare_archive = {modules_prepare_archive_repr},
+    module_env_archive = {module_env_archive_repr},
     internal_outs = {internal_outs_repr},
     target_platform = {target_platform_repr},
     exec_platform = {exec_platform_repr},
@@ -163,6 +164,7 @@ def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, templ
         depset([info.modules_prepare_archive]),
         **(one | pkg)
     )
+    sub.add_joined("{module_env_archive_repr}", depset([info.module_env_archive]), **(one | pkg))
 
     # {":bazel-out/k8-fastbuild/bin/common/kernel_aarch64/Module.symvers": "Module.symvers", ...}
     sub.add_joined(
@@ -207,6 +209,7 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
         info.config_out_dir,
         info.env_setup_script,
         info.modules_prepare_archive,
+        info.module_env_archive,
     ]
     if info.src_protected_modules_list:
         direct_inputs.append(info.src_protected_modules_list)

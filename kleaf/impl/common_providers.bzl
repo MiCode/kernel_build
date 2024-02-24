@@ -315,6 +315,7 @@ KernelBuildFilegroupDeclInfo = provider(
         "internal_outs": """[depset](https://bazel.build/extending/depsets) of `kernel_build`'s
             `internal_outs`. May be `None`.""",
         "ruledir": "`ruledir` from `kernel_build` that signifies the root for `internal_outs`.",
+        "module_env_archive": "Archive preparing an environment to build modules. May be `None`.",
     },
 )
 
