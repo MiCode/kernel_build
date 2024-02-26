@@ -757,6 +757,7 @@ def _get_defconfig_fragments(
         Label("//build/kernel/kleaf:defconfig_fragment"),
         Label("//build/kernel/kleaf/impl/defconfig:debug"),
         Label("//build/kernel/kleaf/impl/defconfig:rust"),
+        Label("//build/kernel/kleaf/impl/defconfig:zstd_dwarf_compression"),
     ]
 
     btf_debug_info_target = kernel_build_name + "_defconfig_fragment_btf_debug_info"

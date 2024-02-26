@@ -559,6 +559,19 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# If true, enable Zstd dwarf compression
+bool_flag(
+    name = "zstd_dwarf_compression",
+    build_setting_default = True,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "zstd_dwarf_compression_is_disabled",
+    flag_values = {":zstd_dwarf_compression": "0"},
+    visibility = ["//visibility:public"],
+)
+
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
 # If additional hacks are needed, put `select()` on the build_config.
 # See kleaf/docs/kgdb.md for details.

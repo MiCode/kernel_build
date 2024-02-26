@@ -51,6 +51,7 @@ build --flag_alias=defconfig_fragment=//build/kernel/kleaf:defconfig_fragment
 build --flag_alias=page_size=//build/kernel/kleaf:page_size
 build --flag_alias=rust=//build/kernel/kleaf:rust
 build --flag_alias=norust=no//build/kernel/kleaf:rust
+build --flag_alias=nozstd_dwarf_compression=no//build/kernel/kleaf:zstd_dwarf_compression
 
 # flags that control the distribution
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
