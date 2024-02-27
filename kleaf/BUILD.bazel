@@ -556,7 +556,7 @@ bool_flag(
 config_setting(
     name = "rust_is_enabled",
     flag_values = {":rust": "1"},
-    visibility = ["//visibility:public"],
+    visibility = ["//build/kernel/kleaf/impl/defconfig:__subpackages__"],
 )
 
 # If true, enable Zstd dwarf compression
@@ -569,7 +569,7 @@ bool_flag(
 config_setting(
     name = "zstd_dwarf_compression_is_disabled",
     flag_values = {":zstd_dwarf_compression": "0"},
-    visibility = ["//visibility:public"],
+    visibility = ["//build/kernel/kleaf/impl/defconfig:__subpackages__"],
 )
 
 # If true, enable CONFIG_GDB_SCRIPTS and collect gdb scripts.
