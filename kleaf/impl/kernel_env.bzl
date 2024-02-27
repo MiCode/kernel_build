@@ -377,7 +377,13 @@ def _get_env_setup_cmds(ctx):
         if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
             export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
         fi
-        # Set up KCPPFLAGS
+
+        ## Set up KCPPFLAGS
+
+        # use relative paths for file name references in the binaries
+        # (e.g. debug info)
+        export KCPPFLAGS="-ffile-prefix-map=${{ROOT_DIR}}/${{KERNEL_DIR}}/= -ffile-prefix-map=${{ROOT_DIR}}/="
+
         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
         # workspace root, making $abs_srctree not under $ROOT_DIR.

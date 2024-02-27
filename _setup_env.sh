@@ -129,10 +129,6 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
       ln -sf $(which $tool) ${HOST_TOOLS}
   done
   PATH=${HOST_TOOLS}
-
-  # use relative paths for file name references in the binaries
-  # (e.g. debug info)
-  export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/${KERNEL_DIR}/= -ffile-prefix-map=${ROOT_DIR}/="
 fi
 
 for prebuilt_bin in "${prebuilts_paths[@]}"; do
