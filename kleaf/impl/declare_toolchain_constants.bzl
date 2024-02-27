@@ -19,11 +19,11 @@ load("//prebuilts/clang/host/linux-x86/kleaf:clang_toolchain_repository.bzl", "c
 
 visibility("public")
 
-def _kernel_toolchain_ext_impl(module_ctx):
+def _declare_repos(module_ctx, tag_name):
     root_toolchain_constants = []
     kleaf_toolchain_constants = []
     for module in module_ctx.modules:
-        installed_constants = [installed.toolchain_constants for installed in module.tags.install]
+        installed_constants = [installed.toolchain_constants for installed in getattr(module.tags, tag_name)]
         if module.is_root:
             root_toolchain_constants += installed_constants
         if module.name == "kleaf":
@@ -50,15 +50,14 @@ def _kernel_toolchain_ext_impl(module_ctx):
         name = "kleaf_clang_toolchain",
     )
 
-kernel_toolchain_ext = module_extension(
-    doc = "Declares an extension named `kernel_toolchain_info` that contains toolchain information.",
-    implementation = _kernel_toolchain_ext_impl,
-    tag_classes = {
-        "install": tag_class(
-            doc = "Declares a potential location that contains toolchain information.",
-            attrs = {
-                "toolchain_constants": attr.label(mandatory = True),
-            },
-        ),
+_tag_class = tag_class(
+    doc = "Declares a potential location that contains toolchain information.",
+    attrs = {
+        "toolchain_constants": attr.label(mandatory = True),
     },
+)
+
+declare_toolchain_constants = struct(
+    tag_class = _tag_class,
+    declare_repos = _declare_repos,
 )

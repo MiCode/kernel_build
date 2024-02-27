@@ -25,7 +25,6 @@ docs(
         "//build/kernel/kleaf:fail.bzl",
         "//build/kernel/kleaf:hermetic_tools.bzl",
         "//build/kernel/kleaf:kernel.bzl",
-        "//build/kernel/kleaf:kernel_toolchain_ext.bzl",
         "//build/kernel/kleaf:key_value_repo.bzl",
         "//build/kernel/kleaf:print_debug.bzl",
         "//build/kernel/kleaf:update_source_file.bzl",
