@@ -18,6 +18,7 @@ Defines repositories in a Kleaf workspace.
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//build/kernel/kleaf/impl:declare_host_tools.bzl", "kleaf_host_tools_repo")
 load(
     "//build/kernel/kleaf/impl:kernel_prebuilt_repo.bzl",
     "kernel_prebuilt_repo",
@@ -26,7 +27,6 @@ load(
     "//build/kernel/kleaf/impl:kernel_prebuilt_utils.bzl",
     "CI_TARGET_MAPPING",
 )
-load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_repo")
 load(
     "//build/kernel/kleaf/impl:local_repository.bzl",
     "kleaf_local_repository",
