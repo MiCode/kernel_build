@@ -124,6 +124,8 @@ def initramfs_modules_lists_test(
         expected_modules_list = None,
         expected_modules_recovery_list = None,
         expected_modules_charger_list = None,
+        build_vendor_boot = None,
+        build_vendor_kernel_boot = None,
         **kwargs):
     """Tests that the initramfs has modules.load* files with the given content.
 
@@ -133,6 +135,8 @@ def initramfs_modules_lists_test(
         expected_modules_list: file with the expected content for `modules.load`
         expected_modules_recovery_list: file with the expected content for `modules.load.recovery`
         expected_modules_charger_list: file with the expected content for `modules.load.charger`
+        build_vendor_boot: If the `kernel_images` target builds vendor_boot.img
+        build_vendor_kernel_boot: If the `kernel_images` target builds vendor_kernel_boot.img
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -158,6 +162,11 @@ def initramfs_modules_lists_test(
             "--expected_modules_charger_list",
             "$(rootpath {})".format(expected_modules_charger_list),
         ]
+
+    if build_vendor_boot:
+        args.append("--build_vendor_boot")
+    elif build_vendor_kernel_boot:
+        args.append("--build_vendor_kernel_boot")
 
     args.append("$(rootpaths {})".format(kernel_images))
 
