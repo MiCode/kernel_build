@@ -168,7 +168,10 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     for repo_name in CI_TARGET_MAPPING:
         kernel_prebuilt_repo(
             name = repo_name,
+            apparent_name = repo_name,
             artifact_url_fmt = artifact_url_fmt,
+            auto_download_config = True,
+            target = CI_TARGET_MAPPING[repo_name]["target"],
         )
 
     maybe(
