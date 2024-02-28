@@ -16,11 +16,14 @@ load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 load(":ddk_headers_test.bzl", "ddk_headers_test_suite")
+load(":ddk_images_test.bzl", "ddk_images_test_suite")
 load(":ddk_module_test.bzl", "ddk_module_test_suite")
 load(":ddk_submodule_test.bzl", "ddk_submodule_test")
 load(":makefiles_test.bzl", "makefiles_test_suite")
 
 ddk_headers_test_suite(name = "ddk_headers_test_suite")
+
+ddk_images_test_suite(name = "ddk_images_test_suite")
 
 ddk_module_test_suite(name = "ddk_module_test_suite")
 
