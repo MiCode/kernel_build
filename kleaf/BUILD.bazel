@@ -785,8 +785,8 @@ alias(
 
 alias(
     name = "docs_server",
-    actual = "//build/kernel/kleaf/docs:docs_server",
-    deprecation = "Use //build/kernel/kleaf/docs:docs_server instead.",
+    actual = "//build/kernel/kleaf/docs:docs_dist",
+    deprecation = "Use //build/kernel/kleaf/docs:docs_dist instead.",
 )
 
 alias(

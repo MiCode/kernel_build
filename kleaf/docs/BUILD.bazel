@@ -12,29 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//build/bazel_common_rules/docs:docs.bzl", "docs")
+"""Kleaf API Docs.
 
-# Kleaf API Docs. To view them:
-#   Refer to kleaf/docs/api_reference.md
-docs(
-    name = "docs",
+To update:
+
+```
+tools/bazel run //build/kernel/kleaf/docs:docs_dist \\
+    --config=bzlmod --config=internet \\
+    -- --wipe_dist_dir
+```
+"""
+
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+
+_SRCS = [
+    "//build/kernel/kleaf:common_kernels.bzl",
+    "//build/kernel/kleaf:constants.bzl",
+    "//build/kernel/kleaf:directory_with_structure.bzl",
+    "//build/kernel/kleaf:fail.bzl",
+    "//build/kernel/kleaf:hermetic_tools.bzl",
+    "//build/kernel/kleaf:kernel.bzl",
+    "//build/kernel/kleaf:key_value_repo.bzl",
+    "//build/kernel/kleaf:print_debug.bzl",
+    "//build/kernel/kleaf:update_source_file.bzl",
+    "//build/kernel/kleaf:workspace.bzl",
+    "//build/kernel/kleaf:workspace_epilog.bzl",
+]
+
+bzl_library(
+    name = "deps",
     srcs = [
-        "//build/kernel/kleaf:common_kernels.bzl",
-        "//build/kernel/kleaf:constants.bzl",
-        "//build/kernel/kleaf:directory_with_structure.bzl",
-        "//build/kernel/kleaf:fail.bzl",
-        "//build/kernel/kleaf:hermetic_tools.bzl",
-        "//build/kernel/kleaf:kernel.bzl",
-        "//build/kernel/kleaf:key_value_repo.bzl",
-        "//build/kernel/kleaf:print_debug.bzl",
-        "//build/kernel/kleaf:update_source_file.bzl",
-        "//build/kernel/kleaf:workspace.bzl",
-        "//build/kernel/kleaf:workspace_epilog.bzl",
-    ],
-    default = "//build/kernel/kleaf:kernel.bzl",
-    tags = ["manual"],
-    visibility = ["//build/kernel/kleaf:__pkg__"],
-    deps = [
         "//build/bazel_common_rules/dist",
         "//build/bazel_common_rules/exec",
         "//build/bazel_common_rules/workspace",
@@ -48,5 +57,35 @@ docs(
         "@bazel_skylib//lib:unittest",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
-    ],
+    ] + _SRCS,
+)
+
+[
+    stardoc(
+        name = package_relative_label(src).name,
+        out = package_relative_label(src).name.removesuffix(".bzl") + ".md",
+        input = src,
+        deps = [":deps"],
+    )
+    for src in _SRCS
+]
+
+filegroup(
+    name = "docs",
+    srcs = [package_relative_label(src).name for src in _SRCS],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+)
+
+copy_to_dist_dir(
+    name = "docs_dist",
+    data = [":docs"],
+    dist_dir = package_name() + "/api_reference",
+    flat = True,
+    mode_overrides = {
+        "*": 644,
+    },
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    # TODO(b/324643611): This won't work on build bots. Once target on
+    #   build bots are turned down, enable this.
+    # wipe_dist_dir = True,
 )
