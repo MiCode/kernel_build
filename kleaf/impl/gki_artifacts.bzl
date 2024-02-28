@@ -147,7 +147,7 @@ gki_artifacts = rule(
     attrs = {
         "kernel_build": attr.label(
             providers = [KernelBuildUnameInfo],
-            doc = "The [`kernel_build`](#kernel_build) that provides all `Image` and `Image.*`.",
+            doc = "The [`kernel_build`](kernel.md#kernel_build) that provides all `Image` and `Image.*`.",
         ),
         "mkbootimg": attr.label(
             allow_single_file = True,

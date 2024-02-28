@@ -266,7 +266,144 @@ def define_common_kernels(
 
     - `kernel_aarch64_abi`
 
-    See [`kernel_abi()`](#kernel_abi) for details.
+    See [`kernel_abi()`](kernel.md#kernel_abi) for details.
+
+    **Target configs**
+
+    The content of `target_configs` should match the following variables in
+    `build.config.gki{,-debug}.{aarch64,riscv64,x86_64}`:
+    - `KMI_SYMBOL_LIST`
+    - `ADDITIONAL_KMI_SYMBOL_LISTS`
+    - `TRIM_NONLISTED_KMI`
+    - `KMI_SYMBOL_LIST_STRICT_MODE`
+    - `GKI_MODULES_LIST` (corresponds to [`kernel_build.module_implicit_outs`](kernel.md#kernel_build-module_implicit_outs))
+    - `BUILD_GKI_ARTIFACTS`
+    - `BUILD_GKI_BOOT_IMG_SIZE` and `BUILD_GKI_BOOT_IMG_{COMPRESSION}_SIZE`
+
+    The keys of the `target_configs` may be one of the following:
+    - `kernel_aarch64`
+    - `kernel_aarch64_16k`
+    - `kernel_riscv64`
+    - `kernel_x86_64`
+
+    The values of the `target_configs` should be a dictionary, where keys
+    are one of the following, and values are passed to the corresponding
+    argument in [`kernel_build`](kernel.md#kernel_build):
+    - `kmi_symbol_list`
+    - `additional_kmi_symbol_lists`
+    - `trim_nonlisted_kmi`
+    - `kmi_symbol_list_strict_mode`
+    - `module_implicit_outs` (corresponds to `GKI_MODULES_LIST`)
+
+    In addition, the values of `target_configs` may contain the following keys:
+    - `build_gki_artifacts`
+    - `gki_boot_img_sizes` (corresponds to `BUILD_GKI_BOOT_IMG_SIZE` and `BUILD_GKI_BOOT_IMG_{COMPRESSION}_SIZE`)
+        - This is a dictionary where keys are lower-cased compression algorithm (e.g. `"lz4"`)
+        and values are sizes (e.g. `BUILD_GKI_BOOT_IMG_LZ4_SIZE`).
+        The empty-string key `""` corresponds to `BUILD_GKI_BOOT_IMG_SIZE`.
+
+    A target is configured as follows. A configuration item for this target
+    is determined by the following, in the following order:
+
+    1. `target_configs[target_name][configuration_item]`, if it exists;
+    2. `default_target_configs[target_name][configuration_item]`, if it exists, where
+        `default_target_configs` contains sensible defaults. See below.
+    3. `None`
+
+    For example, to determine the value of `kmi_symbol_list` of `kernel_aarch64`:
+
+    ```
+    if "kernel_aarch64" in target_configs and "kmi_symbol_list" in target_configs["kernel_aarch64"]:
+        value = target_configs["kernel_aarch64"]["kmi_symbol_list"]
+        # Note: if `target_configs["kernel_aarch64"]["kmi_symbol_list"] == None`, it'll be passed
+        # as None, regardless of value in default_target_configs
+    elif "kernel_aarch64" in default_target_configs and "kmi_symbol_list" in default_target_configs["kernel_aarch64"]:
+        value = default_target_configs["kernel_aarch64"]["kmi_symbol_list"]
+    else:
+        value = None
+
+    kernel_build(..., kmi_symbol_list = value)
+    ```
+
+    The `default_target_configs` above contains sensible defaults:
+    - `kernel_aarch64`:
+        - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
+        - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
+        - `TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}` in `build.config` if there are symbol lists, else empty
+        - `KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}` in `build.config` if there are symbol lists, else empty
+    - `kernel_aarch64_16k`:
+        - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
+        - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+        - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
+    - `kernel_riscv64`:
+        - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
+        - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+        - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
+    - `kernel_x86_64`:
+        - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
+        - `TRIM_NONLISTED_KMI` is not specified in `build.config`
+        - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
+
+    That is, the default value is:
+    ```
+    aarch64_kmi_symbol_list = glob(["android/abi_gki_aarch64"])
+    aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
+    aarch64_additional_kmi_symbol_lists = glob(
+        ["android/abi_gki_aarch64*"],
+        exclude = ["**/*.stg", "android/abi_gki_aarch64"],
+    )
+    aarch64_protected_exports_list = native.glob(["android/abi_gki_protected_exports"])
+    aarch64_protected_exports_list = aarch64_protected_exports_list[0] if aarch64_protected_exports_list else None
+    aarch64_protected_modules_list = native.glob(["android/gki_protected_modules"])
+    aarch64_protected_modules_list = aarch64_protected_modules_list[0] if aarch64_protected_modules_list else None
+    aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
+    default_target_configs = {
+        "kernel_aarch64": {
+            "kmi_symbol_list": aarch64_kmi_symbol_list,
+            "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
+            "protected_exports_list": aarch64_protected_exports_list,
+            "protected_modules_list": aarch64_protected_modules_list,
+            "trim_nonlisted_kmi": aarch64_trim_and_check,
+            "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
+        },
+        "kernel_aarch64_16k": {
+        },
+        "kernel_riscv64": {
+        },
+        "kernel_x86_64": {
+        },
+    }
+    ```
+
+    If `target_configs` is not set explicitly in `define_common_kernels()`:
+
+    ```
+    |                                   |trim?         |
+    |-----------------------------------|--------------|
+    |`kernel_aarch64`                   |TRIM          |
+    |(with symbol lists)                |              |
+    |(`trim_nonlisted_kmi=True`)        |              |
+    |-----------------------------------|--------------|
+    |`kernel_aarch64`                   |NO TRIM       |
+    |(no symbol lists)                  |              |
+    |(`trim_nonlisted_kmi=None`)        |              |
+    |-----------------------------------|--------------|
+    |`kernel_aarch64_16k`               |NO TRIM       |
+    |(`trim_nonlisted_kmi=None`)        |              |
+    |-----------------------------------|--------------|
+    |`kernel_riscv64`                   |NO TRIM       |
+    |(`trim_nonlisted_kmi=None`)        |              |
+    |-----------------------------------|--------------|
+    |`kernel_x86_64`                    |NO TRIM       |
+    |(`trim_nonlisted_kmi=None`)        |              |
+    ```
+
+    To print the actual configurations for debugging purposes for e.g.
+    `//common:kernel_aarch64`:
+
+    ```
+    bazel build //common:kernel_aarch64_print_configs
+    ```
 
     **Prebuilts**
 
@@ -325,139 +462,6 @@ def define_common_kernels(
       target_configs: A dictionary, where keys are target names, and
         values are a dictionary of configurations to override the default
         configuration for this target.
-
-        The content of `target_configs` should match the following variables in
-        `build.config.gki{,-debug}.{aarch64,riscv64,x86_64}`:
-        - `KMI_SYMBOL_LIST`
-        - `ADDITIONAL_KMI_SYMBOL_LISTS`
-        - `TRIM_NONLISTED_KMI`
-        - `KMI_SYMBOL_LIST_STRICT_MODE`
-        - `GKI_MODULES_LIST` (corresponds to [`kernel_build.module_implicit_outs`](#kernel_build-module_implicit_outs))
-        - `BUILD_GKI_ARTIFACTS`
-        - `BUILD_GKI_BOOT_IMG_SIZE` and `BUILD_GKI_BOOT_IMG_{COMPRESSION}_SIZE`
-
-        The keys of the `target_configs` may be one of the following:
-        - `kernel_aarch64`
-        - `kernel_aarch64_16k`
-        - `kernel_riscv64`
-        - `kernel_x86_64`
-
-        The values of the `target_configs` should be a dictionary, where keys
-        are one of the following, and values are passed to the corresponding
-        argument in [`kernel_build`](#kernel_build):
-        - `kmi_symbol_list`
-        - `additional_kmi_symbol_lists`
-        - `trim_nonlisted_kmi`
-        - `kmi_symbol_list_strict_mode`
-        - `module_implicit_outs` (corresponds to `GKI_MODULES_LIST`)
-
-        In addition, the values of `target_configs` may contain the following keys:
-        - `build_gki_artifacts`
-        - `gki_boot_img_sizes` (corresponds to `BUILD_GKI_BOOT_IMG_SIZE` and `BUILD_GKI_BOOT_IMG_{COMPRESSION}_SIZE`)
-          - This is a dictionary where keys are lower-cased compression algorithm (e.g. `"lz4"`)
-            and values are sizes (e.g. `BUILD_GKI_BOOT_IMG_LZ4_SIZE`).
-            The empty-string key `""` corresponds to `BUILD_GKI_BOOT_IMG_SIZE`.
-
-        A target is configured as follows. A configuration item for this target
-        is determined by the following, in the following order:
-
-        1. `target_configs[target_name][configuration_item]`, if it exists;
-        2. `default_target_configs[target_name][configuration_item]`, if it exists, where
-           `default_target_configs` contains sensible defaults. See below.
-        3. `None`
-
-        For example, to determine the value of `kmi_symbol_list` of `kernel_aarch64`:
-
-        ```
-        if "kernel_aarch64" in target_configs and "kmi_symbol_list" in target_configs["kernel_aarch64"]:
-            value = target_configs["kernel_aarch64"]["kmi_symbol_list"]
-            # Note: if `target_configs["kernel_aarch64"]["kmi_symbol_list"] == None`, it'll be passed
-            # as None, regardless of value in default_target_configs
-        elif "kernel_aarch64" in default_target_configs and "kmi_symbol_list" in default_target_configs["kernel_aarch64"]:
-            value = default_target_configs["kernel_aarch64"]["kmi_symbol_list"]
-        else:
-            value = None
-
-        kernel_build(..., kmi_symbol_list = value)
-        ```
-
-        The `default_target_configs` above contains sensible defaults:
-        - `kernel_aarch64`:
-          - `kmi_symbol_list = "android/abi_gki_aarch64"` if the file exist, else `None`
-          - `additional_kmi_symbol_list = glob(["android/abi_gki_aarch64*"])` excluding `kmi_symbol_list` and XMLs
-          - `TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}` in `build.config` if there are symbol lists, else empty
-          - `KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}` in `build.config` if there are symbol lists, else empty
-        - `kernel_aarch64_16k`:
-          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
-          - `TRIM_NONLISTED_KMI` is not specified in `build.config`
-          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
-        - `kernel_riscv64`:
-          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
-          - `TRIM_NONLISTED_KMI` is not specified in `build.config`
-          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
-        - `kernel_x86_64`:
-          - No `kmi_symbol_list` nor `additional_kmi_symbol_lists`
-          - `TRIM_NONLISTED_KMI` is not specified in `build.config`
-          - `KMI_SYMBOL_LIST_STRICT_MODE` is not specified in `build.config`
-
-        That is, the default value is:
-        ```
-        aarch64_kmi_symbol_list = glob(["android/abi_gki_aarch64"])
-        aarch64_kmi_symbol_list = aarch64_kmi_symbol_list[0] if aarch64_kmi_symbol_list else None
-        aarch64_additional_kmi_symbol_lists = glob(
-            ["android/abi_gki_aarch64*"],
-            exclude = ["**/*.stg", "android/abi_gki_aarch64"],
-        )
-        aarch64_protected_exports_list = native.glob(["android/abi_gki_protected_exports"])
-        aarch64_protected_exports_list = aarch64_protected_exports_list[0] if aarch64_protected_exports_list else None
-        aarch64_protected_modules_list = native.glob(["android/gki_protected_modules"])
-        aarch64_protected_modules_list = aarch64_protected_modules_list[0] if aarch64_protected_modules_list else None
-        aarch64_trim_and_check = bool(aarch64_kmi_symbol_list) or len(aarch64_additional_kmi_symbol_lists) > 0
-        default_target_configs = {
-            "kernel_aarch64": {
-                "kmi_symbol_list": aarch64_kmi_symbol_list,
-                "additional_kmi_symbol_lists": aarch64_additional_kmi_symbol_lists,
-                "protected_exports_list": aarch64_protected_exports_list,
-                "protected_modules_list": aarch64_protected_modules_list,
-                "trim_nonlisted_kmi": aarch64_trim_and_check,
-                "kmi_symbol_list_strict_mode": aarch64_trim_and_check,
-            },
-            "kernel_aarch64_16k": {
-            },
-            "kernel_riscv64": {
-            },
-            "kernel_x86_64": {
-            },
-        }
-        ```
-
-        If `target_configs` is not set explicitly in `define_common_kernels()`:
-
-        |                                   |trim?         |
-        |-----------------------------------|--------------|
-        |`kernel_aarch64`                   |TRIM          |
-        |(with symbol lists)                |              |
-        |(`trim_nonlisted_kmi=True`)        |              |
-        |-----------------------------------|--------------|
-        |`kernel_aarch64`                   |NO TRIM       |
-        |(no symbol lists)                  |              |
-        |(`trim_nonlisted_kmi=None`)        |              |
-        |-----------------------------------|--------------|
-        |`kernel_aarch64_16k`               |NO TRIM       |
-        |(`trim_nonlisted_kmi=None`)        |              |
-        |-----------------------------------|--------------|
-        |`kernel_riscv64`                   |NO TRIM       |
-        |(`trim_nonlisted_kmi=None`)        |              |
-        |-----------------------------------|--------------|
-        |`kernel_x86_64`                    |NO TRIM       |
-        |(`trim_nonlisted_kmi=None`)        |              |
-
-        To print the actual configurations for debugging purposes for e.g.
-        `//common:kernel_aarch64`:
-
-        ```
-        bazel build //common:kernel_aarch64_print_configs
-        ```
 
       toolchain_version: If not set, use default value in `kernel_build`.
       visibility: visibility of the `kernel_build` and targets defined for downloaded prebuilts.
@@ -1159,34 +1163,34 @@ def define_db845c(
 
     Requires [`define_common_kernels`](#define_common_kernels) to be called in the same package.
 
-    **Deprecated**. Use [`kernel_build`](#kernel_build) directly.
+    **Deprecated**. Use [`kernel_build`](kernel.md#kernel_build) directly.
 
     Args:
         name: name of target. Usually `"db845c"`.
-        build_config: See [kernel_build.build_config](#kernel_build-build_config). If `None`,
+        build_config: See [kernel_build.build_config](kernel.md#kernel_build-build_config). If `None`,
           default to `"build.config.db845c"`.
-        outs: See [kernel_build.outs](#kernel_build-outs).
-        module_outs: See [kernel_build.module_outs](#kernel_build-module_outs). The list of
+        outs: See [kernel_build.outs](kernel.md#kernel_build-outs).
+        module_outs: See [kernel_build.module_outs](kernel.md#kernel_build-module_outs). The list of
           in-tree kernel modules.
-        make_goals: See [kernel_build.make_goals](#kernel_build-make_goals).  A list of strings
+        make_goals: See [kernel_build.make_goals](kernel.md#kernel_build-make_goals).  A list of strings
           defining targets for the kernel build.
-        define_abi_targets: See [kernel_abi.define_abi_targets](#kernel_abi-define_abi_targets).
-        kmi_symbol_list: See [kernel_build.kmi_symbol_list](#kernel_build-kmi_symbol_list).
-        kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](#kernel_abi-kmi_symbol_list_add_only).
-        module_grouping: See [kernel_abi.module_grouping](#kernel_abi-module_grouping).
-        unstripped_modules_archive: See [kernel_abi.unstripped_modules_archive](#kernel_abi-unstripped_modules_archive).
+        define_abi_targets: See [kernel_abi.define_abi_targets](kernel.md#kernel_abi-define_abi_targets).
+        kmi_symbol_list: See [kernel_build.kmi_symbol_list](kernel.md#kernel_build-kmi_symbol_list).
+        kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](kernel.md#kernel_abi-kmi_symbol_list_add_only).
+        module_grouping: See [kernel_abi.module_grouping](kernel.md#kernel_abi-module_grouping).
+        unstripped_modules_archive: See [kernel_abi.unstripped_modules_archive](kernel.md#kernel_abi-unstripped_modules_archive).
         gki_modules_list: List of gki modules to be copied to the dist directory.
           If `None`, all gki kernel modules will be copied.
         dist_dir: Argument to `copy_to_dist_dir`. If `None`, default is `"out/{name}/dist"`.
 
     Deprecated:
-        Use [`kernel_build`](#kernel_build) directly.
+        Use [`kernel_build`](kernel.md#kernel_build) directly.
     """
 
     # buildifier: disable=print
     print("""{}//{}:{}: define_db845c is deprecated.
 
-          Use [`kernel_build`](#kernel_build) directly.
+          Use [`kernel_build`](kernel.md#kernel_build) directly.
 
           Use https://r.android.com/2634654 and its cherry-picks as a reference
             on how to unfold the macro and use the other rules directly.

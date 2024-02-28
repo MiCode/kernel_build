@@ -44,7 +44,7 @@ def define_kleaf_workspace(
     **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
     files, not `BUILD` or `BUILD.bazel` files!**
 
-    If [`define_kleaf_workspace_epilog`](#define_kleaf_workspace_epilog) is
+    If [`define_kleaf_workspace_epilog`](workspace_epilog.md#define_kleaf_workspace_epilog) is
     called, it must be called after `define_kleaf_workspace` is called.
 
     Args:

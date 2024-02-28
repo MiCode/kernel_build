@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Optional epilog macro for defining repositories in a Kleaf workspace."""
+
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 def define_kleaf_workspace_epilog():
@@ -24,6 +26,6 @@ def define_kleaf_workspace_epilog():
     [Bazel analysis tests](https://bazel.build/rules/testing).
 
     If called, it must be called after
-    [`define_kleaf_workspace`](#define_kleaf_workspace) is called.
+    [`define_kleaf_workspace`](workspace.md#define_kleaf_workspace) is called.
     """
     bazel_skylib_workspace()

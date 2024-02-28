@@ -221,7 +221,7 @@ KernelBuildExtModuleInfo = provider(
         "mod_min_env": "`KernelSerializedEnvInfo` for building external modules, including minimal needed `kernel_build` outputs.",
         "mod_full_env": "`KernelSerializedEnvInfo` for building external modules, including all `kernel_build` outputs.",
         "modinst_env": "`KernelSerializedEnvInfo` for running `modules_install`.",
-        "collect_unstripped_modules": "Whether an external [`kernel_module`](#kernel_module) building against this [`kernel_build`](#kernel_build) should provide unstripped ones for debugging.",
+        "collect_unstripped_modules": "Whether an external [`kernel_module`](kernel.md#kernel_module) building against this [`kernel_build`](kernel.md#kernel_build) should provide unstripped ones for debugging.",
         "strip_modules": "Whether debug information for distributed modules is stripped",
     },
 )
@@ -239,11 +239,11 @@ KernelBuildUapiInfo = provider(
 )
 
 KernelBuildAbiInfo = provider(
-    doc = "A provider that specifies ABI-related information of a [`kernel_build`](#kernel_build).",
+    doc = "A provider that specifies ABI-related information of a [`kernel_build`](kernel.md#kernel_build).",
     fields = {
-        "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](#kernel_build).",
+        "trim_nonlisted_kmi": "Value of `trim_nonlisted_kmi` in [`kernel_build()`](kernel.md#kernel_build).",
         "combined_abi_symbollist": "The **combined** `abi_symbollist` file from the `_kmi_symbol_list` rule, consist of the source `kmi_symbol_list` and `additional_kmi_symbol_lists`.",
-        "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
+        "module_outs_file": "A file containing `[kernel_build.module_outs]`(kernel.md#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(kernel.md#kernel_build-module_implicit_outs).",
         "modules_staging_archive": "Archive containing staging kernel modules. ",
         "base_modules_staging_archive": "Archive containing staging kernel modules of the base kernel",
         "src_kmi_symbol_list": """Source file for `kmi_symbol_list` that points to the symbol list
@@ -255,16 +255,16 @@ KernelBuildAbiInfo = provider(
 )
 
 KernelBuildInTreeModulesInfo = provider(
-    doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
-[`base_kernel`](#kernel_build-base_kernel) for the list of in-tree modules in the `base_kernel`.""",
+    doc = """A provider that specifies the expectations of a [`kernel_build`](kernel.md#kernel_build) on its
+[`base_kernel`](kernel.md#kernel_build-base_kernel) for the list of in-tree modules in the `base_kernel`.""",
     fields = {
-        "module_outs_file": "A file containing `[kernel_build.module_outs]`(#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(#kernel_build-module_implicit_outs).",
+        "module_outs_file": "A file containing `[kernel_build.module_outs]`(kernel.md#kernel_build-module_outs) and `[kernel_build.module_implicit_outs]`(kernel.md#kernel_build-module_implicit_outs).",
     },
 )
 
 KernelBuildMixedTreeInfo = provider(
-    doc = """A provider that specifies the expectations of a [`kernel_build`](#kernel_build) on its
-[`base_kernel`](#kernel_build-base_kernel) for constructing `KBUILD_MIXED_TREE`.""",
+    doc = """A provider that specifies the expectations of a [`kernel_build`](kernel.md#kernel_build) on its
+[`base_kernel`](kernel.md#kernel_build-base_kernel) for constructing `KBUILD_MIXED_TREE`.""",
     fields = {
         "files": """A [depset](https://bazel.build/extending/depsets) containing the list of
 files required to build `KBUILD_MIXED_TREE` for the device kernel.""",
@@ -298,12 +298,12 @@ each item points to a directory containing unstripped modules.
 Order matters; earlier elements in the traverse order has higher priority. Hence,
 this depset must have `order` argument specified.
 
-For [`kernel_build()`](#kernel_build), this is a directory containing unstripped in-tree modules.
+For [`kernel_build()`](kernel.md#kernel_build), this is a directory containing unstripped in-tree modules.
 - This is `None` if and only if `collect_unstripped_modules = False`
 - Never `None` if and only if `collect_unstripped_modules = True`
 - An empty directory if and only if `collect_unstripped_modules = True` and `module_outs` is empty
 
-For an external [`kernel_module()`](#kernel_module), this is a directory containing unstripped external modules.
+For an external [`kernel_module()`](kernel.md#kernel_module), this is a directory containing unstripped external modules.
 - This is `None` if and only if the `kernel_build` argument has `collect_unstripped_modules = False`
 - Never `None` if and only if the `kernel_build` argument has `collect_unstripped_modules = True`
 """,
@@ -380,7 +380,7 @@ ModuleSymversInfo = provider(
 )
 
 KernelImagesInfo = provider(
-    doc = "A provider that represents the expectation of [`kernel_images`](#kernel_images) to [`kernel_build`](#kernel_build)",
+    doc = "A provider that represents the expectation of [`kernel_images`](kernel.md#kernel_images) to [`kernel_build`](kernel.md#kernel_build)",
     fields = {
         "base_kernel_label": "Label of the `base_kernel` target, if exists",
     },
@@ -414,7 +414,7 @@ DdkConfigInfo = provider(
 )
 
 ImagesInfo = provider(
-    doc = "Provider from individual *_image rule to [`kernel_images`](#kernel_images) rule",
+    doc = "Provider from individual *_image rule to [`kernel_images`](kernel.md#kernel_images) rule",
     fields = {
         "files_dict": """A dictionary, where keys are keys in
             [OutputGroupInfo](https://bazel.build/rules/lib/providers/OutputGroupInfo)

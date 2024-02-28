@@ -24,12 +24,12 @@ def kernel_module_test(
         name,
         modules = None,
         **kwargs):
-    """A test on artifacts produced by [kernel_module](#kernel_module).
+    """A test on artifacts produced by [kernel_module](kernel.md#kernel_module).
 
     Args:
         name: name of test
         modules: The list of `*.ko` kernel modules, or targets that produces
-            `*.ko` kernel modules (e.g. [kernel_module](#kernel_module)).
+            `*.ko` kernel modules (e.g. [kernel_module](kernel.md#kernel_module)).
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -56,11 +56,11 @@ def kernel_build_test(
         name,
         target = None,
         **kwargs):
-    """A test on artifacts produced by [kernel_build](#kernel_build).
+    """A test on artifacts produced by [kernel_build](kernel.md#kernel_build).
 
     Args:
         name: name of test
-        target: The [`kernel_build()`](#kernel_build).
+        target: The [`kernel_build()`](kernel.md#kernel_build).
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
