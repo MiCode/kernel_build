@@ -289,15 +289,6 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# Default is true.
-# If true, //build/kernel:hermetic-tools and other hermetic_tools
-# targets no longer emits HermeticToolsInfo.
-bool_flag(
-    name = "incompatible_disable_hermetic_tools_info",
-    build_setting_default = True,
-    visibility = ["//build/kernel:__pkg__"],
-)
-
 # If true, fail_action() does not fail to build, but write failure
 # message to its default output file.
 bool_setting(

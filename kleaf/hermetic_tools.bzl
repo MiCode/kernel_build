@@ -32,37 +32,6 @@ hermetic_exec_test = _hermetic_exec_test
 hermetic_genrule = _hermetic_genrule
 hermetic_toolchain = _hermetic_toolchain
 
-# Deprecated.
-HermeticToolsInfo = provider(
-    doc = """Legacy information provided by [hermetic_tools](#hermetic_tools).
-
-Deprecated:
-    Use `hermetic_toolchain` instead. See `build/kernel/kleaf/docs/hermeticity.md`.
-""",
-    fields = {
-        "deps": "A list containing the hermetic tools",
-        "setup": "setup script to initialize the environment to only use the hermetic tools",
-        # TODO(b/250646733): Delete this field
-        "additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Alternative setup script that preserves original `PATH`.
-
-After using this script, the shell environment prioritizes using hermetic tools, but falls
-back on tools from the original `PATH` if a tool cannot be found.
-
-Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.
-""",
-        "run_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-setup script to initialize the environment to only use the hermetic tools in
-[execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model),
-e.g. for generated executables and tests""",
-        "run_additional_setup": """**IMPLEMENTATION DETAIL; DO NOT USE.**
-
-Like `run_setup` but preserves original `PATH`.""",
-    },
-)
-
 _HermeticToolchainInfo = provider(
     doc = "Toolchain information provided by [hermetic_tools](#hermetic_tools).",
     fields = {
@@ -148,9 +117,6 @@ def _hermetic_tools_impl(ctx):
                 # Ensure _setup_env.sh keeps the original items in PATH
                 export KLEAF_INTERNAL_BUILDTOOLS_PREBUILT_BIN={path}
 """.format(path = hermetic_base)
-    additional_setup = """
-                export PATH=$({path}/readlink -m {path}):$PATH
-""".format(path = hermetic_base)
     run_setup = hashbang + fail_hard + """
                 export PATH=$({path}/readlink -m {path})
 """.format(path = hermetic_base_short)
@@ -181,16 +147,6 @@ def _hermetic_tools_impl(ctx):
         ),
     ]
 
-    if not ctx.attr._disable_hermetic_tools_info[BuildSettingInfo].value:
-        hermetic_tools_info = HermeticToolsInfo(
-            deps = deps_depset.to_list(),
-            setup = setup,
-            additional_setup = additional_setup,
-            run_setup = run_setup,
-            run_additional_setup = run_additional_setup,
-        )
-        infos.append(hermetic_tools_info)
-
     return infos
 
 _hermetic_tools = rule(
@@ -201,9 +157,6 @@ _hermetic_tools = rule(
         "symlinks": attr.label_keyed_string_dict(
             doc = "symlinks to labels",
             allow_files = True,
-        ),
-        "_disable_hermetic_tools_info": attr.label(
-            default = "//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info",
         ),
         "_disable_symlink_source": attr.label(
             default = "//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source",

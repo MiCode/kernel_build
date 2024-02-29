@@ -19,8 +19,6 @@ build --flag_alias=experimental_kernel_use_resolved_toolchains=//build/kernel/kl
 build --flag_alias=noexperimental_kernel_use_resolved_toolchains=no//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains
 build --flag_alias=incompatible_kernel_use_resolved_toolchains=//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains
 build --flag_alias=noincompatible_kernel_use_resolved_toolchains=no//build/kernel/kleaf:incompatible_kernel_use_resolved_toolchains
-build --flag_alias=incompatible_disable_hermetic_tools_info=//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info
-build --flag_alias=noincompatible_disable_hermetic_tools_info=no//build/kernel/kleaf/impl:incompatible_disable_hermetic_tools_info
 build --flag_alias=incompatible_disable_hermetic_tools_symlink_source=//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source
 build --flag_alias=noincompatible_disable_hermetic_tools_symlink_source=no//build/kernel/kleaf:incompatible_disable_hermetic_tools_symlink_source
 build --flag_alias=workaround_btrfs_b292212788=//build/kernel/kleaf:workaround_btrfs_b292212788
