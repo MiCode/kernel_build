@@ -305,7 +305,7 @@ hermetic_tools(
             "@pigz": "gzip",
         },
         "//conditions:default": {
-            "build-tools/path/linux-x86/gzip": "gzip",
+            "//prebuilts/build-tools:path/linux-x86/gzip": "gzip",
         },
     }) | {
         "//prebuilts/build-tools:linux-x86/bin/toybox": ":".join(_ADDITIONAL_TOYS),
