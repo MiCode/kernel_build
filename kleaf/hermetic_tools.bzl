@@ -25,6 +25,7 @@ load(
 load("//build/kernel/kleaf/impl:hermetic_genrule.bzl", _hermetic_genrule = "hermetic_genrule")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", _hermetic_toolchain = "hermetic_toolchain")
 load("//build/kernel/kleaf/impl:utils.bzl", "utils")
+load(":fail.bzl", "fail_rule")
 
 # Re-export functions
 hermetic_exec = _hermetic_exec
@@ -181,14 +182,16 @@ def hermetic_tools(
           {"//label/to:toybox": "cp:realpath"}
           ```
         deps: additional dependencies. These aren't added to the `PATH`.
-        aliases: [nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
+        aliases: **Deprecated; do not use.**
 
-          List of aliases to create to refer to a single tool.
+          [nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
 
-          For example, if `aliases = ["cp"],` then `<name>/cp` refers to a
-          `cp`.
+          List of aliases to create to refer to a `fail_rule`.
 
-          **Note**: It is not recommended to rely on these targets. Consider
+          For example, if `aliases = ["cp"],` then usage of `<name>/cp` will
+          fail.
+
+          **Note**: It is not allowed to rely on these targets. Consider
           using the full hermetic toolchain with
           [`hermetic_toolchain`](#hermetic_toolchainget) or
           [`hermetic_genrule`](#hermetic_genrule), etc.
@@ -215,16 +218,17 @@ def hermetic_tools(
     )
 
     alias_kwargs = kwargs | dict(
-        # Mark aliases as deprecated to discourage direct usage.
-        deprecation = "Use hermetic_toolchain or hermetic_genrule for the full hermetic toolchain",
+        # Disallow direct usage of aliases.
+        message = """\
+Use hermetic_toolchain or hermetic_genrule for the full hermetic toolchain.
+  See build/kernel/kleaf/docs/hermeticity.md for details.
+""",
         tags = ["manual"],
     )
 
     for alias in aliases:
-        native.filegroup(
+        fail_rule(
             name = name + "/" + alias,
-            srcs = [name],
-            output_group = alias,
             **alias_kwargs
         )
 
