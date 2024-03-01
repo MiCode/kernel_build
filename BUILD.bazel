@@ -14,7 +14,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule", "hermetic_tools")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "bison", "hermetic_genrule", "hermetic_tools")
 
 filegroup(
     name = "sysroot",
@@ -28,10 +28,17 @@ filegroup(
     ],
 )
 
+bison(
+    name = "bison",
+    actual = "//prebuilts/build-tools:linux-x86/bin/bison",
+    pkgdata_dir = "//prebuilts/build-tools:bison.runfiles_dir",
+    pkgdata_files = "//prebuilts/build-tools:bison.runfiles",
+)
+
 # TODO(b/274975942): Delete these symlinks once build.sh goes away.
 _HERMETIC_TOOLS = [
     # keep sorted
-    "build-tools/path/linux-x86/bison",
+    ":bison",
     "//prebuilts/build-tools:linux-x86/bin/flex",
     "//prebuilts/build-tools:linux-x86/bin/m4",
     "//prebuilts/build-tools:linux-x86/bin/make",
