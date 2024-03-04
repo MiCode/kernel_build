@@ -2,31 +2,6 @@
 
 Provide tools for a hermetic build.
 
-<a id="HermeticToolsInfo"></a>
-
-## HermeticToolsInfo
-
-<pre>
-HermeticToolsInfo(<a href="#HermeticToolsInfo-deps">deps</a>, <a href="#HermeticToolsInfo-setup">setup</a>, <a href="#HermeticToolsInfo-additional_setup">additional_setup</a>, <a href="#HermeticToolsInfo-run_setup">run_setup</a>, <a href="#HermeticToolsInfo-run_additional_setup">run_additional_setup</a>)
-</pre>
-
-Legacy information provided by [hermetic_tools](#hermetic_tools).
-
-Deprecated:
-    Use `hermetic_toolchain` instead. See `build/kernel/kleaf/docs/hermeticity.md`.
-
-**FIELDS**
-
-
-| Name  | Description |
-| :------------- | :------------- |
-| <a id="HermeticToolsInfo-deps"></a>deps |  A list containing the hermetic tools    |
-| <a id="HermeticToolsInfo-setup"></a>setup |  setup script to initialize the environment to only use the hermetic tools    |
-| <a id="HermeticToolsInfo-additional_setup"></a>additional_setup |  **IMPLEMENTATION DETAIL; DO NOT USE.**<br><br>Alternative setup script that preserves original `PATH`.<br><br>After using this script, the shell environment prioritizes using hermetic tools, but falls back on tools from the original `PATH` if a tool cannot be found.<br><br>Use with caution. Using this script does not provide hermeticity. Consider using `setup` instead.    |
-| <a id="HermeticToolsInfo-run_setup"></a>run_setup |  **IMPLEMENTATION DETAIL; DO NOT USE.**<br><br>setup script to initialize the environment to only use the hermetic tools in [execution phase](https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model), e.g. for generated executables and tests    |
-| <a id="HermeticToolsInfo-run_additional_setup"></a>run_additional_setup |  **IMPLEMENTATION DETAIL; DO NOT USE.**<br><br>Like `run_setup` but preserves original `PATH`.    |
-
-
 <a id="hermetic_exec"></a>
 
 ## hermetic_exec
