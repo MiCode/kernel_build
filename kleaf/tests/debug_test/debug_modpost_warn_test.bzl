@@ -51,7 +51,7 @@ _modpost_warn_module_test = analysistest.make(
         "is_ddk_test": attr.bool(),
     },
     config_settings = {
-        "@//build/kernel/kleaf:debug_modpost_warn": True,
+        str(Label("//build/kernel/kleaf:debug_modpost_warn")): True,
     },
 )
 
