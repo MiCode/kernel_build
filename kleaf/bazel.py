@@ -37,6 +37,7 @@ _QUERY_TARGETS_ARG = 'kind("kernel_build rule", //... except attr("tags", \
 _QUERY_ABI_TARGETS_ARG = 'kind("(update_source_file|abi_update) rule", //... except attr("tags", \
     "manual", //...) except //.source_date_epoch_dir/... except //out/...)'
 
+_REPO_BOUNDARY_FILES = ("MODULE.bazel", "REPO.bazel", "WORKSPACE.bazel", "WORKSPACE")
 
 def _require_absolute_path(p: str | pathlib.Path) -> pathlib.Path:
     p = pathlib.Path(p)
@@ -80,12 +81,7 @@ class BazelWrapper(KleafHelpPrinter):
 
         self.bazel_path = self.kleaf_repo_dir / _BAZEL_REL_PATH
 
-        # Root of the top level workspace (named "@"), where WORKSPACE
-        # is located. This is not necessarily
-        # equal to kleaf_repo_dir, especially when Kleaf tooling is in a subworkspace.
-        self.workspace_dir = pathlib.Path(subprocess.check_output(
-            [self.bazel_path, "info", "workspace"],
-            text=True).strip())
+        self.workspace_dir = self._get_workspace_dir()
 
         command_idx = None
         for idx, arg in enumerate(bazel_args):
@@ -111,6 +107,37 @@ class BazelWrapper(KleafHelpPrinter):
         self._parse_startup_options()
         self._parse_command_args()
         self._rebuild_kleaf_help_args()
+
+    @classmethod
+    def _get_workspace_dir(cls):
+        """Returns Root of the top level workspace (named "@")
+
+        where WORKSPACE is located. This is not necessarily equal to
+        kleaf_repo_dir, especially when Kleaf tooling is in a submodule.
+        """
+
+        # See Bazel's implementation at:
+        # https://github.com/bazelbuild/bazel/blob/master/src/main/cpp/workspace_layout.cc
+
+        possible_workspace = pathlib.Path.cwd()
+        while possible_workspace.parent != possible_workspace: # is not root directory
+            if cls._is_workspace(possible_workspace):
+                return possible_workspace
+            possible_workspace = possible_workspace.parent
+
+        sys.stderr.write(textwrap.dedent("""\
+            ERROR: Unable to determine root of repository. See
+                https://bazel.build/external/overview#repository
+            """))
+        sys.exit(1)
+
+    @staticmethod
+    def _is_workspace(possible_workspace: pathlib.Path):
+        for boundary_file in _REPO_BOUNDARY_FILES:
+            if (possible_workspace / boundary_file).is_file():
+                return True
+        return False
+
 
     def add_startup_option_to_parser(self, parser):
         group = parser.add_argument_group(
