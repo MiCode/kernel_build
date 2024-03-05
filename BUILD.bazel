@@ -14,7 +14,8 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
-load("//build/kernel/kleaf:hermetic_tools.bzl", "bison", "hermetic_genrule", "hermetic_tools")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule", "hermetic_tools")
+load("//build/kernel/kleaf/impl:bison_wrapper.bzl", "bison_wrapper")
 
 filegroup(
     name = "sysroot",
@@ -28,11 +29,12 @@ filegroup(
     ],
 )
 
-bison(
+bison_wrapper(
     name = "bison",
     actual = "//prebuilts/build-tools:linux-x86/bin/bison",
     pkgdata_dir = "//prebuilts/build-tools:bison.runfiles_dir",
     pkgdata_files = "//prebuilts/build-tools:bison.runfiles",
+    visibility = ["//visibility:private"],
 )
 
 _HERMETIC_TOOLS = [
