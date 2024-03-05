@@ -64,7 +64,17 @@ def define_kleaf_workspace(
           * {build_number}
           * {target}
           * {filename}
+
+    Deprecated:
+      The use of legacy WORKSPACE is deprecated. Please migrate to Bazel modules.
+      See [bzlmod.md](../bzlmod.md).
     """
+
+    # buildifier: disable=print
+    print("""
+WARNING: The use of legacy WORKSPACE is deprecated. Please migrate to Bazel modules.
+  For details, see build/kernel/kleaf/docs/bzlmod.md.
+""")
 
     if common_kernel_package == None:
         common_kernel_package = str(Label("//common:x")).removesuffix(":x")

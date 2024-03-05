@@ -28,4 +28,9 @@ called, it must be called after `define_kleaf_workspace` is called.
 | <a id="define_kleaf_workspace-include_remote_java_tools_repo"></a>include_remote_java_tools_repo |  Default is `False`. Whether to vendor two extra repositories: remote_java_tools and remote_java_tools_linux.<br><br>These respositories should exist under `//prebuilts/bazel/`   |  `False` |
 | <a id="define_kleaf_workspace-artifact_url_fmt"></a>artifact_url_fmt |  API endpoint for Android CI artifacts. The format may include anchors for the following properties:   * {build_number}   * {target}   * {filename}   |  `None` |
 
+**DEPRECATED**
+
+The use of legacy WORKSPACE is deprecated. Please migrate to Bazel modules.
+See [bzlmod.md](../bzlmod.md).
+
 
