@@ -56,7 +56,6 @@ new_kleaf_local_repository(
 
 kernel_toolchain_ext = use_extension("//build/kernel/kleaf:kernel_toolchain_ext.bzl", "kernel_toolchain_ext")
 kernel_toolchain_ext.declare_toolchain_constants(toolchain_constants = "//common:build.config.constants")
-kernel_toolchain_ext.declare_host_tools()
 use_repo(kernel_toolchain_ext, "kernel_toolchain_info")
 use_repo(kernel_toolchain_ext, "kleaf_clang_toolchain")
 use_repo(kernel_toolchain_ext, "kleaf_host_tools")
