@@ -19,6 +19,11 @@ load("//prebuilts/clang/host/linux-x86/kleaf:clang_toolchain_repository.bzl", "c
 
 visibility("public")
 
+# Usually we do not refer to //common in build/kernel. This is an exception because
+# - It is a sensible default
+# - It may be overridden by calling declare_toolchain_constants at the root module
+_DEFAULT_TOOLCHAIN_CONSTANTS = "//common:build.config.constants"
+
 def _declare_repos(module_ctx, tag_name):
     root_toolchain_constants = []
     kleaf_toolchain_constants = []
@@ -40,7 +45,7 @@ def _declare_repos(module_ctx, tag_name):
         toolchain_constants = kleaf_toolchain_constants[0]
 
     if not toolchain_constants:
-        fail("kernel_toolchain_ext is not installed")
+        toolchain_constants = _DEFAULT_TOOLCHAIN_CONSTANTS
 
     key_value_repo(
         name = "kernel_toolchain_info",
@@ -53,7 +58,13 @@ def _declare_repos(module_ctx, tag_name):
 _tag_class = tag_class(
     doc = "Declares a potential location that contains toolchain information.",
     attrs = {
-        "toolchain_constants": attr.label(mandatory = True),
+        "toolchain_constants": attr.label(
+            doc = """Label to `build.config.constants`.
+
+                If `declare_toolchain_constants()` is never called, or called
+                with `toolchain_constants = None`, default is `{}`.
+            """.format(repr(_DEFAULT_TOOLCHAIN_CONSTANTS)),
+        ),
     },
 )
 
