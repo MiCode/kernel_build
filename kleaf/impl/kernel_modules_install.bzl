@@ -15,6 +15,7 @@
 A rule that runs depmod in the module installation directory.
 """
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load(
     ":common_providers.bzl",
@@ -34,6 +35,15 @@ load(
 
 visibility("//build/kernel/kleaf/...")
 
+# To avoid being abused, output is limited to modules.* files
+_OUT_ALLOWLIST = [
+    "modules.dep",
+    "modules.alias",
+    "modules.builtin",
+    "modules.symbols",
+    "modules.softdep",
+]
+
 def _kernel_modules_install_impl(ctx):
     kernel_build_infos = None
     if ctx.attr.kernel_build:
@@ -52,6 +62,9 @@ def _kernel_modules_install_impl(ctx):
 
     # A list of declared files for outputs of kernel_module rules
     external_modules = []
+
+    # A list of additional files other than kernel modules.
+    outs = []
 
     # TODO(b/256688440): Avoid depset[directory_with_structure] to_list
     modules_staging_dws_depset = depset(transitive = [
@@ -75,6 +88,19 @@ def _kernel_modules_install_impl(ctx):
     for module_file in module_files:
         declared_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, module_file.basename))
         external_modules.append(declared_file)
+
+    for out in ctx.attr.outs:
+        if out not in _OUT_ALLOWLIST:
+            fail(
+                """{}: {} is not allowed in outs.
+                Please refer to the list of allowed files {}""".format(
+                    ctx.label,
+                    out,
+                    _OUT_ALLOWLIST,
+                ),
+            )
+        out_file = ctx.actions.declare_file("{}/{}".format(ctx.label.name, out))
+        outs.append(out_file)
 
     transitive_inputs = [
         kernel_build_infos.ext_module_info.modinst_env.inputs,
@@ -158,6 +184,17 @@ def _kernel_modules_install_impl(ctx):
             search_and_cp_output = ctx.executable._search_and_cp_output.path,
         )
 
+    command += """
+        # Move additional files to declared output location
+        for out in {outs}; do
+            cp -pL {modules_staging_dir}/lib/modules/*/${{out}} {outdir}
+        done
+    """.format(
+        modules_staging_dir = modules_staging_dws.directory.path,
+        outdir = paths.join(utils.package_bin_dir(ctx), ctx.attr.name),
+        outs = " ".join(ctx.attr.outs),
+    )
+
     command += dws.record(modules_staging_dws)
 
     debug.print_scripts(ctx, command)
@@ -165,7 +202,7 @@ def _kernel_modules_install_impl(ctx):
         mnemonic = "KernelModulesInstall",
         inputs = depset(inputs, transitive = transitive_inputs),
         tools = depset(tools, transitive = transitive_tools),
-        outputs = external_modules + dws.files(modules_staging_dws),
+        outputs = external_modules + dws.files(modules_staging_dws) + outs,
         command = command,
         progress_message = "Running depmod {}".format(ctx.label),
     )
@@ -181,7 +218,7 @@ def _kernel_modules_install_impl(ctx):
     )
 
     return [
-        DefaultInfo(files = depset(external_modules)),
+        DefaultInfo(files = depset(external_modules + outs)),
         KernelModuleInfo(
             kernel_build_infos = kernel_build_infos,
             modules_staging_dws_depset = depset([modules_staging_dws]),
@@ -259,6 +296,28 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
             cfg = "exec",
             executable = True,
             doc = "Label referring to the script to process outputs",
+        ),
+        "outs": attr.string_list(
+            doc = """ A list of additional outputs from `make modules_install`.
+
+Since external modules are returned by default,
+it can be used to obtain modules.* related files (results of depmod).
+Only files with allowed names can be added to outs. (`_OUT_ALLOWLIST`)
+```
+_OUT_ALLOWLIST = {}
+```
+Example:
+```
+kernel_modules_install(
+    name = "foo_modules_install",
+    kernel_modules = [":foo_module_list"],
+    outs = [
+        "modules.dep",
+        "modules.alias",
+    ],
+)
+```
+""".format(repr(_OUT_ALLOWLIST)),
         ),
     },
 )
