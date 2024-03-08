@@ -150,15 +150,21 @@ def _download_remote_file(repository_ctx, local_path, remote_filename, file_mand
           be postponed to the analysis phase when the target is requested.
         """
     build_number = _get_build_number(repository_ctx)
+
+    # This doesn't have to be the same as the Bazel target name, hence
+    # we use a separate variable to signify so. If we have the ci_target_name
+    # != bazel_target_name in the future, this needs to be adjusted properly.
+    ci_target_name = repository_ctx.attr.target
+
     artifact_url = repository_ctx.attr.artifact_url_fmt.format(
         build_number = build_number,
-        target = repository_ctx.attr.target,
+        target = ci_target_name,
         filename = remote_filename,
     )
 
     url_with_fake_build_number = repository_ctx.attr.artifact_url_fmt.format(
         build_number = "__FAKE_BUILD_NUMBER_PLACEHOLDER__",
-        target = repository_ctx.attr.target,
+        target = ci_target_name,
         filename = remote_filename,
     )
     if not build_number and artifact_url != url_with_fake_build_number:
@@ -176,6 +182,7 @@ def _download_remote_file(repository_ctx, local_path, remote_filename, file_mand
     return _true_future if download_status.success else _false_future
 
 def _kernel_prebuilt_repo_impl(repository_ctx):
+    bazel_target_name = repository_ctx.attr.target
     download_config = repository_ctx.attr.download_config
     mandatory = repository_ctx.attr.mandatory
     if repository_ctx.attr.auto_download_config:
@@ -187,14 +194,14 @@ def _kernel_prebuilt_repo_impl(repository_ctx):
             fail("{}: mandatory should not be set when auto_download_config is True".format(
                 repository_ctx.attr.name,
             ))
-        download_config, mandatory = _infer_download_config(repository_ctx.attr.target)
+        download_config, mandatory = _infer_download_config(bazel_target_name)
 
     futures = {}
     for local_filename, remote_filename_fmt in download_config.items():
         local_path = repository_ctx.path(_join(local_filename, _basename(local_filename)))
         remote_filename = remote_filename_fmt.format(
             build_number = repository_ctx.attr.build_number,
-            target = repository_ctx.attr.target,
+            target = bazel_target_name,
         )
         file_mandatory = _str_to_bool(mandatory.get(local_filename, _bool_to_str(True)))
 
