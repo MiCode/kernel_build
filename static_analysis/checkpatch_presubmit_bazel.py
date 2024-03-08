@@ -101,6 +101,7 @@ def _run_checkpatch(
     git_sha1: str,
     log: pathlib.Path,
     checkpatch_args: list[str],
+    silent: bool = False,
 ) -> int:
     args = [_BAZEL, "run", "--show_result=0"]
     args += _SILENT_ARGS
@@ -113,6 +114,8 @@ def _run_checkpatch(
         args,
         text=True,
         cwd=_resolve_against_workspace_root("."),
+        stdout=subprocess.DEVNULL if silent else None,
+        stderr=subprocess.STDOUT if silent else None,
     ).returncode
 
 
@@ -170,6 +173,7 @@ def main(
                 git_sha1=git_sha1,
                 log=checkpatch_full_log,
                 checkpatch_args=checkpatch_args + ["--ignored_checks", ""],
+                silent=True,
             )
 
     success = sum(return_codes) == 0
