@@ -460,6 +460,21 @@ py_binary(
     deps = [":symbol_extraction"],
 )
 
+# Boostrap tool for DDK development.
+py_binary(
+    name = "init_ddk",
+    srcs = ["init/init_ddk.py"],
+    main = "init/init_ddk.py",
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "init_ddk_zip",
+    srcs = [":init_ddk"],
+    output_group = "python_zip_file",
+    visibility = ["//visibility:private"],
+)
+
 _GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
 
 _GKI_CERTIFICATION_BINARIES = [
