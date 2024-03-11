@@ -14,7 +14,6 @@
 
 """Rules for ABI extraction."""
 
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":abi/abi_transitions.bzl", "abi_common_attrs", "with_vmlinux_transition")
 load(
     ":common_providers.bzl",
@@ -73,22 +72,6 @@ def _find_vmlinux(ctx):
         required = True,
     )
 
-def _stg_file_filter(ctx):
-    # Do not apply any file filters when Rust is enabled. This is because STG
-    # requires DW_AT_decl_file to be present for all types emitted in DWARF
-    # dump when file filtering is used.
-    #
-    # TODO(b/325423395): Always apply file filters when STG starts handling
-    #                    file filters with Rust types.
-    if ctx.attr._rust[BuildSettingInfo].value:
-        # buildifier: disable=print
-        print(
-            "\nWARNING: '--rust' flag currently inhibits ABI leak prevention",
-            "of private C type",
-        )
-        return ""
-    return "--files '*.h'"
-
 def _abi_dump_full_stg(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     full_abi_out_file = ctx.actions.declare_file("{}/abi-full.stg".format(ctx.attr.name))
@@ -106,10 +89,9 @@ def _abi_dump_full_stg(ctx):
         )
 
     command = hermetic_tools.setup + """
-        {stg} {file_filter} --output {full_abi_out_file} --elf {vmlinux} {all_modules}
+        {stg} --files '*.h' --output {full_abi_out_file} --elf {vmlinux} {all_modules}
     """.format(
         stg = ctx.file._stg.path,
-        file_filter = _stg_file_filter(ctx),
         full_abi_out_file = full_abi_out_file.path,
         vmlinux = vmlinux.path,
         all_modules = all_modules,
@@ -180,7 +162,6 @@ abi_dump = rule(
             cfg = "exec",
             executable = True,
         ),
-        "_rust": attr.label(default = "//build/kernel/kleaf:rust"),
     } | abi_common_attrs(),
     cfg = with_vmlinux_transition,
     toolchains = [hermetic_toolchain.type],
