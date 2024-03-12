@@ -385,15 +385,25 @@ def _get_env_setup_cmds(ctx):
 
         ## Set up KCPPFLAGS
 
-        # use relative paths for file name references in the binaries
-        # (e.g. debug info)
-        export KCPPFLAGS="-ffile-prefix-map=${{ROOT_DIR}}/${{KERNEL_DIR}}/= -ffile-prefix-map=${{ROOT_DIR}}/="
+        # Replace ${{ROOT_DIR}} with "/proc/self/cwd" in the file name
+        # references in the binaries (e.g. debug info).
+        # "/proc/self/cwd" is an absolute path that resolves to a directory
+        # where debugger runs. And ${{ROOT_DIR}} layout should be the same as
+        # layout on the top of the repo, so if you start a debugger from the
+        # top directory, all paths should resolve correctly even on another
+        # machine.
+        export KCPPFLAGS="-ffile-prefix-map=${{ROOT_DIR}}=/proc/self/cwd"
 
         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
         # workspace root, making $abs_srctree not under $ROOT_DIR.
+        # Because compiler puts a real path to a binary, it should be a real
+        # path in -ffile-prefix-map. Also we would like to leave
+        # ${{KERNEL_DIR}} part in the path to be able to run debugger from the
+        # top directory, so we go one directory up from
+        # ${{ROOT_DIR}}/${{KERNEL_DIR}} before calling realpath.
         if [[ "$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})" != "${{ROOT_DIR}}/${{KERNEL_DIR}}" ]]; then
-            export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
+            export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}}/..)=/proc/self/cwd"
         fi
     """.format(
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
