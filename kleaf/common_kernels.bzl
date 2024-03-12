@@ -29,6 +29,7 @@ load(
     "TOOLCHAIN_VERSION_FILENAME",
 )
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
+load("//build/kernel/kleaf/impl:kernel_filegroup_declaration.bzl", "kernel_filegroup_declaration")
 load(
     "//build/kernel/kleaf/impl:kernel_prebuilt_utils.bzl",
     "CI_TARGET_MAPPING",
@@ -843,6 +844,18 @@ def _define_common_kernel(
         ],
     )
 
+    filegroup_extra_deps = [
+        name + "_unstripped_modules_archive",
+    ]
+    kernel_filegroup_declaration(
+        name = name + "_filegroup_declaration",
+        kernel_build = name,
+        extra_deps = filegroup_extra_deps,
+        visibility = ["//visibility:private"],
+    )
+
+    # TODO(b/291918087): Drop after common_kernels no longer use kernel_filegroup.
+    #   These files should already be in kernel_filegroup_declaration.
     # Everything in name + "_dist" for the DDK.
     # These are necessary for driver development. Hence they are also added to
     # kernel_*_dist so they can be downloaded.
@@ -854,6 +867,7 @@ def _define_common_kernel(
         visibility = ["//visibility:private"],
     )
     ddk_artifacts = [
+        name + "_filegroup_declaration",
         name + "_modules_prepare",
         name + "_modules_staging_archive",
         name + "_internal_ddk_artifacts",

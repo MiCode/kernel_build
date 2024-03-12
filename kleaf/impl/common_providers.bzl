@@ -278,6 +278,37 @@ KernelBuildUnameInfo = provider(
     },
 )
 
+KernelBuildFilegroupDeclInfo = provider(
+    doc = """A provider providing information of a `kernel_build` to generate `kernel_filegroup`
+        declaration.""",
+    fields = {
+        "filegroup_srcs": """[depset](https://bazel.build/extending/depsets) of
+            [`File`](https://bazel.build/rules/lib/File)s that the
+            `kernel_filegroup` should return as default outputs.""",
+        # TODO(b/291918087): This may be embedded in the generated BUILD file directly
+        "module_outs_file": """A file containing
+            `[kernel_build.module_outs]`(kernel.md#kernel_build-module_outs) and
+            `[kernel_build.module_implicit_outs]`(kernel.md#kernel_build-module_implicit_outs).""",
+        "modules_staging_archive": "Archive containing staging kernel modules. ",
+        # TODO(b/291918087): This may be embedded in the generated BUILD file directly
+        "toolchain_version_file": "A file containing the toolchain version",
+        "kernel_release": "The file `kernel.release`.",
+        "modules_prepare_archive": """Archive containing the file built by
+            [`modules_prepare`](#modules_prepare)""",
+        "collect_unstripped_modules": "[`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules)",
+        "src_protected_modules_list": """Source file with list of protected modules whose exports
+            are being protected and needs to be updated by `--update_protected_exports`.
+
+            May be `None`.""",
+        "ddk_module_defconfig_fragments": """[depset](https://bazel.build/extending/depsets) of
+            [`File`](https://bazel.build/rules/lib/File)s containing
+            [`kernel_build.ddk_module_defconfig_fragments`](#kernel_build-ddk_module_defconfig_fragments).""",
+        "kernel_uapi_headers": """[depset](https://bazel.build/extending/depsets) of
+            [`File`](https://bazel.build/rules/lib/File)s containing
+            archives of UAPI headers.""",
+    },
+)
+
 GcovInfo = provider(
     doc = """A provider providing information about --gcov.""",
     fields = {

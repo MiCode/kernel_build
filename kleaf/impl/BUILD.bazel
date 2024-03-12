@@ -81,6 +81,7 @@ bzl_library(
         "kernel_dtstree.bzl",
         "kernel_env.bzl",
         "kernel_filegroup.bzl",
+        "kernel_filegroup_declaration.bzl",
         "kernel_headers.bzl",
         "kernel_kythe.bzl",
         "kernel_module.bzl",
