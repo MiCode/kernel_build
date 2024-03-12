@@ -1184,8 +1184,13 @@ def _get_grab_symtypes_step(ctx):
         outputs = outputs,
     )
 
-def _get_grab_gcno_step(ctx):
-    """Returns a step for grabbing the `*.gcno`files from `OUT_DIR`.
+def get_grab_gcno_step(ctx, src_dir, is_kernel_build):
+    """Returns a step for grabbing the `*.gcno`files from `src_dir`.
+
+    Args:
+        ctx: Context from the rule.
+        src_dir: Source directory.
+        is_kernel_build: The flag to indicate whether the rule is `kernel_build`.
 
     Returns:
       A struct with fields (inputs, tools, outputs, cmd, gcno_mapping, gcno_dir)
@@ -1206,7 +1211,9 @@ def _get_grab_gcno_step(ctx):
         tools.append(ctx.executable._print_gcno_mapping)
 
         extra_args = ""
-        base_kernel = base_kernel_utils.get_base_kernel(ctx)
+        base_kernel = ""
+        if is_kernel_build == True:
+            base_kernel = base_kernel_utils.get_base_kernel(ctx)
         base_kernel_gcno_dir_cmd = ""
         if base_kernel and base_kernel[GcovInfo].gcno_mapping:
             extra_args = "--base {}".format(base_kernel[GcovInfo].gcno_mapping.path)
@@ -1221,17 +1228,18 @@ def _get_grab_gcno_step(ctx):
                     gcno_dir = gcno_dir.path,
                 )
 
-        # Note: Emitting ${OUT_DIR} is one source of ir-reproducible output for sandbox actions.
+        # Note: Emitting `src_dir` is one source of ir-reproducible output for sandbox actions.
         # However, note that these ir-reproducibility are tied to vmlinux, because these paths are already
         # embedded in vmlinux. This file just makes such ir-reproducibility more explicit.
         grab_gcno_cmd = """
-            rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' ${{OUT_DIR}}/ {gcno_dir}/
-            {print_gcno_mapping} {extra_args} ${{OUT_DIR}}:{gcno_dir} > {gcno_mapping}
+            rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' {src_dir}/ {gcno_dir}/
+            {print_gcno_mapping} {extra_args} {src_dir}:{gcno_dir} > {gcno_mapping}
             # Archive gcno_dir + gcno_mapping + base_kernel_gcno_dir
             {base_kernel_gcno_cmd}
             cp {gcno_mapping} {gcno_dir}
             tar czf {gcno_archive} -C {gcno_dir} .
         """.format(
+            src_dir = src_dir,
             gcno_dir = gcno_dir.path,
             gcno_mapping = gcno_mapping.path,
             print_gcno_mapping = ctx.executable._print_gcno_mapping.path,
@@ -1473,7 +1481,7 @@ def _build_main_action(
         all_module_basenames_file = all_module_basenames_file,
     )
     grab_symtypes_step = _get_grab_symtypes_step(ctx)
-    grab_gcno_step = _get_grab_gcno_step(ctx)
+    grab_gcno_step = get_grab_gcno_step(ctx, "${OUT_DIR}", is_kernel_build = True)
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}")
     compile_commands_step = compile_commands_utils.kernel_build_step(ctx)
     grab_gdb_scripts_step = kgdb.get_grab_gdb_scripts_step(ctx)

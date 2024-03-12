@@ -29,6 +29,7 @@ load(
     ":common_providers.bzl",
     "DdkConfigInfo",
     "DdkSubmoduleInfo",
+    "GcovInfo",
     "KernelBuildExtModuleInfo",
     "KernelCmdsInfo",
     "KernelEnvAttrInfo",
@@ -41,7 +42,11 @@ load(
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
-load(":kernel_build.bzl", "get_grab_cmd_step")
+load(
+    ":kernel_build.bzl",
+    "get_grab_cmd_step",
+    "get_grab_gcno_step",
+)
 load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
@@ -294,6 +299,7 @@ def _kernel_module_impl(ctx):
     tools = [
         ctx.executable._check_declared_output_list,
         ctx.executable._search_and_cp_output,
+        ctx.executable._print_gcno_mapping,
     ]
     transitive_tools = []
 
@@ -405,6 +411,10 @@ def _kernel_module_impl(ctx):
     inputs += grab_cmd_step.inputs
     command_outputs += grab_cmd_step.outputs
 
+    grab_gcno_step = get_grab_gcno_step(ctx, "${OUT_DIR}/${ext_mod_rel}", is_kernel_build = False)
+    inputs += grab_gcno_step.inputs
+    command_outputs += grab_gcno_step.outputs
+
     scmversion_ret = stamp.ext_mod_write_localversion(ctx, ext_mod)
     inputs += scmversion_ret.deps
     command += scmversion_ret.cmd
@@ -478,6 +488,8 @@ def _kernel_module_impl(ctx):
 
              # Grab unstripped modules
                {grab_unstripped_cmd}
+             # Grab *.gcno files
+               {grab_gcno_step_cmd}
              # Grab *.cmd
                {grab_cmd_cmd}
              # Move Module.symvers
@@ -502,6 +514,7 @@ def _kernel_module_impl(ctx):
         check_no_remaining = check_no_remaining.path,
         grab_modules_order_cmd = grab_modules_order_cmd,
         drop_modules_order_cmd = drop_modules_order_cmd,
+        grab_gcno_step_cmd = grab_gcno_step.cmd,
         grab_cmd_cmd = grab_cmd_step.cmd,
     )
 
@@ -647,6 +660,10 @@ def _kernel_module_impl(ctx):
         ),
         ddk_headers_info,
         ddk_config_info,
+        GcovInfo(
+            gcno_mapping = grab_gcno_step.outputs,
+            gcno_dir = grab_gcno_step.gcno_dir,
+        ),
         KernelCmdsInfo(
             srcs = module_srcs,
             directories = depset([grab_cmd_step.cmd_dir]),
@@ -698,12 +715,18 @@ _kernel_module = rule(
             executable = True,
             doc = "Label referring to the script to process outputs",
         ),
+        "_print_gcno_mapping": attr.label(
+            default = Label("//build/kernel/kleaf/impl:print_gcno_mapping"),
+            cfg = "exec",
+            executable = True,
+        ),
         "_check_declared_output_list": attr.label(
             default = Label("//build/kernel/kleaf:check_declared_output_list"),
             cfg = "exec",
             executable = True,
         ),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
+        "_gcov": attr.label(default = "//build/kernel/kleaf:gcov"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_debug_modpost_warn": attr.label(default = "//build/kernel/kleaf:debug_modpost_warn"),
