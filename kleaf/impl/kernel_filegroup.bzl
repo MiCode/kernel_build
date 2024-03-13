@@ -58,6 +58,11 @@ def _get_toolchain_version_info(ctx, all_deps):
 
 def _get_kernel_release(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
+    kernel_release = ctx.file.kernel_release
+    if kernel_release:
+        return kernel_release
+
+    # TODO(b/291918087): Delete legacy code path once users are not present.
     gki_info = utils.find_file(
         name = "gki-info.txt",
         files = ctx.files.gki_artifacts,
@@ -292,8 +297,14 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "gki_artifacts": attr.label(
             allow_files = True,
             doc = """A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target.
-            The `gki-info.txt` file should be part of that list.""",
-            mandatory = True,
+                The `gki-info.txt` file should be part of that list.
+
+                If `kernel_release` is set, this attribute has no effect.
+            """,
+        ),
+        "kernel_release": attr.label(
+            allow_single_file = True,
+            doc = "A file providing the kernel release string. This is preferred over `gki_artifacts`.",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_cache_dir_config_tags": attr.label(
