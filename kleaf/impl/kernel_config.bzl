@@ -456,20 +456,6 @@ def _kernel_config_impl(ctx):
     )
 
     post_setup_deps = [out_dir]
-    post_setup = """
-           [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
-         # Restore kernel config inputs
-           mkdir -p ${{OUT_DIR}}/include/
-           rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
-           rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
-           rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
-
-         # Restore real value of $ROOT_DIR in auto.conf.cmd
-           sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
-    """.format(
-        out_dir = out_dir.path,
-    )
-
     if trim_nonlisted_kmi_utils.get_value(ctx):
         # Ensure the dependent action uses the up-to-date abi_symbollist.raw
         # at the absolute path specified in abi_symbollist.raw.abspath
@@ -479,14 +465,9 @@ def _kernel_config_impl(ctx):
     serialized_env_info_setup_script = ctx.actions.declare_file("{name}/{name}_setup.sh".format(name = ctx.attr.name))
     ctx.actions.write(
         output = serialized_env_info_setup_script,
-        content = """
-            {pre_setup}
-            {eval_restore_out_dir_cmd}
-            {post_setup}
-        """.format(
-            pre_setup = ctx.attr.env[KernelEnvInfo].setup,
-            eval_restore_out_dir_cmd = kernel_utils.eval_restore_out_dir_cmd(),
-            post_setup = post_setup,
+        content = get_config_setup_command(
+            env_setup_command = ctx.attr.env[KernelEnvInfo].setup,
+            out_dir = out_dir,
         ),
     )
 
@@ -572,6 +553,35 @@ def _get_config_script(ctx, inputs):
     return struct(
         executable = executable,
         runfiles = runfiles,
+    )
+
+def get_config_setup_command(
+        env_setup_command,
+        out_dir):
+    """Returns the content of `<kernel_build>_config_setup.sh`, given the parameters.
+
+    Args:
+        env_setup_command: command to set up environment from `kernel_env`
+        out_dir: output directory from `kernel_config`
+    """
+
+    return """
+        {env_setup_command}
+        {eval_restore_out_dir_cmd}
+
+        [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
+        # Restore kernel config inputs
+        mkdir -p ${{OUT_DIR}}/include/
+        rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
+        rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+        rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
+
+        # Restore real value of $ROOT_DIR in auto.conf.cmd
+        sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
+    """.format(
+        env_setup_command = env_setup_command,
+        eval_restore_out_dir_cmd = kernel_utils.eval_restore_out_dir_cmd(),
+        out_dir = out_dir.path,
     )
 
 def _kernel_config_additional_attrs():

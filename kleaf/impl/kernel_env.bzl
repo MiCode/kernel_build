@@ -286,14 +286,10 @@ def _kernel_env_impl(ctx):
         command = command,
     )
 
-    setup = hermetic_tools.setup
-    setup += """
-        source {build_utils_sh}
-        # source the build environment
-        source {env}
-    """.format(
-        build_utils_sh = ctx.file._build_utils_sh.path,
-        env = out_file.path,
+    setup = get_env_info_setup_command(
+        hermetic_tools_setup = hermetic_tools.setup,
+        build_utils_sh = ctx.file._build_utils_sh,
+        env_setup_script = out_file,
     )
 
     setup_tools = [
@@ -336,6 +332,20 @@ def _kernel_env_impl(ctx):
         ),
         DefaultInfo(files = depset([out_file])),
     ]
+
+def get_env_info_setup_command(hermetic_tools_setup, build_utils_sh, env_setup_script):
+    """Returns text for KernelEnvInfo.setup"""
+
+    return """
+        {hermetic_tools_setup}
+        source {build_utils_sh}
+        # source the build environment
+        source {env_setup_script}
+    """.format(
+        hermetic_tools_setup = hermetic_tools_setup,
+        build_utils_sh = build_utils_sh.path,
+        env_setup_script = env_setup_script.path,
+    )
 
 def _get_env_setup_cmds(ctx):
     pre_env = ""

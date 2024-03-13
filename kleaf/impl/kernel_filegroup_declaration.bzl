@@ -95,6 +95,9 @@ kernel_filegroup(
     kernel_release = {kernel_release_repr},
     protected_modules_list = {protected_modules_repr},
     ddk_module_defconfig_fragments = {ddk_module_defconfig_fragments_repr},
+    config_out_dir_files = glob([{config_out_dir_repr} + "/**"]),
+    config_out_dir = {config_out_dir_repr},
+    env_setup_script = {env_setup_script_repr},
     target_platform = {target_platform_repr},
     exec_platform = {exec_platform_repr},
     visibility = ["//visibility:public"],
@@ -150,6 +153,8 @@ def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, templ
         info.ddk_module_defconfig_fragments,
         **(join | pkg)
     )
+    sub.add_joined("{config_out_dir_repr}", depset([info.config_out_dir]), **(one | pkg))
+    sub.add_joined("{env_setup_script_repr}", depset([info.env_setup_script]), **(one | pkg))
     sub.add("{target_platform_repr}", repr(ctx.attr.kernel_build.label.name + "_platform_target"))
     sub.add("{exec_platform_repr}", repr(ctx.attr.kernel_build.label.name + "_platform_exec"))
     sub.add("{arch}", info.arch)
@@ -177,6 +182,8 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
         info.module_outs_file,
         info.kernel_release,
         kernel_uapi_headers,
+        info.config_out_dir,
+        info.env_setup_script,
     ]
     if info.src_protected_modules_list:
         direct_inputs.append(info.src_protected_modules_list)
