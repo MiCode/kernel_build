@@ -25,6 +25,7 @@ load(
     "MODULE_OUTS_FILE_SUFFIX",
     "SYSTEM_DLKM_COMMON_OUTS",
     "TOOLCHAIN_VERSION_FILENAME",
+    "UNSTRIPPED_MODULES_ARCHIVE",
 )
 
 visibility("//build/kernel/kleaf/...")
@@ -41,7 +42,7 @@ GKI_DOWNLOAD_CONFIGS = [
     {
         "target_suffix": "unstripped_modules_archive",
         "outs": [
-            "unstripped_modules.tar.gz",
+            UNSTRIPPED_MODULES_ARCHIVE,
         ],
     },
     {

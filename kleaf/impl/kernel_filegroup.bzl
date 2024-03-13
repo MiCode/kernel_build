@@ -33,6 +33,7 @@ load(
     ":constants.bzl",
     "MODULES_STAGING_ARCHIVE",
     "TOOLCHAIN_VERSION_FILENAME",
+    "UNSTRIPPED_MODULES_ARCHIVE",
 )
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
@@ -124,7 +125,7 @@ def _kernel_filegroup_impl(ctx):
             break
     if unstripped_modules_info == None:
         # Reverse of kernel_unstripped_modules_archive
-        unstripped_modules_archive = utils.find_file("unstripped_modules.tar.gz", all_deps, what = ctx.label, required = True)
+        unstripped_modules_archive = utils.find_file(UNSTRIPPED_MODULES_ARCHIVE, all_deps, what = ctx.label, required = True)
         unstripped_dir = ctx.actions.declare_directory("{}/unstripped".format(ctx.label.name))
         command = hermetic_tools.setup + """
             tar xf {unstripped_modules_archive} -C $(dirname {unstripped_dir}) $(basename {unstripped_dir})
