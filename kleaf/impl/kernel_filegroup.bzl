@@ -304,6 +304,7 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "ddk_module_defconfig_fragments": attr.label_list(
             doc = "Additional defconfig fragments for dependant DDK modules.",
             allow_empty = True,
+            allow_files = True,
         ),
     } | _kernel_filegroup_additional_attrs(),
     toolchains = [hermetic_toolchain.type],

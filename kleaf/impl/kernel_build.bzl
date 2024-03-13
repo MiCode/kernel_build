@@ -2175,6 +2175,7 @@ _kernel_build = rule(
         "ddk_module_defconfig_fragments": attr.label_list(
             doc = "Additional defconfig fragments for dependant DDK modules.",
             allow_empty = True,
+            allow_files = True,
         ),
     } | _kernel_build_additional_attrs(),
     toolchains = [hermetic_toolchain.type],
