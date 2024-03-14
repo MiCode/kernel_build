@@ -1780,8 +1780,7 @@ def _create_infos(
         kmi_strict_mode_out,
         kmi_symbol_list_violations_check_out,
         module_scripts_archive,
-        module_srcs,
-        internal_outs_archive):
+        module_srcs):
     """Creates and returns a list of provided infos that the `kernel_build` target should return.
 
     Args:
@@ -1795,7 +1794,6 @@ def _create_infos(
         kmi_symbol_list_violations_check_out: from `_kmi_symbol_list_violations_check`
         module_srcs: from `kernel_utils.filter_module_srcs`
         module_scripts_archive: from `_create_module_scripts_archive`
-        internal_outs_archive: from `_create_internal_outs_archive`
     """
 
     base_kernel = base_kernel_utils.get_base_kernel(ctx)
@@ -1968,8 +1966,6 @@ def _create_infos(
     ]
     if module_scripts_archive:
         internal_ddk_artifacts.append(module_scripts_archive)
-    if internal_outs_archive:
-        internal_ddk_artifacts.append(internal_outs_archive)
     internal_ddk_artifacts_depset = depset(internal_ddk_artifacts)
 
     output_group_kwargs = {}
@@ -2106,12 +2102,6 @@ def _kernel_build_impl(ctx):
         module_srcs = module_srcs,
     )
 
-    # TODO(b/291918087): Delete internal_outs_archive; it is no longer used anywhere.
-    internal_outs_archive = _create_internal_outs_archive(
-        ctx = ctx,
-        main_action_ret = main_action_ret,
-    )
-
     infos = _create_infos(
         ctx = ctx,
         kbuild_mixed_tree_ret = kbuild_mixed_tree_ret,
@@ -2123,7 +2113,6 @@ def _kernel_build_impl(ctx):
         kmi_symbol_list_violations_check_out = kmi_symbol_list_violations_check_out,
         module_scripts_archive = module_scripts_archive,
         module_srcs = module_srcs,
-        internal_outs_archive = internal_outs_archive,
     )
 
     return infos
@@ -2597,48 +2586,5 @@ def _create_module_scripts_archive(
         command = cmd,
         arguments = [args],
         progress_message = "Archiving scripts/kconfig for ext module {}".format(_progress_message_suffix(ctx)),
-    )
-    return out
-
-def _create_internal_outs_archive(
-        ctx,
-        main_action_ret):
-    """Create `{name}_internal_outs.tar.gz`
-
-    Args:
-        ctx: ctx
-        main_action_ret: from `_build_main_action`
-    """
-
-    if not ctx.attr.pack_module_env:
-        return None
-
-    hermetic_tools = hermetic_toolchain.get(ctx)
-    internal_outs = main_action_ret.all_output_files["internal_outs"].values()
-    ruledir = main_action_ret.ruledir
-
-    out = ctx.actions.declare_file("{name}/{name}{suffix}".format(
-        name = ctx.label.name,
-        suffix = "_internal_outs.tar.gz",
-    ))
-    cmd = hermetic_tools.setup + """
-        # Create archive of internal_outs
-        tar cf {out} --dereference "$@" --transform 's:{ruledir}/::g'
-    """.format(
-        out = out.path,
-        ruledir = ruledir,
-    )
-
-    args = ctx.actions.args()
-    args.add_all(internal_outs)
-
-    ctx.actions.run_shell(
-        mnemonic = "KernelBuildInternalOutsArchive",
-        inputs = depset(internal_outs),
-        outputs = [out],
-        tools = hermetic_tools.deps,
-        command = cmd,
-        arguments = [args],
-        progress_message = "Archiving internal outs for ext module {}".format(_progress_message_suffix(ctx)),
     )
     return out
