@@ -42,7 +42,6 @@ load(
     "KernelBuildUapiInfo",
     "KernelBuildUnameInfo",
     "KernelCmdsInfo",
-    "KernelConfigArchiveInfo",
     "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvMakeGoalsInfo",
@@ -1944,21 +1943,12 @@ def _create_infos(
     # TODO(b/291918087): Drop after common_kernels no longer use kernel_filegroup.
     #   These files should already be in kernel_filegroup_declaration.
     internal_ddk_artifacts = [
-        all_module_names_file,
     ]
     if module_scripts_archive:
         internal_ddk_artifacts.append(module_scripts_archive)
     if internal_outs_archive:
         internal_ddk_artifacts.append(internal_outs_archive)
-    if ctx.file.src_protected_modules_list:
-        internal_ddk_artifacts.append(ctx.file.src_protected_modules_list)
-    transitive_internal_ddk_artifacts = [
-        ctx.attr.config[KernelConfigArchiveInfo].files,
-    ]
-    internal_ddk_artifacts_depset = depset(
-        internal_ddk_artifacts,
-        transitive = transitive_internal_ddk_artifacts,
-    )
+    internal_ddk_artifacts_depset = depset(internal_ddk_artifacts)
 
     output_group_kwargs = {}
     for d in all_output_files.values():

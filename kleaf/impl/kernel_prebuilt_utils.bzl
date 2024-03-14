@@ -22,8 +22,6 @@ load(
     ":constants.bzl",
     "FILEGROUP_DEF_ARCHIVE_SUFFIX",
     "GKI_ARTIFACTS_AARCH64_OUTS",
-    "MODULES_STAGING_ARCHIVE",
-    "MODULE_OUTS_FILE_SUFFIX",
     "SYSTEM_DLKM_COMMON_OUTS",
     "TOOLCHAIN_VERSION_FILENAME",
     "UNSTRIPPED_MODULES_ARCHIVE",
@@ -93,12 +91,6 @@ GKI_DOWNLOAD_CONFIGS = [
         "target_suffix": "ddk_artifacts",
         "outs": [
             "kernel_aarch64" + FILEGROUP_DEF_ARCHIVE_SUFFIX,
-            # TODO(b/291918087): Drop after common_kernels no longer use kernel_filegroup.
-            #   These files should already be in kernel_filegroup_declaration.
-            # _modules_prepare
-            "modules_prepare_outdir.tar.gz",
-            # _modules_staging_archive
-            MODULES_STAGING_ARCHIVE,
         ],
     },
     {
@@ -121,11 +113,7 @@ CI_TARGET_MAPPING = {
         "arch": "arm64",
         # TODO: Rename this when more architectures are added.
         "target": "kernel_aarch64",
-        "outs": DEFAULT_GKI_OUTS + [
-            # TODO(b/291918087): Drop after common_kernels no longer use kernel_filegroup.
-            #   These files should already be in kernel_filegroup_declaration.
-            "kernel_aarch64" + MODULE_OUTS_FILE_SUFFIX,
-        ],
+        "outs": DEFAULT_GKI_OUTS,
         "protected_modules": "gki_aarch64_protected_modules",
         "gki_prebuilts_outs": GKI_ARTIFACTS_AARCH64_OUTS,
     },

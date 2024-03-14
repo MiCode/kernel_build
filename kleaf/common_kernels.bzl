@@ -866,9 +866,8 @@ def _define_common_kernel(
     )
     ddk_artifacts = [
         name + "_filegroup_declaration",
-        name + "_modules_prepare",
-        name + "_modules_staging_archive",
         name + "_internal_ddk_artifacts",
+        name + "_unstripped_modules_archive",
     ]
     if ddk_headers_archive:
         ddk_artifacts.append(ddk_headers_archive)
@@ -880,7 +879,6 @@ def _define_common_kernel(
     dist_targets = [
         name,
         name + "_uapi_headers",
-        name + "_unstripped_modules_archive",
         name + "_additional_artifacts",
         name + "_ddk_artifacts",
         name + "_modules",
