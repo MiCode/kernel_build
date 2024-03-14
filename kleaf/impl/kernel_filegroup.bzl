@@ -38,6 +38,7 @@ load(
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
+load(":kernel_toolchains_utils.bzl", "kernel_toolchains_utils")
 load(
     ":utils.bzl",
     "utils",
@@ -205,6 +206,7 @@ def _kernel_filegroup_impl(ctx):
 def _kernel_filegroup_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_env(),
+        kernel_toolchains_utils.attrs(),
     )
 
 kernel_filegroup = rule(

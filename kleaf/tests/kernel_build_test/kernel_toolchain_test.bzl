@@ -109,6 +109,8 @@ def kernel_toolchain_test(name):
             ],
             module_outs_file = filegroup_name + "_module_outs_file",
             gki_artifacts = filegroup_name + "_gki_info",
+            target_platform = Label("//build/kernel/kleaf/impl:android_arm64"),
+            exec_platform = Label("//build/kernel/kleaf/impl:linux_x86_64"),
             tags = ["manual"],
         )
 

@@ -618,6 +618,7 @@ def kernel_build(
         pack_module_env = pack_module_env,
         sanitizers = sanitizers,
         ddk_module_defconfig_fragments = ddk_module_defconfig_fragments,
+        arch = arch,
         **kwargs
     )
 
@@ -1990,6 +1991,7 @@ def _create_infos(
         src_protected_modules_list = ctx.file.src_protected_modules_list,
         ddk_module_defconfig_fragments = ddk_module_defconfig_fragments,
         kernel_uapi_headers = kernel_uapi_headers_depset,
+        arch = ctx.attr.arch,
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
@@ -2201,6 +2203,7 @@ _kernel_build = rule(
             allow_empty = True,
             allow_files = True,
         ),
+        "arch": attr.string(),
     } | _kernel_build_additional_attrs(),
     toolchains = [hermetic_toolchain.type],
 )

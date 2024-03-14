@@ -55,6 +55,24 @@ def _kernel_filegroup_declaration_impl(ctx):
     kernel_uapi_headers = kernel_uapi_headers_lst[0]
 
     fragment = """\
+platform(
+    name = {target_platform_repr},
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:{arch}",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+platform(
+    name = {exec_platform_repr},
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:private"],
+)
+
 kernel_filegroup(
     name = {name_repr},
     srcs = {srcs_repr},
@@ -65,6 +83,8 @@ kernel_filegroup(
     kernel_release = {kernel_release_repr},
     protected_modules_list = {protected_modules_repr},
     ddk_module_defconfig_fragments = {ddk_module_defconfig_fragments_repr},
+    target_platform = {target_platform_repr},
+    exec_platform = {exec_platform_repr},
     visibility = ["//visibility:public"],
 )
 """.format(
@@ -80,6 +100,9 @@ kernel_filegroup(
         ddk_module_defconfig_fragments_repr = files_to_pkg_label(
             info.ddk_module_defconfig_fragments.to_list(),
         ),
+        target_platform_repr = repr(ctx.attr.kernel_build.label.name + "_platform_target"),
+        exec_platform_repr = repr(ctx.attr.kernel_build.label.name + "_platform_exec"),
+        arch = info.arch,
     )
 
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
