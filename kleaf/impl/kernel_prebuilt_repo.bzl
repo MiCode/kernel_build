@@ -15,6 +15,11 @@
 """Repository for kernel prebuilts."""
 
 load(
+    ":constants.bzl",
+    "FILEGROUP_DEF_ARCHIVE_SUFFIX",
+    "FILEGROUP_DEF_TEMPLATE_NAME",
+)
+load(
     ":kernel_prebuilt_utils.bzl",
     "CI_TARGET_MAPPING",
     "GKI_DOWNLOAD_CONFIGS",
@@ -254,9 +259,50 @@ filegroup(
         )
         repository_ctx.file(_join(local_filename, "BUILD.bazel"), content)
 
+    _create_top_level_files(repository_ctx, download_config)
+
+def _create_top_level_files(repository_ctx, download_config):
+    bazel_target_name = repository_ctx.attr.target
     repository_ctx.file("""WORKSPACE.bazel""", """\
 workspace({})
 """.format(repr(repository_ctx.attr.name)))
+
+    filegroup_decl_archives = []
+    for local_filename in download_config:
+        if _basename(local_filename).endswith(FILEGROUP_DEF_ARCHIVE_SUFFIX):
+            local_path = repository_ctx.path(_join(local_filename, _basename(local_filename)))
+            filegroup_decl_archives.append(local_path)
+
+    if not filegroup_decl_archives:
+        return
+    if len(filegroup_decl_archives) > 1:
+        fail("Multiple files with suffix {}: {}".format(
+            FILEGROUP_DEF_ARCHIVE_SUFFIX,
+            filegroup_decl_archives,
+        ))
+
+    filegroup_decl_archive = filegroup_decl_archives[0]
+    repository_ctx.extract(
+        # If local_artifact_path is set, filegroup_decl_archive is a symlink.
+        # The symlink is under the working directory so we can't set
+        # watch_archive = "yes".
+        # Use realpath (which may point outside the working directory) and
+        # watch_archive = "auto" (the default) achieves optimal effect.
+        archive = filegroup_decl_archive.realpath,
+        output = repository_ctx.path(bazel_target_name),
+    )
+
+    template_path = repository_ctx.path(_join(bazel_target_name, FILEGROUP_DEF_TEMPLATE_NAME))
+    template_content = repository_ctx.read(template_path)
+
+    repository_ctx.file(repository_ctx.path(_join(bazel_target_name, "BUILD.bazel")), """\
+load({kernel_bzl_repr}, "kernel_filegroup")
+
+{template_content}
+""".format(
+        kernel_bzl_repr = repr(str(Label("//build/kernel/kleaf:kernel.bzl"))),
+        template_content = template_content,
+    ))
 
 kernel_prebuilt_repo = repository_rule(
     implementation = _kernel_prebuilt_repo_impl,
