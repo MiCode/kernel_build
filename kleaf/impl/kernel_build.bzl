@@ -1959,15 +1959,6 @@ def _create_infos(
         gcno_dir = main_action_ret.gcno_dir,
     )
 
-    # List of artifacts to be used when creating a kernel_filegroup that mimics this target.
-    # TODO(b/291918087): Drop after common_kernels no longer use kernel_filegroup.
-    #   These files should already be in kernel_filegroup_declaration.
-    internal_ddk_artifacts = [
-    ]
-    if module_scripts_archive:
-        internal_ddk_artifacts.append(module_scripts_archive)
-    internal_ddk_artifacts_depset = depset(internal_ddk_artifacts)
-
     output_group_kwargs = {}
     for d in all_output_files.values():
         output_group_kwargs.update({name: depset([file]) for name, file in d.items()})
@@ -1977,7 +1968,6 @@ def _create_infos(
     output_group_kwargs["modules_staging_archive"] = depset([modules_staging_archive])
     output_group_kwargs[MODULE_OUTS_FILE_OUTPUT_GROUP] = depset([all_module_names_file])
     output_group_kwargs[TOOLCHAIN_VERSION_FILENAME] = depset([toolchain_version_out])
-    output_group_kwargs["internal_ddk_artifacts"] = internal_ddk_artifacts_depset
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     kbuild_mixed_tree_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
