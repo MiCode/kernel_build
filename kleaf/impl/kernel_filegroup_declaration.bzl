@@ -29,9 +29,9 @@ def _kernel_filegroup_declaration_impl(ctx):
     info = ctx.attr.kernel_build[KernelBuildFilegroupDeclInfo]
 
     file_to_label = lambda file: repr("//{}".format(file.basename) if file else None)
-    file_to_pkg_label = lambda file: repr(":{}".format(file.basename) if file else None)
+    file_to_pkg_label = lambda file: repr(file.path if file else None)
     files_to_label = lambda lst: repr(["//{}".format(file.basename) for file in lst])
-    files_to_pkg_label = lambda lst: repr([":{}".format(file.basename) for file in lst])
+    files_to_pkg_label = lambda lst: repr([file.path for file in lst])
 
     # ddk_artifacts
     deps_files = [
@@ -41,7 +41,7 @@ def _kernel_filegroup_declaration_impl(ctx):
         info.toolchain_version_file,
     ]
 
-    deps_repr = repr([":{}".format(file.basename) for file in deps_files] +
+    deps_repr = repr([file.path for file in deps_files] +
                      ["//{}".format(file.basename) for file in ctx.files.extra_deps])
 
     kernel_uapi_headers_lst = info.kernel_uapi_headers.to_list()
@@ -129,9 +129,12 @@ kernel_filegroup(
         transitive = transitive_inputs,
     )
 
-    # Flatten the files so :x refers to file x in the same package.
+    # filegroup_decl_template.txt stays at root so that
+    # kernel_prebuilt_repo can find it.
     command = hermetic_tools.setup + """
-        tar cf {archive} --dereference --transform 's:.*/::g' "$@"
+        tar cf {archive} --dereference \\
+            --transform 's:.*/filegroup_decl_template.txt:filegroup_decl_template.txt:g' \\
+            "$@"
     """.format(
         archive = filegroup_decl_archive.path,
     )
