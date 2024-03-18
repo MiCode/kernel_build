@@ -17,7 +17,6 @@ import os
 import pathlib
 import shlex
 import shutil
-import subprocess
 import sys
 import textwrap
 from typing import Tuple, Optional
