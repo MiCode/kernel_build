@@ -21,7 +21,7 @@ load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
     "KernelBuildOriginalEnvInfo",
-    "KernelConfigArchiveInfo",
+    "KernelConfigInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
     "KernelEnvMakeGoalsInfo",
@@ -499,7 +499,6 @@ def _kernel_config_impl(ctx):
     )
 
     config_script_ret = _get_config_script(ctx, inputs)
-    outdir_tar_gz = _package_config_outdir(ctx, out_dir)
 
     return [
         serialized_env_info,
@@ -514,8 +513,8 @@ def _kernel_config_impl(ctx):
             executable = config_script_ret.executable,
             runfiles = config_script_ret.runfiles,
         ),
-        KernelConfigArchiveInfo(
-            files = depset([outdir_tar_gz], transitive = [ctx.attr.env.files]),
+        KernelConfigInfo(
+            env_setup_script = ctx.file.env,
         ),
     ]
 
@@ -575,39 +574,6 @@ def _get_config_script(ctx, inputs):
         runfiles = runfiles,
     )
 
-def _package_config_outdir(ctx, out_dir):
-    """Package OUT_DIR.
-
-    Args:
-        ctx: ctx
-        out_dir: declared directory `out_dir`
-    Returns:
-        tarball
-    """
-
-    hermetic_tools = hermetic_toolchain.get(ctx)
-
-    # <kernel_build>_config_outdir.tar.gz
-    outdir_tar_gz = ctx.actions.declare_file("{name}/{name}_outdir.tar.gz".format(name = ctx.attr.name))
-    cmd = hermetic_tools.setup + """
-        tar czf {outdir_tar_gz} --dereference -C {out_dir} .
-    """.format(
-        outdir_tar_gz = outdir_tar_gz.path,
-        out_dir = out_dir.path,
-    )
-    ctx.actions.run_shell(
-        inputs = [out_dir],
-        outputs = [outdir_tar_gz],
-        tools = hermetic_tools.deps,
-        command = cmd,
-        progress_message = "Packaging OUT_DIR {}".format(
-            ctx.attr.env[KernelEnvAttrInfo].progress_message_note,
-            ctx.label,
-        ),
-        mnemonic = "KernelConfigPackageOutDir",
-    )
-    return outdir_tar_gz
-
 def _kernel_config_additional_attrs():
     return dicts.add(
         kernel_config_settings.of_kernel_config(),
@@ -631,6 +597,7 @@ kernel_config = rule(
                 KernelToolchainInfo,
             ],
             doc = "environment target that defines the kernel build environment",
+            allow_single_file = True,
         ),
         "srcs": attr.label_list(mandatory = True, doc = "kernel sources", allow_files = True),
         "raw_kmi_symbol_list": attr.label(

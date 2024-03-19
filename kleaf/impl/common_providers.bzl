@@ -456,9 +456,9 @@ ImagesInfo = provider(
     },
 )
 
-KernelConfigArchiveInfo = provider(
+KernelConfigInfo = provider(
     doc = "For `kernel_config` to provide files to replay the environment",
     fields = {
-        "files": "depset of files",
+        "env_setup_script": "script from `kernel_env`",
     },
 )
