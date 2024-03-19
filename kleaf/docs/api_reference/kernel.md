@@ -384,7 +384,7 @@ kernel_modules_install(
 ## kernel_modules_install
 
 <pre>
-kernel_modules_install(<a href="#kernel_modules_install-name">name</a>, <a href="#kernel_modules_install-kernel_build">kernel_build</a>, <a href="#kernel_modules_install-kernel_modules">kernel_modules</a>)
+kernel_modules_install(<a href="#kernel_modules_install-name">name</a>, <a href="#kernel_modules_install-outs">outs</a>, <a href="#kernel_modules_install-kernel_build">kernel_build</a>, <a href="#kernel_modules_install-kernel_modules">kernel_modules</a>)
 </pre>
 
 Generates a rule that runs depmod in the module installation directory.
@@ -423,6 +423,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="kernel_modules_install-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="kernel_modules_install-outs"></a>outs |  A list of additional outputs from `make modules_install`.<br><br>Since external modules are returned by default, it can be used to obtain modules.* related files (results of depmod). Only files with allowed names can be added to outs. (`_OUT_ALLOWLIST`) <pre><code>_OUT_ALLOWLIST = ["modules.dep", "modules.alias", "modules.builtin", "modules.symbols", "modules.softdep"]</code></pre> Example: <pre><code>kernel_modules_install(&#10;    name = "foo_modules_install",&#10;    kernel_modules = [":foo_module_list"],&#10;    outs = [&#10;        "modules.dep",&#10;        "modules.alias",&#10;    ],&#10;)</code></pre>   | List of strings | optional |  `[]`  |
 | <a id="kernel_modules_install-kernel_build"></a>kernel_build |  Label referring to the `kernel_build` module. Otherwise, it is inferred from `kernel_modules`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="kernel_modules_install-kernel_modules"></a>kernel_modules |  A list of labels referring to `kernel_module`s to install.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
