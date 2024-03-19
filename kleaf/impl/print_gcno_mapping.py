@@ -20,17 +20,19 @@ from typing import TextIO, Optional
 
 
 def main(base: Optional[TextIO], mappings: list[str]):
-    result = []
+    mappings_dict = {}
     if base:
-        result = json.load(base)
+        for mapping in json.load(base):
+            mappings_dict[mapping["from"]] = mapping["to"]
 
     for mapping in mappings:
         from_val, to_val = mapping.split(":")
+        mappings_dict[from_val] = to_val
 
-        result.append({
-            "from": from_val,
-            "to": to_val,
-        })
+    result = [
+        {"from": from_val, "to": to_val}
+        for from_val, to_val in sorted(mappings_dict.items())
+    ]
 
     print(json.dumps(result, sort_keys=True, indent=2))
 
