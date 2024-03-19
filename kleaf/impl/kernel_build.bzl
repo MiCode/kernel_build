@@ -1981,7 +1981,8 @@ def _create_infos(
     )
 
     filegroup_decl_info = KernelBuildFilegroupDeclInfo(
-        filegroup_srcs = all_output_files["outs"].values() + all_output_files["module_outs"].values(),
+        filegroup_srcs = depset(all_output_files["outs"].values() +
+                                all_output_files["module_outs"].values()),
         module_outs_file = all_module_names_file,
         modules_staging_archive = modules_staging_archive,
         toolchain_version_file = toolchain_version_out,
