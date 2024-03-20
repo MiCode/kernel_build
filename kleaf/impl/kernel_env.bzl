@@ -15,6 +15,7 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
@@ -215,6 +216,12 @@ def _kernel_env_impl(ctx):
     ctx.actions.write(post_env_script, env_setup_cmds.post_env)
     inputs += [pre_env_script, post_env_script]
 
+    kleaf_repo_workspace_root = Label(":kernel_env.bzl").workspace_root
+    if kleaf_repo_workspace_root:
+        bin_dir_and_workspace_root = paths.join(ctx.bin_dir.path, kleaf_repo_workspace_root)
+    else:
+        bin_dir_and_workspace_root = ctx.bin_dir.path
+
     command += """
         # create a build environment
           source {build_utils_sh}
@@ -248,8 +255,8 @@ def _kernel_env_impl(ctx):
             sed "s|${{PWD}}|\\$PWD|g" | \\
             # Drop reference to bin_dir and replace with variable;
             # Replace $PWD/<not out> with $KLEAF_REPO_DIR/$1
-            sed "s|\\$PWD/{bin_dir}|\\$PWD/\\$KLEAF_BIN_DIR|g" | \\
-            sed "s|{bin_dir}|\\$KLEAF_BIN_DIR|g" | \\
+            sed "s|\\$PWD/{bin_dir_and_workspace_root}|\\$PWD/\\$KLEAF_BIN_DIR_AND_WORKSPACE_ROOT|g" | \\
+            sed "s|{bin_dir_and_workspace_root}|\\$KLEAF_BIN_DIR_AND_WORKSPACE_ROOT|g" | \\
             # List of packages that //build/kernel/... depends on. This excludes
             # external/ because they are in different Bazel repositories.
             sed "s|\\$PWD/build|\\$KLEAF_REPO_DIR/build|g" | \\
@@ -271,7 +278,7 @@ def _kernel_env_impl(ctx):
         config_tags_comment_file = config_tags_out.env.path,
         pre_env_script = pre_env_script.path,
         post_env_script = post_env_script.path,
-        bin_dir = ctx.bin_dir.path,
+        bin_dir_and_workspace_root = bin_dir_and_workspace_root,
     )
 
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx, defconfig_fragments)
@@ -352,20 +359,31 @@ def _get_env_setup_cmds(ctx):
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         pre_env += debug.trap()
 
+    kleaf_repo_workspace_root = Label(":kernel_env.bzl").workspace_root
+
     pre_env += """
         # KLEAF_REPO_WORKSPACE_ROOT: workspace_root of the Kleaf repository. See Label.workspace_root.
-        # This should either be an empty string or (usually) external/kleaf.
-        # This needs to be defined by the user.
+        # This should be:
+        # - Either an empty string if @kleaf is the root module;
+        # - or external/kleaf (or some variations of it) if @kleaf is a dependent module
+        # This may be overridden by kernel_filegroup.
+        KLEAF_REPO_WORKSPACE_ROOT=${{KLEAF_REPO_WORKSPACE_ROOT:-{kleaf_repo_workspace_root}}}
 
         # bin_dir for Kleaf repository, relative to execroot
-        #  This is either bazel-out/k8-fastbuild/bin or bazel-out/k8-fastbuild/bin/external/kleaf.
-        KLEAF_BIN_DIR="{bin_dir}${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
+        # This is:
+        # - either bazel-out/k8-fastbuild/bin if @kleaf is the root module;
+        # - or bazel-out/k8-fastbuild/bin/external/kleaf (or some variations of it)
+        #   if @kleaf is a dependent module
+        KLEAF_BIN_DIR_AND_WORKSPACE_ROOT="{bin_dir}${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
 
         # Root of Kleaf repository (under execroot aka PWD)
-        #  This is either $PWD or $PWD/external/kleaf.
+        # This is:
+        # - either $PWD if @kleaf is the root module
+        # - or $PWD/external/kleaf (or some variations of it) if @kleaf is a dependent module
         KLEAF_REPO_DIR="$PWD${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
     """.format(
         bin_dir = ctx.bin_dir.path,
+        kleaf_repo_workspace_root = kleaf_repo_workspace_root,
     )
 
     post_env = """
