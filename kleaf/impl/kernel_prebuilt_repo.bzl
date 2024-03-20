@@ -17,7 +17,7 @@
 load(
     ":constants.bzl",
     "FILEGROUP_DEF_ARCHIVE_SUFFIX",
-    "FILEGROUP_DEF_TEMPLATE_NAME",
+    "FILEGROUP_DEF_BUILD_FRAGMENT_NAME",
 )
 load(
     ":kernel_prebuilt_utils.bzl",
@@ -292,7 +292,7 @@ workspace({})
         output = repository_ctx.path(bazel_target_name),
     )
 
-    template_path = repository_ctx.path(_join(bazel_target_name, FILEGROUP_DEF_TEMPLATE_NAME))
+    template_path = repository_ctx.path(_join(bazel_target_name, FILEGROUP_DEF_BUILD_FRAGMENT_NAME))
     template_content = repository_ctx.read(template_path)
 
     repository_ctx.file(repository_ctx.path(_join(bazel_target_name, "BUILD.bazel")), """\

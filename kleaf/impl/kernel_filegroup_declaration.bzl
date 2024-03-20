@@ -19,7 +19,7 @@ load(":common_providers.bzl", "KernelBuildFilegroupDeclInfo")
 load(
     ":constants.bzl",
     "FILEGROUP_DEF_ARCHIVE_SUFFIX",
-    "FILEGROUP_DEF_TEMPLATE_NAME",
+    "FILEGROUP_DEF_BUILD_FRAGMENT_NAME",
 )
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
@@ -109,7 +109,7 @@ kernel_filegroup(
 """
     template_file = ctx.actions.declare_file("{}/{}_template.txt".format(
         ctx.attr.kernel_build.label.name,
-        FILEGROUP_DEF_TEMPLATE_NAME,
+        FILEGROUP_DEF_BUILD_FRAGMENT_NAME.removesuffix(".txt"),
     ))
     ctx.actions.write(output = template_file, content = template_content)
     return template_file
@@ -186,7 +186,7 @@ def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, templ
 
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
         ctx.attr.kernel_build.label.name,
-        FILEGROUP_DEF_TEMPLATE_NAME,
+        FILEGROUP_DEF_BUILD_FRAGMENT_NAME,
     ))
     ctx.actions.expand_template(
         template = template_file,
@@ -223,14 +223,15 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
         transitive = transitive_inputs,
     )
 
-    # filegroup_decl_template.txt stays at root so that
+    # FILEGROUP_DEF_BUILD_FRAGMENT_NAME stays at root so that
     # kernel_prebuilt_repo can find it.
     command = hermetic_tools.setup + """
         tar cf {archive} --dereference \\
-            --transform 's:.*/filegroup_decl_template.txt:filegroup_decl_template.txt:g' \\
+            --transform 's:.*/{fragment}:{fragment}:g' \\
             "$@"
     """.format(
         archive = filegroup_decl_archive.path,
+        fragment = FILEGROUP_DEF_BUILD_FRAGMENT_NAME,
     )
     args = ctx.actions.args()
     args.add_all(inputs)

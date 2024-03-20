@@ -56,5 +56,5 @@ UNSTRIPPED_MODULES_ARCHIVE = "unstripped_modules.tar.gz"
 
 # Archive emitted by kernel_build that contains the kernel_filegroup
 # definition and extra files.
-FILEGROUP_DEF_TEMPLATE_NAME = "filegroup_decl_template.txt"
+FILEGROUP_DEF_BUILD_FRAGMENT_NAME = "filegroup_decl_build_frag.txt"
 FILEGROUP_DEF_ARCHIVE_SUFFIX = "_filegroup_decl.tar.gz"
