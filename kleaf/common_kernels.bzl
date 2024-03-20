@@ -482,10 +482,7 @@ def define_common_kernels(
 
     # Workaround to set KERNEL_DIR correctly and
     #  avoid using the fallback (directory of the config).
-    set_kernel_dir_cmd = """\
-KERNEL_DIR=\"{kernel_dir}\"
-KLEAF_REDECLARE_KERNEL_DIR_UNDER_DYNAMIC_KLEAF_REPO_WORKSPACE_ROOT=1
-""".format(
+    set_kernel_dir_cmd = "KERNEL_DIR=\"{kernel_dir}\"".format(
         kernel_dir = paths.join(
             native.package_relative_label(":x").workspace_root,
             native.package_relative_label(":x").package,

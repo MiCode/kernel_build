@@ -78,9 +78,6 @@ export MODULES_ARCHIVE=modules.tar.gz
 
 export TZ=UTC
 export LC_ALL=C
-# TODO(b/291918087): KERNEL_DIR is modified with
-#   KLEAF_REDECLARE_KERNEL_DIR_UNDER_DYNAMIC_KLEAF_REPO_WORKSPACE_ROOT, making
-#   the value here incorrect.
 if [ -z "${SOURCE_DATE_EPOCH}" ]; then
   if [[ -n "${KLEAF_SOURCE_DATE_EPOCHS}" ]]; then
     export SOURCE_DATE_EPOCH=$(extract_git_metadata "${KLEAF_SOURCE_DATE_EPOCHS}" "${KERNEL_DIR}" SOURCE_DATE_EPOCH)

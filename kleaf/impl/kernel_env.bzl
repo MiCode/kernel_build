@@ -378,11 +378,6 @@ def _get_env_setup_cmds(ctx):
             export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
         fi
 
-        # Redeclare KERNEL_DIR to be under $KLEAF_REPO_WORKSPACE_ROOT if requested.
-        if [[ "${{KLEAF_REDECLARE_KERNEL_DIR_UNDER_DYNAMIC_KLEAF_REPO_WORKSPACE_ROOT}}" == "1" ]]; then
-            export KERNEL_DIR=${{KLEAF_REPO_WORKSPACE_ROOT:+$KLEAF_REPO_WORKSPACE_ROOT/}}${{KERNEL_DIR#{kleaf_repo_workspace_root}}}
-        fi
-
         ## Set up KCPPFLAGS
 
         # Replace ${{ROOT_DIR}} with "/proc/self/cwd" in the file name
@@ -408,7 +403,6 @@ def _get_env_setup_cmds(ctx):
     """.format(
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
-        kleaf_repo_workspace_root = (ctx.label.workspace_root + "/") if ctx.label.workspace_root else "",
     )
     return struct(
         pre_env = pre_env,
