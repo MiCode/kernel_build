@@ -115,6 +115,7 @@ kernel_filegroup(
     return template_file
 
 def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, template_file):
+    ## Reused kwargs for TemplateDict: https://bazel.build/rules/lib/builtins/TemplateDict
     # For a list of files, represented in a list
     # Intentionally not adding comma for the last item so it works for the empty case.
     join = dict(join_with = ",\n        ", format_joined = "[\n        %s\n    ]")
