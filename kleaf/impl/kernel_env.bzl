@@ -360,6 +360,7 @@ def _get_env_setup_cmds(ctx):
         pre_env += debug.trap()
 
     kleaf_repo_workspace_root = Label(":kernel_env.bzl").workspace_root
+    kleaf_repo_workspace_root_slash = (kleaf_repo_workspace_root + "/") if kleaf_repo_workspace_root else ""
 
     pre_env += """
         # KLEAF_REPO_WORKSPACE_ROOT: workspace_root of the Kleaf repository. See Label.workspace_root.
@@ -406,6 +407,11 @@ def _get_env_setup_cmds(ctx):
             export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
         fi
 
+        # Redeclare KERNEL_DIR to be under $KLEAF_REPO_WORKSPACE_ROOT.
+        if [ -n "${{KLEAF_REPO_WORKSPACE_ROOT}}" ]; then
+            export KERNEL_DIR=${{KLEAF_REPO_WORKSPACE_ROOT:+$KLEAF_REPO_WORKSPACE_ROOT/}}${{KERNEL_DIR#{kleaf_repo_workspace_root_slash}}}
+        fi
+
         ## Set up KCPPFLAGS
 
         # Replace ${{ROOT_DIR}} with "/proc/self/cwd" in the file name
@@ -431,6 +437,7 @@ def _get_env_setup_cmds(ctx):
     """.format(
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
+        kleaf_repo_workspace_root_slash = kleaf_repo_workspace_root_slash,
     )
     return struct(
         pre_env = pre_env,
