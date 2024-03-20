@@ -25,13 +25,7 @@ load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 visibility("//build/kernel/kleaf/...")
 
 def _kernel_filegroup_declaration_impl(ctx):
-    hermetic_tools = hermetic_toolchain.get(ctx)
     info = ctx.attr.kernel_build[KernelBuildFilegroupDeclInfo]
-
-    file_to_label = lambda file: repr("//{}".format(file.basename) if file else None)
-    file_to_pkg_label = lambda file: repr(file.path if file else None)
-    files_to_label = lambda lst: repr(["//{}".format(file.basename) for file in lst])
-    files_to_pkg_label = lambda lst: repr([file.path for file in lst])
 
     # ddk_artifacts
     deps_files = [
@@ -41,9 +35,7 @@ def _kernel_filegroup_declaration_impl(ctx):
         info.toolchain_version_file,
     ]
 
-    deps_repr = repr([file.path for file in deps_files] +
-                     ["//{}".format(file.basename) for file in ctx.files.extra_deps])
-
+    # Get the only file from the depset, so using to_list() here is fast.
     kernel_uapi_headers_lst = info.kernel_uapi_headers.to_list()
     if not kernel_uapi_headers_lst:
         fail("{}: {} does not have kernel_uapi_headers.".format(ctx.label, ctx.attr.kernel_build.label))
@@ -54,7 +46,27 @@ def _kernel_filegroup_declaration_impl(ctx):
         ))
     kernel_uapi_headers = kernel_uapi_headers_lst[0]
 
-    fragment = """\
+    template_file = _write_template_file(
+        ctx = ctx,
+    )
+    filegroup_decl_file = _write_filegroup_decl_file(
+        ctx = ctx,
+        info = info,
+        deps_files = deps_files,
+        kernel_uapi_headers = kernel_uapi_headers,
+        template_file = template_file,
+    )
+    filegroup_decl_archive = _create_archive(
+        ctx = ctx,
+        info = info,
+        deps_files = deps_files,
+        kernel_uapi_headers = kernel_uapi_headers,
+        filegroup_decl_file = filegroup_decl_file,
+    )
+    return DefaultInfo(files = depset([filegroup_decl_archive]))
+
+def _write_template_file(ctx):
+    template_content = """\
 platform(
     name = {target_platform_repr},
     constraint_values = [
@@ -76,7 +88,7 @@ platform(
 kernel_filegroup(
     name = {name_repr},
     srcs = {srcs_repr},
-    deps = {deps_repr},
+    deps = {deps_repr} + {extra_deps_repr},
     kernel_uapi_headers = {uapi_headers_repr},
     collect_unstripped_modules = {collect_unstripped_modules_repr},
     module_outs_file = {module_outs_repr},
@@ -87,29 +99,74 @@ kernel_filegroup(
     exec_platform = {exec_platform_repr},
     visibility = ["//visibility:public"],
 )
-""".format(
-        name_repr = repr(ctx.attr.kernel_build.label.name),
-        srcs_repr = files_to_label(info.filegroup_srcs.to_list()),
-        deps_repr = deps_repr,
-        uapi_headers_target_repr = repr(ctx.attr.kernel_build.label.name + "_uapi_headers"),
-        uapi_headers_repr = file_to_label(kernel_uapi_headers),
-        collect_unstripped_modules_repr = repr(info.collect_unstripped_modules),
-        module_outs_repr = file_to_pkg_label(info.module_outs_file),
-        kernel_release_repr = file_to_pkg_label(info.kernel_release),
-        protected_modules_repr = file_to_pkg_label(info.src_protected_modules_list),
-        ddk_module_defconfig_fragments_repr = files_to_pkg_label(
-            info.ddk_module_defconfig_fragments.to_list(),
-        ),
-        target_platform_repr = repr(ctx.attr.kernel_build.label.name + "_platform_target"),
-        exec_platform_repr = repr(ctx.attr.kernel_build.label.name + "_platform_exec"),
-        arch = info.arch,
+"""
+    template_file = ctx.actions.declare_file("{}/{}_template.txt".format(
+        ctx.attr.kernel_build.label.name,
+        FILEGROUP_DEF_TEMPLATE_NAME,
+    ))
+    ctx.actions.write(output = template_file, content = template_content)
+    return template_file
+
+def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, template_file):
+    # For a list of files, represented in a list
+    # Intentionally not adding comma for the last item so it works for the empty case.
+    join = dict(join_with = ",\n        ", format_joined = "[\n        %s\n    ]")
+
+    # For a single file. Use add_joined so we can use map_each and delay calculation.
+    one = dict(join_with = "")
+
+    # For extra downloaded files, prefixed with "//"
+    extra = dict(
+        allow_closure = True,
+        map_each = lambda file: repr("//{}".format(file.basename) if file else None),
     )
+
+    # For local files in this package. Files do not have any prefixes.
+    pkg = dict(
+        allow_closure = True,
+        map_each = lambda file: repr("{}".format(file.path) if file else None),
+    )
+
+    sub = ctx.actions.template_dict()
+    sub.add("{name_repr}", repr(ctx.attr.kernel_build.label.name))
+    sub.add_joined("{srcs_repr}", info.filegroup_srcs, **(join | extra))
+    sub.add_joined("{deps_repr}", depset(deps_files), **(join | pkg))
+    sub.add_joined(
+        "{extra_deps_repr}",
+        depset(transitive = [target.files for target in ctx.attr.extra_deps]),
+        **(join | extra)
+    )
+    sub.add_joined("{uapi_headers_repr}", depset([kernel_uapi_headers]), **(one | extra))
+    sub.add("{collect_unstripped_modules_repr}", repr(info.collect_unstripped_modules))
+    sub.add_joined("{module_outs_repr}", depset([info.module_outs_file]), **(one | pkg))
+    sub.add_joined("{kernel_release_repr}", depset([info.kernel_release]), **(one | pkg))
+    sub.add_joined(
+        "{protected_modules_repr}",
+        depset([info.src_protected_modules_list]),
+        **(one | pkg)
+    )
+    sub.add_joined(
+        "{ddk_module_defconfig_fragments_repr}",
+        info.ddk_module_defconfig_fragments,
+        **(join | pkg)
+    )
+    sub.add("{target_platform_repr}", repr(ctx.attr.kernel_build.label.name + "_platform_target"))
+    sub.add("{exec_platform_repr}", repr(ctx.attr.kernel_build.label.name + "_platform_exec"))
+    sub.add("{arch}", info.arch)
 
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
         ctx.attr.kernel_build.label.name,
         FILEGROUP_DEF_TEMPLATE_NAME,
     ))
-    ctx.actions.write(filegroup_decl_file, fragment)
+    ctx.actions.expand_template(
+        template = template_file,
+        output = filegroup_decl_file,
+        computed_substitutions = sub,
+    )
+    return filegroup_decl_file
+
+def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_file):
+    hermetic_tools = hermetic_toolchain.get(ctx)
 
     filegroup_decl_archive = ctx.actions.declare_file("{name}/{name}{suffix}".format(
         name = ctx.attr.kernel_build.label.name,
@@ -149,8 +206,7 @@ kernel_filegroup(
         progress_message = "Creating archive of kernel_filegroup declaration {}".format(ctx.label),
         mnemonic = "KernelfilegroupDeclaration",
     )
-
-    return DefaultInfo(files = depset([filegroup_decl_archive]))
+    return filegroup_decl_archive
 
 kernel_filegroup_declaration = rule(
     implementation = _kernel_filegroup_declaration_impl,
