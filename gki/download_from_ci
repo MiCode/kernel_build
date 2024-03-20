@@ -319,6 +319,7 @@ def clean_download_dir(download_dir):
   os.makedirs(download_dir, exist_ok=True)
   subprocess.run(["git", "checkout", "HEAD", "Android.bp"], cwd=download_dir)
   subprocess.run(["git", "checkout", "HEAD", "16k"], cwd=download_dir)
+  subprocess.run(["git", "checkout", "HEAD", "microdroid-gki"], cwd=download_dir)
 
 def update_android_4_1x_pq(output_dir, version):
   output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")

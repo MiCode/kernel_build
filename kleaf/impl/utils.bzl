@@ -166,7 +166,7 @@ def _get_check_sandbox_cmd():
     Note: This is not always accurate."""
 
     return """
-           if [[ $PWD != */sandbox/* ]]; then
+           if [[ ! $PWD =~ /(sandbox|bazel-working-directory)/ ]]; then
              echo "FATAL: this action must be executed in a sandbox!" >&2
              exit 1
            fi
