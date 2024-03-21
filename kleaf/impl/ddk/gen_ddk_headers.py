@@ -293,6 +293,8 @@ class GenDdkHeaders(buildozer_command_builder.BuildozerCommandBuilder):
             rel_path: directory under `--dump` to place the output JSON file
             obj: the object to dump
         """
+        if not self.args.dump:
+            return
         path = self.args.dump / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as fp:
