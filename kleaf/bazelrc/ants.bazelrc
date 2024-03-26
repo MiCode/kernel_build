@@ -26,6 +26,11 @@ test:ants --bes_keywords=android-test-storage
 test:ants --bes_instance_name=android-build-farm
 test:ants --build_metadata=run_type=critical
 
+# Prevent timeout errors.
+test:ants --grpc_keepalive_time=30s
+test:ants --experimental_build_event_upload_max_retries=100
+
+
 # Show URI to test results
 test:ants --build_metadata=generate_test_uri=fusion
 
