@@ -30,6 +30,5 @@ or may not work.
 
 ```sh
 tools/bazel run //build/kernel/kleaf/docs:docs_dist \
-    --config=bzlmod --config=internet \
-    -- --wipe_dist_dir
+    --config=bzlmod --config=internet
 ```

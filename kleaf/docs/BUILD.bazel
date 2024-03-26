@@ -18,8 +18,7 @@ To update:
 
 ```
 tools/bazel run //build/kernel/kleaf/docs:docs_dist \\
-    --config=bzlmod --config=internet \\
-    -- --wipe_dist_dir
+    --config=bzlmod --config=internet
 ```
 """
 
@@ -86,7 +85,5 @@ copy_to_dist_dir(
         "*": 644,
     },
     visibility = ["//build/kernel/kleaf:__subpackages__"],
-    # TODO(b/324643611): This won't work on build bots. Once target on
-    #   build bots are turned down, enable this.
-    # wipe_dist_dir = True,
+    wipe_dist_dir = True,
 )
