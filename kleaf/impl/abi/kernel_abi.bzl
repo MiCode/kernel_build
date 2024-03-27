@@ -318,6 +318,7 @@ def _define_abi_targets(
         name = name + "_protected_exports",
         kernel_build = kernel_build,
         protected_modules_list_file = name + "_src_protected_modules_list",
+        enable_add_vmlinux = enable_add_vmlinux,
         **private_kwargs
     )
     update_source_file(
