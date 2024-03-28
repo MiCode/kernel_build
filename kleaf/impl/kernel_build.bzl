@@ -1857,22 +1857,10 @@ def _create_infos(
         ),
     )
 
-    # For kernel_module() that require all kernel_build outputs
+    # For kernel_module() that require all kernel_build outputs and kernel_modules_install()
     mod_full_env = _create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_mod_full_setup.sh".format(name = ctx.attr.name),
-        pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
-        extra_inputs = depset(
-            env_and_outputs_info_dependencies,
-            transitive = [module_srcs.module_scripts],
-        ),
-    )
-
-    # For kernel_modules_install()
-    modinst_env = _create_serialized_env_info(
-        ctx = ctx,
-        setup_script_name = "{name}/{name}_modinst_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
         restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
         extra_inputs = depset(
@@ -1904,7 +1892,7 @@ def _create_infos(
         ddk_config_env = ddk_config_env,
         mod_min_env = mod_min_env,
         mod_full_env = mod_full_env,
-        modinst_env = modinst_env,
+        modinst_env = mod_full_env,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
         ddk_module_defconfig_fragments = ddk_module_defconfig_fragments,
