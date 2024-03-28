@@ -2010,9 +2010,11 @@ def _create_infos(
         arch = ctx.attr.arch,
         env_setup_script = ctx.attr.config[KernelConfigInfo].env_setup_script,
         config_out_dir = ctx.file.config,
+        outs = depset(all_output_files["outs"].values()),
         internal_outs = depset(all_output_files["internal_outs"].values()),
         ruledir = main_action_ret.ruledir,
         module_env_archive = module_scripts_archive,
+        has_base_kernel = base_kernel_utils.get_base_kernel(ctx) != None,
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
