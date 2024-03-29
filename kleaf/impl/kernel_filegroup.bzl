@@ -350,7 +350,11 @@ def _kernel_filegroup_impl(ctx):
     )
     in_tree_modules_info = KernelBuildInTreeModulesInfo(module_outs_file = ctx.file.module_outs_file)
 
-    images_info = KernelImagesInfo(base_kernel_label = None)
+    images_info = KernelImagesInfo(
+        base_kernel_label = None,
+        outs = depset(transitive = [target.files for target in ctx.attr.outs]),
+        base_kernel_files = depset(),
+    )
     gcov_info = GcovInfo(gcno_mapping = None, gcno_dir = None)
 
     # kernel_filegroup does not have any defconfig_fragments because the .config is fixed from prebuilts.
