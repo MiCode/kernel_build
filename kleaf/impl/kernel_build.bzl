@@ -1645,11 +1645,13 @@ def _build_main_action(
         module_symvers_outputs = copy_module_symvers_step.outputs,
     )
 
-def _create_serialized_env_info(
+def create_serialized_env_info(
         ctx,
         setup_script_name,
         pre_info,
-        restore_outputs_cmd,
+        outputs,
+        fake_system_map,
+        extra_restore_outputs_cmd,
         extra_inputs):
     """Creates an KernelSerializedEnvInfo.
 
@@ -1657,12 +1659,23 @@ def _create_serialized_env_info(
         ctx: ctx,
         setup_script_name: name of the setup script
         pre_info: KernelSerializedEnvInfo
-        restore_outputs_cmd: command to restore these outputs
+        outputs: dictionary where
+            keys are `File`, and values are the relative paths under $OUT_DIR as the
+            destination
+        fake_system_map: Whether to create a fake `$OUT_DIR/System.map`
+        extra_restore_outputs_cmd: Extra CMD to restore outputs
         extra_inputs: a depset attached to `inputs` of returned object
 
     Returns:
         A KernelSerializedEnvInfo that runs pre_info, then restore outputs given the list of
         outputs and cmd."""
+
+    restore_outputs_cmd = \
+        get_serialized_env_info_setup_restore_outputs_command(
+            outputs = outputs,
+            fake_system_map = fake_system_map,
+        )
+    restore_outputs_cmd += extra_restore_outputs_cmd
 
     setup_script = ctx.actions.declare_file(setup_script_name)
     setup_script_cmd = """
@@ -1683,6 +1696,7 @@ def _create_serialized_env_info(
             transitive = [
                 pre_info.inputs,
                 extra_inputs,
+                depset(outputs.keys()),
             ],
         ),
         tools = pre_info.tools,
@@ -1761,24 +1775,17 @@ def _create_infos(
     serialized_env_info_dependencies += all_output_files["internal_outs"].values()
     serialized_env_info_dependencies += all_output_files["implicit_outs"].values()
 
-    serialized_env_info_setup_restore_outputs = \
-        get_serialized_env_info_setup_restore_outputs_command(
-            outputs = {
-                dep: paths.relativize(dep.path, main_action_ret.ruledir)
-                for dep in serialized_env_info_dependencies
-            },
-            fake_system_map = False,
-        )
-
-    serialized_env_info_dependencies += kbuild_mixed_tree_ret.outputs
-    serialized_env_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
-
-    serialized_env_info = _create_serialized_env_info(
+    serialized_env_info = create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.config[KernelSerializedEnvInfo],
-        restore_outputs_cmd = serialized_env_info_setup_restore_outputs,
-        extra_inputs = depset(serialized_env_info_dependencies),
+        outputs = {
+            dep: paths.relativize(dep.path, main_action_ret.ruledir)
+            for dep in serialized_env_info_dependencies
+        },
+        fake_system_map = False,
+        extra_restore_outputs_cmd = kbuild_mixed_tree_ret.cmd,
+        extra_inputs = depset(kbuild_mixed_tree_ret.outputs),
     )
 
     orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
@@ -1796,63 +1803,50 @@ def _create_infos(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
-    ext_mod_serialized_env_info_deps = all_output_files["internal_outs"].values()
-
-    ext_mod_serialized_env_info_setup_restore_outputs = \
-        get_serialized_env_info_setup_restore_outputs_command(
-            outputs = {
-                dep: paths.relativize(dep.path, main_action_ret.ruledir)
-                for dep in ext_mod_serialized_env_info_deps
-            },
-            fake_system_map = True,
-        )
-
     # For kernel_module()
-    mod_min_env = _create_serialized_env_info(
+    ext_mod_serialized_env_info_deps = all_output_files["internal_outs"].values()
+    mod_min_env = create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_mod_min_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd = ext_mod_serialized_env_info_setup_restore_outputs,
-        extra_inputs = depset(
-            ext_mod_serialized_env_info_deps,
-            transitive = [module_srcs.module_scripts],
-        ),
+        outputs = {
+            dep: paths.relativize(dep.path, main_action_ret.ruledir)
+            for dep in ext_mod_serialized_env_info_deps
+        },
+        fake_system_map = True,
+        extra_restore_outputs_cmd = "",
+        extra_inputs = depset(transitive = [module_srcs.module_scripts]),
     )
 
     # External modules do not need implicit_outs because they are unsigned.
     ext_mod_full_serialized_env_info_dependencies = list(all_output_files["outs"].values())
     ext_mod_full_serialized_env_info_dependencies += all_output_files["internal_outs"].values()
 
-    ext_mod_full_serialized_env_info_setup_restore_outputs = \
-        get_serialized_env_info_setup_restore_outputs_command(
-            outputs = {
-                dep: paths.relativize(dep.path, main_action_ret.ruledir)
-                for dep in ext_mod_full_serialized_env_info_dependencies
-            },
-            fake_system_map = False,
-        )
-
-    ext_mod_full_serialized_env_info_dependencies += kbuild_mixed_tree_ret.outputs
-    ext_mod_full_serialized_env_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
-
     # For kernel_module() that require all kernel_build outputs and kernel_modules_install()
-    mod_full_env = _create_serialized_env_info(
+    mod_full_env = create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_mod_full_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd = ext_mod_full_serialized_env_info_setup_restore_outputs,
+        outputs = {
+            dep: paths.relativize(dep.path, main_action_ret.ruledir)
+            for dep in ext_mod_full_serialized_env_info_dependencies
+        },
+        fake_system_map = False,
+        extra_restore_outputs_cmd = kbuild_mixed_tree_ret.cmd,
         extra_inputs = depset(
-            ext_mod_full_serialized_env_info_dependencies,
+            kbuild_mixed_tree_ret.outputs,
             transitive = [module_srcs.module_scripts],
         ),
     )
 
     # For ddk_config()
-    ddk_config_env = _create_serialized_env_info(
+    ddk_config_env = create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_ddk_config_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.config[KernelSerializedEnvInfo],
-        restore_outputs_cmd = "",
+        outputs = {},
+        fake_system_map = False,
+        extra_restore_outputs_cmd = "",
         extra_inputs = depset(transitive = [
             module_srcs.module_scripts,
             module_srcs.module_kconfig,
