@@ -38,7 +38,7 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
-load(":kernel_build.bzl", "get_ext_mod_env_and_outputs_info_setup_restore_outputs_command")
+load(":kernel_build.bzl", "get_env_and_outputs_info_setup_restore_outputs_command")
 load(":kernel_config.bzl", "get_config_setup_command")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "get_env_info_setup_command")
@@ -178,11 +178,12 @@ def _get_mod_min_env(ctx, ddk_config_env):
     )
 
     ext_mod_env_and_outputs_info_setup_restore_outputs = \
-        get_ext_mod_env_and_outputs_info_setup_restore_outputs_command(
+        get_env_and_outputs_info_setup_restore_outputs_command(
             outputs = {
                 _expect_single_file(target, what = "{}: internal_outs".format(ctx.label)): relpath
                 for target, relpath in ctx.attr.internal_outs.items()
             },
+            fake_system_map = True,
         )
 
     ddk_mod_min_env_setup_script = ctx.actions.declare_file(
