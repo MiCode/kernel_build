@@ -1738,7 +1738,7 @@ def _create_serialized_env_info(
         tools = pre_info.tools,
     )
 
-def get_env_and_outputs_info_setup_restore_outputs_command(outputs):
+def get_ext_mod_env_and_outputs_info_setup_restore_outputs_command(outputs):
     """Returns the `restore_outputs` command for the environment to build kernel_module.
 
     Args:
@@ -1749,11 +1749,18 @@ def get_env_and_outputs_info_setup_restore_outputs_command(outputs):
         the `restore_outputs` command for the environment to build kernel_module.
     """
 
-    cmd = """
-        # Restore kernel build outputs
+    # Create a fake System.map because `make modules` does not need it. For kernel_module(),
+    # make modules_install needs it, but we aren't running depmod in kernel_module, so a fake one
+    # is good enough.
+    ext_mod_env_and_outputs_info_setup_restore_outputs = """
+        # Fake System.map for kernel_module
+          touch ${OUT_DIR}/System.map
+    """
+    ext_mod_env_and_outputs_info_setup_restore_outputs += """
+        # Restore kernel build outputs necessary for building external modules
     """
     for dep, relpath in outputs.items():
-        cmd += """
+        ext_mod_env_and_outputs_info_setup_restore_outputs += """
             mkdir -p $(dirname ${{OUT_DIR}}/{relpath})
             rsync -aL {dep} ${{OUT_DIR}}/{relpath}
         """.format(
@@ -1761,18 +1768,7 @@ def get_env_and_outputs_info_setup_restore_outputs_command(outputs):
             relpath = relpath,
         )
 
-    # If System.map does not already exist, create a fake System.map because
-    # `make modules` does not need it. For kernel_module(),
-    # make modules_install needs it, but we aren't running depmod in
-    # kernel_module, so a fake one is good enough.
-    cmd += """
-        # Fake System.map for kernel_module if it does not already exist.
-          if [[ ! -f ${OUT_DIR}/System.map ]]; then
-            touch ${OUT_DIR}/System.map
-          fi
-    """
-
-    return cmd
+    return ext_mod_env_and_outputs_info_setup_restore_outputs
 
 def _create_infos(
         ctx,
@@ -1804,21 +1800,17 @@ def _create_infos(
 
     all_output_files = main_action_ret.all_output_files
 
-    # outs and internal_outs are needed. implicit_outs are needed to
-    # build GKI's system_dlkm image to sign modules. Modules are not needed.
-    env_and_outputs_info_dependencies = list(all_output_files["outs"].values())
-    env_and_outputs_info_dependencies += all_output_files["internal_outs"].values()
-    env_and_outputs_info_dependencies += all_output_files["implicit_outs"].values()
-
-    env_and_outputs_info_setup_restore_outputs = \
-        get_env_and_outputs_info_setup_restore_outputs_command(
-            outputs = {
-                dep: paths.relativize(dep.path, main_action_ret.ruledir)
-                for dep in env_and_outputs_info_dependencies
-            },
-        )
-
+    # Only outs and internal_outs are needed. But for simplicity, copy the full {ruledir}
+    # which includes module_outs and implicit_outs too.
+    env_and_outputs_info_dependencies = []
+    for d in all_output_files.values():
+        env_and_outputs_info_dependencies += d.values()
     env_and_outputs_info_dependencies += kbuild_mixed_tree_ret.outputs
+
+    env_and_outputs_info_setup_restore_outputs = """
+         # Restore kernel build outputs
+           rsync -aL --chmod=D+w {ruledir}/* ${{OUT_DIR}}/
+           """.format(ruledir = main_action_ret.ruledir)
     env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
 
     env_and_outputs_info = _create_env_and_outputs_info(
@@ -1846,7 +1838,7 @@ def _create_infos(
     ext_mod_env_and_outputs_info_deps = all_output_files["internal_outs"].values()
 
     ext_mod_env_and_outputs_info_setup_restore_outputs = \
-        get_env_and_outputs_info_setup_restore_outputs_command(
+        get_ext_mod_env_and_outputs_info_setup_restore_outputs_command(
             outputs = {
                 dep: paths.relativize(dep.path, main_action_ret.ruledir)
                 for dep in ext_mod_env_and_outputs_info_deps
@@ -1865,26 +1857,14 @@ def _create_infos(
         ),
     )
 
-    # External modules do not need implicit_outs because they are unsigned.
-    ext_mod_full_env_and_outputs_info_dependencies = list(all_output_files["outs"].values())
-    ext_mod_full_env_and_outputs_info_dependencies += all_output_files["internal_outs"].values()
-
-    ext_mod_full_env_and_outputs_info_setup_restore_outputs = \
-        get_env_and_outputs_info_setup_restore_outputs_command(
-            outputs = {
-                dep: paths.relativize(dep.path, main_action_ret.ruledir)
-                for dep in ext_mod_full_env_and_outputs_info_dependencies
-            },
-        )
-
     # For kernel_module() that require all kernel_build outputs and kernel_modules_install()
     mod_full_env = _create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_mod_full_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.modules_prepare[KernelSerializedEnvInfo],
-        restore_outputs_cmd = ext_mod_full_env_and_outputs_info_setup_restore_outputs,
+        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
         extra_inputs = depset(
-            ext_mod_full_env_and_outputs_info_dependencies,
+            env_and_outputs_info_dependencies,
             transitive = [module_srcs.module_scripts],
         ),
     )
