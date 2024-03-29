@@ -165,24 +165,35 @@ def _expect_single_file(target, what):
         fail("{} expects exactly one file, but got {}".format(what, list_of_files))
     return list_of_files[0]
 
-def _get_mod_min_env(ctx, ddk_config_env):
-    """Returns `KernelBuildExtModuleInfo.mod_min_env`."""
-    if ddk_config_env == None:
-        return None
-    if not ctx.file.modules_prepare_archive:
-        return None
+def _get_mod_envs(ctx, ddk_config_env):
+    """Returns partial `KernelBuildExtModuleInfo` with mod_*_env fields."""
+    if ddk_config_env == None or not ctx.file.modules_prepare_archive:
+        return KernelBuildExtModuleInfo(
+            mod_min_env = None,
+            mod_full_env = None,
+            modinst_env = None,
+        )
 
     modules_prepare_setup = modules_prepare_setup_command(
         config_setup_script = ddk_config_env.setup_script,
         modules_prepare_outdir_tar_gz = ctx.file.modules_prepare_archive,
     )
 
+    # {File(...): "vmlinux", ...}
+    outs_mapping = {
+        _expect_single_file(target, what = "{}: outs".format(ctx.label)): relpath
+        for target, relpath in ctx.attr.outs.items()
+    }
+
+    # {File(...): "Module.symvers", ...}
+    internal_outs_mapping = {
+        _expect_single_file(target, what = "{}: internal_outs".format(ctx.label)): relpath
+        for target, relpath in ctx.attr.internal_outs.items()
+    }
+
     ext_mod_env_and_outputs_info_setup_restore_outputs = \
         get_env_and_outputs_info_setup_restore_outputs_command(
-            outputs = {
-                _expect_single_file(target, what = "{}: internal_outs".format(ctx.label)): relpath
-                for target, relpath in ctx.attr.internal_outs.items()
-            },
+            outputs = internal_outs_mapping,
             fake_system_map = True,
         )
 
@@ -199,16 +210,63 @@ def _get_mod_min_env(ctx, ddk_config_env):
             ext_mod_env_and_outputs_info_setup_restore_outputs = ext_mod_env_and_outputs_info_setup_restore_outputs,
         ),
     )
-    return KernelSerializedEnvInfo(
+
+    outs = depset(transitive = [target.files for target in ctx.attr.outs])
+    internal_outs = depset(transitive = [target.files for target in ctx.attr.internal_outs])
+
+    common_inputs = depset([
+        ctx.file.modules_prepare_archive,
+        ddk_config_env.setup_script,
+    ], transitive = [
+        ddk_config_env.inputs,
+    ])
+
+    mod_min_env = KernelSerializedEnvInfo(
         setup_script = ddk_mod_min_env_setup_script,
         inputs = depset([
             ddk_mod_min_env_setup_script,
-            ctx.file.modules_prepare_archive,
-            ddk_config_env.setup_script,
         ], transitive = [
-            ddk_config_env.inputs,
-        ] + [target.files for target in ctx.attr.internal_outs]),
+            common_inputs,
+            internal_outs,
+        ]),
         tools = ddk_config_env.tools,
+    )
+
+    env_and_outputs_info_setup_restore_outputs = \
+        get_env_and_outputs_info_setup_restore_outputs_command(
+            outputs = outs_mapping | internal_outs_mapping,
+            fake_system_map = False,
+        )
+    ddk_mod_full_env_setup_script = ctx.actions.declare_file(
+        "{name}/{name}_mod_full_setup.sh".format(name = ctx.attr.name),
+    )
+    ctx.actions.write(
+        output = ddk_mod_full_env_setup_script,
+        content = """
+            {modules_prepare_setup}
+            {env_and_outputs_info_setup_restore_outputs}
+        """.format(
+            modules_prepare_setup = modules_prepare_setup,
+            env_and_outputs_info_setup_restore_outputs = env_and_outputs_info_setup_restore_outputs,
+        ),
+    )
+
+    mod_full_env = KernelSerializedEnvInfo(
+        setup_script = ddk_mod_full_env_setup_script,
+        inputs = depset([
+            ddk_mod_full_env_setup_script,
+        ], transitive = [
+            common_inputs,
+            outs,
+            internal_outs,
+        ]),
+        tools = ddk_config_env.tools,
+    )
+
+    return KernelBuildExtModuleInfo(
+        mod_min_env = mod_min_env,
+        mod_full_env = mod_full_env,
+        modinst_env = mod_full_env,
     )
 
 def _kernel_filegroup_impl(ctx):
@@ -217,14 +275,16 @@ def _kernel_filegroup_impl(ctx):
     all_deps = ctx.files.srcs + ctx.files.deps
 
     ddk_config_env = _get_ddk_config_env(ctx)
-    mod_min_env = _get_mod_min_env(ctx, ddk_config_env)
+    mod_envs = _get_mod_envs(ctx, ddk_config_env)
 
     kernel_module_dev_info = KernelBuildExtModuleInfo(
         modules_staging_archive = utils.find_file(MODULES_STAGING_ARCHIVE, all_deps, what = ctx.label),
         # Building kernel_module (excluding ddk_module) on top of kernel_filegroup is unsupported.
         # module_hdrs = None,
         ddk_config_env = ddk_config_env,
-        mod_min_env = mod_min_env,
+        mod_min_env = mod_envs.mod_min_env,
+        mod_full_env = mod_envs.mod_full_env,
+        modinst_env = mod_envs.modinst_env,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         ddk_module_defconfig_fragments = depset(transitive = [
             target.files
@@ -450,6 +510,10 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
             allow_single_file = True,
             doc = """Archive from `kernel_build.pack_module_env` that contains
                 necessary files to build external modules.""",
+        ),
+        "outs": attr.label_keyed_string_dict(
+            allow_files = True,
+            doc = "Keys: from `_kernel_build.outs`. Values: path under `$OUT_DIR`.",
         ),
         "internal_outs": attr.label_keyed_string_dict(
             allow_files = True,

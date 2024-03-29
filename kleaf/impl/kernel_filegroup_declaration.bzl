@@ -28,6 +28,13 @@ visibility("//build/kernel/kleaf/...")
 def _kernel_filegroup_declaration_impl(ctx):
     info = ctx.attr.kernel_build[KernelBuildFilegroupDeclInfo]
 
+    # Not allowed because mod_full_env & mod_inst_env for kernel_build needs
+    # kbuild_mixed_tree_ret.outputs, but it cannot be vendored by
+    # kernel_filegroup.
+    if info.has_base_kernel:
+        fail("""{}: {} has base_kernel. kernel_filegroup_declaration on
+            device kernel build is not supported.""".format(ctx.label, ctx.attr.kernel_build.label))
+
     # ddk_artifacts
     deps_files = [
         # _modules_prepare
@@ -101,6 +108,7 @@ kernel_filegroup(
     env_setup_script = {env_setup_script_repr},
     modules_prepare_archive = {modules_prepare_archive_repr},
     module_env_archive = {module_env_archive_repr},
+    outs = {outs_repr},
     internal_outs = {internal_outs_repr},
     target_platform = {target_platform_repr},
     exec_platform = {exec_platform_repr},
@@ -166,6 +174,19 @@ def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, templ
         **(one | pkg)
     )
     sub.add_joined("{module_env_archive_repr}", depset([info.module_env_archive]), **(one | pkg))
+
+    # {"//vmlinux": "vmlinux", ...}
+    sub.add_joined(
+        "{outs_repr}",
+        info.outs,
+        allow_closure = True,
+        map_each = lambda file: "{key}: {value}".format(
+            key = repr("//{}".format(file.basename) if file else None),
+            value = repr(paths.relativize(file.path, info.ruledir)),
+        ),
+        join_with = ",\n        ",
+        format_joined = "{\n        %s\n    }",
+    )
 
     # {":bazel-out/k8-fastbuild/bin/common/kernel_aarch64/Module.symvers": "Module.symvers", ...}
     sub.add_joined(
