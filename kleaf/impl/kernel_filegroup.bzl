@@ -373,7 +373,7 @@ def _kernel_filegroup_impl(ctx):
         KernelBuildMixedTreeInfo(files = mixed_tree_files),
         KernelBuildUnameInfo(kernel_release = kernel_release),
         kernel_module_dev_info,
-        # TODO(b/219112010): implement KernelEnvAndOutputsInfo properly for kernel_filegroup
+        # TODO(b/219112010): implement KernelSerializedEnvInfo properly for kernel_filegroup
         uapi_info,
         unstripped_modules_info,
         abi_info,

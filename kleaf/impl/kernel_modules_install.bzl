@@ -22,9 +22,9 @@ load(
     "KernelBuildExtModuleInfo",
     "KernelBuildInfo",
     "KernelCmdsInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelImagesInfo",
     "KernelModuleInfo",
+    "KernelSerializedEnvInfo",
 )
 load(":debug.bzl", "debug")
 load(
@@ -277,7 +277,7 @@ In `foo_dist`, specifying `foo_modules_install` in `data` won't include
                 KernelBuildExtModuleInfo,
                 # Needed by KernelModuleInfo.kernel_build
                 # TODO(b/247622808): Should put the info in KernelModuleInfo directly.
-                KernelEnvAndOutputsInfo,
+                KernelSerializedEnvInfo,
                 KernelBuildInfo,
                 KernelImagesInfo,
             ],

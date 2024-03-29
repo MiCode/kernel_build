@@ -23,7 +23,7 @@ load(
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -109,8 +109,8 @@ def _build_modules_image_impl_common(
     if implicit_outputs != None:
         command_outputs += implicit_outputs
 
-    command = kernel_build_infos.env_and_outputs_info.get_setup_script(
-        data = kernel_build_infos.env_and_outputs_info.data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = kernel_build_infos.env_and_outputs_info,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 

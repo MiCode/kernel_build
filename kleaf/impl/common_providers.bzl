@@ -86,46 +86,6 @@ KernelEnvToolchainsInfo = provider(
     },
 )
 
-KernelEnvAndOutputsInfo = provider(
-    doc = """**DEPRECATED.** Use `KernelSerializedEnvInfo` instead.
-
-Like `KernelEnvInfo` but also restores artifacts.
-
-It is expected to use these infos in the following way:
-
-```
-command = ctx.attr.dep[KernelEnvAndOutputsInfo].get_setup_script(
-    data = ctx.attr.dep[KernelEnvAndOutputsInfo].data,
-    restore_out_dir_cmd = cache_dir_step.cmd, # or utils.get_check_sandbox_cmd(),
-)
-```
-    """,
-    fields = {
-        "get_setup_script": """A function.
-
-The function should have the following signature:
-
-```
-def get_setup_script(data, restore_out_dir_cmd):
-```
-
-where:
-
-* `data`: the `data` field of this info.
-* `restore_out_dir_cmd`: A string that contains command to adjust the value of `OUT_DIR`.
-
-The function should return a string that contains the setup script.
-""",
-        "data": "Additional data consumed by `get_setup_script`.",
-        "inputs": """A [depset](https://bazel.build/extending/depsets) containing inputs used
-                   by `get_setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
-                   included. `inputs` are compiled against the target platform.""",
-        "tools": """A [depset](https://bazel.build/extending/depsets) containing tools used
-                   by `get_setup_script`. Note that dependencies of `restore_out_dir_cmd` is not
-                   included. `tools` are compiled against the execution platform.""",
-    },
-)
-
 KernelSerializedEnvInfo = provider(
     doc = """Like `KernelEnvInfo` but also restores artifacts.
 
@@ -159,7 +119,7 @@ command = \"""
     . {setup_script}
 \""".format(
     restore_out_dir_cmd = cache_dir_step.cmd, # or utils.get_check_sandbox_cmd(),
-    setup_script = ctx.attr.dep[KernelSerializedEnvInfo].setup_script
+    setup_script = ctx.attr.dep[KernelSerializedEnvInfo].setup_script.path,
 )
 ```
 """,
@@ -360,7 +320,7 @@ KernelModuleKernelBuildInfo = provider(
     fields = {
         "label": "Label of the `kernel_build` target",
         "ext_module_info": "`KernelBuildExtModuleInfo`",
-        "env_and_outputs_info": "`KernelEnvAndOutputsInfo`",
+        "env_and_outputs_info": "`KernelSerializedEnvInfo`",
         "images_info": "`KernelImagesInfo`",
     },
 )

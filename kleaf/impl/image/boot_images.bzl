@@ -16,10 +16,10 @@ Rules for building boot images.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
+load(":common_providers.bzl", "KernelBuildInfo", "KernelSerializedEnvInfo")
 load(":debug.bzl", "debug")
 load(":image/initramfs.bzl", "InitramfsInfo")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -68,14 +68,14 @@ def _boot_images_impl(ctx):
 
     transitive_inputs = [
         kernel_build_outs,
-        ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs,
+        ctx.attr.kernel_build[KernelSerializedEnvInfo].inputs,
     ]
 
     tools = [ctx.executable._search_and_cp_output]
-    transitive_tools = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools]
+    transitive_tools = [ctx.attr.kernel_build[KernelSerializedEnvInfo].tools]
 
-    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.kernel_build[KernelSerializedEnvInfo],
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 
@@ -221,7 +221,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
     attrs = {
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [KernelEnvAndOutputsInfo, KernelBuildInfo],
+            providers = [KernelSerializedEnvInfo, KernelBuildInfo],
         ),
         "initramfs": attr.label(
             providers = [InitramfsInfo],

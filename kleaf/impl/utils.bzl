@@ -25,12 +25,12 @@ load(
     "DdkConfigInfo",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelImagesInfo",
     "KernelModuleDepInfo",
     "KernelModuleInfo",
     "KernelModuleKernelBuildInfo",
     "KernelModuleSetupInfo",
+    "KernelSerializedEnvInfo",
     "ModuleSymversInfo",
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
@@ -314,7 +314,7 @@ def _create_kernel_module_kernel_build_info(kernel_build):
         ext_module_info = kernel_build[KernelBuildExtModuleInfo],
         # TODO(b/308492731): Implement the following for kernel_filegroup
         #   in order to build images
-        env_and_outputs_info = kernel_build[KernelEnvAndOutputsInfo] if KernelEnvAndOutputsInfo in kernel_build else None,
+        env_and_outputs_info = kernel_build[KernelSerializedEnvInfo] if KernelSerializedEnvInfo in kernel_build else None,
         images_info = kernel_build[KernelImagesInfo] if KernelImagesInfo in kernel_build else None,
     )
 

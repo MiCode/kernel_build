@@ -14,19 +14,20 @@
 
 """Build dtbo."""
 
-load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
+load(":common_providers.bzl", "KernelBuildInfo", "KernelSerializedEnvInfo")
 load(":debug.bzl", "debug")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
 def _dtbo_impl(ctx):
     output = ctx.actions.declare_file("{}/dtbo.img".format(ctx.label.name))
     transitive_inputs = [target.files for target in ctx.attr.srcs]
-    transitive_inputs.append(ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs)
-    tools = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools
-    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
+    transitive_inputs.append(ctx.attr.kernel_build[KernelSerializedEnvInfo].inputs)
+    tools = ctx.attr.kernel_build[KernelSerializedEnvInfo].tools
+
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.kernel_build[KernelSerializedEnvInfo],
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 
@@ -55,7 +56,7 @@ dtbo = rule(
     attrs = {
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [KernelEnvAndOutputsInfo, KernelBuildInfo],
+            providers = [KernelSerializedEnvInfo, KernelBuildInfo],
         ),
         "srcs": attr.label_list(
             allow_files = True,

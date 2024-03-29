@@ -43,7 +43,6 @@ load(
     "KernelBuildUnameInfo",
     "KernelCmdsInfo",
     "KernelConfigInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelEnvAttrInfo",
     "KernelEnvMakeGoalsInfo",
     "KernelImagesInfo",
@@ -1638,63 +1637,6 @@ def _build_main_action(
         module_symvers_outputs = copy_module_symvers_step.outputs,
     )
 
-def _env_and_outputs_info_get_setup_script(data, restore_out_dir_cmd):
-    """Setup script generator for `KernelEnvAndOutputsInfo`.
-
-    Args:
-        data: `data` from `KernelEnvAndOutputsInfo`
-        restore_out_dir_cmd: See `KernelEnvAndOutputsInfo`. Provided by user of the info.
-    Returns:
-        The setup script."""
-
-    # This may be KernelEnvAndOutputsInfo or KernelSerializedEnvInfo
-    pre_info = data.pre_info
-
-    restore_outputs_cmd = data.restore_outputs_cmd
-
-    # Set up env variables, esp. OUT_DIR
-    script = kernel_utils.setup_serialized_env_cmd(
-        serialized_env_info = pre_info,
-        restore_out_dir_cmd = restore_out_dir_cmd,
-    )
-
-    # Restore files to $OUT_DIR
-    script += restore_outputs_cmd
-
-    return script
-
-def _create_env_and_outputs_info(
-        pre_info,
-        restore_outputs_cmd_deps,
-        restore_outputs_cmd,
-        extra_inputs):
-    """Creates an KernelEnvAndOutputsInfo.
-
-    Args:
-        pre_info: KernelSerializedEnvInfo
-        restore_outputs_cmd_deps: list of outputs to restore
-        restore_outputs_cmd: command to restore these outputs
-        extra_inputs: a depset attached to `inputs` of returned object
-
-    Returns:
-        A KernelEnvAndOutputsInfo that runs pre_info, then restore outputs given the list of
-        outputs and cmd."""
-
-    inputs_transitive = [pre_info.inputs, extra_inputs]
-
-    return KernelEnvAndOutputsInfo(
-        get_setup_script = _env_and_outputs_info_get_setup_script,
-        inputs = depset(
-            restore_outputs_cmd_deps,
-            transitive = inputs_transitive,
-        ),
-        tools = pre_info.tools,
-        data = struct(
-            pre_info = pre_info,
-            restore_outputs_cmd = restore_outputs_cmd,
-        ),
-    )
-
 def _create_serialized_env_info(
         ctx,
         setup_script_name,
@@ -1807,27 +1749,28 @@ def _create_infos(
 
     # outs and internal_outs are needed. implicit_outs are needed to
     # build GKI's system_dlkm image to sign modules. Modules are not needed.
-    env_and_outputs_info_dependencies = list(all_output_files["outs"].values())
-    env_and_outputs_info_dependencies += all_output_files["internal_outs"].values()
-    env_and_outputs_info_dependencies += all_output_files["implicit_outs"].values()
+    serialized_env_info_dependencies = list(all_output_files["outs"].values())
+    serialized_env_info_dependencies += all_output_files["internal_outs"].values()
+    serialized_env_info_dependencies += all_output_files["implicit_outs"].values()
 
-    env_and_outputs_info_setup_restore_outputs = \
+    serialized_env_info_setup_restore_outputs = \
         get_env_and_outputs_info_setup_restore_outputs_command(
             outputs = {
                 dep: paths.relativize(dep.path, main_action_ret.ruledir)
-                for dep in env_and_outputs_info_dependencies
+                for dep in serialized_env_info_dependencies
             },
             fake_system_map = False,
         )
 
-    env_and_outputs_info_dependencies += kbuild_mixed_tree_ret.outputs
-    env_and_outputs_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
+    serialized_env_info_dependencies += kbuild_mixed_tree_ret.outputs
+    serialized_env_info_setup_restore_outputs += kbuild_mixed_tree_ret.cmd
 
-    env_and_outputs_info = _create_env_and_outputs_info(
+    serialized_env_info = _create_serialized_env_info(
+        ctx = ctx,
+        setup_script_name = "{name}/{name}_setup.sh".format(name = ctx.attr.name),
         pre_info = ctx.attr.config[KernelSerializedEnvInfo],
-        restore_outputs_cmd_deps = env_and_outputs_info_dependencies,
-        restore_outputs_cmd = env_and_outputs_info_setup_restore_outputs,
-        extra_inputs = depset(),
+        restore_outputs_cmd = serialized_env_info_setup_restore_outputs,
+        extra_inputs = depset(serialized_env_info_dependencies),
     )
 
     orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
@@ -2043,7 +1986,7 @@ def _create_infos(
 
     return [
         cmds_info,
-        env_and_outputs_info,
+        serialized_env_info,
         orig_env_info,
         kbuild_mixed_tree_info,
         kernel_build_info,
