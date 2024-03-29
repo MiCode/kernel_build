@@ -38,7 +38,7 @@ load(
 )
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
-load(":kernel_build.bzl", "get_env_and_outputs_info_setup_restore_outputs_command")
+load(":kernel_build.bzl", "get_serialized_env_info_setup_restore_outputs_command")
 load(":kernel_config.bzl", "get_config_setup_command")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
 load(":kernel_env.bzl", "get_env_info_setup_command")
@@ -191,8 +191,8 @@ def _get_mod_envs(ctx, ddk_config_env):
         for target, relpath in ctx.attr.internal_outs.items()
     }
 
-    ext_mod_env_and_outputs_info_setup_restore_outputs = \
-        get_env_and_outputs_info_setup_restore_outputs_command(
+    ext_mod_serialized_env_info_setup_restore_outputs = \
+        get_serialized_env_info_setup_restore_outputs_command(
             outputs = internal_outs_mapping,
             fake_system_map = True,
         )
@@ -204,10 +204,10 @@ def _get_mod_envs(ctx, ddk_config_env):
         output = ddk_mod_min_env_setup_script,
         content = """
             {modules_prepare_setup}
-            {ext_mod_env_and_outputs_info_setup_restore_outputs}
+            {ext_mod_serialized_env_info_setup_restore_outputs}
         """.format(
             modules_prepare_setup = modules_prepare_setup,
-            ext_mod_env_and_outputs_info_setup_restore_outputs = ext_mod_env_and_outputs_info_setup_restore_outputs,
+            ext_mod_serialized_env_info_setup_restore_outputs = ext_mod_serialized_env_info_setup_restore_outputs,
         ),
     )
 
@@ -232,8 +232,8 @@ def _get_mod_envs(ctx, ddk_config_env):
         tools = ddk_config_env.tools,
     )
 
-    env_and_outputs_info_setup_restore_outputs = \
-        get_env_and_outputs_info_setup_restore_outputs_command(
+    serialized_env_info_setup_restore_outputs = \
+        get_serialized_env_info_setup_restore_outputs_command(
             outputs = outs_mapping | internal_outs_mapping,
             fake_system_map = False,
         )
@@ -244,10 +244,10 @@ def _get_mod_envs(ctx, ddk_config_env):
         output = ddk_mod_full_env_setup_script,
         content = """
             {modules_prepare_setup}
-            {env_and_outputs_info_setup_restore_outputs}
+            {serialized_env_info_setup_restore_outputs}
         """.format(
             modules_prepare_setup = modules_prepare_setup,
-            env_and_outputs_info_setup_restore_outputs = env_and_outputs_info_setup_restore_outputs,
+            serialized_env_info_setup_restore_outputs = serialized_env_info_setup_restore_outputs,
         ),
     )
 

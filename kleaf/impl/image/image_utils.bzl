@@ -101,8 +101,8 @@ def _build_modules_image_impl_common(
     if restore_modules_install:
         inputs += dws.files(modules_install_staging_dws)
     inputs += ctx.files.deps
-    transitive_inputs = [kernel_build_infos.env_and_outputs_info.inputs]
-    tools = kernel_build_infos.env_and_outputs_info.tools
+    transitive_inputs = [kernel_build_infos.serialized_env_info.inputs]
+    tools = kernel_build_infos.serialized_env_info.tools
 
     command_outputs = []
     command_outputs += outputs
@@ -110,7 +110,7 @@ def _build_modules_image_impl_common(
         command_outputs += implicit_outputs
 
     command = kernel_utils.setup_serialized_env_cmd(
-        serialized_env_info = kernel_build_infos.env_and_outputs_info,
+        serialized_env_info = kernel_build_infos.serialized_env_info,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 

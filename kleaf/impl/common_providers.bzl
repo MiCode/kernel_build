@@ -320,7 +320,7 @@ KernelModuleKernelBuildInfo = provider(
     fields = {
         "label": "Label of the `kernel_build` target",
         "ext_module_info": "`KernelBuildExtModuleInfo`",
-        "env_and_outputs_info": "`KernelSerializedEnvInfo`",
+        "serialized_env_info": "`KernelSerializedEnvInfo`",
         "images_info": "`KernelImagesInfo`",
     },
 )
