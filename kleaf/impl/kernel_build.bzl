@@ -1967,7 +1967,11 @@ def _create_infos(
         module_outs_file = all_module_names_file,
     )
 
-    images_info = KernelImagesInfo(base_kernel_label = base_kernel.label if base_kernel else None)
+    images_info = KernelImagesInfo(
+        base_kernel_label = base_kernel.label if base_kernel else None,
+        outs = depset(all_output_files["outs"].values()),
+        base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
+    )
 
     gcov_info = GcovInfo(
         gcno_mapping = main_action_ret.gcno_mapping,

@@ -362,7 +362,6 @@ KernelModuleKernelBuildInfo = provider(
         "ext_module_info": "`KernelBuildExtModuleInfo`",
         "env_and_outputs_info": "`KernelEnvAndOutputsInfo`",
         "images_info": "`KernelImagesInfo`",
-        "kernel_build_info": "`KernelBuildInfo`",
     },
 )
 
@@ -428,6 +427,10 @@ KernelImagesInfo = provider(
     doc = "A provider that represents the expectation of [`kernel_images`](kernel.md#kernel_images) to [`kernel_build`](kernel.md#kernel_build)",
     fields = {
         "base_kernel_label": "Label of the `base_kernel` target, if exists",
+        "outs": "A list of File object corresponding to the `outs` attribute (excluding `module_outs`, `implicit_outs` and `internal_outs`)",
+        "base_kernel_files": """A [depset](https://bazel.build/extending/depsets) containing
+            [Default outputs](https://docs.bazel.build/versions/main/skylark/rules.html#default-outputs)
+            of the rule specified by `base_kernel`""",
     },
 )
 

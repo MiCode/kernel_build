@@ -68,8 +68,8 @@ def _build_modules_image_impl_common(
     kernel_build_outs = depset(
         transitive = [
             # Prefer device kernel_build, then base kernel_build
-            kernel_build_infos.kernel_build_info.outs,
-            kernel_build_infos.kernel_build_info.base_kernel_files,
+            kernel_build_infos.images_info.outs,
+            kernel_build_infos.images_info.base_kernel_files,
         ],
         order = "preorder",
     )
