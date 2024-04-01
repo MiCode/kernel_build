@@ -256,6 +256,7 @@ KernelBuildFilegroupDeclInfo = provider(
         "modules_prepare_archive": """Archive containing the file built by
             [`modules_prepare`](#modules_prepare)""",
         "collect_unstripped_modules": "[`kernel_build.collect_unstripped_modules`](#kernel_build-collect_unstripped_modules)",
+        "strip_modules": "[`kernel_build.strip_modules`](#kernel_build-strip_modules)",
         "src_protected_modules_list": """Source file with list of protected modules whose exports
             are being protected and needs to be updated by `--update_protected_exports`.
 

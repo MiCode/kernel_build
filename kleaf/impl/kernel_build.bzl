@@ -1960,6 +1960,7 @@ def _create_infos(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
         modules_prepare_archive = modules_prepare_archive,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
+        strip_modules = ctx.attr.strip_modules,
         src_protected_modules_list = ctx.file.src_protected_modules_list,
         ddk_module_defconfig_fragments = ddk_module_defconfig_fragments,
         kernel_uapi_headers = kernel_uapi_headers_depset,

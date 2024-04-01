@@ -321,7 +321,7 @@ def _kernel_filegroup_impl(ctx):
             target.files
             for target in ctx.attr.ddk_module_defconfig_fragments
         ]),
-        strip_modules = True,  # FIXME
+        strip_modules = ctx.attr.strip_modules,
     )
 
     kernel_uapi_depsets = []
@@ -504,6 +504,9 @@ Unlike `kernel_build`, this has default value `True` because
 [`define_abi_targets`](#kernel_abi-define_abi_targets) to `True` by
 default, which in turn sets `collect_unstripped_modules` to `True` by default.
 """,
+        ),
+        "strip_modules": attr.bool(
+            doc = """See [`kernel_build.strip_modules`](#kernel_build-strip_modules).""",
         ),
         "module_outs_file": attr.label(
             allow_single_file = True,

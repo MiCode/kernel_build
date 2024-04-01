@@ -99,6 +99,7 @@ kernel_filegroup(
     deps = {deps_repr} + {extra_deps_repr},
     kernel_uapi_headers = {uapi_headers_repr},
     collect_unstripped_modules = {collect_unstripped_modules_repr},
+    strip_modules = {strip_modules_repr},
     module_outs_file = {module_outs_repr},
     kernel_release = {kernel_release_repr},
     protected_modules_list = {protected_modules_repr},
@@ -154,6 +155,7 @@ def _write_filegroup_decl_file(ctx, info, deps_files, kernel_uapi_headers, templ
     )
     sub.add_joined("{uapi_headers_repr}", depset([kernel_uapi_headers]), **(one | extra))
     sub.add("{collect_unstripped_modules_repr}", repr(info.collect_unstripped_modules))
+    sub.add("{strip_modules_repr}", repr(info.strip_modules))
     sub.add_joined("{module_outs_repr}", depset([info.module_outs_file]), **(one | pkg))
     sub.add_joined("{kernel_release_repr}", depset([info.kernel_release]), **(one | pkg))
     sub.add_joined(
