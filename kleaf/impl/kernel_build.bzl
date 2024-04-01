@@ -1671,7 +1671,7 @@ def create_serialized_env_info(
         outputs and cmd."""
 
     restore_outputs_cmd = \
-        get_serialized_env_info_setup_restore_outputs_command(
+        _get_serialized_env_info_setup_restore_outputs_command(
             outputs = outputs,
             fake_system_map = fake_system_map,
         )
@@ -1702,7 +1702,7 @@ def create_serialized_env_info(
         tools = pre_info.tools,
     )
 
-def get_serialized_env_info_setup_restore_outputs_command(outputs, fake_system_map):
+def _get_serialized_env_info_setup_restore_outputs_command(outputs, fake_system_map):
     """Returns the `restore_outputs` command for the environment to build kernel_module.
 
     Args:
