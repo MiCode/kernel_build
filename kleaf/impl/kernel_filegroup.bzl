@@ -149,6 +149,27 @@ def _get_config_env(ctx):
     )
     return config_env
 
+def _get_serialized_env(ctx, config_env, outs_mapping, internal_outs_mapping):
+    """Returns `KernelSerializedEnvInfo` analogous to the one returned by kernel_build().
+
+    Unlike kernel_build(), this does not include implicit_outs, because
+    they are dropped from the dist artifacts.
+    """
+
+    if not config_env:
+        return None
+
+    return create_serialized_env_info(
+        ctx = ctx,
+        setup_script_name = "{name}/{name}_setup.sh".format(name = ctx.attr.name),
+        pre_info = config_env,
+        outputs = outs_mapping | internal_outs_mapping,
+        fake_system_map = False,
+        # kernel_filegroup does not have base_kernel, so no need to restore kbuild_mixed_tree
+        extra_restore_outputs_cmd = "",
+        extra_inputs = depset(),
+    )
+
 def _get_ddk_config_env(ctx, config_env):
     """Returns `KernelBuildExtModuleInfo.ddk_config_env`."""
 
@@ -272,6 +293,12 @@ def _kernel_filegroup_impl(ctx):
     }
 
     config_env = _get_config_env(ctx)
+    serialized_env = _get_serialized_env(
+        ctx = ctx,
+        config_env = config_env,
+        outs_mapping = outs_mapping,
+        internal_outs_mapping = internal_outs_mapping,
+    )
     ddk_config_env = _get_ddk_config_env(ctx, config_env)
     modules_prepare_env = _get_modules_prepare_env(ctx, ddk_config_env)
     mod_envs = _get_mod_envs(
@@ -376,12 +403,11 @@ def _kernel_filegroup_impl(ctx):
     mixed_tree_files = depset(transitive = [_get_mixed_tree_files(target) for target in ctx.attr.srcs])
     kernel_release = _get_kernel_release(ctx)
 
-    return [
+    infos = [
         DefaultInfo(files = srcs_depset),
         KernelBuildMixedTreeInfo(files = mixed_tree_files),
         KernelBuildUnameInfo(kernel_release = kernel_release),
         kernel_module_dev_info,
-        # TODO(b/219112010): implement KernelSerializedEnvInfo properly for kernel_filegroup
         uapi_info,
         unstripped_modules_info,
         abi_info,
@@ -391,6 +417,9 @@ def _kernel_filegroup_impl(ctx):
         gcov_info,
         _get_toolchain_version_info(ctx, all_deps),
     ]
+    if serialized_env:
+        infos.append(serialized_env)
+    return infos
 
 def _kernel_filegroup_additional_attrs():
     return dicts.add(
