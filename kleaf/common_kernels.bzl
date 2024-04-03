@@ -621,7 +621,8 @@ def _define_common_kernel(
         gki_boot_img_sizes = None,
         page_size = None,
         deprecation = None,
-        ddk_headers_archive = None):
+        ddk_headers_archive = None,
+        extra_dist = None):
     json_target_config = dict(
         name = name,
         outs = outs,
@@ -646,6 +647,7 @@ def _define_common_kernel(
         page_size = page_size,
         deprecation = deprecation,
         ddk_headers_archive = ddk_headers_archive,
+        extra_dist = extra_dist,
     )
     json_target_config = json.encode_indent(json_target_config, indent = "    ")
     json_target_config = json_target_config.replace("null", "None")
@@ -863,7 +865,7 @@ def _define_common_kernel(
         srcs = ddk_artifacts,
     )
 
-    dist_targets = [
+    dist_targets = (extra_dist or []) + [
         name,
         name + "_uapi_headers",
         name + "_additional_artifacts",
