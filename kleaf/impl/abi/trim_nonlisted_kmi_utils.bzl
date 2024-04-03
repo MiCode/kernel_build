@@ -24,9 +24,9 @@ TRIM_NONLISTED_KMI_ATTR_NAME = "trim_nonlisted_kmi"
 
 def _selected_attr(attr_val):
     return select({
-        _FORCE_DISABLE_TRIM_IS_TRUE: False,
-        _KASAN_IS_TRUE: False,
-        _KCSAN_IS_TRUE: False,
+        Label(_FORCE_DISABLE_TRIM_IS_TRUE): False,
+        Label(_KASAN_IS_TRUE): False,
+        Label(_KCSAN_IS_TRUE): False,
         "//conditions:default": attr_val,
     })
 
