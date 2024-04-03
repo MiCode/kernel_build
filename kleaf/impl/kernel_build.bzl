@@ -496,7 +496,7 @@ def kernel_build(
 
     toolchain_constraints = []
     if toolchain_version != None:
-        toolchain_constraint = "//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version)
+        toolchain_constraint = Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(toolchain_version))
         toolchain_constraints.append(Label(toolchain_constraint))
     else:
         # use default toolchain, e.g.
