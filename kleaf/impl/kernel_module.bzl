@@ -671,7 +671,7 @@ def _kernel_module_impl(ctx):
     ]
 
 def _kernel_module_additional_attrs():
-    return cache_dir.attrs()
+    return cache_dir.attrs() | stamp.ext_mod_attrs()
 
 _kernel_module = rule(
     implementation = _kernel_module_impl,
