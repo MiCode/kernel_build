@@ -42,20 +42,30 @@ def _strip_modules_test_impl(ctx):
     )
     return analysistest.end(env)
 
+_ANALYSIS_TEST_ATTRS = {
+    "action_mnemonic": attr.string(
+        mandatory = True,
+        values = [
+            "KernelBuild",
+            "KernelModule",
+        ],
+    ),
+    "expect_strip_modules": attr.bool(),
+    "_config_is_local": attr.label(
+        default = "//build/kernel/kleaf:config_local",
+    ),
+}
+
 _strip_modules_test = analysistest.make(
     impl = _strip_modules_test_impl,
-    attrs = {
-        "action_mnemonic": attr.string(
-            mandatory = True,
-            values = [
-                "KernelBuild",
-                "KernelModule",
-            ],
-        ),
-        "expect_strip_modules": attr.bool(),
-        "_config_is_local": attr.label(
-            default = "//build/kernel/kleaf:config_local",
-        ),
+    attrs = _ANALYSIS_TEST_ATTRS,
+)
+
+_strip_modules_debug_test = analysistest.make(
+    impl = _strip_modules_test_impl,
+    attrs = _ANALYSIS_TEST_ATTRS,
+    config_settings = {
+        str(Label("//build/kernel/kleaf:debug")): True,
     },
 )
 
@@ -86,6 +96,14 @@ def kernel_build_strip_modules_test(name):
         )
         tests.append(test_prefix + "_build_test")
 
+        _strip_modules_debug_test(
+            name = test_prefix + "_build_debug_test",
+            target_under_test = name_prefix + "_build",
+            action_mnemonic = "KernelBuild",
+            expect_strip_modules = False,
+        )
+        tests.append(test_prefix + "_build_debug_test")
+
         kernel_module(
             name = name_prefix + "_module",
             kernel_build = name_prefix + "_build",
@@ -98,6 +116,14 @@ def kernel_build_strip_modules_test(name):
             expect_strip_modules = strip_modules,
         )
         tests.append(test_prefix + "_module_test")
+
+        _strip_modules_debug_test(
+            name = test_prefix + "_module_debug_test",
+            target_under_test = name_prefix + "_module",
+            action_mnemonic = "KernelModule",
+            expect_strip_modules = False,
+        )
+        tests.append(test_prefix + "_module_debug_test")
 
     native.test_suite(
         name = name,
