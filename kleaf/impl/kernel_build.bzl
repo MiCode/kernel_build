@@ -460,10 +460,8 @@ def kernel_build(
             ],
         )
 
-    strip_modules = select({
-        Label("//build/kernel/kleaf/impl:debug_is_set_to_true"): False,
-        "//conditions:default": strip_modules,
-    })
+    if strip_modules == None:
+        strip_modules = False
 
     if arch == None:
         arch = "arm64"
