@@ -19,9 +19,15 @@
 import argparse
 import logging
 import pathlib
+import shutil
 import sys
+import tempfile
+import textwrap
 
 _TOOLS_BAZEL = "tools/bazel"
+_DEVICE_BAZELRC = "device.bazelrc"
+_FILE_MARKER_BEGIN = "### GENERATED SECTION - DO NOT MODIFY - BEGIN ###\n"
+_FILE_MARKER_END = "### GENERATED SECTION - DO NOT MODIFY - END ###\n"
 _MODULE_BAZEL_FILE = "MODULE.bazel"
 
 _KLEAF_DEPENDENCY_TEMPLATE = """\
@@ -58,22 +64,63 @@ class KleafProjectSetter:
 
         tools_bazel.symlink_to(kleaf_tools_bazel)
 
+    @staticmethod
+    def _update_file(path: pathlib.Path | str, update: str):
+        """Updates the content of a section between markers in a file."""
+        add_content: bool = False
+        skip_line: bool = False
+        update_written: bool = False
+        open_mode = "r" if path.exists() else "a+"
+        with (
+            open(path, open_mode, encoding="utf-8") as input_file,
+            tempfile.NamedTemporaryFile(mode="w", delete=False) as output_file,
+        ):
+            for line in input_file:
+                if add_content:
+                    output_file.write(_FILE_MARKER_BEGIN)
+                    output_file.write(update + "\n")
+                    update_written = True
+                    add_content = False
+                if _FILE_MARKER_END in line:
+                    skip_line = False
+                if _FILE_MARKER_BEGIN in line:
+                    skip_line = True
+                    add_content = True
+                if not skip_line:
+                    output_file.write(line)
+            if not update_written:
+                output_file.write(_FILE_MARKER_BEGIN)
+                output_file.write(update + "\n")
+                output_file.write(_FILE_MARKER_END)
+            shutil.move(output_file.name, path)
+
     def _generate_module_bazel(self):
-        if not self.ddk_workspace:
+        if not self.ddk_workspace or not self.kleaf_repo_dir:
             return
         module_bazel = self.ddk_workspace / _MODULE_BAZEL_FILE
-        with open(module_bazel, "w", encoding="utf-8") as f:
-            # TODO: b/328770706 -- Use markers to avoid overriding user overrides.
-            if self.kleaf_repo_dir:
-                f.write(
-                    _KLEAF_DEPENDENCY_TEMPLATE.format(
-                        kleaf_repo_dir=self.kleaf_repo_dir
-                    )
-                )
+        self._update_file(
+            module_bazel,
+            _KLEAF_DEPENDENCY_TEMPLATE.format(
+                kleaf_repo_dir=self.kleaf_repo_dir
+            ),
+        )
+
+    def _generate_bazelrc(self):
+        if not self.ddk_workspace or not self.kleaf_repo_dir:
+            return
+        bazelrc = self.ddk_workspace / _DEVICE_BAZELRC
+        self._update_file(
+            bazelrc,
+            textwrap.dedent(f"""\
+            common --config=internet
+            common --registry=file:{self.kleaf_repo_dir}/external/bazelbuild-bazel-central-registry
+            """),
+        )
 
     def _handle_local_kleaf(self):
         self._symlink_tools_bazel()
         self._generate_module_bazel()
+        self._generate_bazelrc()
 
     def run(self):
         self._handle_local_kleaf()
@@ -86,13 +133,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ddk_workspace",
-        help="DDK workspace root.",
+        help="Absolute path to DDK workspace root.",
         type=pathlib.Path,
         default=None,
     )
     parser.add_argument(
         "--kleaf_repo_dir",
-        help="Path to Kleaf's repo dir.",
+        help="Absolute path to Kleaf's repo dir.",
         type=pathlib.Path,
         default=None,
     )

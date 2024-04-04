@@ -468,6 +468,18 @@ py_binary(
     visibility = ["//visibility:private"],
 )
 
+py_test(
+    name = "init_ddk_test",
+    srcs = ["init/init_ddk_test.py"],
+    imports = ["init"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":init_ddk",
+        "@io_abseil_py//absl/testing:absltest",
+        "@io_abseil_py//absl/testing:parameterized",
+    ],
+)
+
 filegroup(
     name = "init_ddk_zip",
     srcs = [":init_ddk"],
