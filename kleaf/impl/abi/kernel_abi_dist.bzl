@@ -15,7 +15,9 @@
 """Dist rules for devices with ABI monitoring enabled."""
 
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
-load("//build/bazel_common_rules/exec:exec.bzl", "exec_rule")
+
+# TODO(b/329305827): Move exec.bzl to //build/kernel
+load("//build/bazel_common_rules/exec/impl:exec.bzl", "exec_rule")
 load(":abi/abi_transitions.bzl", "abi_common_attrs", "with_vmlinux_transition")
 load(":hermetic_exec.bzl", "hermetic_exec", "hermetic_exec_target")
 
