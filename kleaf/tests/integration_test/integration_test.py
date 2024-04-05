@@ -206,6 +206,7 @@ class KleafIntegrationTestBase(unittest.TestCase):
                 new_file.write(old_content)
 
         self.addCleanup(cleanup)
+        return cleanup
 
     def filter_lines(
         self,
@@ -318,6 +319,40 @@ class KleafIntegrationTestShard1(KleafIntegrationTestBase):
                     ["--lto=thin"] + _LOCAL)
         self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
 
+    def test_config_sync(self):
+        """Test that, with --config=local, .config is reflected in vmlinux.
+
+        See b/312268956.
+        """
+
+        gki_defconfig_path = (
+            f"{self._common()}/arch/arm64/configs/gki_defconfig")
+        restore_defconfig = self.restore_file_after_test(gki_defconfig_path)
+        extract_ikconfig = f"{self._common()}/scripts/extract-ikconfig"
+
+        with open(gki_defconfig_path, encoding="utf-8") as f:
+            self.assertIn("CONFIG_UAPI_HEADER_TEST=y\n", f)
+
+        self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
+        vmlinux = pathlib.Path(
+            f"bazel-bin/{self._common()}/kernel_aarch64/vmlinux")
+
+        output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
+        self.assertIn("CONFIG_UAPI_HEADER_TEST=y", output.splitlines())
+
+        self.filter_lines(gki_defconfig_path,
+                          lambda x: "CONFIG_UAPI_HEADER_TEST" not in x)
+        self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
+
+        output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
+        self.assertIn("# CONFIG_UAPI_HEADER_TEST is not set",
+                      output.splitlines())
+
+        restore_defconfig()
+        self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
+
+        output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
+        self.assertIn("CONFIG_UAPI_HEADER_TEST=y", output.splitlines())
 
 class KleafIntegrationTestShard2(KleafIntegrationTestBase):
 
