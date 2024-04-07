@@ -28,3 +28,4 @@
 | vili-r-oss | Xiaomi 11T Pro | Android R | LA.UM.9.14.r1-16700-LAHAINA.0 | [vili-r-oss](https://github.com/MiCode/kernel_build/tree/vili-r-oss) |
 | odin-r-oss | MIX 4 | Android R | LA.UM.9.14.r1-16700-LAHAINA.0 | [odin-r-oss](https://github.com/MiCode/kernel_build/tree/odin-r-oss) |
 | zijin-s-oss | Xiaomi Civi 1S | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [zijin-s-oss](https://github.com/MiCode/kernel_build/tree/zijin-s-oss) |
+| sheng-u-oss | Xiaomi Pad 6S Pro 12.4 | Android U | LA.VENDOR.13.2.0.r1-14800-KAILUA.0-1.36233.3 | [sheng-u-oss](https://github.com/MiCode/kernel_build/tree/sheng-u-oss) |
