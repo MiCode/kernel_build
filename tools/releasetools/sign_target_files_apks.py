@@ -99,14 +99,14 @@ Usage:  sign_target_files_apks [flags] input_target_files output_target_files
       The second dir will be used for lookup if BOARD_USES_RECOVERY_AS_BOOT is
       set to true.
 
-  --avb_{boot,recovery,system,system_other,vendor,dtbo,vbmeta,vbmeta_system,
-         vbmeta_vendor}_algorithm <algorithm>
-  --avb_{boot,recovery,system,system_other,vendor,dtbo,vbmeta,vbmeta_system,
-         vbmeta_vendor}_key <key>
+  --avb_{boot,init_boot,recovery,system,system_other,vendor,dtbo,vbmeta,
+         vbmeta_system,vbmeta_vendor}_algorithm <algorithm>
+  --avb_{boot,init_boot,recovery,system,system_other,vendor,dtbo,vbmeta,
+         vbmeta_system,vbmeta_vendor}_key <key>
       Use the specified algorithm (e.g. SHA256_RSA4096) and the key to AVB-sign
       the specified image. Otherwise it uses the existing values in info dict.
 
-  --avb_{apex,boot,recovery,system,system_other,vendor,dtbo,vbmeta,
+  --avb_{apex,init_boot,boot,recovery,system,system_other,vendor,dtbo,vbmeta,
          vbmeta_system,vbmeta_vendor}_extra_args <args>
       Specify any additional args that are needed to AVB-sign the image
       (e.g. "--signing_helper /path/to/helper"). The args will be appended to
@@ -165,6 +165,7 @@ from xml.etree import ElementTree
 import add_img_to_target_files
 import apex_utils
 import common
+import fnmatch
 
 
 if sys.hexversion < 0x02070000:
@@ -198,12 +199,18 @@ OPTIONS.vendor_partitions = set()
 OPTIONS.vendor_otatools = None
 OPTIONS.allow_gsi_debug_sepolicy = False
 
+# MIUI ADD: Build_VBAFrame
+PRODUCT_WITH_XIAOMI_VBA = ['marble', 'duchamp', 'shennong', 'houji', 'manet', 'zircon', 'tapas', 'sapphire', 'sapphiren']
+# END Build_VBAFrame
 
 AVB_FOOTER_ARGS_BY_PARTITION = {
     'boot': 'avb_boot_add_hash_footer_args',
     'init_boot': 'avb_init_boot_add_hash_footer_args',
     'dtbo': 'avb_dtbo_add_hash_footer_args',
     'product': 'avb_product_add_hashtree_footer_args',
+    'mi_ext': 'avb_mi_ext_add_hashtree_footer_args',
+    'countrycode': 'avb_countrycode_add_hash_footer_args',
+    'cust': 'avb_cust_add_hashtree_footer_args',
     'recovery': 'avb_recovery_add_hash_footer_args',
     'system': 'avb_system_add_hashtree_footer_args',
     'system_dlkm': "avb_system_dlkm_add_hashtree_footer_args",
@@ -498,7 +505,7 @@ def SignApk(data, keyname, pw, platform_api_level, codename_to_api_level_map,
 
 
 def IsBuildPropFile(filename):
-  return filename in (
+  return (filename in (
       "SYSTEM/etc/prop.default",
       "BOOT/RAMDISK/prop.default",
       "RECOVERY/RAMDISK/prop.default",
@@ -513,7 +520,8 @@ def IsBuildPropFile(filename):
       # RECOVERY/RAMDISK/default.prop is a legacy path, but will always exist
       # as a symlink in the current code. So it's a no-op here. Keeping the
       # path here for clarity.
-      "RECOVERY/RAMDISK/default.prop") or filename.endswith("build.prop")
+      "RECOVERY/RAMDISK/default.prop") or filename.endswith("build.prop") or
+      fnmatch.fnmatch(filename, "*build_*.prop"))
 
 
 def ProcessTargetFiles(input_tf_zip, output_tf_zip, misc_info,
@@ -1149,7 +1157,18 @@ def BuildKeyMap(misc_info, key_mapping_options):
           devkeydir + "/media":    d + "/media",
           devkeydir + "/shared":   d + "/shared",
           devkeydir + "/platform": d + "/platform",
+          devkeydir + "/sdk_sandbox":  d + "/sdk_sandbox",
+          devkeydir + "/bluetooth":  d + "/bluetooth",
           devkeydir + "/networkstack": d + "/networkstack",
+          "packages/modules/Wifi/OsuLogin/certs/com.android.hotspot2.osulogin": d + "/releasekey",
+          "packages/modules/Wifi/service/ServiceWifiResources/resources-certs/com.android.wifi.resources": d + "/releasekey",
+          "frameworks/base/packages/Connectivity/service/ServiceConnectivityResources/resources-certs/com.android.connectivity.resources": d + "/releasekey",
+          "packages/modules/AdServices/adservices/apk/com.android.adservices.api": d + "/releasekey",
+          "packages/modules/Permission/SafetyCenter/Resources/com.android.safetycenter.resources": d + "/releasekey",
+          "packages/modules/Connectivity/nearby/halfsheet/apk-certs/com.android.nearby.halfsheet": d + "/releasekey",
+          "packages/modules/Connectivity/service/ServiceConnectivityResources/resources-certs/com.android.connectivity.resources": d + "/releasekey",
+          "packages/modules/Uwb/service/ServiceUwbResources/resources-certs/com.android.uwb.resources": d + "/releasekey",
+          "packages/modules/Wifi/WifiDialog/certs/com.android.wifi.dialog": d + "/releasekey",
       })
     else:
       OPTIONS.key_map[s] = d
@@ -1295,7 +1314,11 @@ def BuildVendorPartitions(output_zip_path):
     vendor_misc_info["no_boot"] = "true"  # boot
     vendor_misc_info["vendor_boot"] = "false"  # vendor_boot
     vendor_misc_info["no_recovery"] = "true"  # recovery
-    vendor_misc_info["avb_enable"] = "false"  # vbmeta
+    if not dict(os.environ).get('BUILD_TARGET_PRODUCT') in PRODUCT_WITH_XIAOMI_VBA:
+      logger.warning("\n  The product is not using xiaomi vba, keep the code as baseline %s\n")
+      vendor_misc_info["avb_enable"] = "false"  # vbmeta
+    else:
+      logger.warning("\n  The product is using xiaomi vba, should not pass avb_enable with false to vnd side %s\n")
 
   vendor_misc_info["board_bpt_enable"] = "false"  # partition-table
   vendor_misc_info["has_dtbo"] = "false"  # dtbo
@@ -1304,6 +1327,7 @@ def BuildVendorPartitions(output_zip_path):
   vendor_misc_info["avb_building_vbmeta_image"] = "false" # skip building vbmeta
   vendor_misc_info["use_dynamic_partitions"] = "false"  # super_empty
   vendor_misc_info["build_super_partition"] = "false"  # super split
+  vendor_misc_info["avb_vbmeta_system"] = "" # skip building vbmeta_system
   with open(vendor_misc_info_path, "w") as output:
     for key in sorted(vendor_misc_info):
       output.write("{}={}\n".format(key, vendor_misc_info[key]))
@@ -1355,7 +1379,8 @@ def BuildVendorPartitions(output_zip_path):
       img_file_path = "IMAGES/{}.img".format(p)
       map_file_path = "IMAGES/{}.map".format(p)
       common.ZipWrite(output_zip, os.path.join(vendor_tempdir, img_file_path), img_file_path)
-      common.ZipWrite(output_zip, os.path.join(vendor_tempdir, map_file_path), map_file_path)
+      if os.path.exists(os.path.join(vendor_tempdir, map_file_path)):
+        common.ZipWrite(output_zip, os.path.join(vendor_tempdir, map_file_path), map_file_path)
     # copy recovery.img, boot.img, recovery patch & install.sh
     if OPTIONS.rebuild_recovery:
       recovery_img = "IMAGES/recovery.img"
@@ -1427,6 +1452,12 @@ def main(argv):
       OPTIONS.avb_algorithms['dtbo'] = a
     elif o == "--avb_dtbo_extra_args":
       OPTIONS.avb_extra_args['dtbo'] = a
+    elif o == "--avb_init_boot_key":
+      OPTIONS.avb_keys['init_boot'] = a
+    elif o == "--avb_init_boot_algorithm":
+      OPTIONS.avb_algorithms['init_boot'] = a
+    elif o == "--avb_init_boot_extra_args":
+      OPTIONS.avb_extra_args['init_boot'] = a
     elif o == "--avb_recovery_key":
       OPTIONS.avb_keys['recovery'] = a
     elif o == "--avb_recovery_algorithm":
@@ -1463,6 +1494,12 @@ def main(argv):
       OPTIONS.avb_algorithms['vbmeta_vendor'] = a
     elif o == "--avb_vbmeta_vendor_extra_args":
       OPTIONS.avb_extra_args['vbmeta_vendor'] = a
+    elif o == "--avb_cust_key":
+      OPTIONS.avb_keys['cust'] = a
+    elif o == "--avb_cust_algorithm":
+      OPTIONS.avb_algorithms['cust'] = a
+    elif o == "--avb_cust_extra_args":
+      OPTIONS.avb_extra_args['cust'] = a
     elif o == "--avb_apex_extra_args":
       OPTIONS.avb_extra_args['apex'] = a
     elif o == "--avb_extra_custom_image_key":
@@ -1518,6 +1555,9 @@ def main(argv):
           "avb_dtbo_algorithm=",
           "avb_dtbo_key=",
           "avb_dtbo_extra_args=",
+          "avb_init_boot_algorithm=",
+          "avb_init_boot_key=",
+          "avb_init_boot_extra_args=",
           "avb_recovery_algorithm=",
           "avb_recovery_key=",
           "avb_recovery_extra_args=",
@@ -1536,6 +1576,9 @@ def main(argv):
           "avb_vbmeta_vendor_algorithm=",
           "avb_vbmeta_vendor_key=",
           "avb_vbmeta_vendor_extra_args=",
+          "avb_cust_algorithm=",
+          "avb_cust_key=",
+          "avb_cust_extra_args=",
           "avb_extra_custom_image_key=",
           "avb_extra_custom_image_algorithm=",
           "avb_extra_custom_image_extra_args=",

@@ -24,6 +24,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"android/soong/response"
@@ -165,7 +166,13 @@ Options:
 
 	ctx := &context{ofile, os.Stderr, compliance.FS, *includeTOC, *product, *stripPrefix, *title, &deps}
 
-	err := htmlNotice(ctx, flags.Args()...)
+	var err error
+	if title == nil || "XMI_CUSTOM_UNQ_GPL_NOTOICE" != *title {
+		err = htmlNotice(ctx, flags.Args()...)
+	} else {
+		err = htmlNoticeGpl(ctx, flags.Args()...)
+	}
+
 	if err != nil {
 		if err == failNoneRequested {
 			flags.Usage()
@@ -264,6 +271,140 @@ func htmlNotice(ctx *context, files ...string) error {
 				if id, ok := ids[installPath]; ok {
 					fmt.Fprintf(ctx.stdout, "      <li><a href=\"#%s\">%s</a>\n", id, html.EscapeString(ctx.strip(installPath)))
 				} else {
+					fmt.Fprintf(ctx.stdout, "      <li>%s\n", html.EscapeString(ctx.strip(installPath)))
+				}
+			}
+			fmt.Fprintf(ctx.stdout, "    </ul>\n")
+		}
+		fmt.Fprintf(ctx.stdout, "  </ul>\n  <a id=\"%s\"/><pre class=\"license-text\">", h.String())
+		fmt.Fprintln(ctx.stdout, html.EscapeString(string(ni.HashText(h))))
+		fmt.Fprintln(ctx.stdout, "  </pre><!-- license-text -->")
+	}
+	fmt.Fprintln(ctx.stdout, "</body></html>")
+
+	*ctx.deps = ni.InputNoticeFiles()
+
+	return nil
+}
+
+var OSAnn = `Open Source Announcement
+
+The software included in this product contains copyrighted software that is licensed under the GPL [GPLv2].
+
+You may obtain the complete Corresponding Source code from us for a period of three years after our last shipment of this product by sending email to: oss-request@xiaomi.com.
+
+If you would like to obtain the complete Corresponding Source code contained in this product in the physical medium such as CD-ROM, the cost of physically performing source distribution may be charged.
+
+This offer is valid to anyone in receipt of this information.
+
+You may also find a copy of the source at
+https://github.com/micode`
+
+// htmlNoticeGpl implements the htmlnotice only for GPL.
+func htmlNoticeGpl(ctx *context, files ...string) error {
+	// Must be at least one root file.
+	if len(files) < 1 {
+		return failNoneRequested
+	}
+
+	// Read the license graph from the license metadata files (*.meta_lic).
+	licenseGraph, err := compliance.ReadLicenseGraph(ctx.rootFS, ctx.stderr, files)
+	if err != nil {
+		return fmt.Errorf("Unable to read license metadata file(s) %q: %v\n", files, err)
+	}
+	if licenseGraph == nil {
+		return failNoLicenses
+	}
+
+	// rs contains all notice resolutions.
+	rs := compliance.ResolveNotices(licenseGraph)
+
+	ni, err := compliance.IndexLicenseTexts(ctx.rootFS, licenseGraph, rs)
+	if err != nil {
+		return fmt.Errorf("Unable to read license text file(s) for %q: %v\n", files, err)
+	}
+
+	fmt.Fprintln(ctx.stdout, "<!DOCTYPE html>")
+	fmt.Fprintln(ctx.stdout, "<html><head>")
+	fmt.Fprintln(ctx.stdout, "<style type=\"text/css\">")
+	fmt.Fprintln(ctx.stdout, "body { padding: 2px; margin: 0; }")
+	fmt.Fprintln(ctx.stdout, "ul { list-style-type: none; margin: 0; padding: 0; }")
+	fmt.Fprintln(ctx.stdout, "li { padding-left: 1em; }")
+	fmt.Fprintln(ctx.stdout, ".same-license { background-color: #eeeeee; border-top: 20px solid white; padding: 10px; }")
+	fmt.Fprintln(ctx.stdout, ".file-list { margin-left: 1em; }")
+	fmt.Fprintln(ctx.stdout, "</style>")
+
+	gnu_title := "Draft OSS Written Offer"
+	if len(ctx.title) > 0 {
+		fmt.Fprintf(ctx.stdout, "<title>%s</title>\n", html.EscapeString(gnu_title))
+	} else if len(ctx.product) > 0 {
+		fmt.Fprintf(ctx.stdout, "<title>%s</title>\n", html.EscapeString(gnu_title))
+	}
+	fmt.Fprintln(ctx.stdout, "</head>")
+	fmt.Fprintln(ctx.stdout, "<body>")
+
+
+	fmt.Fprintf(ctx.stdout, "  <h1 style=\"color:blue\">Draft OSS Written Offer</h1>\n")
+
+	fmt.Fprintln(ctx.stdout, "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\">")
+	fmt.Fprintln(ctx.stdout, "<div class=\"toc\">")
+	fmt.Fprintln(ctx.stdout, "<tr><td class=\"same-license\">")
+	fmt.Fprintln(ctx.stdout, "\n")
+	fmt.Fprintf(ctx.stdout, "<pre class=\"license-text\">")
+	fmt.Fprintln(ctx.stdout, html.EscapeString(OSAnn))
+	fmt.Fprintln(ctx.stdout, "\n")
+	fmt.Fprintln(ctx.stdout, "</pre><!-- license-text -->")
+	fmt.Fprintln(ctx.stdout, "</td></tr><!-- same-license -->")
+	fmt.Fprintln(ctx.stdout, "</div><!-- table of offer -->")
+	fmt.Fprintln(ctx.stdout, "</table>")
+
+	var ips []string
+	for h := range ni.Hashes() {
+		if !ni.GnuHash(h) {
+			continue
+		}
+		for _, libName := range ni.HashLibs(h) {
+			for _, installPath := range ni.HashLibInstalls(h, libName) {
+				ips = append(ips, installPath)
+			}
+		}
+	}
+	sort.Strings(ips)
+
+	ids := make(map[string]string)
+	i := 0
+	for _, installPath := range ips {
+		ids[installPath] = fmt.Sprintf("id%d", i)
+		i++
+	}
+
+	if ctx.includeTOC {
+		fmt.Fprintln(ctx.stdout, "  <ul class=\"toc\">")
+		for _, installPath := range ips {
+			fmt.Fprintf(ctx.stdout, "    <li id=\"%s\"><strong>%s</strong>\n      <ul>\n", ids[installPath], html.EscapeString(ctx.strip(installPath)))
+			for _, h := range ni.InstallHashes(installPath) {
+				if !ni.GnuHash(h) {
+					continue // double confirm
+				}
+				libs := ni.InstallHashLibs(installPath, h)
+				fmt.Fprintf(ctx.stdout, "        <li><a href=\"#%s\">%s</a>\n", h.String(), html.EscapeString(strings.Join(libs, ", ")))
+			}
+			fmt.Fprintln(ctx.stdout, "      </ul>")
+		}
+		fmt.Fprintln(ctx.stdout, "  </ul><!-- toc -->")
+	}
+	for h := range ni.Hashes() {
+		if !ni.GnuHash(h) {
+			continue
+		}
+		fmt.Fprintln(ctx.stdout, "  <hr>")
+		for _, libName := range ni.HashLibs(h) {
+			fmt.Fprintf(ctx.stdout, "  <strong>%s</strong> used by:\n    <ul class=\"file-list\">\n", html.EscapeString(libName))
+			for _, installPath := range ni.HashLibInstalls(h, libName) {
+				if id, ok := ids[installPath]; ok {
+					fmt.Fprintf(ctx.stdout, "      <li><a href=\"#%s\">%s</a>\n", id, html.EscapeString(ctx.strip(installPath)))
+				} else {
+					fmt.Fprintf(os.Stderr, "Shouldn't happen, error path: %s\n", installPath)
 					fmt.Fprintf(ctx.stdout, "      <li>%s\n", html.EscapeString(ctx.strip(installPath)))
 				}
 			}

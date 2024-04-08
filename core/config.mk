@@ -39,6 +39,12 @@ ifdef KATI_PACKAGE_MK_DIR
   .KATI_READONLY := KATI_PACKAGE_MK_DIR
 endif
 
+# MIUI ADD: START
+ifneq ($(filter %asan, $(SANITIZE_TARGET)),)
+  HWASAN_INCLUDE_PATHS := $(shell python $(BUILD_SYSTEM)/hwasan_include_paths.py $(SANITIZE_TARGET))
+endif
+# END
+
 # add flag to indicate pure AOSP or not.
 TARGET_FWK_SUPPORTS_FULL_VALUEADDS := true
 

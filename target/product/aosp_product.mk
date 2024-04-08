@@ -28,9 +28,12 @@ PRODUCT_PRODUCT_PROPERTIES += \
     ro.com.android.dataroaming?=true \
 
 # More AOSP packages
+ifneq (true, $(call is-missi-region-cn))
+    PRODUCT_PACKAGES += \
+      PhotoTable
+endif
 PRODUCT_PACKAGES += \
     messaging \
-    PhotoTable \
     preinstalled-packages-platform-aosp-product.xml \
     WallpaperPicker \
 

@@ -668,6 +668,7 @@ def ImagePropFromGlobalDict(glob_dict, mount_point):
       "verity_fec",
       "verity_disable",
       "avb_enable",
+      "block_list",
       "avb_avbtool",
       "use_dynamic_partition_size",
   )
@@ -682,6 +683,7 @@ def ImagePropFromGlobalDict(glob_dict, mount_point):
       "system",
       "system_dlkm",
       "system_ext",
+      "mi_ext",
       "system_other",
       "vendor",
       "vendor_dlkm",
@@ -810,6 +812,8 @@ def GlobalDictFromImageProp(image_prop, mount_point):
     copy_prop("partition_size", "product_size")
   elif mount_point == "system_ext":
     copy_prop("partition_size", "system_ext_size")
+  elif mount_point == "mi_ext":
+    copy_prop("partition_size", "mi_ext_size")
   return d
 
 
@@ -857,6 +861,8 @@ def main(argv):
       mount_point = "product"
     elif image_filename == "system_ext.img":
       mount_point = "system_ext"
+    elif image_filename == "mi_ext.img":
+      mount_point = "mi_ext"
     else:
       logger.error("Unknown image file name %s", image_filename)
       sys.exit(1)

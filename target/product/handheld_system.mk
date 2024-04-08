@@ -31,12 +31,15 @@ $(call inherit-product-if-exists, external/hyphenation-patterns/patterns.mk)
 $(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)
 $(call inherit-product-if-exists, frameworks/webview/chromium/chromium.mk)
 
+ifneq (true, $(call is-missi-region-cn))
+    PRODUCT_PACKAGES += \
+      BookmarkProvider
+endif
 PRODUCT_PACKAGES += \
     BasicDreams \
     BlockedNumberProvider \
     Bluetooth \
     BluetoothMidiService \
-    BookmarkProvider \
     BuiltInPrintService \
     CalendarProvider \
     cameraserver \
@@ -52,7 +55,6 @@ PRODUCT_PACKAGES += \
     KeyChain \
     librs_jni \
     ManagedProvisioning \
-    MmsService \
     MtpService \
     MusicFX \
     PacProcessor \
@@ -63,12 +65,16 @@ PRODUCT_PACKAGES += \
     SimAppDialog \
     Telecom \
     TelephonyProvider \
-    TeleService \
     Traceur \
     UserDictionaryProvider \
     VpnDialogs \
     vr \
 
+ifneq ($(TARGET_NO_TELEPHONY), true)
+PRODUCT_PACKAGES += \
+  MmsService \
+  TeleService
+endif #TARGET_NO_TELEPHONY
 
 ifneq ($(TARGET_USES_QSPA), true)
 PRODUCT_PACKAGES += \
@@ -91,5 +97,5 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_VENDOR_PROPERTIES += \
     ro.carrier?=unknown \
-    ro.config.notification_sound?=OnTheHunt.ogg \
-    ro.config.alarm_alert?=Alarm_Classic.ogg
+    ro.config.notification_sound?=unknown \
+    ro.config.alarm_alert?=unknown

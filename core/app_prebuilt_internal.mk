@@ -34,7 +34,17 @@ ifdef LOCAL_COMPRESSED_MODULE
 else  # LOCAL_COMPRESSED_MODULE
   LOCAL_BUILT_MODULE_STEM := package.apk
   ifndef LOCAL_INSTALLED_MODULE_STEM
-    LOCAL_INSTALLED_MODULE_STEM := $(LOCAL_MODULE).apk
+    # MIUI MOD: START
+    #LOCAL_INSTALLED_MODULE_STEM := $(LOCAL_MODULE).apk
+    ifdef LOCAL_MODULE_STEM
+      my_module_stem := $(LOCAL_MODULE_STEM)
+    else
+      my_module_stem := $(LOCAL_MODULE)
+    endif
+    ifeq (,$(filter %.apk, $(my_module_stem)))
+      LOCAL_INSTALLED_MODULE_STEM := $(my_module_stem).apk
+    endif
+    # END
   endif
 endif  # LOCAL_COMPRESSED_MODULE
 

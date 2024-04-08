@@ -37,6 +37,17 @@ if [ -n "$BOARD_BUILD_SYSTEM_ROOT_IMAGE" ] ; then
   echo "ro.build.system_root_image=$BOARD_BUILD_SYSTEM_ROOT_IMAGE"
 fi
 
+# MIUI ADD: START
+if [ -n "$TARGET_MOD_DEVICE" ] ; then
+  echo "ro.product.mod_device=$TARGET_MOD_DEVICE"
+fi
+
+if [ -n "$TARGET_USE_GOTA" ] ; then
+  echo "ro.miui.gota=$TARGET_USE_GOTA"
+  echo "ro.oem.key1=$TARGET_MOD_DEVICE"
+fi
+# END
+
 # These values are deprecated, use "ro.product.cpu.abilist"
 # instead (see below).
 echo "# ro.product.cpu.abi and ro.product.cpu.abi2 are obsolete,"

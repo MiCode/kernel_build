@@ -15,7 +15,9 @@ ifdef LOCAL_IS_HOST_MODULE
     my_global_sanitize := $(subst true,address,$(my_global_sanitize))
   endif
 else
-  my_global_sanitize := $(strip $(SANITIZE_TARGET))
+# MIUI MOD: START
+  my_global_sanitize := $(strip $(filter thread hwaddress address fuzzer, $(SANITIZE_TARGET)))
+# END
   my_global_sanitize_diag := $(strip $(SANITIZE_TARGET_DIAG))
 endif
 
@@ -217,6 +219,19 @@ ifeq ($(filter memtag_heap, $(my_sanitize)),)
     endif
   endif
 endif
+
+# MIUI ADD: START
+# Enable HWASan in included paths.
+ifeq ($(filter hwaddress, $(my_sanitize)),)
+  combined_include_paths := $(HWASAN_INCLUDE_PATHS) \
+                            $(PRODUCT_HWASAN_INCLUDE_PATHS)
+
+  ifneq ($(strip $(foreach dir,$(subst $(comma),$(space),$(combined_include_paths)),\
+         $(filter $(dir)%,$(LOCAL_PATH)))),)
+    my_sanitize := hwaddress $(my_sanitize)
+  endif
+endif
+# END
 
 # If CFI is disabled globally, remove it from my_sanitize.
 ifeq ($(strip $(ENABLE_CFI)),false)

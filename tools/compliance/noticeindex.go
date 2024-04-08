@@ -307,6 +307,12 @@ func (ni *NoticeIndex) HashText(h hash) []byte {
 	return ni.text[h]
 }
 
+func (ni *NoticeIndex) GnuHash(h hash) bool {
+	hash_str := string(ni.HashText(h))
+	return strings.Contains(hash_str, "GNU GENERAL PUBLIC LICENSE") ||
+		strings.Contains(hash_str, "GNU LESSER GENERAL PUBLIC LICENSE")
+}
+
 // getLibName returns the name of the library associated with `noticeFor`.
 func (ni *NoticeIndex) getLibName(noticeFor *TargetNode, h hash) string {
 	for _, text := range noticeFor.LicenseTexts() {

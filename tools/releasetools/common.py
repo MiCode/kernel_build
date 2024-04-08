@@ -20,6 +20,7 @@ import copy
 import datetime
 import errno
 import fnmatch
+from genericpath import isdir
 import getopt
 import getpass
 import gzip
@@ -75,7 +76,7 @@ class Options(object):
     self.extra_signapk_args = []
     self.aapt2_path = "aapt2"
     self.java_path = "java"  # Use the one on the path by default.
-    self.java_args = ["-Xmx2048m"]  # The default JVM args.
+    self.java_args = ["-Xmx4096m"]  # The default JVM args.
     self.android_jar_path = None
     self.public_key_suffix = ".x509.pem"
     self.private_key_suffix = ".pk8"
@@ -114,7 +115,7 @@ SPECIAL_CERT_STRINGS = ("PRESIGNED", "EXTERNAL")
 # accordingly.
 AVB_PARTITIONS = ('boot', 'init_boot', 'dtbo', 'odm', 'product', 'pvmfw', 'recovery',
                   'system', 'system_ext', 'vendor', 'vendor_boot', 'vendor_kernel_boot',
-                  'vendor_dlkm', 'odm_dlkm', 'system_dlkm')
+                  'vendor_dlkm', 'odm_dlkm', 'system_dlkm', 'mi_ext', 'countrycode')
 
 # Chained VBMeta partitions.
 AVB_VBMETA_PARTITIONS = ('vbmeta_system', 'vbmeta_vendor')
@@ -124,6 +125,7 @@ PARTITIONS_WITH_CARE_MAP = [
     'system',
     'vendor',
     'product',
+    'mi_ext',
     'system_ext',
     'odm',
     'vendor_dlkm',
@@ -138,6 +140,13 @@ PARTITIONS_WITH_BUILD_PROP = PARTITIONS_WITH_CARE_MAP + ['boot', 'init_boot']
 # existing search paths.
 RAMDISK_BUILD_PROP_REL_PATHS = ['system/etc/ramdisk/build.prop']
 
+# MIUI ADD: vba Partitions with fingerprint in mist_info.txt
+
+PARTITIONS_WITH_FINGERPRINT = ['boot']
+
+FINGERPRINT_RE = re.compile(r'--prop com.android.build.\w+.fingerprint:(\S+)')
+
+# END
 
 class ErrorCode(object):
   """Define error_codes for failures that happen during the actual
@@ -280,7 +289,7 @@ def Run(args, verbose=None, **kwargs):
     verbose = OPTIONS.verbose
 
   # Don't log any if caller explicitly says so.
-  if verbose:
+  if verbose != False:
     logger.info("  Running: \"%s\"", " ".join(args))
   return subprocess.Popen(args, **kwargs)
 
@@ -430,8 +439,22 @@ class BuildInfo(object):
           "system_other"] = self._partition_fingerprints["system"]
 
     # These two should be computed only after setting self._oem_props.
+    # MIUI MOD: START
+    # Adapt for Google Requirements Freeze Devices
+    # self._fingerprint = self.CalculateFingerprint()
     self._device = self.GetOemProperty("ro.product.device")
-    self._fingerprint = self.CalculateFingerprint()
+
+    if not self.is_ab: 
+      try:
+        self._fingerprint = self.CalculatePartitionFingerprint("odm")
+      except ExternalError:
+        self._fingerprint = self.CalculateFingerprint()
+
+      self._metadata_fingerprint = self.CalculateFingerprint()
+    elif self.is_ab:
+      self._fingerprint = self.CalculateFingerprint()
+
+    # END
     check_fingerprint(self._fingerprint)
 
   @property
@@ -698,7 +721,13 @@ def ReadFromInputFile(input_file, fn):
   """Reads the contents of fn from input zipfile or directory."""
   if isinstance(input_file, zipfile.ZipFile):
     return input_file.read(fn).decode()
+  elif zipfile.is_zipfile(input_file):
+    with zipfile.ZipFile(input_file, "r", allowZip64=True) as zfp:
+      return zfp.read(fn).decode()
   else:
+    if not os.path.isdir(input_file):
+      raise ValueError(
+          "Invalid input_file, accepted inputs are ZipFile object, path to .zip file on disk, or path to extracted directory. Actual: " + input_file)
     path = os.path.join(input_file, *fn.split("/"))
     try:
       with open(path) as f:
@@ -1050,6 +1079,13 @@ class PartitionBuildProps(object):
     return {key: val for key, val in d.items()
             if key in self.props_allow_override}
 
+  def __getstate__(self):
+    state = self.__dict__.copy()
+    # Don't pickle baz
+    if "input_file" in state and isinstance(state["input_file"], zipfile.ZipFile):
+      state["input_file"] = state["input_file"].filename
+    return state
+
   def GetProp(self, prop):
     return self.build_props.get(prop)
 
@@ -1323,6 +1359,22 @@ def RunHostInitVerifier(product_out, partition_map):
       cmd.extend(["-p", passwd_path])
   return RunAndCheckOutput(cmd)
 
+# MIUI ADD
+def getSalt(partition):
+  avb_salt = OPTIONS.info_dict.get("avb_" + partition + "_salt")
+  if avb_salt:
+    return avb_salt
+
+  avb_add_hash_footer_args = OPTIONS.info_dict.get("avb_" + partition + "_add_hash_footer_args")
+  matches = FINGERPRINT_RE.findall(avb_add_hash_footer_args)
+  fingerprint = ''
+  if len(matches) > 0:
+    fingerprint = matches[0]
+
+  avb_salt = sha256(fingerprint.encode()).hexdigest()
+  OPTIONS.info_dict["avb_" + partition + "_salt"] = avb_salt
+  return avb_salt
+#END
 
 def AppendAVBSigningArgs(cmd, partition):
   """Append signing arguments for avbtool."""
@@ -1337,6 +1389,10 @@ def AppendAVBSigningArgs(cmd, partition):
     cmd.extend(["--key", key_path, "--algorithm", algorithm])
   avb_salt = OPTIONS.info_dict.get("avb_salt")
   # make_vbmeta_image doesn't like "--salt" (and it's not needed).
+  # MIUI ADD: add salt
+  if not avb_salt and partition in PARTITIONS_WITH_FINGERPRINT and not partition.startswith("vbmeta"):
+    avb_salt = getSalt(partition)
+  # END
   if avb_salt and not partition.startswith("vbmeta"):
     cmd.extend(["--salt", avb_salt])
 
@@ -1509,6 +1565,11 @@ def BuildVBMeta(image_path, partitions, name, needed_partitions):
             found = True
             break
         assert found, 'Failed to find {}'.format(chained_image)
+      elif arg == '--signing_helper':
+        signing_helper_path = split_args[index + 1]
+        new_signing_helper_path = os.path.join(OPTIONS.search_path, signing_helper_path)
+        if os.path.exists(new_signing_helper_path):
+          split_args[index + 1] = new_signing_helper_path
     cmd.extend(split_args)
 
   RunAndCheckOutput(cmd)
@@ -1727,7 +1788,15 @@ def _BuildBootableImage(image_name, sourcedir, fs_config_file, info_dict=None,
     AppendAVBSigningArgs(cmd, partition_name)
     args = info_dict.get("avb_" + partition_name + "_add_hash_footer_args")
     if args and args.strip():
-      cmd.extend(shlex.split(args))
+      split_args = shlex.split(args)
+      for index, arg in enumerate(split_args[:-1]):
+          if arg == '--signing_helper':
+            signing_helper_path = split_args[index + 1]
+            new_signing_helper_path = os.path.join(OPTIONS.search_path, signing_helper_path)
+            if os.path.exists(new_signing_helper_path):
+              split_args[index + 1] = new_signing_helper_path
+      cmd.extend(split_args)
+
     RunAndCheckOutput(cmd)
 
   img.seek(os.SEEK_SET, 0)
@@ -1768,7 +1837,14 @@ def _SignBootableImage(image_path, prebuilt_name, partition_name,
     AppendAVBSigningArgs(cmd, partition_name)
     args = info_dict.get("avb_" + partition_name + "_add_hash_footer_args")
     if args and args.strip():
-      cmd.extend(shlex.split(args))
+      split_args = shlex.split(args)
+      for index, arg in enumerate(split_args[:-1]):
+          if arg == '--signing_helper':
+            signing_helper_path = split_args[index + 1]
+            new_signing_helper_path = os.path.join(OPTIONS.search_path, signing_helper_path)
+            if os.path.exists(new_signing_helper_path):
+              split_args[index + 1] = new_signing_helper_path
+      cmd.extend(split_args)
     RunAndCheckOutput(cmd)
 
 
@@ -1944,7 +2020,14 @@ def _BuildVendorBootImage(sourcedir, partition_name, info_dict=None):
     AppendAVBSigningArgs(cmd, partition_name)
     args = info_dict.get(f'avb_{partition_name}_add_hash_footer_args')
     if args and args.strip():
-      cmd.extend(shlex.split(args))
+      split_args = shlex.split(args)
+      for index, arg in enumerate(split_args[:-1]):
+          if arg == '--signing_helper':
+            signing_helper_path = split_args[index + 1]
+            new_signing_helper_path = os.path.join(OPTIONS.search_path, signing_helper_path)
+            if os.path.exists(new_signing_helper_path):
+              split_args[index + 1] = new_signing_helper_path
+      cmd.extend(split_args)
     RunAndCheckOutput(cmd)
 
   img.seek(os.SEEK_SET, 0)
@@ -2315,6 +2398,12 @@ def GetMinSdkVersionInt(apk_name, codename_to_api_level_map):
     # Not a decimal number. Codename?
     if version in codename_to_api_level_map:
       return codename_to_api_level_map[version]
+    # MIUI ADD:
+    if version.lower() == 's':
+      return 31
+    if version.lower() == 'tiramisu':
+      return 33
+    # MIUI END:
     raise ExternalError(
         "Unknown minSdkVersion: '{}'. Known codenames: {}".format(
             version, codename_to_api_level_map))
@@ -2367,6 +2456,7 @@ def SignFile(input_name, output_name, key, password, min_api_level=None,
   cmd.extend([key + OPTIONS.public_key_suffix,
               key + OPTIONS.private_key_suffix,
               input_name, output_name])
+
 
   proc = Run(cmd, stdin=subprocess.PIPE)
   if password is not None:
@@ -2841,7 +2931,7 @@ def ZipWriteStr(zip_file, zinfo_or_arcname, data, perms=None,
   zipfile.ZIP64_LIMIT = saved_zip64_limit
 
 
-def ZipDelete(zip_filename, entries):
+def ZipDelete(zip_filename, entries, force=False):
   """Deletes entries from a ZIP file.
 
   Since deleting entries from a ZIP file is not supported, it shells out to
@@ -2859,9 +2949,15 @@ def ZipDelete(zip_filename, entries):
   # If list is empty, nothing to do
   if not entries:
     return
-  cmd = ["zip", "-d", zip_filename] + entries
-  RunAndCheckOutput(cmd)
-
+  if force:
+    cmd = ["zip", "-q", "-d", zip_filename] + entries
+  else:
+    cmd = ["zip", "-d", zip_filename] + entries
+  if force:
+    p = Run(cmd)
+    p.wait()
+  else:
+    RunAndCheckOutput(cmd)
 
 def ZipClose(zip_file):
   # http://b/18015246
@@ -3057,7 +3153,9 @@ class Difference(object):
           err.append(e)
       th = threading.Thread(target=run)
       th.start()
-      th.join(timeout=300)   # 5 mins
+      # MIUI MOD : START
+      #th.join(timeout=300)   # 5 mins
+      th.join(timeout=1200) # 20 mins
       if th.is_alive():
         logger.warning("diff command timed out")
         p.terminate()
@@ -3953,133 +4051,9 @@ def GetBootImageTimestamp(boot_img):
     return None
 
 
-def GetCareMap(which, imgname):
-  """Returns the care_map string for the given partition.
-
-  Args:
-    which: The partition name, must be listed in PARTITIONS_WITH_CARE_MAP.
-    imgname: The filename of the image.
-
-  Returns:
-    (which, care_map_ranges): care_map_ranges is the raw string of the care_map
-    RangeSet; or None.
-  """
-  assert which in PARTITIONS_WITH_CARE_MAP
-
-  # which + "_image_size" contains the size that the actual filesystem image
-  # resides in, which is all that needs to be verified. The additional blocks in
-  # the image file contain verity metadata, by reading which would trigger
-  # invalid reads.
-  image_size = OPTIONS.info_dict.get(which + "_image_size")
-  if not image_size:
-    return None
-
-  disable_sparse = OPTIONS.info_dict.get(which + "_disable_sparse")
-
-  image_blocks = int(image_size) // 4096 - 1
-  # It's OK for image_blocks to be 0, because care map ranges are inclusive.
-  # So 0-0 means "just block 0", which is valid.
-  assert image_blocks >= 0, "blocks for {} must be non-negative, image size: {}".format(
-      which, image_size)
-
-  # For sparse images, we will only check the blocks that are listed in the care
-  # map, i.e. the ones with meaningful data.
-  if "extfs_sparse_flag" in OPTIONS.info_dict and not disable_sparse:
-    simg = sparse_img.SparseImage(imgname)
-    care_map_ranges = simg.care_map.intersect(
-        rangelib.RangeSet("0-{}".format(image_blocks)))
-
-  # Otherwise for non-sparse images, we read all the blocks in the filesystem
-  # image.
-  else:
-    care_map_ranges = rangelib.RangeSet("0-{}".format(image_blocks))
-
-  return [which, care_map_ranges.to_string_raw()]
-
-
-def AddCareMapForAbOta(output_file, ab_partitions, image_paths):
-  """Generates and adds care_map.pb for a/b partition that has care_map.
-
-  Args:
-    output_file: The output zip file (needs to be already open),
-        or file path to write care_map.pb.
-    ab_partitions: The list of A/B partitions.
-    image_paths: A map from the partition name to the image path.
-  """
-  if not output_file:
-    raise ExternalError('Expected output_file for AddCareMapForAbOta')
-
-  care_map_list = []
-  for partition in ab_partitions:
-    partition = partition.strip()
-    if partition not in PARTITIONS_WITH_CARE_MAP:
-      continue
-
-    verity_block_device = "{}_verity_block_device".format(partition)
-    avb_hashtree_enable = "avb_{}_hashtree_enable".format(partition)
-    if (verity_block_device in OPTIONS.info_dict or
-            OPTIONS.info_dict.get(avb_hashtree_enable) == "true"):
-      if partition not in image_paths:
-        logger.warning('Potential partition with care_map missing from images: %s',
-                       partition)
-        continue
-      image_path = image_paths[partition]
-      if not os.path.exists(image_path):
-        raise ExternalError('Expected image at path {}'.format(image_path))
-
-      care_map = GetCareMap(partition, image_path)
-      if not care_map:
-        continue
-      care_map_list += care_map
-
-      # adds fingerprint field to the care_map
-      # TODO(xunchang) revisit the fingerprint calculation for care_map.
-      partition_props = OPTIONS.info_dict.get(partition + ".build.prop")
-      prop_name_list = ["ro.{}.build.fingerprint".format(partition),
-                        "ro.{}.build.thumbprint".format(partition)]
-
-      present_props = [x for x in prop_name_list if
-                       partition_props and partition_props.GetProp(x)]
-      if not present_props:
-        logger.warning(
-            "fingerprint is not present for partition %s", partition)
-        property_id, fingerprint = "unknown", "unknown"
-      else:
-        property_id = present_props[0]
-        fingerprint = partition_props.GetProp(property_id)
-      care_map_list += [property_id, fingerprint]
-
-  if not care_map_list:
-    return
-
-  # Converts the list into proto buf message by calling care_map_generator; and
-  # writes the result to a temp file.
-  temp_care_map_text = MakeTempFile(prefix="caremap_text-",
-                                           suffix=".txt")
-  with open(temp_care_map_text, 'w') as text_file:
-    text_file.write('\n'.join(care_map_list))
-
-  temp_care_map = MakeTempFile(prefix="caremap-", suffix=".pb")
-  care_map_gen_cmd = ["care_map_generator", temp_care_map_text, temp_care_map]
-  RunAndCheckOutput(care_map_gen_cmd)
-
-  if not isinstance(output_file, zipfile.ZipFile):
-    shutil.copy(temp_care_map, output_file)
-    return
-  # output_file is a zip file
-  care_map_path = "META/care_map.pb"
-  if care_map_path in output_file.namelist():
-    # Copy the temp file into the OPTIONS.input_tmp dir and update the
-    # replace_updated_files_list used by add_img_to_target_files
-    if not OPTIONS.replace_updated_files_list:
-      OPTIONS.replace_updated_files_list = []
-    shutil.copy(temp_care_map, os.path.join(OPTIONS.input_tmp, care_map_path))
-    OPTIONS.replace_updated_files_list.append(care_map_path)
-  else:
-    ZipWrite(output_file, temp_care_map, arcname=care_map_path)
-
-
 def IsSparseImage(filepath):
+  if not os.path.exists(filepath):
+    return False
   with open(filepath, 'rb') as fp:
     # Magic for android sparse image format
     # https://source.android.com/devices/bootloader/images

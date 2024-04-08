@@ -11,12 +11,18 @@ endif
 
 include $(BUILD_SYSTEM)/dex_preopt_config.mk
 
+#BSP-Sensor Add for Sensor Tool Version Control
+USE_SENSOR_TOOLKIT_VER ?= 1.0
+
 ifeq ($(WRITE_SOONG_VARIABLES),true)
 
 # Create soong.variables with copies of makefile settings.  Runs every build,
 # but only updates soong.variables if it changes
 $(shell mkdir -p $(dir $(SOONG_VARIABLES)))
 $(call json_start)
+
+# MIUI ADD:
+-include bootable/recovery/MiuiRecoverySoongExtension.mk
 
 $(call add_json_str,  Make_suffix, -$(TARGET_PRODUCT))
 
@@ -35,6 +41,8 @@ $(call add_json_str,  Platform_preview_sdk_version,      $(PLATFORM_PREVIEW_SDK_
 $(call add_json_str,  Platform_base_os,                  $(PLATFORM_BASE_OS))
 $(call add_json_str,  Platform_version_last_stable,      $(PLATFORM_VERSION_LAST_STABLE))
 
+$(call add_json_str, Platform_vendor,                    $(BOARD_PLATFORM_VENDOR))
+
 $(call add_json_str,  Platform_min_supported_target_sdk_version, $(PLATFORM_MIN_SUPPORTED_TARGET_SDK_VERSION))
 
 $(call add_json_bool, Allow_missing_dependencies,        $(filter true,$(ALLOW_MISSING_DEPENDENCIES)))
@@ -43,6 +51,29 @@ $(call add_json_list, Unbundled_build_apps,              $(TARGET_BUILD_APPS))
 $(call add_json_bool, Unbundled_build_image,             $(TARGET_BUILD_UNBUNDLED_IMAGE))
 $(call add_json_bool, Always_use_prebuilt_sdks,          $(TARGET_BUILD_USE_PREBUILT_SDKS))
 
+$(call add_json_bool, Native_build,                      $(call is-native-build))
+$(call add_json_bool, Factory_build,                     $(call is-factory-build))
+$(call add_json_bool, Miui_private_build,                $(filter true,$(MIUI_PRIVATE_BUILD)))
+$(call add_json_bool, Miui_private_water_marker,         $(filter true,$(MIUI_PRIVATE_WATER_MARKER)))
+$(call add_json_bool, Miui_build,                        $(call is-missi-miui-build))
+$(call add_json_bool, Miui_debuggable,                   $(filter true,$(ENABLE_MIUI_DEBUGGING)))
+$(call add_json_bool, Missi_region_cn,                   $(call is-missi-region-cn))
+$(call add_json_bool, Missi_region_eea,                  $(call is-missi-region-eea))
+$(call add_json_bool, Missi_region_global,               $(call is-missi-region-global))
+$(call add_json_bool, Missi_device_phone,                $(call is-missi-device-phone))
+$(call add_json_bool, Missi_device_foldable,             $(call is-missi-device-foldable))
+$(call add_json_bool, Missi_device_pad,             	 $(call is-missi-device-pad))
+$(call add_json_bool, Missi_device_platform_mtk,         $(call is-missi-platform-mtk))
+$(call add_json_bool, Missi_device_platform_qcom,        $(call is-missi-platform-qcom))
+$(call add_json_str,  Component_name,        	 	 $(call get-component-name))
+$(call add_json_str,  Miproduct_region,        		 $(call get-miproduct-region))
+$(call add_json_str,  Miproduct_device_name,        	 $(call get-miproduct-device-name))
+$(call add_json_bool, Mivendor_region_cn,                $(call is-mivendor-region-cn))
+$(call add_json_bool, Mivendor_region_eea,               $(call is-mivendor-region-eea))
+$(call add_json_bool, Mivendor_region_global,            $(call is-mivendor-region-global))
+$(call add_json_str,  Mivendor_platform_codename,        $(call get-mivendor-platform-codename))
+$(call add_json_str,  Miodm_region,        		 $(call get-miodm-region))
+$(call add_json_str,  Miodm_device_name,        	 $(call get-miodm-device-name))
 $(call add_json_bool, Debuggable,                        $(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
 $(call add_json_bool, Eng,                               $(filter eng,$(TARGET_BUILD_VARIANT)))
 
@@ -97,7 +128,9 @@ $(call add_json_str,  DefaultAppCertificate,             $(PRODUCT_DEFAULT_DEV_C
 $(call add_json_str,  AppsDefaultVersionName,            $(APPS_DEFAULT_VERSION_NAME))
 
 $(call add_json_list, SanitizeHost,                      $(SANITIZE_HOST))
-$(call add_json_list, SanitizeDevice,                    $(SANITIZE_TARGET))
+# MIUI MOD: START
+$(call add_json_list, SanitizeDevice,                    $(filter thread hwaddress address fuzzer, $(SANITIZE_TARGET)))
+# END
 $(call add_json_list, SanitizeDeviceDiag,                $(SANITIZE_TARGET_DIAG))
 $(call add_json_list, SanitizeDeviceArch,                $(SANITIZE_TARGET_ARCH))
 
@@ -107,7 +140,9 @@ $(call add_json_list, CFIExcludePaths,                   $(CFI_EXCLUDE_PATHS) $(
 $(call add_json_list, CFIIncludePaths,                   $(CFI_INCLUDE_PATHS) $(PRODUCT_CFI_INCLUDE_PATHS))
 $(call add_json_list, IntegerOverflowExcludePaths,       $(INTEGER_OVERFLOW_EXCLUDE_PATHS) $(PRODUCT_INTEGER_OVERFLOW_EXCLUDE_PATHS))
 $(call add_json_list, IntegerOverflowIncludePaths,       $(INTEGER_OVERFLOW_INCLUDE_PATHS) $(PRODUCT_INTEGER_OVERFLOW_INCLUDE_PATHS))
-
+# MIUI ADD: START
+$(call add_json_list, HWASanIncludePaths,                $(HWASAN_INCLUDE_PATHS) $(PRODUCT_HWASAN_INCLUDE_PATHS))
+# END
 $(call add_json_list, BoundSanitizerExcludePaths ,	 	 $(BOUNDS_EXCLUDE_PATHS) $(PRODUCT_BOUNDS_EXCLUDE_PATHS))
 $(call add_json_list, BoundSanitizerIncludePaths ,       $(BOUNDS_INCLUDE_PATHS) $(PRODUCT_BOUNDS_INCLUDE_PATHS))
 
@@ -309,6 +344,10 @@ $(call add_json_list, SepolicyFreezeTestExtraDirs,         $(SEPOLICY_FREEZE_TES
 $(call add_json_list, SepolicyFreezeTestExtraPrebuiltDirs, $(SEPOLICY_FREEZE_TEST_EXTRA_PREBUILT_DIRS))
 
 $(call add_json_bool, GenerateAidlNdkPlatformBackend, $(filter true,$(NEED_AIDL_NDK_PLATFORM_BACKEND)))
+
+$(call add_json_val, SensorToolKitVersion, $(USE_SENSOR_TOOLKIT_VER))
+
+$(call add_json_list, IncludeTags,                $(PRODUCT_INCLUDE_TAGS))
 
 $(call json_end)
 

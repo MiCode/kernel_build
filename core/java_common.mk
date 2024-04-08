@@ -270,6 +270,14 @@ ifndef LOCAL_IS_HOST_MODULE
     else  # LOCAL_NO_STANDARD_LIBRARIES
       full_java_bootclasspath_libs := $(call java-lib-header-files,$(LEGACY_CORE_PLATFORM_BOOTCLASSPATH_LIBRARIES) $(FRAMEWORK_LIBRARIES))
       LOCAL_JAVA_LIBRARIES := $(filter-out $(LEGACY_CORE_PLATFORM_BOOTCLASSPATH_LIBRARIES) $(FRAMEWORK_LIBRARIES),$(LOCAL_JAVA_LIBRARIES))
+      # MIUI ADD: START
+      ifeq ($(call is-missi-miui-build),true)
+        full_java_bootclasspath_libs += $(call java-lib-header-files,miui-framework)
+        LOCAL_JAVA_LIBRARIES := $(filter-out miui-framework,$(LOCAL_JAVA_LIBRARIES))
+        full_java_bootclasspath_libs += $(call java-lib-header-files,miui-telephony-common)
+        LOCAL_JAVA_LIBRARIES := $(filter-out miui-telephony-common,$(LOCAL_JAVA_LIBRARIES))
+      endif
+      # END
       my_system_modules := $(LEGACY_CORE_PLATFORM_SYSTEM_MODULES)
     endif  # LOCAL_NO_STANDARD_LIBRARIES
 
@@ -533,6 +541,15 @@ my_link_deps += $(addprefix APPS:,$(apk_libraries))
 
 my_2nd_arch_prefix := $(LOCAL_2ND_ARCH_VAR_PREFIX)
 my_common := COMMON
+
+# MIUI ADD: START
+ifneq ($(filter miuiromsdk miuisystem miuisystemsdk miuisystem-%, $(LOCAL_MODULE)),)
+    my_link_type := java:sdk
+    my_warn_types :=
+    my_allowed_types := java:sdk java:system java:platform java:core
+endif
+# END
+
 include $(BUILD_SYSTEM)/link_type.mk
 endif  # !LOCAL_IS_HOST_MODULE
 

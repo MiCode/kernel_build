@@ -39,19 +39,36 @@ define generate-common-build-props
         echo "ro.product.$(1).device=$(PRODUCT_SYSTEM_DEVICE)" >> $(2);\
         echo "ro.product.$(1).manufacturer=$(PRODUCT_SYSTEM_MANUFACTURER)" >> $(2);\
         echo "ro.product.$(1).model=$(PRODUCT_SYSTEM_MODEL)" >> $(2);\
+        echo "ro.product.$(1).cert=$(PRODUCT_SYSTEM_CERT)" >> $(2);\
         echo "ro.product.$(1).name=$(PRODUCT_SYSTEM_NAME)" >> $(2);\
+        echo "ro.product.$(1).marketname=$(PRODUCT_SYSTEM_MARKETNAME)" >> $(2);\
       ,\
         echo "ro.product.$(1).brand=$(PRODUCT_BRAND)" >> $(2);\
         echo "ro.product.$(1).device=$(TARGET_DEVICE)" >> $(2);\
         echo "ro.product.$(1).manufacturer=$(PRODUCT_MANUFACTURER)" >> $(2);\
         echo "ro.product.$(1).model=$(PRODUCT_MODEL)" >> $(2);\
-        echo "ro.product.$(1).name=$(TARGET_PRODUCT)" >> $(2);\
+        echo "ro.product.$(1).cert=$(PRODUCT_CERT)" >> $(2);\
+        echo "ro.product.$(1).name=$(PRODUCT_NAME)" >> $(2);\
+        echo "ro.product.$(1).marketname=$(PRODUCT_MARKETNAME)" >> $(2);\
+    )\
+    $(if $(filter odm,$(1)),\
+        # Attestation specific properties for AOSP/GSI build running on device.
+        echo "ro.product.model_for_attestation=$(PRODUCT_MODEL)" >> $(2);\
+        echo "ro.product.brand_for_attestation=$(PRODUCT_BRAND)" >> $(2);\
+        echo "ro.product.name_for_attestation=$(PRODUCT_NAME)" >> $(2);\
+        echo "ro.product.device_for_attestation=$(PRODUCT_DEVICE)" >> $(2);\
+        echo "ro.product.manufacturer_for_attestation=$(PRODUCT_MANUFACTURER)" >> $(2);\
     )\
     $(if $(filter system vendor odm,$(1)),\
         echo "ro.$(1).product.cpu.abilist=$(TARGET_CPU_ABI_LIST) " >> $(2);\
         echo "ro.$(1).product.cpu.abilist32=$(TARGET_CPU_ABI_LIST_32_BIT)" >> $(2);\
         echo "ro.$(1).product.cpu.abilist64=$(TARGET_CPU_ABI_LIST_64_BIT)" >> $(2);\
     )\
+    # MIUI ADD : Adapt_PanguBringup
+    $(if $(filter odm,$(1)),\
+        echo "ro.vendor.build.fingerprint=$(BUILD_FINGERPRINT_FROM_FILE)" >> $(2);\
+    )\
+    # END Adapt_PanguBringup
     echo "ro.$(1).build.date=`$(DATE_FROM_FILE)`" >> $(2);\
     echo "ro.$(1).build.date.utc=`$(DATE_FROM_FILE) +%s`" >> $(2);\
     echo "ro.$(1).build.fingerprint=$(BUILD_FINGERPRINT_FROM_FILE)" >> $(2);\
@@ -123,6 +140,24 @@ endif
 	    )\
 	)
 	$(hide) $(POST_PROCESS_PROPS) $$(_option) --sdk-version $(PLATFORM_SDK_VERSION) $$@ $(5)
+
+# MI add =========================================================================================================================
+ifdef PRODUCT_SKUS
+ifneq (, $(filter product odm, $(1)))
+	$(hide) echo "import /$(strip $(1))/etc/""$$$$""{ro.boot.product.hardware.sku}_build.prop" >> $$@
+endif
+endif
+# MI end ============================================================================================================================
+
+# MI add ===========================================================================
+ifdef PRODUCT_MI_PROPERTY
+ifneq (, $(filter product odm, $(1)))
+	$(hide) echo "import /$(strip $(1))/etc/""$$$$""{ro.boot.product.hardware.sku}_""$$$$""{ro.boot.hwversion}.prop" >> $$@
+	$(hide) echo "import /$(strip $(1))/etc/""$$$$""{ro.boot.product.hardware.sku}_""$$$$""{ro.boot.hwc}.prop" >> $$@
+endif
+endif
+# MI end ===========================================================================
+
 	$(hide) $(foreach file,$(strip $(6)),\
 	    if [ -f "$(file)" ]; then\
 	        cat $(file) >> $$@;\
@@ -164,8 +199,21 @@ ifeq (,$(strip $(BUILD_FINGERPRINT)))
   else
     BF_BUILD_NUMBER := $(file <$(BUILD_NUMBER_FILE))
   endif
-  BUILD_FINGERPRINT := $(PRODUCT_BRAND)/$(TARGET_PRODUCT)/$(TARGET_DEVICE):$(PLATFORM_VERSION)/$(BUILD_ID)/$(BF_BUILD_NUMBER):$(TARGET_BUILD_VARIANT)/$(BUILD_VERSION_TAGS)
+  BUILD_FINGERPRINT := $(PRODUCT_BRAND)/$(PRODUCT_NAME)/$(TARGET_DEVICE):$(PLATFORM_VERSION)/$(BUILD_ID)/$(BF_BUILD_NUMBER):$(TARGET_BUILD_VARIANT)/$(BUILD_VERSION_TAGS)
 endif
+
+# MI add ===========================================================================================
+ifdef PRODUCT_SKUS
+$(foreach \
+  sku, $(PRODUCT_SKUS),\
+    $(eval $$(warning $(BF_BUILD_NUMBER))) \
+    $(eval \
+      BUILD_FINGERPRINT_$$(call to-upper,$(sku)) := $$(PRODUCT_BRAND_$$(call to-upper,$(sku)))/$$(PRODUCT_NAME_$$(call to-upper,$(sku)))/$$(PRODUCT_DEVICE_$$(call to-upper,$(sku))):$(PLATFORM_VERSION)/$(BUILD_ID)/$(BF_BUILD_NUMBER):$(TARGET_BUILD_VARIANT)/$(BUILD_VERSION_TAGS) \
+    ) \
+)
+endif
+# MI end ==============================================================================================
+
 # unset it for safety.
 BF_BUILD_NUMBER :=
 
@@ -217,6 +265,104 @@ OEM_THUMBPRINT_PROPERTIES := $(filter $(KNOWN_OEM_THUMBPRINT_PROPERTIES),\
     $(PRODUCT_OEM_PROPERTIES))
 KNOWN_OEM_THUMBPRINT_PROPERTIES:=
 
+# MI add ===========================================================================================
+ifdef PRODUCT_SKUS
+BUILDINFO_SKU_SH := build/make/tools/buildinfo_sku.sh
+
+# Generates a set of sysprops common to all partitions to a file.
+# $(1): Partition name
+# $(2): sku name (upper case)
+# $(3): Output file name
+define generate-sku-build-props
+	PRODUCT_BRAND_SKU="$(PRODUCT_BRAND_$(2))" \
+	PRODUCT_DEVICE_SKU="$(PRODUCT_DEVICE_$(2))" \
+	PRODUCT_MANUFACTURER_SKU="$(PRODUCT_MANUFACTURER_$(2))" \
+	PRODUCT_MODEL_SKU="$(PRODUCT_MODEL_$(2))" \
+	PRODUCT_NAME_SKU="$(PRODUCT_NAME_$(2))" \
+	PRODUCT_MARKETNAME_SKU="$(PRODUCT_MARKETNAME_$(2))" \
+	PRODUCT_CERT_SKU="$(PRODUCT_CERT_$(2))" \
+	BUILD_FINGERPRINT_SKU="$(BUILD_FINGERPRINT_FROM_FILE_$(2))" \
+	bash $(BUILDINFO_SKU_SH) "$(1)" >> $(3)
+endef
+
+$(foreach \
+  sku, $(PRODUCT_SKUS),\
+    $(eval BUILD_FINGERPRINT_FILE_$$(call to-upper,$(sku)) := $$(PRODUCT_OUT)/build_fingerprint_$(sku).txt) \
+    $(eval $$(shell mkdir -p $$(PRODUCT_OUT) && echo $$(BUILD_FINGERPRINT_$$(call to-upper,$(sku))) >$$(BUILD_FINGERPRINT_FILE_$$(call to-upper,$(sku))))) \
+    $(eval BUILD_FINGERPRINT_FROM_FILE_$$(call to-upper,$(sku)) := $$(shell cat $(PRODUCT_OUT)/build_fingerprint_$(sku).txt)) \
+    $(eval $$(warning $$(BUILD_FINGERPRINT_FROM_FILE_$$(call to-upper,$(sku))))) \
+    $(eval BUILD_FINGERPRINT_$$(call to-upper,$(sku)) := ) \
+)
+
+# -----------------------------------------------------------------
+# product $(sku)_build.prop
+INSTALLED_PRODUCT_SKUS_BUILD_PROP_TARGET := $(foreach sku,$(PRODUCT_SKUS),$(TARGET_OUT_PRODUCT)/etc/$(sku)_build.prop)
+ALL_DEFAULT_INSTALLED_MODULES += $(INSTALLED_PRODUCT_SKUS_BUILD_PROP_TARGET)
+
+ifdef TARGET_PRODUCT_SKUS_PROP
+product_prop_skus_files := $(TARGET_PRODUCT_SKUS_PROP)
+else
+product_prop_skus_files := $(foreach sku,$(PRODUCT_SKUS),$(wildcard $(TARGET_DEVICE_DIR)/product_$(sku).prop))
+endif
+
+$(INSTALLED_PRODUCT_SKUS_BUILD_PROP_TARGET): $(BUILDINFO_SKU_SH) $(product_prop_skus_files)
+	@echo Target product sku buildinfo: $@
+	@echo Target product sku: $(patsubst $(TARGET_OUT_PRODUCT)/etc/%_build.prop,%,$@)
+	@echo Target product sku upper: $(call to-upper,$(patsubst $(TARGET_OUT_PRODUCT)/etc/%_build.prop,%,$@))
+	@echo product_prop_skus_files: $(product_prop_skus_files)
+	@mkdir -p $(dir $@)
+	$(hide) echo > $@
+ifdef BOARD_USES_PRODUCTIMAGE
+	$(hide) $(call generate-sku-build-props,product,$(call to-upper,$(patsubst $(TARGET_OUT_PRODUCT)/etc/%_build.prop,%,$@)),$@)
+endif  # BOARD_USES_PRODUCTIMAGE
+	$(hide) $(foreach file,$(product_prop_skus_files), \
+	    if [ -f "$(file)" ] && \
+	        [ $(findstring $(patsubst $(TARGET_OUT_PRODUCT)/etc/%_build.prop,%,$@),$(patsubst $(TARGET_DEVICE_DIR)/product_%.prop,%,$(file))) ] && \
+	        [ $(findstring $(patsubst $(TARGET_DEVICE_DIR)/product_%.prop,%,$(file)),$(patsubst $(TARGET_OUT_PRODUCT)/etc/%_build.prop,%,$@)) ]; then \
+	        echo Target product properties from: "$(file)"; \
+	        echo "" >> $@; \
+	        echo "#" >> $@; \
+	        echo "# from $(file)" >> $@; \
+	        echo "#" >> $@; \
+	        cat $(file) >> $@; \
+	        echo "# end of $(file)" >> $@; \
+	    fi;)
+# -----------------------------------------------------------------
+# odm $(sku)_build.prop
+INSTALLED_ODM_SKUS_BUILD_PROP_TARGET := $(foreach sku,$(PRODUCT_SKUS),$(TARGET_OUT_ODM)/etc/$(sku)_build.prop)
+ALL_DEFAULT_INSTALLED_MODULES += $(INSTALLED_ODM_SKUS_BUILD_PROP_TARGET)
+
+ifdef TARGET_ODM_SKUS_PROP
+odm_prop_skus_files := $(TARGET_ODM_SKUS_PROP)
+else
+odm_prop_skus_files := $(foreach sku,$(PRODUCT_SKUS),$(wildcard $(TARGET_DEVICE_DIR)/odm_$(sku).prop))
+endif
+
+$(INSTALLED_ODM_SKUS_BUILD_PROP_TARGET): $(BUILDINFO_SKU_SH) $(odm_prop_skus_files)
+	@echo Target odm sku buildinfo: $@
+	@echo Target odm sku: $(patsubst $(TARGET_OUT_ODM)/etc/%_build.prop,%,$@)
+	@echo Target odm sku upper: $(call to-upper,$(patsubst $(TARGET_OUT_ODM)/etc/%_build.prop,%,$@))
+	@echo odm_prop_skus_files: $(odm_prop_skus_files)
+	@mkdir -p $(dir $@)
+	$(hide) echo > $@
+ifdef BOARD_USES_ODMIMAGE
+	$(hide) $(call generate-sku-build-props,odm,$(call to-upper,$(patsubst $(TARGET_OUT_ODM)/etc/%_build.prop,%,$@)),$@)
+endif  # BOARD_USES_ODMIMAGE
+	$(hide) $(foreach file,$(odm_prop_skus_files), \
+	    if [ -f "$(file)" ] && \
+	        [ $(findstring $(patsubst $(TARGET_OUT_ODM)/etc/%_build.prop,%,$@),$(patsubst $(TARGET_DEVICE_DIR)/odm_%.prop,%,$(file))) ] && \
+	        [ $(findstring $(patsubst $(TARGET_DEVICE_DIR)/odm_%.prop,%,$(file)),$(patsubst $(TARGET_OUT_ODM)/etc/%_build.prop,%,$@)) ]; then \
+	        echo Target odm properties from: "$(file)"; \
+	        echo "" >> $@; \
+	        echo "#" >> $@; \
+	        echo "# from $(file)" >> $@; \
+	        echo "#" >> $@; \
+	        cat $(file) >> $@; \
+	        echo "# end of $(file)" >> $@; \
+	    fi;)
+endif # PRODUCT_SKUS end
+# MI end ==============================================================================================
+
 # -----------------------------------------------------------------
 # system/build.prop
 #
@@ -266,6 +412,8 @@ $(gen_from_buildinfo_sh): $(INTERNAL_BUILD_ID_MAKEFILE) $(API_FINGERPRINT) | $(B
 	        TARGET_CPU_ABI_LIST_64_BIT="$(TARGET_CPU_ABI_LIST_64_BIT)" \
 	        TARGET_CPU_ABI="$(TARGET_CPU_ABI)" \
 	        TARGET_CPU_ABI2="$(TARGET_CPU_ABI2)" \
+	        TARGET_USE_GOTA="$(TARGET_USE_GOTA)" \
+	        TARGET_MOD_DEVICE="$(TARGET_MOD_DEVICE)" \
 	        bash $(BUILDINFO_SH) > $@
 
 ifdef TARGET_SYSTEM_PROP
@@ -310,6 +458,7 @@ $(eval $(call declare-1p-target,$(INSTALLED_BUILD_PROP_TARGET)))
 # -----------------------------------------------------------------
 # vendor/build.prop
 #
+
 _prop_files_ := $(if $(TARGET_VENDOR_PROP),\
     $(TARGET_VENDOR_PROP),\
     $(wildcard $(TARGET_DEVICE_DIR)/vendor.prop))
@@ -406,8 +555,29 @@ _skip_common_properties :=
 # ----------------------------------------------------------------
 # odm/etc/build.prop
 #
+
+ifdef TARGET_COMMON_PROP_RO_PRO
+target_common_prop_ro_pro := $(TARGET_COMMON_PROP_RO_PRO)
+endif
+
+ifdef TARGET_COMMON_PROP_RW_POST
+target_common_prop_rw_post := $(TARGET_COMMON_PROP_RW_POST)
+endif
+
+ifdef TARGET_SPECIAL_PROP_RO_PRO
+target_special_prop_ro_pro := $(TARGET_SPECIAL_PROP_RO_PRO)
+endif
+
+ifdef TARGET_SPECIAL_PROP_RW_POST
+target_special_prop_rw_post := $(TARGET_SPECIAL_PROP_RW_POST)
+endif
+
 _prop_files_ := $(if $(TARGET_ODM_PROP),\
     $(TARGET_ODM_PROP),\
+    $(target_special_prop_ro_pro) \
+    $(target_common_prop_ro_pro) \
+    $(target_common_prop_rw_post) \
+    $(target_special_prop_rw_post) \
     $(wildcard $(TARGET_DEVICE_DIR)/odm.prop))
 
 # Order matters here. When there are duplicates, the last one wins.

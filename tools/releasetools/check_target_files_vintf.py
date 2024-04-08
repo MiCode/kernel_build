@@ -266,8 +266,12 @@ def HasTrebleEnabled(target_files, target_info):
 
 def HasPartition(target_files_zip, partition):
   try:
-    target_files_zip.getinfo(partition.upper() + "/")
-    return True
+    if partition == "mi_ext":
+        target_files_zip.getinfo("IMAGES/mi_ext.img")
+        return True
+    else:
+        target_files_zip.getinfo(partition.upper() + "/")
+        return True
   except KeyError:
     return False
 

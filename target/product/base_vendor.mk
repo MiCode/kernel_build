@@ -58,6 +58,7 @@ PRODUCT_PACKAGES += \
     libdynproc \
     libeffectproxy \
     libeffects \
+    libsamplefilterplugin \
     libhapticgenerator \
     libldnhncr \
     libreference-ril \

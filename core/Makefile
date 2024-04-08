@@ -551,6 +551,12 @@ $(foreach kmd,$(BOARD_KERNEL_MODULE_DIRS), \
     $(eval ALL_DEFAULT_INSTALLED_MODULES += $(call build-image-kernel-modules-dir,GENERIC_RAMDISK,$(TARGET_RAMDISK_OUT),,modules.load,,$(kmd)))))
 
 # -----------------------------------------------------------------
+# MIUI ADD: START
+define _apkcerts_fixed_name
+$(if $(filter %.apk, $(1)),$(1),$(1).apk)
+endef
+# END
+
 # Cert-to-package mapping.  Used by the post-build signing tools.
 # Use a macro to add newline to each echo command
 # $1 stem name of the package
@@ -560,7 +566,7 @@ $(foreach kmd,$(BOARD_KERNEL_MODULE_DIRS), \
 # $5 partition tag
 # $6 output file
 define _apkcerts_write_line
-$(hide) echo -n 'name="$(1).apk" certificate="$2" private_key="$3"' >> $6
+$(hide) echo -n 'name="$(call _apkcerts_fixed_name,$1)" certificate="$2" private_key="$3"' >> $6
 $(if $(4), $(hide) echo -n ' compressed="$4"' >> $6)
 $(if $(5), $(hide) echo -n ' partition="$5"' >> $6)
 $(hide) echo '' >> $6
@@ -585,11 +591,42 @@ name := $(name)-apkcerts-$(FILE_NAME_TAG)
 intermediates := \
 	$(call intermediates-dir-for,PACKAGING,apkcerts)
 APKCERTS_FILE := $(intermediates)/$(name).txt
+
+#BEGIN MIUI-add: APKCERTS_FILE dependent on ADDON_APKCERTS_FILE and ORIGIN_APKCERTS_FILE (JIRA/PANGU-888)
+ADDON_APKCERTS_FILE := $(intermediates)/$(name)_addon.txt
+ORIGIN_APKCERTS_FILE := $(intermediates)/$(name)_origin.txt
+
+define download_product_apks
+	$(hide) python3 build/make/tools/releasetools/pangu_download_apks_files.py \
+    --top-dir . \
+    --output-dir $(abspath $(PRODUCT_OUT)) \
+    --addon-apkcerts $(ADDON_APKCERTS_FILE) \
+    --apk-info-url $(CDP_COMP_PRODUCT_PKG_URL)
+endef
+
+define merge_apkcerts
+$(hide) python3 build/make/tools/releasetools/pangu_merge_apkcerts.py \
+    --addon-apkcerts $(ADDON_APKCERTS_FILE) \
+    --origin-apkcerts $(ORIGIN_APKCERTS_FILE) \
+    --output-apkcerts $(APKCERTS_FILE)
+endef
+
+$(APKCERTS_FILE): $(ADDON_APKCERTS_FILE) $(ORIGIN_APKCERTS_FILE)
+	@echo Merge apkcerts addon: $(ADDON_APKCERTS_FILE) and origin: $(ORIGIN_APKCERTS_FILE)
+	$(call merge_apkcerts)
+	@rm -f $(ADDON_APKCERTS_FILE)
+
+$(ADDON_APKCERTS_FILE):
+	$(call download_product_apks)
+
+#END MIUI-add: APKCERTS_FILE dependent on ADDON_APKCERTS_FILE and ORIGIN_APKCERTS_FILE (JIRA/PANGU-888)
+
 all_apkcerts_files := $(sort $(foreach p,$(PACKAGES),$(PACKAGES.$(p).APKCERTS_FILE)))
-$(APKCERTS_FILE): $(all_apkcerts_files)
+
+$(ORIGIN_APKCERTS_FILE): $(all_apkcerts_files)
 # We don't need to really build all the modules.
 # TODO: rebuild APKCERTS_FILE if any app change its cert.
-$(APKCERTS_FILE):
+$(ORIGIN_APKCERTS_FILE):
 	@echo APK certs list: $@
 	@mkdir -p $(dir $@)
 	@rm -f $@
@@ -1688,6 +1725,37 @@ endif # PRODUCT_NOTICE_SPLIT
 
 ALL_DEFAULT_INSTALLED_MODULES += $(installed_notice_html_or_xml_gz)
 
+target_notice_gpl_file_html_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_GPL.html.gz
+installed_notice_gpl_html_or_xml_gz := $(TARGET_OUT)/etc/NOTICE_GPL.html.gz
+ALL_DEFAULT_INSTALLED_MODULES += $(installed_notice_gpl_html_or_xml_gz)
+
+target_vendor_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_VENDOR_GPL.html.gz
+installed_vendor_notice_gpl_xml_gz := $(TARGET_OUT_VENDOR)/etc/NOTICE_GPL.html.gz
+ALL_DEFAULT_INSTALLED_MODULES += $(installed_vendor_notice_gpl_xml_gz)
+
+target_odm_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_ODM_GPL.html.gz
+installed_odm_notice_gpl_xml_gz := $(TARGET_OUT_ODM)/etc/NOTICE_GPL.html.gz
+ALL_DEFAULT_INSTALLED_MODULES += $(installed_odm_notice_gpl_xml_gz)
+
+target_product_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_PRODUCT_GPL.html.gz
+installed_product_notice_gpl_xml_gz := $(TARGET_OUT_PRODUCT)/etc/NOTICE_GPL.html.gz
+ALL_DEFAULT_INSTALLED_MODULES += $(installed_product_notice_gpl_xml_gz)
+
+target_system_ext_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_SYSTEM_EXT_GPL.html.gz
+installed_system_ext_notice_gpl_xml_gz := $(TARGET_OUT_SYSTEM_EXT)/etc/NOTICE_GPL.html.gz
+ALL_DEFAULT_INSTALLED_MODULES += $(installed_system_ext_notice_gpl_xml_gz)
+
+target_vendor_dlkm_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_VENDOR_DLKM_GPL.html.gz
+installed_vendor_dlkm_notice_gpl_xml_gz := $(TARGET_OUT_VENDOR_DLKM)/etc/NOTICE_GPL.html.gz
+ALL_DEFAULT_INSTALLED_MODULES += $(installed_vendor_dlkm_notice_gpl_xml_gz)
+
+target_odm_dlkm_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_ODM_DLKM_GPL.html.gz
+installed_odm_dlkm_notice_gpl_xml_gz := $(TARGET_OUT_ODM_DLKM)/etc/NOTICE_GPL.html.gz
+#ALL_DEFAULT_INSTALLED_MODULES += $(installed_odm_dlkm_notice_gpl_xml_gz)
+
+target_system_dlkm_notice_gpl_file_xml_gz := $(TARGET_OUT_INTERMEDIATES)/NOTICE_SYSTEM_DLKM_GPL.html.gz
+installed_system_dlkm_notice_gpl_xml_gz := $(TARGET_OUT_SYSTEM_DLKM)/etc/NOTICE_GPL.html.gz
+#ALL_DEFAULT_INSTALLED_MODULES += $(installed_system_dlkm_notice_gpl_xml_gz)
 need_vendor_notice:=false
 ifeq ($(BUILDING_VENDOR_BOOT_IMAGE),true)
    need_vendor_notice:=true
@@ -1935,6 +2003,9 @@ $(if $(filter $(2),vendor),\
 )
 $(if $(filter $(2),product),\
     $(call add-common-ro-flags-to-image-props,product,$(1))
+    $(hide) echo "BEGIN MIUI-add: add block_list parameter for building image with map file(JIRA/PANGU-912)"
+    $(hide) echo "block_list=$(PRODUCT_OUT)/product.map" >> $(1)
+    $(hide) echo "END MIUI-add: add block_list parameter for building image with map file(JIRA/PANGU-912)"
 )
 $(if $(filter $(2),system_ext),\
     $(call add-common-ro-flags-to-image-props,system_ext,$(1))
@@ -1993,6 +2064,17 @@ $(if $(PRODUCT_SUPPORTS_VBOOT),$(hide) echo "vboot_signer_cmd=$(VBOOT_SIGNER)" >
 $(if $(BOARD_AVB_ENABLE),$(hide) echo "avb_avbtool=$(notdir $(AVBTOOL))" >> $(1))
 $(if $(BOARD_AVB_ENABLE),$(hide) echo "avb_system_hashtree_enable=$(BOARD_AVB_ENABLE)" >> $(1))
 $(if $(BOARD_AVB_ENABLE),$(hide) echo "avb_system_add_hashtree_footer_args=$(BOARD_AVB_SYSTEM_ADD_HASHTREE_FOOTER_ARGS)" >> $(1))
+$(if $(BOARD_AVB_ENABLE),\
+    $(if $(BOARD_CUST_AVB_ENABLE),\
+      $(hide) echo "avb_cust_hashtree_enable=$(BOARD_AVB_ENABLE)" >> $(1)))
+$(if $(BOARD_AVB_ENABLE),
+    $(if $(BOARD_CUST_AVB_ENABLE),\
+      $(hide) echo "avb_cust_add_hashtree_footer_args=$(BOARD_AVB_CUST_ADD_HASHTREE_FOOTER_ARGS)" >> $(1)))
+$(if $(BOARD_AVB_ENABLE),\
+    $(if $(BOARD_AVB_CUST_KEY_PATH),\
+        $(hide) echo "avb_cust_key_path=$(BOARD_AVB_CUST_KEY_PATH)" >> $(1)
+        $(hide) echo "avb_cust_algorithm=$(BOARD_AVB_CUST_ALGORITHM)" >> $(1)
+        $(hide) echo "avb_cust_rollback_index_location=$(BOARD_AVB_CUST_ROLLBACK_INDEX_LOCATION)" >> $(1)))
 $(if $(BOARD_AVB_ENABLE),\
     $(if $(BOARD_AVB_SYSTEM_KEY_PATH),\
         $(hide) echo "avb_system_key_path=$(BOARD_AVB_SYSTEM_KEY_PATH)" >> $(1)
@@ -2195,7 +2277,9 @@ endif
 ifneq (,$(wildcard $(recovery_resources_common)-$(recovery_density)))
 recovery_resources_common := $(recovery_resources_common)-$(recovery_density)
 else
-recovery_resources_common := $(recovery_resources_common)-xhdpi
+# MIUI MOD
+# recovery_resources_common := $(recovery_resources_common)-xhdpi
+recovery_resources_common := $(recovery_resources_common)-xxhdpi
 endif
 
 # Select the 18x32 font on high-density devices (xhdpi and up); and the 12x22 font on other devices.
@@ -2455,7 +2539,7 @@ ifndef BOARD_RECOVERY_MKBOOTIMG_ARGS
   BOARD_RECOVERY_MKBOOTIMG_ARGS := $(BOARD_MKBOOTIMG_ARGS)
 endif
 
-$(INTERNAL_RECOVERY_RAMDISK_FILES_TIMESTAMP): $(MKBOOTFS) $(COMPRESSION_COMMAND_DEPS) \
+recovery_ramdisk_deps := $(MKBOOTFS) $(COMPRESSION_COMMAND_DEPS) \
 	    $(INTERNAL_ROOT_FILES) \
 	    $(INSTALLED_RAMDISK_TARGET) \
 	    $(INTERNAL_RECOVERYIMAGE_FILES) \
@@ -2465,6 +2549,13 @@ $(INTERNAL_RECOVERY_RAMDISK_FILES_TIMESTAMP): $(MKBOOTFS) $(COMPRESSION_COMMAND_
 	    $(INSTALLED_RECOVERY_RAMDISK_BUILD_PROP_TARGET) \
 	    $(recovery_resource_deps) \
 	    $(recovery_fstab)
+# MIUI ADD START: for recovery power plug-in
+ifeq (true,$(BOARD_RECOVERY_POWER_PLUG))
+recovery_ramdisk_deps += $(recovery_kernel)
+endif
+# MIUI ADD END
+
+$(INTERNAL_RECOVERY_RAMDISK_FILES_TIMESTAMP): $(recovery_ramdisk_deps)
 	# Making recovery image
 	mkdir -p $(TARGET_RECOVERY_OUT)
 	mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/sdcard $(TARGET_RECOVERY_ROOT_OUT)/tmp
@@ -2478,6 +2569,19 @@ $(INTERNAL_RECOVERY_RAMDISK_FILES_TIMESTAMP): $(MKBOOTFS) $(COMPRESSION_COMMAND_
 	find $(TARGET_RECOVERY_ROOT_OUT) -maxdepth 1 -name 'init*.rc' -type f -not -name "init.recovery.*.rc" | xargs rm -f
 	cp $(TARGET_ROOT_OUT)/init.recovery.*.rc $(TARGET_RECOVERY_ROOT_OUT)/ 2> /dev/null || true # Ignore error when the src file doesn't exist.
 	mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/res
+# MIUI ADD START: for recovery power plug-in
+ifeq (true,$(BOARD_RECOVERY_POWER_PLUG))
+	$(hide) mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules
+	$(hide) mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/vendor/etc
+	$(hide) cp $(TARGET_RECOVERY_EXTERNAL_CHARGER_FSTAB) $(TARGET_RECOVERY_ROOT_OUT)/vendor/etc/charger_fstab.qti
+	$(hide) cp $(KERNEL_MODULES_OUT)/adsp_loader_dlkm.ko $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules/
+	$(hide) cp $(KERNEL_MODULES_OUT)/q6_pdr_dlkm.ko $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules/
+	$(hide) cp $(KERNEL_MODULES_OUT)/snd_event_dlkm.ko $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules/
+	$(hide) cp $(KERNEL_MODULES_OUT)/gpr_dlkm.ko $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules/
+	$(hide) cp $(KERNEL_MODULES_OUT)/q6_notifier_dlkm.ko $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules/
+	$(hide) cp $(KERNEL_MODULES_OUT)/spf_core_dlkm.ko $(TARGET_RECOVERY_ROOT_OUT)/vendor/lib/modules/
+endif
+# MIUI ADD END
 	rm -rf $(TARGET_RECOVERY_ROOT_OUT)/res/*
 	cp -rf $(recovery_resources_common)/* $(TARGET_RECOVERY_ROOT_OUT)/res
 	$(foreach recovery_text_file,$(generated_recovery_text_files), \
@@ -2566,7 +2670,9 @@ $(INSTALLED_RECOVERYIMAGE_TARGET): $(recoveryimage-deps)
 ifdef RECOVERY_RESOURCE_ZIP
 $(RECOVERY_RESOURCE_ZIP): $(INSTALLED_RECOVERYIMAGE_TARGET) | $(ZIPTIME)
 	$(hide) mkdir -p $(dir $@)
-	$(hide) find $(TARGET_RECOVERY_ROOT_OUT)/res -type f | sort | zip -0qrjX $@ -@
+# MIUI MOD
+# $(hide) find $(TARGET_RECOVERY_ROOT_OUT)/res -type f | sort | zip -0qrjX $@ -@
+	$(hide) find $(TARGET_RECOVERY_ROOT_OUT)/res -type f | sort | zip -0qr $@ -@
 	$(remove-timestamps-from-package)
 endif
 
@@ -3014,7 +3120,16 @@ $1: .KATI_SYMLINK_OUTPUTS := $1
 $1
 endef
 
-
+define create-resource-compat-symlink
+$(eval \
+$1:
+	@echo Symlink $(patsubst $(PRODUCT_OUT)/%,%,$1) to $2
+	mkdir -p $(dir $1)
+	ln -sfn $2 $1
+$1: .KATI_SYMLINK_OUTPUTS := $1
+)
+$1
+endef
 # -----------------------------------------------------------------
 # system image
 # -----------------------------------------------------------------
@@ -3081,7 +3196,7 @@ endif  # PRODUCT_SYSTEM_FSVERITY_GENERATE_METADATA
 
 INTERNAL_SYSTEMIMAGE_FILES := $(sort $(filter $(TARGET_OUT)/%, \
     $(ALL_DEFAULT_INSTALLED_MODULES)))
-
+INTERNAL_SYSTEMIMAGE_FILES += $(call create-resource-compat-symlink,$(TARGET_OUT)/media,/product/media)
 # Create symlink /system/vendor to /vendor if necessary.
 ifdef BOARD_USES_VENDORIMAGE
   INTERNAL_SYSTEMIMAGE_FILES += $(call create-partition-compat-symlink,$(TARGET_OUT)/vendor,/vendor,vendor.img)
@@ -3568,9 +3683,18 @@ endif
 # product partition image
 INSTALLED_FILES_OUTSIDE_IMAGES := $(filter-out $(TARGET_OUT_PRODUCT)/%, $(INSTALLED_FILES_OUTSIDE_IMAGES))
 ifdef BUILDING_PRODUCT_IMAGE
+define create-dir
+$(eval \
+$1:
+	mkdir -p  $1
+)
+$1
+endef
 INTERNAL_PRODUCTIMAGE_FILES := \
     $(filter $(TARGET_OUT_PRODUCT)/%,\
       $(ALL_DEFAULT_INSTALLED_MODULES))
+
+INTERNAL_PRODUCTIMAGE_FILES += $(call create-dir,$(TARGET_OUT_PRODUCT)/opcust)
 
 INSTALLED_FILES_FILE_PRODUCT := $(PRODUCT_OUT)/installed-files-product.txt
 INSTALLED_FILES_JSON_PRODUCT := $(INSTALLED_FILES_FILE_PRODUCT:.txt=.json)
@@ -5010,8 +5134,6 @@ else
   endif
 endif
 
-ifeq ($(build_otatools_package),true)
-
 INTERNAL_OTATOOLS_MODULES := \
   aapt2 \
   add_img_to_target_files \
@@ -5040,6 +5162,7 @@ INTERNAL_OTATOOLS_MODULES := \
   fsck.erofs \
   fsck.f2fs \
   fs_config \
+  fsck.erofs \
   generate_gki_certificate \
   generate_verity_key \
   host_init_verifier \
@@ -5053,6 +5176,9 @@ INTERNAL_OTATOOLS_MODULES := \
   make_f2fs \
   make_f2fs_casefold \
   merge_target_files \
+  pangu_merge_target_files \
+  pangu_update_mi_ext_meta \
+  pangu_compatibility_checks \
   minigzip \
   mk_combined_img \
   mkbootfs \
@@ -5096,6 +5222,12 @@ INTERNAL_OTATOOLS_MODULES += \
   merge_zips \
   resize2fs \
   soong_zip \
+  pangu_download_sku_files \
+  userdata_app_download \
+  pangu_userdata_tools \
+  mi_userdata_tools \
+  mi_ext_partition_tools \
+  mi_countrycode_partition_tools \
 
 ifeq (true,$(PRODUCT_SUPPORTS_VBOOT))
 INTERNAL_OTATOOLS_MODULES += \
@@ -5122,9 +5254,19 @@ INTERNAL_OTATOOLS_PACKAGE_FILES += \
   $(sort $(shell find build/make/target/product/security -type f -name "*.x509.pem" -o \
       -name "*.pk8" -o -name verity_key))
 
+ifeq ($(call is-factory-build),true)
+INTERNAL_OTATOOLS_PACKAGE_FILES += \
+  $(sort $(shell find build/make/target/product/security -type f -name "bsp_verity*.pem"))
+endif
+
+ifeq ($(call is-factory-build),true)
+INTERNAL_OTATOOLS_PACKAGE_FILES += \
+  $(sort $(shell find vendor/xiaomi/securebootsigner/Google/VB2_0 -type f -name "raw_signer*"))
+endif
+
 ifneq (,$(wildcard device))
 INTERNAL_OTATOOLS_PACKAGE_FILES += \
-  $(sort $(shell find device $(wildcard vendor) -type f -name "*.pk8" -o -name "verifiedboot*" -o \
+  $(sort $(shell find device $(wildcard vendor) -path "vendor/qcom/non-hlos-*" -a -prune -type f -name "*.pk8" -o -name "verifiedboot*" -o \
       -name "*.pem" -o -name "oem*.prop" -o -name "*.avbpubkey"))
 endif
 ifneq (,$(wildcard external/avb))
@@ -5141,17 +5283,33 @@ INTERNAL_OTATOOLS_RELEASETOOLS := \
   $(sort $(shell find build/make/tools/releasetools -name "*.pyc" -prune -o \
       \( -type f -o -type l \) -print))
 
+#BEGIN MIUI-add: packing xmlnotice to otatools.zip(JIRA/PANGU-992)
+INTERNAL_OTATOOLS_PACKAGE_FILES += $(HOST_OUT)/bin/xmlnotice
+#END MIUI-add: packing xmlnotice to otatools.zip(JIRA/PANGU-992)
+
 BUILT_OTATOOLS_PACKAGE := $(PRODUCT_OUT)/otatools.zip
 $(BUILT_OTATOOLS_PACKAGE): PRIVATE_ZIP_ROOT := $(call intermediates-dir-for,PACKAGING,otatools)/otatools
 $(BUILT_OTATOOLS_PACKAGE): PRIVATE_OTATOOLS_PACKAGE_FILES := $(INTERNAL_OTATOOLS_PACKAGE_FILES)
 $(BUILT_OTATOOLS_PACKAGE): PRIVATE_OTATOOLS_RELEASETOOLS := $(INTERNAL_OTATOOLS_RELEASETOOLS)
 $(BUILT_OTATOOLS_PACKAGE): $(INTERNAL_OTATOOLS_PACKAGE_FILES) $(INTERNAL_OTATOOLS_RELEASETOOLS)
+
+#BEGIN MIUI-add: packing prebuilts/bundletool to otatools.zip(JIRA/PANGU-888)
+PANGU_OTATOOLS += \
+  $(shell find prebuilts/bundletool -name "*.jar")
+$(BUILT_OTATOOLS_PACKAGE): PRIVATE_PANGU_OTATOOLS:= $(PANGU_OTATOOLS)
+#END MIUI-add: packing prebuilts/bundletool to otatools.zip(JIRA/PANGU-888)
+
 $(BUILT_OTATOOLS_PACKAGE): $(SOONG_ZIP) $(ZIP2ZIP)
 	@echo "Package OTA tools: $@"
 	rm -rf $@ $(PRIVATE_ZIP_ROOT)
 	mkdir -p $(dir $@)
 	$(call copy-files-with-structure,$(PRIVATE_OTATOOLS_PACKAGE_FILES),$(HOST_OUT)/,$(PRIVATE_ZIP_ROOT))
 	$(call copy-files-with-structure,$(PRIVATE_OTATOOLS_RELEASETOOLS),build/make/tools/,$(PRIVATE_ZIP_ROOT))
+
+  #BEGIN MIUI-add: packing prebuilts/bundletool to otatools.zip(JIRA/PANGU-888)
+	$(call copy-files-with-structure,$(PRIVATE_PANGU_OTATOOLS),prebuilts/,$(PRIVATE_ZIP_ROOT)/releasetools)
+  #END MIUI-add: packing prebuilts/bundletool to otatools.zip(JIRA/PANGU-888)
+
 	cp $(SOONG_ZIP) $(ZIP2ZIP) $(MERGE_ZIPS) $(PRIVATE_ZIP_ROOT)/bin/
 	$(SOONG_ZIP) -o $@ -C $(PRIVATE_ZIP_ROOT) -D $(PRIVATE_ZIP_ROOT)
 
@@ -5161,7 +5319,54 @@ $(call declare-container-license-deps,$(INTERNAL_OTATOOLS_PACKAGE_FILES) $(INTER
 .PHONY: otatools-package
 otatools-package: $(BUILT_OTATOOLS_PACKAGE)
 
-endif # build_otatools_package
+DEXPREOPT_CONFIG_ZIP := $(PRODUCT_OUT)/dexpreopt_config.zip
+
+$(DEXPREOPT_CONFIG_ZIP): $(INSTALLED_SYSTEMIMAGE_TARGET) \
+    $(INSTALLED_VENDORIMAGE_TARGET) \
+    $(INSTALLED_ODMIMAGE_TARGET) \
+    $(INSTALLED_PRODUCTIMAGE_TARGET) \
+
+ifeq (,$(TARGET_BUILD_UNBUNDLED))
+$(DEXPREOPT_CONFIG_ZIP): $(DEX_PREOPT_CONFIG_FOR_MAKE) \
+	  $(DEX_PREOPT_SOONG_CONFIG_FOR_MAKE) \
+
+endif
+
+$(DEXPREOPT_CONFIG_ZIP): $(SOONG_ZIP)
+	$(hide) mkdir -p $(dir $@) $(PRODUCT_OUT)/dexpreopt_config
+
+ifeq (,$(TARGET_BUILD_UNBUNDLED))
+ifneq (,$(DEX_PREOPT_CONFIG_FOR_MAKE))
+	$(hide) cp $(DEX_PREOPT_CONFIG_FOR_MAKE) $(PRODUCT_OUT)/dexpreopt_config
+endif
+ifneq (,$(DEX_PREOPT_SOONG_CONFIG_FOR_MAKE))
+	$(hide) cp $(DEX_PREOPT_SOONG_CONFIG_FOR_MAKE) $(PRODUCT_OUT)/dexpreopt_config
+endif
+endif #!TARGET_BUILD_UNBUNDLED
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(PRODUCT_OUT)/dexpreopt_config -D $(PRODUCT_OUT)/dexpreopt_config
+
+.PHONY: dexpreopt_config_zip
+dexpreopt_config_zip: $(DEXPREOPT_CONFIG_ZIP)
+
+$(call declare-1p-target,$(DEXPREOPT_CONFIG_ZIP),)
+
+# The mac build doesn't build dex2oat, so create the zip file only if the build OS is linux.
+ifeq ($(BUILD_OS),linux)
+ifneq ($(DEX2OAT),)
+dexpreopt_tools_deps := $(DEXPREOPT_GEN_DEPS) $(DEXPREOPT_GEN) $(AAPT2)
+dexpreopt_tools_deps += $(HOST_OUT_EXECUTABLES)/dexdump
+dexpreopt_tools_deps += $(HOST_OUT_EXECUTABLES)/oatdump
+DEXPREOPT_TOOLS_ZIP := $(PRODUCT_OUT)/dexpreopt_tools.zip
+$(DEXPREOPT_TOOLS_ZIP): $(dexpreopt_tools_deps)
+$(DEXPREOPT_TOOLS_ZIP): PRIVATE_DEXPREOPT_TOOLS_DEPS := $(dexpreopt_tools_deps)
+$(DEXPREOPT_TOOLS_ZIP): $(SOONG_ZIP)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) $(SOONG_ZIP) -d -o $@ -j $(addprefix -f ,$(PRIVATE_DEXPREOPT_TOOLS_DEPS)) -f $$(realpath $(DEX2OAT))
+endif # DEX2OAT is set
+endif # BUILD_OS == linux
+
+
+
 
 # -----------------------------------------------------------------
 #  misc_info.txt
@@ -5305,6 +5510,11 @@ ifdef BOARD_AVB_RECOVERY_KEY_PATH
 	$(hide) echo "avb_recovery_algorithm=$(BOARD_AVB_RECOVERY_ALGORITHM)" >> $@
 	$(hide) echo "avb_recovery_rollback_index_location=$(BOARD_AVB_RECOVERY_ROLLBACK_INDEX_LOCATION)" >> $@
 endif # BOARD_AVB_RECOVERY_KEY_PATH
+ifdef BOARD_AVB_CUST_KEY_PATH
+	$(hide) echo "avb_cust_key_path=$(BOARD_AVB_CUST_KEY_PATH)" >> $@
+	$(hide) echo "avb_cust_algorithm=$(BOARD_AVB_CUST_ALGORITHM)" >> $@
+	$(hide) echo "avb_cust_rollback_index_location=$(BOARD_AVB_CUST_ROLLBACK_INDEX_LOCATION)" >> $@
+endif
 ifneq (,$(strip $(BOARD_CUSTOMIMAGES_PARTITION_LIST)))
 	$(hide) echo "avb_custom_images_partition_list=$(BOARD_CUSTOMIMAGES_PARTITION_LIST)" >> $@
 	$(hide) $(foreach partition,$(BOARD_CUSTOMIMAGES_PARTITION_LIST), \
@@ -5424,9 +5634,13 @@ name := $(name)-target_files-$(FILE_NAME_TAG)
 
 intermediates := $(call intermediates-dir-for,PACKAGING,target_files)
 BUILT_TARGET_FILES_PACKAGE := $(intermediates)/$(name).zip
+BUILT_TARGET_FILES_PACKAGE_ROOT := $(intermediates)/$(name)_root.zip
 $(BUILT_TARGET_FILES_PACKAGE): intermediates := $(intermediates)
 $(BUILT_TARGET_FILES_PACKAGE): \
 	    zip_root := $(intermediates)/$(name)
+$(BUILT_TARGET_FILES_PACKAGE_ROOT): intermediates := $(intermediates)
+$(BUILT_TARGET_FILES_PACKAGE_ROOT): \
+            zip_root := $(intermediates)/$(name)
 
 # $(1): Directory to copy
 # $(2): Location to copy it to
@@ -5585,6 +5799,12 @@ define dump-dynamic-partitions-info
     echo "virtual_ab_retrofit=true" >> $(1))
 endef
 
+ifneq ($(MERGE_CONFIG_SRC_FILES),)
+INSTALLED_MERGE_CONFIG_FILES := $(addprefix $(PRODUCT_OUT)/,$(notdir $(MERGE_CONFIG_SRC_FILES)))
+$(INSTALLED_MERGE_CONFIG_FILES) : $(MERGE_CONFIG_SRC_FILES)
+	$(hide) cp $^ $(PRODUCT_OUT)/
+endif
+
 # By conditionally including the dependency of the target files package on the
 # full system image deps, we speed up builds that do not build the system
 # image.
@@ -5594,6 +5814,7 @@ else
   # releasetools may need the system build.prop even when building a
   # system-image-less product.
   $(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_BUILD_PROP_TARGET)
+  $(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_SYSTEMIMAGE_TARGET)
 endif
 
 ifdef BUILDING_USERDATA_IMAGE
@@ -5677,6 +5898,7 @@ endif
 
 ifdef BUILDING_SYSTEM_DLKM_IMAGE
   $(BUILT_TARGET_FILES_PACKAGE): $(INTERNAL_SYSTEM_DLKMIMAGE_FILES)
+  $(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_FILES_FILE_SYSTEM_DLKM)
 else ifdef BOARD_PREBUILT_SYSTEM_DLKMIMAGE
   $(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_SYSTEM_DLKMIMAGE_TARGET)
 endif
@@ -5685,15 +5907,41 @@ ifeq ($(BUILD_QEMU_IMAGES),true)
   MK_VBMETA_BOOT_KERNEL_CMDLINE_SH := device/generic/goldfish/tools/mk_vbmeta_boot_params.sh
   $(BUILT_TARGET_FILES_PACKAGE): $(MK_VBMETA_BOOT_KERNEL_CMDLINE_SH)
 endif
+ifeq ($(ADD_RADIO_FILES), true)
+$(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_RADIOIMAGE_TARGET)
+endif
 
 ifdef BOARD_PREBUILT_BOOTLOADER
 $(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_BOOTLOADER_MODULE)
 droidcore-unbundled: $(INSTALLED_BOOTLOADER_MODULE)
 endif
 
+ifeq ($(TARGET_PRODUCT), $(filter $(TARGET_PRODUCT),qssi missi))
+$(BUILT_TARGET_FILES_PACKAGE): $(BUILT_PRODUCTIMAGE_TARGET)
+endif
+
+ifneq ($(TARGET_PRODUCT), $(filter $(TARGET_PRODUCT),qssi missi))
+$(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_VENDOR_DLKMIMAGE_TARGET)
+endif
+
+ifeq ($(TARGET_NO_BOOTLOADER), false)
+$(BUILT_TARGET_FILES_PACKAGE): $(TARGET_SIGNED_BOOTLOADER)
+endif
+
+ifdef BUILDING_SYSTEM_IMAGE
+$(BUILT_TARGET_FILES_PACKAGE): $(DEXPREOPT_TOOLS_ZIP)
+endif
+
+# BEGIN MIUI add:copy $(INSTALLED_PRODUCTIMAGE_TARGET) to $(zip_root)/IMAGES(JIRA/PANGU-912)
+ifdef BUILDING_PRODUCT_IMAGE
+$(BUILT_TARGET_FILES_PACKAGE): $(INSTALLED_PRODUCTIMAGE_TARGET)
+endif
+# END MIUI add:copy $(INSTALLED_PRODUCTIMAGE_TARGET) to $(zip_root)/IMAGES(JIRA/PANGU-912)
+
 # Depending on the various images guarantees that the underlying
 # directories are up-to-date.
 $(BUILT_TARGET_FILES_PACKAGE): \
+	    $(INSTALLED_VENDOR_DEBUG_BOOTIMAGE_TARGET) \
 	    $(INSTALLED_RADIOIMAGE_TARGET) \
 	    $(INSTALLED_RECOVERYIMAGE_TARGET) \
 	    $(INSTALLED_CACHEIMAGE_TARGET) \
@@ -5701,14 +5949,18 @@ $(BUILT_TARGET_FILES_PACKAGE): \
 	    $(INSTALLED_PVMFWIMAGE_TARGET) \
 	    $(INSTALLED_PVMFW_EMBEDDED_AVBKEY_TARGET) \
 	    $(INSTALLED_CUSTOMIMAGES_TARGET) \
+	    $(INSTALLED_USERDATAIMAGE_TARGET) \
 	    $(INSTALLED_ANDROID_INFO_TXT_TARGET) \
 	    $(INSTALLED_KERNEL_TARGET) \
 	    $(INSTALLED_RAMDISK_TARGET) \
 	    $(INSTALLED_DTBIMAGE_TARGET) \
 	    $(INSTALLED_2NDBOOTLOADER_TARGET) \
+	    $(INSTALLED_METADATAIMAGE_TARGET) \
+	    $(INSTALLED_MERGE_CONFIG_FILES) \
 	    $(BOARD_PREBUILT_DTBOIMAGE) \
 	    $(BOARD_PREBUILT_RECOVERY_DTBOIMAGE) \
 	    $(BOARD_RECOVERY_ACPIO) \
+	    $(BUILT_BUILDTOOLS_PACKAGE) \
 	    $(PRODUCT_SYSTEM_BASE_FS_PATH) \
 	    $(PRODUCT_VENDOR_BASE_FS_PATH) \
 	    $(PRODUCT_PRODUCT_BASE_FS_PATH) \
@@ -5718,16 +5970,21 @@ $(BUILT_TARGET_FILES_PACKAGE): \
 	    $(PRODUCT_ODM_DLKM_BASE_FS_PATH) \
 	    $(PRODUCT_SYSTEM_DLKM_BASE_FS_PATH) \
 	    $(LPMAKE) \
+	    $(DEXPREOPT_CONFIG_ZIP)  \
 	    $(SELINUX_FC) \
 	    $(INSTALLED_MISC_INFO_TARGET) \
+	    $(BROTLI) \
 	    $(APKCERTS_FILE) \
 	    $(SOONG_APEX_KEYS_FILE) \
 	    $(SOONG_ZIP) \
 	    $(HOST_OUT_EXECUTABLES)/fs_config \
+	    $(HOST_OUT_EXECUTABLES)/imgdiff \
+	    $(HOST_OUT_EXECUTABLES)/bsdiff \
 	    $(ADD_IMG_TO_TARGET_FILES) \
 	    $(MAKE_RECOVERY_PATCH) \
 	    $(BUILT_KERNEL_CONFIGS_FILE) \
 	    $(BUILT_KERNEL_VERSION_FILE) \
+            $(BUILT_OTATOOLS_PACKAGE) \
 	    | $(ACP)
 	@echo "Package target files: $@"
 	$(hide) rm -rf $@ $@.list $(zip_root)
@@ -5808,11 +6065,15 @@ endif
 ifdef BOARD_KERNEL_PAGESIZE
 	echo "$(BOARD_KERNEL_PAGESIZE)" > $(zip_root)/BOOT/pagesize
 endif
+else
+	echo "" > $(zip_root)/BOOT/cmdline
 endif # INSTALLED_VENDOR_BOOTIMAGE_TARGET == "" && BOARD_USES_GENERIC_KERNEL_IMAGE != true
 endif # BOARD_USES_RECOVERY_AS_BOOT not true
+ifeq ($(ADD_RADIO_FILES), true)
 	$(hide) $(foreach t,$(INSTALLED_RADIOIMAGE_TARGET),\
 	            mkdir -p $(zip_root)/RADIO; \
 	            cp $(t) $(zip_root)/RADIO/$(notdir $(t));)
+endif
 ifdef INSTALLED_VENDOR_BOOTIMAGE_TARGET
 	mkdir -p $(zip_root)/VENDOR_BOOT
 	$(call package_files-copy-root, \
@@ -5882,6 +6143,11 @@ ifdef BUILDING_PRODUCT_IMAGE
 	@# Contents of the product image
 	$(hide) $(call package_files-copy-root, \
 	    $(TARGET_OUT_PRODUCT),$(zip_root)/PRODUCT)
+	@# BEGIN MIUI add:copy $(INSTALLED_PRODUCTIMAGE_TARGET) to $(zip_root)/IMAGES(JIRA/PANGU-912)
+	mkdir -p $(zip_root)/IMAGES
+	cp $(INSTALLED_PRODUCTIMAGE_TARGET) $(zip_root)/IMAGES/
+	cp $(PRODUCT_OUT)/product.map $(zip_root)/IMAGES/
+	@# END MIUI add:copy $(INSTALLED_PRODUCTIMAGE_TARGET) to $(zip_root)/IMAGES(JIRA/PANGU-912)
 endif
 ifdef BUILDING_SYSTEM_EXT_IMAGE
 	@# Contents of the system_ext image
@@ -6069,6 +6335,15 @@ endif # BOARD_CUSTOMIMAGES_PARTITION_LIST
 	@# Run fs_config on all the system, vendor, boot ramdisk,
 	@# and recovery ramdisk files in the zip, and save the output
 ifdef BUILDING_SYSTEM_IMAGE
+ifneq ($(ENABLE_MIUI_DEBUGGING),true)
+ifneq ($(TARGET_BUILD_VARIANT),userdebug)
+	echo "TARGET_BUILD_VARIANT : $(TARGET_BUILD_VARIANT)"
+	if [ -a $(zip_root)/SYSTEM/bin/remount ]; then \
+		mv $(zip_root)/SYSTEM/bin/remount $(zip_root)/META/remount; \
+		touch $(zip_root)/SYSTEM/bin/remount; \
+	fi
+endif
+endif
 	$(hide) $(call fs_config,$(zip_root)/SYSTEM,system/) > $(zip_root)/META/filesystem_config.txt
 endif
 ifdef BUILDING_VENDOR_IMAGE
@@ -6078,6 +6353,9 @@ ifdef BUILDING_PRODUCT_IMAGE
 	$(hide) $(call fs_config,$(zip_root)/PRODUCT,product/) > $(zip_root)/META/product_filesystem_config.txt
 endif
 ifdef BUILDING_SYSTEM_EXT_IMAGE
+	if [ -a $(zip_root)/SYSTEM_EXT/etc/selinux/pangu_userdebug_plat_sepolicy.cil ]; then \
+		mv $(zip_root)/SYSTEM_EXT/etc/selinux/pangu_userdebug_plat_sepolicy.cil $(zip_root)/META/userdebug_plat_sepolicy.cil; \
+	fi
 	$(hide) $(call fs_config,$(zip_root)/SYSTEM_EXT,system_ext/) > $(zip_root)/META/system_ext_filesystem_config.txt
 endif
 ifdef BUILDING_ODM_IMAGE
@@ -6096,6 +6374,9 @@ endif
 	$(hide) $(call fs_config,$(zip_root)/ROOT,) > $(zip_root)/META/root_filesystem_config.txt
 ifeq ($(BOARD_USES_RECOVERY_AS_BOOT),true)
 	@# BOOT/RAMDISK exists and contains the ramdisk for recovery if using BOARD_USES_RECOVERY_AS_BOOT.
+	@# BEGIN MIUI add:mkdir to make sure BOOT/RAMDISK exist or fs_config find all other directorys in workspace(JIRA/PANGU-917)
+	$(hide) mkdir -p $(zip_root)/BOOT/RAMDISK
+	@# END MIUI add:mkdir to make sure BOOT/RAMDISK exist or fs_config find all other directorys in workspace(JIRA/PANGU-917)
 	$(hide) $(call fs_config,$(zip_root)/BOOT/RAMDISK,) > $(zip_root)/META/boot_filesystem_config.txt
 endif
 ifdef BUILDING_INIT_BOOT_IMAGE
@@ -6110,6 +6391,9 @@ ifneq ($(INSTALLED_VENDOR_BOOTIMAGE_TARGET),)
 endif
 ifneq ($(BOARD_BUILD_SYSTEM_ROOT_IMAGE),true)
 	@# BOOT/RAMDISK also exists and contains the first stage ramdisk if not using BOARD_BUILD_SYSTEM_ROOT_IMAGE.
+	@# BEGIN MIUI add:mkdir to make sure BOOT/RAMDISK exist or fs_config find all other directorys in workspace(JIRA/PANGU-917)
+	$(hide) mkdir -p $(zip_root)/BOOT/RAMDISK
+	@# END MIUI add:mkdir to make sure BOOT/RAMDISK exist or fs_config find all other directorys in workspace(JIRA/PANGU-917)
 	$(hide) $(call fs_config,$(zip_root)/BOOT/RAMDISK,) > $(zip_root)/META/boot_filesystem_config.txt
 endif
 ifneq ($(INSTALLED_RECOVERYIMAGE_TARGET),)
@@ -6135,15 +6419,54 @@ ifeq ($(BUILD_QEMU_IMAGES),true)
 	$(hide) AVBTOOL=$(AVBTOOL) $(MK_VBMETA_BOOT_KERNEL_CMDLINE_SH) $(zip_root)/IMAGES/vbmeta.img \
 	    $(zip_root)/IMAGES/system.img $(zip_root)/IMAGES/VerifiedBootParams.textproto
 endif
+ifdef MEGER_TARGET_FILE_COPY_LIST
+	$(hide) cp -rf ${MEGER_TARGET_FILE_COPY_LIST} $(zip_root)/
+endif
+ifdef BUILDING_SYSTEM_IMAGE
+	$(hide) cp -rf $(DEXPREOPT_TOOLS_ZIP) $(zip_root)
+endif
+	$(hide) cp -rf $(DEXPREOPT_CONFIG_ZIP) $(zip_root)/
 	@# Zip everything up, preserving symlinks and placing META/ files first to
 	@# help early validation of the .zip file while uploading it.
 	$(hide) find $(zip_root)/META | sort >$@.list
 	$(hide) find $(zip_root) -path $(zip_root)/META -prune -o -print | sort >>$@.list
 	$(hide) $(SOONG_ZIP) -d -o $@ -C $(zip_root) -r $@.list
+	$(hide) cp $@ $(PRODUCT_OUT)
 
+# Add for userroot target-files-package
+ifdef BUILDING_ODM_IMAGE
+$(BUILT_TARGET_FILES_PACKAGE_ROOT): \
+	$(BUILT_TARGET_FILES_PACKAGE) 
+ifdef INSTALLED_VENDOR_BOOTIMAGE_TARGET
+	mkdir -p $(zip_root)/VENDOR_BOOT
+	$(call package_files-copy-root, \
+	    $(TARGET_DEBUG_RAMDISK_OUT),$(zip_root)/VENDOR_BOOT/RAMDISK)
+	rm -rf $(zip_root)/META/vendor_boot_filesystem_config.txt
+	rm -rf  $(zip_root)/IMAGES/vendor_boot.img
+	$(call fs_config,$(zip_root)/VENDOR_BOOT/RAMDISK,) > $(zip_root)/META/vendor_boot_filesystem_config.txt
+	PATH=$(INTERNAL_USERIMAGES_BINARY_PATHS):$$PATH MKBOOTIMG=$(MKBOOTIMG) \
+	    $(ADD_IMG_TO_TARGET_FILES) -a -v -p $(HOST_OUT) $(zip_root)	
+endif
+ifdef BOARD_PREBUILT_USERDEBUG_BOOTIMAGE
+	$(hide) mkdir -p $(zip_root)/PREBUILT_IMAGES
+	$(hide) cp $(BOARD_PREBUILT_USERDEBUG_BOOTIMAGE) $(zip_root)/PREBUILT_IMAGES/userdebug_boot.img
+endif # BOARD_PREBUILT_USERDEBUG_BOOTIMAGE
+	$(hide) find $(zip_root)/META | sort >$@.list
+	$(hide) find $(zip_root) -path $(zip_root)/META -prune -o -print | sort >>$@.list
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(zip_root) -r $@.list
+	$(hide) cp $@ $(PRODUCT_OUT)
+
+endif
 .PHONY: target-files-package
+ifeq ($(ENABLE_MIUI_DEBUGGING),true)
 target-files-package: $(BUILT_TARGET_FILES_PACKAGE)
-
+else
+ifeq ($(BUILDING_ODM_IMAGE)_$(TARGET_BUILD_VARIANT), true_user)
+target-files-package: $(BUILT_TARGET_FILES_PACKAGE) $(BUILT_TARGET_FILES_PACKAGE_ROOT)
+else
+target-files-package: $(BUILT_TARGET_FILES_PACKAGE)
+endif
+endif
 $(call declare-1p-container,$(BUILT_TARGET_FILES_PACKAGE),)
 $(call declare-container-license-deps,$(BUILT_TARGET_FILES_PACKAGE), $(INSTALLED_RADIOIMAGE_TARGET) \
             $(INSTALLED_RECOVERYIMAGE_TARGET) \
@@ -6180,6 +6503,319 @@ $(call declare-container-license-deps,$(BUILT_TARGET_FILES_PACKAGE), $(INSTALLED
             $(BUILT_KERNEL_VERSION_FILE),$(BUILT_TARGET_FILES_PACKAGE):)
 
 $(call dist-for-goals, target-files-package, $(BUILT_TARGET_FILES_PACKAGE))
+
+# -----------------------------------------------------------------
+#  add by xiaomi
+# -----------------------------------------------------------------
+# spilt target-files-package define
+define get_split_targetfile_name
+$(strip \
+    $(eval _name := $(strip $(TARGET_PRODUCT))) \
+    $(if $(filter $(TARGET_BUILD_TYPE),debug), \
+        $(eval _name:= $(_name)_debug) \
+      ,) \
+    $(_name)-$(strip $(1))-target_files-$(FILE_NAME_TAG) \
+)
+endef
+
+# ---------- system_ext-target-files-package ---------- #
+split_image := system_ext
+$(split_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(split_image)_target_files)
+split_name := $(call get_split_targetfile_name, $(split_image))
+BUILD_SYSTEM_EXT_TARGET_FILES_PACKAGE := $($(split_image)_intermediates)/$(split_name).zip
+INSTALLED_SYSTEM_EXT_TARGET_FILE_PACKAGE := $(TARGET_MERGE_OUT_ROOT)/$(split_image)-target_files.zip
+
+$(BUILD_SYSTEM_EXT_TARGET_FILES_PACKAGE): $(BUILT_TARGET_FILES_PACKAGE)
+$(BUILD_SYSTEM_EXT_TARGET_FILES_PACKAGE):
+	@echo "Package target files: $@"
+	$(hide) rm -rf $(dir $@)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) mv $(BUILT_TARGET_FILES_PACKAGE) $@
+	$(hide) mkdir -p $(dir $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE))
+	$(hide) cp $@ $(INSTALLED_SYSTEM_EXT_TARGET_FILE_PACKAGE)
+
+.PHONY: system_ext-target-files-package
+system_ext-target-files-package: $(BUILD_SYSTEM_EXT_TARGET_FILES_PACKAGE)
+
+# ---------- system-target-files-package ---------- #
+split_image := system
+$(split_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(split_image)_target_files)
+split_name := $(call get_split_targetfile_name, $(split_image))
+BUILD_SYSTEM_TARGET_FILES_PACKAGE := $($(split_image)_intermediates)/$(split_name).zip
+INSTALLED_SYSTEM_TARGET_FILE_PACKAGE := $(TARGET_MERGE_OUT_ROOT)/$(split_image)-target_files.zip
+
+$(BUILD_SYSTEM_TARGET_FILES_PACKAGE): $(BUILT_TARGET_FILES_PACKAGE)
+$(BUILD_SYSTEM_TARGET_FILES_PACKAGE):
+	@echo "Package target files: $@"
+	$(hide) rm -rf $(dir $@)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) mv $(BUILT_TARGET_FILES_PACKAGE) $@
+	$(hide) mkdir -p $(dir $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE))
+	$(hide) cp $@ $(INSTALLED_SYSTEM_TARGET_FILE_PACKAGE)
+
+.PHONY: system-target-files-package
+# BEGIN MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+system-target-files-package: $(BUILD_SYSTEM_TARGET_FILES_PACKAGE) $(PRODUCT_OUT)/module-info.json
+# END   MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+
+# ---------- product-target-files-package ---------- #
+split_image := product
+$(split_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(split_image)_target_files)
+split_name := $(call get_split_targetfile_name, $(split_image))
+BUILD_PRODUCT_TARGET_FILES_PACKAGE := $($(split_image)_intermediates)/$(split_name).zip
+INSTALLED_PRODUCT_TARGET_FILE_PACKAGE := $(TARGET_MERGE_OUT_ROOT)/$(split_image)-target_files.zip
+
+$(BUILD_PRODUCT_TARGET_FILES_PACKAGE): $(BUILT_TARGET_FILES_PACKAGE)
+$(BUILD_PRODUCT_TARGET_FILES_PACKAGE):
+	@echo "Package target files: $@"
+	$(hide) rm -rf $(dir $@)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) mv $(BUILT_TARGET_FILES_PACKAGE) $@
+	$(hide) mkdir -p $(dir $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE))
+	$(hide) cp $@ $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE)
+
+.PHONY: PRECREATE_PRODUCT_DIRS
+PRECREATE_PRODUCT_DIRS:PRECREATE_PRODUCT_DIR=$(PRODUCT_OUT)/product
+PRECREATE_PRODUCT_DIRS:
+	@echo "creating precreated product dirs"
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/overlay
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/app
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/priv-app
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/lib
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/lib64
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/bin
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/usr
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/framework
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/media
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/opcust
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/data-app
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/etc/sysconfig
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/etc/permissions
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/etc/precust_theme
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/etc/security
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/etc/preferred-apps
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/pangu/system/app
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/pangu/system/priv-app
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/pangu/system/etc/permissions
+	$(hide) mkdir -p $(PRECREATE_PRODUCT_DIR)/pangu/system/framework
+
+.PHONY: product-target-files-package
+# BEGIN MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+product-target-files-package: PRECREATE_PRODUCT_DIRS $(BUILD_PRODUCT_TARGET_FILES_PACKAGE) $(PRODUCT_OUT)/module-info.json
+# END   MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+
+# ---------- odm-target-files-package ---------- #
+split_image := odm
+$(split_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(split_image)_target_files)
+split_name := $(call get_split_targetfile_name, $(split_image))
+BUILD_ODM_TARGET_FILES_PACKAGE := $($(split_image)_intermediates)/$(split_name).zip
+INSTALLED_ODM_TARGET_FILE_PACKAGE := $(TARGET_MERGE_OUT_ROOT)/$(split_image)-target_files.zip
+
+$(BUILD_ODM_TARGET_FILES_PACKAGE): $(BUILT_TARGET_FILES_PACKAGE)
+$(BUILD_ODM_TARGET_FILES_PACKAGE):
+	@echo "Package target files: $@"
+	$(hide) rm -rf $(dir $@)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) mv $(BUILT_TARGET_FILES_PACKAGE) $@
+	$(hide) unzip $@ -d $(dir $@)tmp
+	$(hide) rm $@
+	$(hide) mkdir -p $(dir $@)tmp/core_without_images/images
+	$(hide) g_tar_home=$(dir $@)tmp/core_without_images FACTORY_BUILD=$(call is-factory-build) BUILD_REGION=$(call get-miodm-region) /bin/bash device/xiaomi/$(call get-miodm-device-name)/copy-files-without-core-images.sh
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(dir $@)tmp  -D $(dir $@)tmp
+	$(hide) rm -rf $(dir $@)tmp
+	$(hide) mkdir -p $(dir $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE))
+	$(hide) cp $@ $(INSTALLED_ODM_TARGET_FILE_PACKAGE)
+
+
+
+BUILD_ODM_TARGET_FILES_PACKAGE_ROOT := $($(split_image)_intermediates)_root/$(split_name)_root.zip
+INSTALLED_ODM_TARGET_FILE_PACKAGE_ROOT := $(TARGET_MERGE_OUT_ROOT)/$(split_image)-target_files_root.zip
+
+$(BUILD_ODM_TARGET_FILES_PACKAGE_ROOT): $(BUILT_TARGET_FILES_PACKAGE_ROOT)
+$(BUILD_ODM_TARGET_FILES_PACKAGE_ROOT):
+	echo "start odm-target-files-package_root"
+	echo "PRODUCT_OUT : $(PRODUCT_OUT)"
+	echo "TARGET_BOARD_PLATFORM:${TARGET_BOARD_PLATFORM}"
+	#./kernel_platform/build/kernel/android/compare_node.sh ${PRODUCT_OUT} ${TARGET_BOARD_PLATFORM}
+	echo "end odm-target-files-package_root"
+	@echo "Package target files root: $@"
+	$(hide) rm -rf $(dir $@)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) mv $(BUILT_TARGET_FILES_PACKAGE_ROOT) $@
+	$(hide) unzip $@ -d $(dir $@)tmp
+	$(hide) rm $@
+	$(hide) mkdir -p $(dir $@)tmp/core_without_images/images
+	$(hide) g_tar_home=$(dir $@)tmp/core_without_images FACTORY_BUILD=$(call is-factory-build) BUILD_REGION=$(call get-miodm-region) /bin/bash device/xiaomi/$(call get-miodm-device-name)/copy-files-without-core-images.sh
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(dir $@)tmp  -D $(dir $@)tmp
+	$(hide) rm -rf $(dir $@)tmp
+	$(hide) mkdir -p $(dir $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE))
+	$(hide) cp $@ $(INSTALLED_ODM_TARGET_FILE_PACKAGE_ROOT)
+
+.PHONY: odm-target-files-package
+# BEGIN MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+ifeq ($(ENABLE_MIUI_DEBUGGING),true)
+odm-target-files-package: $(BUILD_ODM_TARGET_FILES_PACKAGE) $(PRODUCT_OUT)/module-info.json
+else
+ifeq ($(TARGET_BUILD_VARIANT), user)
+odm-target-files-package: $(BUILD_ODM_TARGET_FILES_PACKAGE) $(BUILD_ODM_TARGET_FILES_PACKAGE_ROOT) $(PRODUCT_OUT)/module-info.json
+else
+odm-target-files-package: $(BUILD_ODM_TARGET_FILES_PACKAGE) $(PRODUCT_OUT)/module-info.json
+endif
+endif
+# END   MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+
+# ---------- vendor-target-files-package ---------- #
+split_image := vendor
+$(split_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(split_image)_target_files)
+split_name := $(call get_split_targetfile_name, $(split_image))
+BUILD_VENDOR_TARGET_FILES_PACKAGE := $($(split_image)_intermediates)/$(split_name).zip
+INSTALLED_VENDOR_TARGET_FILE_PACKAGE := $(TARGET_MERGE_OUT_ROOT)/$(split_image)-target_files.zip
+
+$(BUILD_VENDOR_TARGET_FILES_PACKAGE): $(BUILT_TARGET_FILES_PACKAGE)
+$(BUILD_VENDOR_TARGET_FILES_PACKAGE):
+	echo "start vendor-target-files-package"
+	echo "PRODUCT_OUT : $(PRODUCT_OUT)"
+	echo "TARGET_BOARD_PLATFORM:${TARGET_BOARD_PLATFORM}"
+	#./kernel_platform/build/kernel/android/compare_node.sh ${PRODUCT_OUT} ${TARGET_BOARD_PLATFORM}
+	echo "end vendor-target-files-package"
+	@echo "Package target files: $@"
+	$(hide) rm -rf $(dir $@)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) mv $(BUILT_TARGET_FILES_PACKAGE) $@
+	$(hide) mkdir -p $(dir $(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE))
+	$(hide) cp $@ $(INSTALLED_VENDOR_TARGET_FILE_PACKAGE)
+
+.PHONY: vendor-target-files-package
+# BEGIN MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+vendor-target-files-package: $(BUILD_VENDOR_TARGET_FILES_PACKAGE) $(PRODUCT_OUT)/module-info.json
+# END   MIUI-modify: build module-info.json to be used by presubmit (JIRA/PANGU-964)
+#  end of vendor-target-files-package
+
+#Composite device and ssi target-file-package
+define extract_target_file_content
+	$(foreach image, $(1),
+		$(hide) echo "extract $(image)-target-file for assemble whole target-file ..."
+		$(eval _tmpdir := $(2)/temp_$(image))
+		$(hide) rm -rf $(_tmpdir) && mkdir -p $(_tmpdir)
+		$(hide) unzip -o -d $(_tmpdir) $(INSTALLED_$(call to-upper,$(image))_TARGET_FILE_PACKAGE)
+		$(hide) for file in `cat $(_tmpdir)/merge_target-files_copy.list` ; do \
+			mkdir -p $(2)/`dirname $${file}` ; \
+			if [ -f $(2)/$${file} ] ; then \
+				cat $(_tmpdir)/$${file} >> $(2)/$${file} ; \
+			else \
+				cp -rf $(_tmpdir)/$${file} $(2)/`dirname $${file}` ; \
+			fi \
+		done
+		$(hide) rm -rf $(_tmpdir)
+	)
+endef
+
+#Composite dexpreopt config
+define extract_dexpreopt_config_content
+	$(foreach image, $(1),
+		$(hide) echo "extract $(image)-dexpreopt_config for assemble whole target-file ..."
+		$(eval _tmpdir := $(2)/temp_$(image))
+		$(hide) rm -rf $(_tmpdir) && mkdir -p $(_tmpdir)
+		$(hide) unzip -j $(INSTALLED_$(call to-upper,$(image))_TARGET_FILE_PACKAGE) dexpreopt_config.zip -d $(_tmpdir)
+		$(hide) unzip -o -j $(_tmpdir)/dexpreopt_config.zip -d $(2)/$(strip $(3))
+		$(hide) rm -rf $(_tmpdir)
+		$(hide) unzip -nq -j $(INSTALLED_$(call to-upper,$(image))_TARGET_FILE_PACKAGE) dexpreopt_tools.zip -d $(2) 2>/dev/null ||true
+	)
+	$(hide) zip -rj $(2)/$(strip $(3)).zip $(2)/$(strip $(3))
+endef
+# ---------- ssi-target-files-package ---------- #
+target_image := ssi
+$(target_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(target_image)_target_files)
+target_name := $(call get_split_targetfile_name, $(target_image))
+BUILD_SSI_TARGET_FILES_PACKAGE := $($(target_image)_intermediates)/$(target_name).zip
+ssi_target_file_list := system product
+
+$(BUILD_SSI_TARGET_FILES_PACKAGE): \
+	$(INSTALLED_SYSTEM_TARGET_FILE_PACKAGE) \
+	$(INSTALLED_PRODUCT_TARGET_FILE_PACKAGE) \
+	$(BUILT_OTATOOLS_PACKAGE) \
+	$(INSTALLED_MERGE_CONFIG_FILES) \
+	$(INSTALLED_MISC_INFO_TARGET)
+$(BUILD_SSI_TARGET_FILES_PACKAGE): zip_root := $($(target_image)_intermediates)/$(target_name)
+$(BUILD_SSI_TARGET_FILES_PACKAGE):
+	@echo "Package target files: $@"
+	$(hide) rm -rf $@ $@.list $(zip_root)
+	$(hide) mkdir -p $(dir $@) $(zip_root)
+	$(call extract_target_file_content, $(ssi_target_file_list), $(zip_root))
+# reconstruct META directory
+	@# Files that do not end up in any images, but are necessary to
+	@# build them.
+	$(hide) mkdir -p $(zip_root)/META
+	$(hide) cp $(INSTALLED_MISC_INFO_TARGET) $(zip_root)/META/misc_info.txt
+#create target file zip
+	@# Zip everything up, preserving symlinks and placing META/ files first to
+	@# help early validation of the .zip file while uploading it.
+	$(hide) find $(zip_root)/META | sort >$@.list
+	$(hide) find $(zip_root) -path $(zip_root)/META -prune -o -print | sort >>$@.list
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(zip_root) -r $@.list
+	$(hide) mkdir -p $(TARGET_MERGE_OUT_ROOT)
+	$(hide) cp $@ $(TARGET_MERGE_OUT_ROOT)
+	$(hide) cp $(BUILT_OTATOOLS_PACKAGE) $(TARGET_MERGE_OUT_ROOT)
+ifneq ($(INSTALLED_MERGE_CONFIG_FILES),)
+	$(hide) cp $(INSTALLED_MERGE_CONFIG_FILES) $(TARGET_MERGE_OUT_ROOT)
+endif
+# merge dexpreopt to dexpreopt_config_ssi.zip and copy dexpreopt_tools.zip
+	$(call extract_dexpreopt_config_content, $(ssi_target_file_list), $(TARGET_MERGE_OUT_ROOT), dexpreopt_config_ssi)
+
+.PHONY: ssi-target-files-package
+ssi-target-files-package: $(BUILD_SSI_TARGET_FILES_PACKAGE)
+
+# ---------- device-target-files-package ---------- #
+target_image := device
+$(target_image)_intermediates := $(call intermediates-dir-for,PACKAGING, $(target_image)_target_files)
+target_name := $(call get_split_targetfile_name, $(target_image))
+BUILD_DEVICE_TARGET_FILES_PACKAGE := $($(target_image)_intermediates)/$(target_name).zip
+device_target_file_list := vendor odm
+
+$(BUILD_DEVICE_TARGET_FILES_PACKAGE): \
+	$(INSTALLED_ODM_TARGET_FILE_PACKAGE) \
+	$(BUILT_OTATOOLS_PACKAGE) \
+	$(INSTALLED_VENDOR_TARGET_FILE_PACKAGE) \
+	$(INSTALLED_MISC_INFO_TARGET)
+$(BUILD_DEVICE_TARGET_FILES_PACKAGE): zip_root := $($(target_image)_intermediates)/$(target_name)
+$(BUILD_DEVICE_TARGET_FILES_PACKAGE):
+	@echo "Package target files: $@"
+	$(hide) rm -rf $@ $@.list $(zip_root)
+	$(hide) mkdir -p $(dir $@) $(zip_root)
+	$(call extract_target_file_content, $(device_target_file_list), $(zip_root))
+# reconstruct META directory
+	@# Files that do not end up in any images, but are necessary to
+	@# build them.
+	$(hide) mkdir -p $(zip_root)/META
+	$(hide) cp $(INSTALLED_MISC_INFO_TARGET) $(zip_root)/META/misc_info.txt
+#rebuild dynamic_partitions_info.txt
+	rm -rf $(zip_root)/META/dynamic_partitions_info.txt
+ifeq (true,$(PRODUCT_USE_DYNAMIC_PARTITIONS))
+	$(call dump-dynamic-partitions-info, $(zip_root)/META/dynamic_partitions_info.txt)
+endif
+#uniq boot_filesystem_config.txt
+	$(hide) awk '!visited[$$0]++' $(zip_root)/META/boot_filesystem_config.txt > $(zip_root)/META/boot_filesystem_config.txt.bak
+	$(hide) mv $(zip_root)/META/boot_filesystem_config.txt.bak $(zip_root)/META/boot_filesystem_config.txt
+#create target file zip
+	@# Zip everything up, preserving symlinks and placing META/ files first to
+	@# help early validation of the .zip file while uploading it.
+	$(hide) find $(zip_root)/META | sort >$@.list
+	$(hide) find $(zip_root) -path $(zip_root)/META -prune -o -print | sort >>$@.list
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(zip_root) -r $@.list
+	$(hide) mkdir -p $(TARGET_MERGE_OUT_ROOT)
+	$(hide) cp $@ $(TARGET_MERGE_OUT_ROOT)
+	$(hide) cp $(BUILT_OTATOOLS_PACKAGE) $(TARGET_MERGE_OUT_ROOT)/vendor_otatools.zip
+ifneq ($(INSTALLED_MERGE_CONFIG_FILES),)
+	$(hide) cp $(INSTALLED_MERGE_CONFIG_FILES) $(TARGET_MERGE_OUT_ROOT)
+endif
+# merge dexpreopt to dexpreopt_config_device.zip
+	$(call extract_dexpreopt_config_content, $(device_target_file_list), $(TARGET_MERGE_OUT_ROOT), dexpreopt_config_device)
+
+.PHONY: device-target-files-package
+device-target-files-package: $(BUILD_DEVICE_TARGET_FILES_PACKAGE)
+# -----------------------------------------------------------------
+#  add by xiaomi end
+# -----------------------------------------------------------------
 
 # -----------------------------------------------------------------
 # NDK Sysroot Package
@@ -6292,53 +6928,6 @@ $(APPCOMPAT_ZIP): $(SOONG_ZIP)
 	$(hide) mkdir -p $(dir $@) $(PRODUCT_OUT)/appcompat $(dir $(PRIVATE_LIST_FILE))
 	$(hide) find $(PRODUCT_OUT)/appcompat | sort >$(PRIVATE_LIST_FILE)
 	$(hide) $(SOONG_ZIP) -d -o $@ -C $(PRODUCT_OUT)/appcompat -l $(PRIVATE_LIST_FILE)
-
-# The mac build doesn't build dex2oat, so create the zip file only if the build OS is linux.
-ifeq ($(BUILD_OS),linux)
-ifneq ($(DEX2OAT),)
-dexpreopt_tools_deps := $(DEXPREOPT_GEN_DEPS) $(DEXPREOPT_GEN) $(AAPT2)
-dexpreopt_tools_deps += $(HOST_OUT_EXECUTABLES)/dexdump
-dexpreopt_tools_deps += $(HOST_OUT_EXECUTABLES)/oatdump
-DEXPREOPT_TOOLS_ZIP := $(PRODUCT_OUT)/dexpreopt_tools.zip
-$(DEXPREOPT_TOOLS_ZIP): $(dexpreopt_tools_deps)
-$(DEXPREOPT_TOOLS_ZIP): PRIVATE_DEXPREOPT_TOOLS_DEPS := $(dexpreopt_tools_deps)
-$(DEXPREOPT_TOOLS_ZIP): $(SOONG_ZIP)
-	$(hide) mkdir -p $(dir $@)
-	$(hide) $(SOONG_ZIP) -d -o $@ -j $(addprefix -f ,$(PRIVATE_DEXPREOPT_TOOLS_DEPS)) -f $$(realpath $(DEX2OAT))
-$(call declare-1p-target,$(DEXPREOPT_TOOLS_ZIP),)
-endif # DEX2OAT is set
-endif # BUILD_OS == linux
-
-DEXPREOPT_CONFIG_ZIP := $(PRODUCT_OUT)/dexpreopt_config.zip
-
-$(DEXPREOPT_CONFIG_ZIP): $(INSTALLED_SYSTEMIMAGE_TARGET) \
-    $(INSTALLED_VENDORIMAGE_TARGET) \
-    $(INSTALLED_ODMIMAGE_TARGET) \
-    $(INSTALLED_PRODUCTIMAGE_TARGET) \
-
-ifeq (,$(TARGET_BUILD_UNBUNDLED))
-$(DEXPREOPT_CONFIG_ZIP): $(DEX_PREOPT_CONFIG_FOR_MAKE) \
-	  $(DEX_PREOPT_SOONG_CONFIG_FOR_MAKE) \
-
-endif
-
-$(DEXPREOPT_CONFIG_ZIP): $(SOONG_ZIP)
-	$(hide) mkdir -p $(dir $@) $(PRODUCT_OUT)/dexpreopt_config
-
-ifeq (,$(TARGET_BUILD_UNBUNDLED))
-ifneq (,$(DEX_PREOPT_CONFIG_FOR_MAKE))
-	$(hide) cp $(DEX_PREOPT_CONFIG_FOR_MAKE) $(PRODUCT_OUT)/dexpreopt_config
-endif
-ifneq (,$(DEX_PREOPT_SOONG_CONFIG_FOR_MAKE))
-	$(hide) cp $(DEX_PREOPT_SOONG_CONFIG_FOR_MAKE) $(PRODUCT_OUT)/dexpreopt_config
-endif
-endif #!TARGET_BUILD_UNBUNDLED
-	$(hide) $(SOONG_ZIP) -d -o $@ -C $(PRODUCT_OUT)/dexpreopt_config -D $(PRODUCT_OUT)/dexpreopt_config
-
-.PHONY: dexpreopt_config_zip
-dexpreopt_config_zip: $(DEXPREOPT_CONFIG_ZIP)
-
-$(call declare-1p-target,$(DEXPREOPT_CONFIG_ZIP),)
 
 # -----------------------------------------------------------------
 # A zip of the symbols directory.  Keep the full paths to make it

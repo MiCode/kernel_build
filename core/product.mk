@@ -24,6 +24,8 @@ _product_list_vars :=
 
 _product_single_value_vars += PRODUCT_NAME
 _product_single_value_vars += PRODUCT_MODEL
+_product_single_value_vars += PRODUCT_CERT
+_product_single_value_vars += PRODUCT_MARKETNAME
 
 # The resoure configuration options to use for this product.
 _product_list_vars += PRODUCT_LOCALES
@@ -38,6 +40,7 @@ _product_list_vars += PRODUCT_PACKAGES_DEBUG_ASAN
 _product_list_vars += PRODUCT_PACKAGES_DEBUG_JAVA_COVERAGE
 _product_list_vars += PRODUCT_PACKAGES_ENG
 _product_list_vars += PRODUCT_PACKAGES_TESTS
+_product_list_vars += PRODUCT_DEL_PACKAGES
 
 # The device that this product maps to.
 _product_single_value_vars += PRODUCT_DEVICE
@@ -49,9 +52,11 @@ _product_single_value_vars += PRODUCT_BRAND
 _product_single_value_vars += \
     PRODUCT_SYSTEM_NAME \
     PRODUCT_SYSTEM_MODEL \
+    PRODUCT_SYSTEM_CERT \
     PRODUCT_SYSTEM_DEVICE \
     PRODUCT_SYSTEM_BRAND \
     PRODUCT_SYSTEM_MANUFACTURER \
+    PRODUCT_SYSTEM_MARKETNAME
 
 # PRODUCT_<PARTITION>_PROPERTIES are lists of property assignments
 # that go to <partition>/build.prop. Each property assignment is
@@ -275,6 +280,9 @@ _product_list_vars += PRODUCT_FORCE_PRODUCT_MODULES_TO_SYSTEM_PARTITION
 # is launched with dynamic partitions.
 # This flag implies PRODUCT_USE_DYNAMIC_PARTITIONS.
 _product_single_value_vars += PRODUCT_RETROFIT_DYNAMIC_PARTITIONS
+
+# List of tags that will be used to gate blueprint modules from the build graph
+_product_list_vars += PRODUCT_INCLUDE_TAGS
 
 # When this is true, various build time as well as runtime debugfs restrictions are enabled.
 _product_single_value_vars += PRODUCT_SET_DEBUGFS_RESTRICTIONS

@@ -2286,8 +2286,8 @@ rm -rf $(PRIVATE_JAVA_GEN_DIR)
 mkdir -p $(PRIVATE_JAVA_GEN_DIR)
 $(call dump-words-to-file,$(PRIVATE_RES_FLAT),$(dir $@)aapt2-flat-list)
 $(call dump-words-to-file,$(PRIVATE_OVERLAY_FLAT),$(dir $@)aapt2-flat-overlay-list)
-$(hide) $(AAPT2) link -o $@ \
-  $(PRIVATE_AAPT_FLAGS) \
+$(AAPT2) link -o $@ \
+  $(filter-out $(MIUI_PRODUCT_AAPT_FLAGS), $(PRIVATE_AAPT_FLAGS)) \
   $(if $(PRIVATE_STATIC_LIBRARY_EXTRA_PACKAGES),$$(cat $(PRIVATE_STATIC_LIBRARY_EXTRA_PACKAGES))) \
   $(addprefix --manifest ,$(PRIVATE_ANDROID_MANIFEST)) \
   $(addprefix -I ,$(PRIVATE_AAPT_INCLUDES)) \
@@ -2444,7 +2444,7 @@ define write-java-source-list
 $(hide) rm -f $@
 $(call dump-words-to-file,$(sort $(PRIVATE_JAVA_SOURCES)),$@.tmp)
 $(call fetch-additional-java-source,$@.tmp)
-$(hide) tr ' ' '\n' < $@.tmp | $(NORMALIZE_PATH) | sort -u > $@
+$(hide) tr ' ' '\n' < $@.tmp | ./prebuilts/python/linux-x86/2.7.5/bin/python2 $(NORMALIZE_PATH) | sort -u > $@
 endef
 
 # Common definition to invoke javac on the host and target.
@@ -3273,7 +3273,7 @@ endef
 ###########################################################
 ## Define device-specific radio files
 ###########################################################
-INSTALLED_RADIOIMAGE_TARGET :=
+INSTALLED_RADIOIMAGE_TARGET ?=
 
 # Copy a radio image file to the output location, and add it to
 # INSTALLED_RADIOIMAGE_TARGET.

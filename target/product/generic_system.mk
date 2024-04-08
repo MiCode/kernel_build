@@ -29,11 +29,19 @@ PRODUCT_PACKAGES += \
     com.android.nfc_extras \
 
 # Applications
+ifneq (true, $(call is-missi-region-cn))
+    PRODUCT_PACKAGES += \
+        LiveWallpapersPicker
+endif
+
 PRODUCT_PACKAGES += \
-    LiveWallpapersPicker \
     PartnerBookmarksProvider \
-    Stk \
     Tag \
+
+ifneq ($(TARGET_NO_TELEPHONY), true)
+PRODUCT_PACKAGES += \
+    Stk
+endif #TARGET_NO_TELEPHONY
 
 # OTA support
 PRODUCT_PACKAGES += \

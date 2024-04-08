@@ -1,6 +1,5 @@
-per-file dex_preopt*.mk = ngeoffray@google.com,calin@google.com,mathewi@google.com,skvadrik@google.com
-per-file verify_uses_libraries.sh = ngeoffray@google.com,calin@google.com,skvadrik@google.com
-
 # For version updates
-per-file version_defaults.mk = aseaton@google.com,elisapascual@google.com,lubomir@google.com,pscovanner@google.com
+per-file version_defaults.mk = qiuchen3@xiaomi.com
 
+# HWASan config
+per-file hwasan_include_paths.py = xutianqi@xiaomi.com,zhangchuang3@xiaomi.com

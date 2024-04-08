@@ -46,6 +46,10 @@ Usage: merge_target_files [args]
       The optional path to a newline-separated config file of items that
       are extracted as-is from the vendor target files package.
 
+  --pangu-bp-target-files bp-target-files-zip-archive
+      The input target files package containing bp/nonlos files. This is a zip
+      archive.
+
   --output-target-files output-target-files-package
       If provided, the output merged target files package. Also a zip archive.
 
@@ -100,6 +104,9 @@ Usage: merge_target_files [args]
 
   --vendor-dexpreopt-config
       If provided, the location of vendor's dexpreopt_config.zip.
+
+  --mi-addon-misc-info
+      If provided, the location of mi_addon_misc_info.txt.
 """
 
 import logging
@@ -108,6 +115,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+import json
 
 import add_img_to_target_files
 import build_image
@@ -132,6 +140,7 @@ OPTIONS.framework_item_list = []
 OPTIONS.framework_misc_info_keys = []
 OPTIONS.vendor_target_files = None
 OPTIONS.vendor_item_list = []
+OPTIONS.pangu_bp_target_files = None
 OPTIONS.output_target_files = None
 OPTIONS.output_dir = None
 OPTIONS.output_item_list = []
@@ -147,7 +156,25 @@ OPTIONS.keep_tmp = False
 OPTIONS.framework_dexpreopt_config = None
 OPTIONS.framework_dexpreopt_tools = None
 OPTIONS.vendor_dexpreopt_config = None
+OPTIONS.mi_addon_misc_info = None
 
+
+def move_only_exists(source, destination):
+  """Judge whether the file exists and then move the file."""
+
+  if os.path.exists(source):
+    shutil.move(source, destination)
+
+# BEGIN MIUI-changed: Add to optimize merge process (JIRA/PANGU-784)
+def run_cmd(command, is_abort=True):
+    logger.info(command)
+    res = subprocess.Popen(command, shell=True, env=os.environ)
+    out, err = res.communicate()
+    if res.returncode != 0:
+        logger.warning("command \"{}\" returned {}: {}".format(command, res.returncode, err))
+        if is_abort:
+            raise Exception(f"Execute command {command} failed: output = {out}, error = {err}")
+# END MIUI-changed: Add to optimize merge process (JIRA/PANGU-784)
 
 def create_merged_package(temp_dir):
   """Merges two target files packages into one target files structure.
@@ -169,6 +196,15 @@ def create_merged_package(temp_dir):
       output_dir=output_target_files_temp_dir,
       extract_item_list=OPTIONS.vendor_item_list)
 
+  if (OPTIONS.pangu_bp_target_files is not None):
+      bp_target_files_dir = os.path.join(temp_dir, 'bp_target_files')
+      merge_utils.ExtractItems(
+          input_zip=OPTIONS.pangu_bp_target_files,
+          output_dir=bp_target_files_dir,
+          extract_item_list=('*',))
+      replace_bp_target_files(bp_target_files_dir, output_target_files_temp_dir)
+      shutil.rmtree(bp_target_files_dir)
+
   # Perform special case processing on META/* items.
   # After this function completes successfully, all the files we need to create
   # the output target files package are in place.
@@ -180,6 +216,17 @@ def create_merged_package(temp_dir):
 
   return output_target_files_temp_dir
 
+def replace_bp_target_files(bp_target_files_dir, output_temp_dir):
+  """replace  bp_target_files."""
+  bp_target_file_map_config = os.path.join(bp_target_files_dir, 'bp-target-file-map.json')
+  if os.path.isfile(bp_target_file_map_config):
+    with open(bp_target_file_map_config, 'r') as f:
+      json_data = json.load(f)
+    filemappings = json_data['filemappings']
+    for filemapping in filemappings:
+      srcpath = os.path.join(bp_target_files_dir, filemapping.get('filename'))
+      destpath = os.path.join(output_temp_dir, filemapping.get('destpath'))
+      shutil.copyfile(srcpath, destpath)
 
 def generate_missing_images(target_files_dir):
   """Generate any missing images from target files."""
@@ -238,7 +285,9 @@ def rebuild_image_with_sepolicy(target_files_dir):
   if not OPTIONS.vendor_otatools:
     # Remove the partition from the merged target-files archive. It will be
     # rebuilt later automatically by generate_missing_images().
-    os.remove(os.path.join(target_files_dir, 'IMAGES', partition_img))
+    partition_image_path = os.path.join(target_files_dir, 'IMAGES', partition_img)
+    if os.path.exists(partition_image_path):
+      os.remove(partition_image_path)
     return
 
   # TODO(b/192253131): Remove the need for vendor_otatools by fixing
@@ -267,7 +316,8 @@ def rebuild_image_with_sepolicy(target_files_dir):
       symlinks=True)
 
   # Delete then rebuild the partition.
-  os.remove(os.path.join(vendor_target_files_dir, 'IMAGES', partition_img))
+  if os.path.isfile(os.path.join(vendor_target_files_dir, 'IMAGES', partition_img)):
+      os.remove(os.path.join(vendor_target_files_dir, 'IMAGES', partition_img))
   rebuild_partition_command = [
       os.path.join(vendor_otatools_dir, 'bin', 'add_img_to_target_files'),
       '--verbose',
@@ -283,12 +333,10 @@ def rebuild_image_with_sepolicy(target_files_dir):
   # Move the newly-created image to the merged target files dir.
   if not os.path.exists(os.path.join(target_files_dir, 'IMAGES')):
     os.makedirs(os.path.join(target_files_dir, 'IMAGES'))
-  shutil.move(
-      os.path.join(vendor_target_files_dir, 'IMAGES', partition_img),
+  move_only_exists(os.path.join(vendor_target_files_dir, 'IMAGES', partition_img),
       os.path.join(target_files_dir, 'IMAGES', partition_img))
-  shutil.move(
-      os.path.join(vendor_target_files_dir, 'IMAGES', partition_map),
-      os.path.join(target_files_dir, 'IMAGES', partition_map))
+  move_only_exists(os.path.join(vendor_target_files_dir, 'IMAGES', partition_map),
+        os.path.join(target_files_dir, 'IMAGES', partition_map))
 
   def copy_recovery_file(filename):
     for subdir in ('VENDOR', 'SYSTEM/vendor'):
@@ -398,9 +446,9 @@ def merge_target_files(temp_dir):
       temporary files.
   """
 
-  logger.info('starting: merge framework %s and vendor %s into output %s',
+  logger.info('starting: merge framework %s and vendor %s and bp %s into output %s',
               OPTIONS.framework_target_files, OPTIONS.vendor_target_files,
-              OPTIONS.output_target_files)
+              OPTIONS.pangu_bp_target_files, OPTIONS.output_target_files)
 
   output_target_files_temp_dir = create_merged_package(temp_dir)
 
@@ -419,6 +467,15 @@ def merge_target_files(temp_dir):
   # Include the compiled policy in an image if requested.
   if OPTIONS.rebuild_sepolicy:
     rebuild_image_with_sepolicy(output_target_files_temp_dir)
+
+  # BEGIN MIUI-changed: Add to optimize merge process (JIRA/PANGU-784)
+  if OPTIONS.mi_addon_misc_info and os.path.exists(OPTIONS.mi_addon_misc_info):
+    run_cmd(f"mi_userdata_tools --build-phrase build --output-dir {output_target_files_temp_dir} --mi-addon-misc-info {OPTIONS.mi_addon_misc_info}")
+    run_cmd(
+        f"mi_ext_partition_tools --build-phrase build --output-dir {output_target_files_temp_dir} --mi-addon-misc-info {OPTIONS.mi_addon_misc_info}")
+    run_cmd(f"mi_countrycode_partition_tools --build-phrase build --output-dir {output_target_files_temp_dir} --mi-addon-misc-info {OPTIONS.mi_addon_misc_info}")
+
+  # END MIUI-changed: Add to optimize merge process (JIRA/PANGU-784)
 
   generate_missing_images(output_target_files_temp_dir)
 
@@ -517,6 +574,12 @@ def main():
       OPTIONS.framework_dexpreopt_tools = a
     elif o == '--vendor-dexpreopt-config':
       OPTIONS.vendor_dexpreopt_config = a
+    # BEGIN MIUI-changed: Add to optimize merge process (JIRA/PANGU-784)
+    elif o == '--mi-addon-misc-info':
+        OPTIONS.mi_addon_misc_info = a
+    # END MIUI-changed: Add to optimize merge process (JIRA/PANGU-784)
+    elif o == '--pangu-bp-target-files':
+      OPTIONS.pangu_bp_target_files = a
     else:
       return False
     return True
@@ -544,12 +607,14 @@ def main():
           'framework-dexpreopt-config=',
           'framework-dexpreopt-tools=',
           'vendor-dexpreopt-config=',
+          'mi-addon-misc-info=',
           'rebuild_recovery',
           'rebuild-recovery',
           'allow-duplicate-apkapex-keys',
           'vendor-otatools=',
           'rebuild-sepolicy',
           'keep-tmp',
+          'pangu-bp-target-files=',
       ],
       extra_option_handler=option_handler)
 

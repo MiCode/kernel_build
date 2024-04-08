@@ -35,6 +35,7 @@ _vendor_owner_allowed_list := \
         nvidia \
         nxp \
         nxpsw \
+        st \
         qcom \
         qti \
         samsung \

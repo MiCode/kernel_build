@@ -77,6 +77,13 @@ ifndef PLATFORM_SDK_VERSION
 endif
 .KATI_READONLY := PLATFORM_SDK_VERSION
 
+# MIUI ADD: START
+ifndef MIUI_PLATFORM_SDK_VERSION
+  MIUI_PLATFORM_SDK_VERSION := 33
+endif
+.KATI_READONLY := MIUI_PLATFORM_SDK_VERSION
+# END
+
 # This is the sdk extension version of this tree.
 PLATFORM_SDK_EXTENSION_VERSION := 3
 .KATI_READONLY := PLATFORM_SDK_EXTENSION_VERSION
@@ -111,7 +118,7 @@ ifndef PLATFORM_SECURITY_PATCH
     #  It must be of the form "YYYY-MM-DD" on production devices.
     #  It must match one of the Android Security Patch Level strings of the Public Security Bulletins.
     #  If there is no $PLATFORM_SECURITY_PATCH set, keep it empty.
-    PLATFORM_SECURITY_PATCH := 2022-11-05
+    PLATFORM_SECURITY_PATCH := 2024-03-01
 endif
 
 include $(BUILD_SYSTEM)/version_util.mk

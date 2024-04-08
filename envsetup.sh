@@ -2027,3 +2027,5 @@ function showcommands() {
 validate_current_shell
 source_vendorsetup
 addcompletions
+
+unset TEMPORARY_DISABLE_PATH_RESTRICTIONS

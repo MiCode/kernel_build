@@ -274,7 +274,7 @@ ADDITIONAL_VENDOR_PROPERTIES += \
 endif
 
 ifdef PRODUCT_SHIPPING_API_LEVEL
-ADDITIONAL_VENDOR_PROPERTIES += \
+ADDITIONAL_ODM_PROPERTIES += \
     ro.product.first_api_level=$(PRODUCT_SHIPPING_API_LEVEL)
 endif
 
@@ -369,7 +369,11 @@ ifneq (,$(user_variant))
   ADDITIONAL_SYSTEM_PROPERTIES += security.perf_harden=1
 
   ifeq ($(user_variant),user)
-    ADDITIONAL_SYSTEM_PROPERTIES += ro.adb.secure=1
+    ifeq ($(ENABLE_MIUI_DEBUGGING),true)
+      ADDITIONAL_SYSTEM_PROPERTIES += ro.adb.secure=0
+    else
+      ADDITIONAL_SYSTEM_PROPERTIES += ro.adb.secure=1
+    endif
   endif
 
   ifeq ($(user_variant),userdebug)
@@ -399,7 +403,15 @@ ifeq (true,$(strip $(enable_target_debugging)))
   ADDITIONAL_SYSTEM_PROPERTIES += dalvik.vm.lockprof.threshold=500
 else # !enable_target_debugging
   # Target is less debuggable and adbd is off by default
-  ADDITIONAL_SYSTEM_PROPERTIES += ro.debuggable=0
+  # MIUI MOD: START
+  # ADDITIONAL_SYSTEM_PROPERTIES += ro.debuggable=0
+  #  enable target debugging for development
+  ifeq (true,$(ENABLE_MIUI_DEBUGGING))
+    ADDITIONAL_SYSTEM_PROPERTIES += ro.debuggable=1
+  else
+    ADDITIONAL_SYSTEM_PROPERTIES += ro.debuggable=0
+  endif
+  # END
 endif # !enable_target_debugging
 
 ## eng ##
@@ -556,6 +568,24 @@ endif
 subdir_makefiles += $(SOONG_OUT_DIR)/late-$(TARGET_PRODUCT).mk
 subdir_makefiles_total := $(words int $(subdir_makefiles) post finish)
 .KATI_READONLY := subdir_makefiles_total
+
+ifeq (true, $(strip $(call is-missi-miui-build)))
+$(warning "miui build do not use native_gits.config")
+native_gits += $(file < native_gits.config )
+$(foreach gits,$(native_gits),\
+	$(warning "miui build bypass native_gits $(gits));\
+	$(eval subdir_gits := $(gits)) ;\
+	$(eval subdir_makefiles := $(filter-out $(subdir_gits)%, $(subdir_makefiles)));\
+)
+else
+$(warning "native build do not use miui_gits.config")
+miui_gits += $(file < miui_gits.config )
+$(foreach gits,$(miui_gits),\
+	$(warning "native build bypass miui_gits $(gits));\
+	$(eval subdir_gits := $(gits)) ;\
+	$(eval subdir_makefiles := $(filter-out $(subdir_gits)%, $(subdir_makefiles)));\
+)
+endif
 
 $(foreach mk,$(subdir_makefiles),$(info [$(call inc_and_print,subdir_makefiles_inc)/$(subdir_makefiles_total)] including $(mk) ...)$(eval include $(mk)))
 
@@ -1138,7 +1168,7 @@ $(foreach lt,$(ALL_LINK_TYPES),\
       $(call link-type-missing,$(lt),$(d)))))
 
 ifdef link_type_error
-  $(error exiting from previous errors)
+  $(warning exiting from previous errors)
 endif
 
 # -------------------------------------------------------------------
@@ -1264,9 +1294,13 @@ define product-installed-files
     $(if $(filter java_coverage,$(tags_to_install)),$(call get-product-var,$(1),PRODUCT_PACKAGES_DEBUG_JAVA_COVERAGE)) \
     $(call auto-included-modules) \
   ) \
+  $(eval _pif_del := \
+    $(foreach p, $(call get-product-var,$(1),PRODUCT_DEL_PACKAGES), $(p)) \
+  ) \
   $(eval ### Filter out the overridden packages and executables before doing expansion) \
   $(eval _pif_overrides := $(call module-overrides,$(_pif_modules))) \
   $(eval _pif_modules := $(filter-out $(_pif_overrides), $(_pif_modules))) \
+  $(eval _pif_modules := $(filter-out $(_pif_del), $(_pif_modules))) \
   $(eval ### Resolve the :32 :64 module name) \
   $(eval _pif_modules := $(sort $(call resolve-bitness-for-modules,TARGET,$(_pif_modules)))) \
   $(call expand-required-modules,_pif_modules,$(_pif_modules),$(_pif_overrides)) \

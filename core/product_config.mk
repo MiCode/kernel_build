@@ -278,6 +278,14 @@ all_product_makefiles :=
 all_product_configs :=
 
 #############################################################################
+# Check product include tag allowlist
+BLUEPRINT_INCLUDE_TAGS_ALLOWLIST := com.android.mainline_go com.android.mainline
+.KATI_READONLY := BLUEPRINT_INCLUDE_TAGS_ALLOWLIST
+$(foreach include_tag,$(PRODUCT_INCLUDE_TAGS), \
+	$(if $(filter $(include_tag),$(BLUEPRINT_INCLUDE_TAGS_ALLOWLIST)),,\
+	$(call pretty-error, $(include_tag) is not in BLUEPRINT_INCLUDE_TAGS_ALLOWLIST: $(BLUEPRINT_INCLUDE_TAGS_ALLOWLIST))))
+#############################################################################
+
 # Quick check and assign default values
 
 TARGET_DEVICE := $(PRODUCT_DEVICE)
@@ -347,6 +355,18 @@ PRODUCT_APEX_SYSTEM_SERVER_JARS := $(sort $(PRODUCT_APEX_SYSTEM_SERVER_JARS))
 PRODUCT_STANDALONE_SYSTEM_SERVER_JARS := \
   $(call qualify-platform-jars,$(PRODUCT_STANDALONE_SYSTEM_SERVER_JARS))
 
+# MIUI ADD: START - Replace Wi-Fi with WLAN in mainland build
+MIUI_PRODUCT_AAPT_FLAGS :=
+ifeq ($(call is-missi-miui-build),true)
+ifeq ($(call is-missi-region-cn),true)
+MIUI_PRODUCT_AAPT_FLAGS += --wlan-replace Wi-Fi
+MIUI_PRODUCT_AAPT_FLAGS += --wlan-replace WiFi
+MIUI_PRODUCT_AAPT_FLAGS += --wlan-replace Wi\\u2011Fi
+MIUI_PRODUCT_AAPT_FLAGS += --wlan-replace Wi‑Fi
+endif
+endif # is-missi-miui-build = true
+#END
+
 ifndef PRODUCT_SYSTEM_NAME
   PRODUCT_SYSTEM_NAME := $(PRODUCT_NAME)
 endif
@@ -361,6 +381,12 @@ ifndef PRODUCT_MODEL
 endif
 ifndef PRODUCT_SYSTEM_MODEL
   PRODUCT_SYSTEM_MODEL := $(PRODUCT_MODEL)
+endif
+ifndef PRODUCT_SYSTEM_CERT
+  PRODUCT_SYSTEM_CERT := $(PRODUCT_CERT)
+endif
+ifndef PRODUCT_SYSTEM_MARKETNAME
+  PRODUCT_SYSTEM_MARKETNAME := $(PRODUCT_MARKETNAME)
 endif
 
 ifndef PRODUCT_MANUFACTURER

@@ -15,6 +15,10 @@
 #
 
 # Base modules and settings for the system partition.
+ifneq (true, $(call is-missi-region-cn))
+    PRODUCT_PACKAGES += \
+      SoundPicker
+endif
 PRODUCT_PACKAGES += \
     abx \
     adbd_system_api \
@@ -69,7 +73,6 @@ PRODUCT_PACKAGES += \
     com.android.sdkext \
     com.android.tethering \
     com.android.tzdata \
-    com.android.uwb \
     com.android.wifi \
     ContactsProvider \
     content \
@@ -259,7 +262,6 @@ PRODUCT_PACKAGES += \
     sm \
     snapshotctl \
     snapuserd \
-    SoundPicker \
     storaged \
     surfaceflinger \
     svc \
@@ -270,6 +272,8 @@ PRODUCT_PACKAGES += \
     tombstoned \
     traced \
     traced_probes \
+    tracepath \
+    tracepath6 \
     tune2fs \
     tzdatacheck \
     uiautomator \
@@ -285,6 +289,13 @@ PRODUCT_PACKAGES += \
     wificond \
     wifi.rc \
     wm \
+    procrank \
+    procmem \
+    strace \
+    task_profiles_v1.json \
+    cgroups_v1.json \
+    task_profiles_8250_t_stune.json \
+    cgroups_8250_t_stune.json
 
 ifneq ($(TARGET_HAS_LOW_RAM), true)
 PRODUCT_PACKAGES += \
@@ -383,7 +394,6 @@ PRODUCT_PACKAGES_DEBUG := \
     iw \
     logpersist.start \
     logtagd.rc \
-    procrank \
     profcollectd \
     profcollectctl \
     remount \
@@ -392,11 +402,8 @@ PRODUCT_PACKAGES_DEBUG := \
     sqlite3 \
     ss \
     start_with_lockagent \
-    strace \
     su \
     sanitizer-status \
-    tracepath \
-    tracepath6 \
     traceroute6 \
     unwind_info \
     unwind_reg_info \

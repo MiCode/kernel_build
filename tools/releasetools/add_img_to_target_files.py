@@ -46,6 +46,7 @@ Usage:  add_img_to_target_files [flag] target_files
 
 from __future__ import print_function
 
+import avbtool
 import datetime
 import logging
 import os
@@ -62,9 +63,11 @@ import build_super_image
 import common
 import verity_utils
 import ota_metadata_pb2
+import rangelib
+import sparse_img
 
 from apex_utils import GetApexInfoFromTargetFiles
-from common import AddCareMapForAbOta, ZipDelete
+from common import ZipDelete, PARTITIONS_WITH_CARE_MAP, ExternalError, RunAndCheckOutput, IsSparseImage, MakeTempFile, ZipWrite
 
 if sys.hexversion < 0x02070000:
   print("Python 2.7 or newer is required.", file=sys.stderr)
@@ -85,6 +88,159 @@ OPTIONS.is_signing = False
 FIXED_FILE_TIMESTAMP = int((
     datetime.datetime(2009, 1, 1, 0, 0, 0, 0, None) -
     datetime.datetime.utcfromtimestamp(0)).total_seconds())
+
+
+def ParseAvbFooter(img_path):
+  with open(img_path, 'rb') as fp:
+    fp.seek(-avbtool.AvbFooter.SIZE, os.SEEK_END)
+    data = fp.read(avbtool.AvbFooter.SIZE)
+    return avbtool.AvbFooter(data)
+
+def GetCareMap(which, imgname):
+  """Returns the care_map string for the given partition.
+
+  Args:
+    which: The partition name, must be listed in PARTITIONS_WITH_CARE_MAP.
+    imgname: The filename of the image.
+
+  Returns:
+    (which, care_map_ranges): care_map_ranges is the raw string of the care_map
+    RangeSet; or None.
+  """
+  assert which in PARTITIONS_WITH_CARE_MAP
+
+  is_sparse_img = IsSparseImage(imgname)
+  unsparsed_image_size = os.path.getsize(imgname)
+
+  # A verified image contains original image + hash tree data + FEC data
+  # + AVB footer, all concatenated together. The caremap specifies a range
+  # of blocks that update_verifier should read on top of dm-verity device
+  # to verify correctness of OTA updates. When reading off of dm-verity device,
+  # the hashtree and FEC part of image isn't available. So caremap should
+  # only contain the original image blocks.
+  try:
+    avbfooter = None
+    if is_sparse_img:
+      with tempfile.NamedTemporaryFile() as tmpfile:
+        img = sparse_img.SparseImage(imgname)
+        unsparsed_image_size = img.total_blocks * img.blocksize
+        for data in img.ReadBlocks(img.total_blocks - 1, 1):
+          tmpfile.write(data)
+        tmpfile.flush()
+        avbfooter = ParseAvbFooter(tmpfile.name)
+    else:
+      avbfooter = ParseAvbFooter(imgname)
+  except LookupError as e:
+    logger.warning(
+        "Failed to parse avbfooter for partition %s image %s, %s", which, imgname, e)
+    return None
+
+  image_size = avbfooter.original_image_size
+  assert image_size < unsparsed_image_size, "AVB footer's original image size {} is larger than or equal to image size on disk {}, this can't " \
+  "happen because a verified image = original image + hash tree data + FEC data + avbfooter.".format(image_size, unsparsed_image_size)
+  assert image_size > 0
+
+  image_blocks = int(image_size) // 4096 - 1
+  # It's OK for image_blocks to be 0, because care map ranges are inclusive.
+  # So 0-0 means "just block 0", which is valid.
+  assert image_blocks >= 0, "blocks for {} must be non-negative, image size: {}".format(
+      which, image_size)
+
+  # For sparse images, we will only check the blocks that are listed in the care
+  # map, i.e. the ones with meaningful data.
+  if is_sparse_img:
+    simg = sparse_img.SparseImage(imgname)
+    care_map_ranges = simg.care_map.intersect(
+        rangelib.RangeSet("0-{}".format(image_blocks)))
+
+  # Otherwise for non-sparse images, we read all the blocks in the filesystem
+  # image.
+  else:
+    care_map_ranges = rangelib.RangeSet("0-{}".format(image_blocks))
+
+  return [which, care_map_ranges.to_string_raw()]
+
+
+def AddCareMapForAbOta(output_file, ab_partitions, image_paths):
+  """Generates and adds care_map.pb for a/b partition that has care_map.
+
+  Args:
+    output_file: The output zip file (needs to be already open),
+        or file path to write care_map.pb.
+    ab_partitions: The list of A/B partitions.
+    image_paths: A map from the partition name to the image path.
+  """
+  if not output_file:
+    raise ExternalError('Expected output_file for AddCareMapForAbOta')
+
+  care_map_list = []
+  for partition in ab_partitions:
+    partition = partition.strip()
+    if partition not in PARTITIONS_WITH_CARE_MAP:
+      continue
+
+    verity_block_device = "{}_verity_block_device".format(partition)
+    avb_hashtree_enable = "avb_{}_hashtree_enable".format(partition)
+    if (verity_block_device in OPTIONS.info_dict or
+            OPTIONS.info_dict.get(avb_hashtree_enable) == "true"):
+      if partition not in image_paths:
+        logger.warning('Potential partition with care_map missing from images: %s',
+                       partition)
+        continue
+      image_path = image_paths[partition]
+      if not os.path.exists(image_path):
+        raise ExternalError('Expected image at path {}'.format(image_path))
+
+      care_map = GetCareMap(partition, image_path)
+      if not care_map:
+        continue
+      care_map_list += care_map
+
+      # adds fingerprint field to the care_map
+      # TODO(xunchang) revisit the fingerprint calculation for care_map.
+      partition_props = OPTIONS.info_dict.get(partition + ".build.prop")
+      prop_name_list = ["ro.{}.build.fingerprint".format(partition),
+                        "ro.{}.build.thumbprint".format(partition)]
+
+      present_props = [x for x in prop_name_list if
+                       partition_props and partition_props.GetProp(x)]
+      if not present_props:
+        logger.warning(
+            "fingerprint is not present for partition %s", partition)
+        property_id, fingerprint = "unknown", "unknown"
+      else:
+        property_id = present_props[0]
+        fingerprint = partition_props.GetProp(property_id)
+      care_map_list += [property_id, fingerprint]
+
+  if not care_map_list:
+    return
+
+  # Converts the list into proto buf message by calling care_map_generator; and
+  # writes the result to a temp file.
+  temp_care_map_text = MakeTempFile(prefix="caremap_text-",
+                                           suffix=".txt")
+  with open(temp_care_map_text, 'w') as text_file:
+    text_file.write('\n'.join(care_map_list))
+
+  temp_care_map = MakeTempFile(prefix="caremap-", suffix=".pb")
+  care_map_gen_cmd = ["care_map_generator", temp_care_map_text, temp_care_map]
+  RunAndCheckOutput(care_map_gen_cmd)
+
+  if not isinstance(output_file, zipfile.ZipFile):
+    shutil.copy(temp_care_map, output_file)
+    return
+  # output_file is a zip file
+  care_map_path = "META/care_map.pb"
+  if care_map_path in output_file.namelist():
+    # Copy the temp file into the OPTIONS.input_tmp dir and update the
+    # replace_updated_files_list used by add_img_to_target_files
+    if not OPTIONS.replace_updated_files_list:
+      OPTIONS.replace_updated_files_list = []
+    shutil.copy(temp_care_map, os.path.join(OPTIONS.input_tmp, care_map_path))
+    OPTIONS.replace_updated_files_list.append(care_map_path)
+  else:
+    ZipWrite(output_file, temp_care_map, arcname=care_map_path)
 
 
 class OutputFile(object):
@@ -110,6 +266,75 @@ class OutputFile(object):
       common.ZipWrite(self._output_zip, self.name,
                       self._zip_name, compress_type=compress_type)
 
+# MIUI ADD: START FOR FIRMWARE
+def LoadFilesMap(map_file):
+  d = {}
+  with open(map_file, 'r') as f:
+    for line in f.readlines():
+      line = line.strip()
+      if not line or line.startswith("#"):
+        continue
+      pieces = line.split()
+      if not (len(pieces) == 2):
+        print("malformed filesmap line: \"%s\"" % (line,))
+      d[pieces[0]] = os.path.basename(pieces[1])
+  return d
+
+# Read firmware images from target files zip
+def GetRadioFiles():
+  radio_files = []
+  root_path = OPTIONS.input_tmp
+  for info in os.listdir(root_path):
+    pri_path = os.path.join(root_path, info)
+    if info == "RADIO":
+      for fn in os.listdir(os.path.join(pri_path)):
+        if fn == "filesmap" or fn.startswith("logo") or fn.startswith("ifaa"):
+          continue
+        radio_files.append(fn)
+
+    # This is to include vbmeta,dtbo images from IMAGES/ folder.
+    if info == "IMAGES":
+      for fn in os.listdir(os.path.join(pri_path)):
+        if fn.startswith("vbmeta") or fn.startswith("dtbo"):
+          radio_files.append(fn)
+  return radio_files
+
+def SymlinkImg(filename, dstname):
+  radio_path = os.path.join(OPTIONS.input_tmp, "RADIO")
+  firmware_file = os.path.join(radio_path, filename)
+  if not os.path.exists(firmware_file):
+    print("firmware_file %s not exist" % firmware_file)
+    return
+  try:
+    shutil.copyfile(firmware_file, os.path.join(radio_path, dstname + ".img"))
+  except:
+    print("symlink firmware_file %s exception"% firmware_file)
+  # If source and destination are same，only find vm-bootsys
+  #except shutil.SameFileError:
+    #print("Source and destination represents the same file.")
+
+def AddAbPartitions(ab_partitions, filesmap_dict):
+  radio_files = GetRadioFiles()
+  logger.warning("---radio_files-----")
+  for fn in radio_files:
+    #if not filesmap_dict.has_key(fn):
+    if fn not in filesmap_dict:
+      logger.warning("fn %s not in filesmap_dict"%fn)
+      continue
+    if filesmap_dict[fn] not in ab_partitions:
+      logger.warning("filesmap_dict[fn] %s not in ab_patitions"%(filesmap_dict[fn]))
+      continue
+    SymlinkImg(fn, filesmap_dict[fn])
+
+def AddRadioAbImages(ab_partitions):
+  ab_partition_trip_list = [parition.strip() for parition in ab_partitions]
+  filesmap = os.path.join(OPTIONS.input_tmp, "RADIO", "filesmap")
+  if os.path.exists(filesmap):
+    parition_dict = LoadFilesMap(filesmap)
+    AddAbPartitions(ab_partition_trip_list, parition_dict)
+  else:
+    logger.warning("filesmap don't exist!!!!!!")
+#MIUI ADD: END
 
 def AddSystem(output_zip, recovery_img=None, boot_img=None):
   """Turn the contents of SYSTEM into a system image and store it in
@@ -213,6 +438,21 @@ def AddProduct(output_zip):
       block_list=block_list)
   return img.name
 
+#def AddMiExt(output_zip):
+#  """Turn the contents of MI_EXT into a mi_ext image and store it in
+#  output_zip."""
+#  img = OutputFile(output_zip, OPTIONS.input_tmp, "IMAGES", "mi_ext.img")
+#  if os.path.exists(img.name):
+#    logger.info("mi_ext.img already exists; no need to rebuild...")
+#    return img.name
+#
+#  block_list = OutputFile(
+#      output_zip, OPTIONS.input_tmp, "IMAGES", "mi_ext.map")
+#  print(f"AddMiExt,{output_zip},{OPTIONS.input_tmp},{block_list}")
+#  CreateImage(
+#      OPTIONS.input_tmp, OPTIONS.info_dict, "mi_ext", img,
+#      block_list=block_list)
+#  return img.name
 
 def AddSystemExt(output_zip):
   """Turn the contents of SYSTEM_EXT into a system_ext image and store it in
@@ -294,6 +534,48 @@ def AddSystemDlkm(output_zip):
       block_list=block_list)
   return img.name
 
+def AddMiExt(output_zip):
+  """Adds the MI_EXT image.
+
+  Uses the image under IMAGES/ if it already exists. Otherwise looks for the
+  image under PREBUILT_IMAGES/, signs it as needed, and returns the image name.
+  """
+  img_map_prebuilt_path = os.path.join(OPTIONS.input_tmp, "PREBUILT_IMAGES", "mi_ext.map")
+  if os.path.exists(img_map_prebuilt_path):
+    logger.info("copying mi_ext.map to IMAGES...")
+    img_map = OutputFile(output_zip, OPTIONS.input_tmp, "IMAGES", "mi_ext.map")
+    assert os.path.exists(img_map_prebuilt_path)
+    shutil.copy(img_map_prebuilt_path, img_map.name)
+    img_map.Write()
+
+  img = OutputFile(output_zip, OPTIONS.input_tmp, "IMAGES", "mi_ext.img")
+  if os.path.exists(img.name):
+    logger.info("mi_ext.img already exists; no need to rebuild...")
+    return img.name
+
+  img_prebuilt_path = os.path.join(
+      OPTIONS.input_tmp, "PREBUILT_IMAGES", "mi_ext.img")
+  assert os.path.exists(img_prebuilt_path)
+  shutil.copy(img_prebuilt_path, img.name)
+
+  # AVB-sign the image as needed.
+  if OPTIONS.info_dict.get("avb_enable") == "true":
+    # Signing requires +w
+    os.chmod(img.name, os.stat(img.name).st_mode | stat.S_IWUSR)
+
+    avbtool = OPTIONS.info_dict["avb_avbtool"]
+    #part_size = OPTIONS.info_dict["mi_ext_image_size"]
+    # The AVB hash footer will be replaced if already present.
+    cmd = [avbtool, "add_hashtree_footer", "--image", img.name,
+           "--partition_name", "mi_ext"]
+    common.AppendAVBSigningArgs(cmd, "mi_ext")
+    args = OPTIONS.info_dict.get("avb_mi_ext_add_hashtree_footer_args")
+    if args and args.strip():
+      cmd.extend(shlex.split(args))
+    common.RunAndCheckOutput(cmd)
+
+  img.Write()
+  return img.name
 
 def AddDtbo(output_zip):
   """Adds the DTBO image.
@@ -330,6 +612,41 @@ def AddDtbo(output_zip):
   img.Write()
   return img.name
 
+#copy from AddDtbo
+def AddCountryCode(output_zip):
+  """Adds the CountryCode image.
+
+  Uses the image under IMAGES/ if it already exists. Otherwise looks for the
+  image under PREBUILT_IMAGES/, signs it as needed, and returns the image name.
+  """
+  img = OutputFile(output_zip, OPTIONS.input_tmp, "IMAGES", "countrycode.img")
+  if os.path.exists(img.name):
+    logger.info("countrycode.img already exists; no need to rebuild...")
+    return img.name
+
+  countrycode_prebuilt_path = os.path.join(
+      OPTIONS.input_tmp, "PREBUILT_IMAGES", "countrycode.img")
+  assert os.path.exists(countrycode_prebuilt_path)
+  shutil.copy(countrycode_prebuilt_path, img.name)
+
+  # AVB-sign the image as needed.
+  if OPTIONS.info_dict.get("avb_enable") == "true":
+    # Signing requires +w
+    os.chmod(img.name, os.stat(img.name).st_mode | stat.S_IWUSR)
+
+    avbtool = OPTIONS.info_dict["avb_avbtool"]
+    part_size = OPTIONS.info_dict["countrycode_size"]
+    # The AVB hash footer will be replaced if already present.
+    cmd = [avbtool, "add_hash_footer", "--image", img.name,
+           "--partition_size", str(part_size), "--partition_name", "countrycode"]
+    common.AppendAVBSigningArgs(cmd, "countrycode")
+    args = OPTIONS.info_dict.get("avb_countrycode_add_hash_footer_args")
+    if args and args.strip():
+      cmd.extend(shlex.split(args))
+    common.RunAndCheckOutput(cmd)
+
+  img.Write()
+  return img.name
 
 def AddPvmfw(output_zip):
   """Adds the pvmfw image.
@@ -793,6 +1110,7 @@ def AddImagesToTargetFiles(filename):
   has_odm_dlkm = HasPartition("odm_dlkm")
   has_system_dlkm = HasPartition("system_dlkm")
   has_product = HasPartition("product")
+  has_mi_ext = HasPartition("mi_ext")
   has_system_ext = HasPartition("system_ext")
   has_system = HasPartition("system")
   has_system_other = HasPartition("system_other")
@@ -939,10 +1257,14 @@ def AddImagesToTargetFiles(filename):
     banner("partition-table")
     AddPartitionTable(output_zip)
 
+  add_partition("mi_ext",
+                OPTIONS.info_dict.get("has_mi_ext") == "true", AddMiExt, [])
   add_partition("dtbo",
                 OPTIONS.info_dict.get("has_dtbo") == "true", AddDtbo, [])
   add_partition("pvmfw",
                 OPTIONS.info_dict.get("has_pvmfw") == "true", AddPvmfw, [])
+  add_partition("countrycode",
+                OPTIONS.info_dict.get("has_countrycode") == "true", AddCountryCode, [])
 
   # Custom images.
   custom_partitions = OPTIONS.info_dict.get(
@@ -951,6 +1273,14 @@ def AddImagesToTargetFiles(filename):
     partition_name = partition_name.strip()
     banner("custom images for " + partition_name)
     partitions[partition_name] = AddCustomImages(output_zip, partition_name)
+
+  if OPTIONS.info_dict.get("avb_cust_hashtree_enable") == "true":
+    common.AVB_PARTITIONS += ('cust', )
+
+    # only a placeholder, don't need real image
+    for key in partitions:
+      partitions['cust'] =partitions[key]
+      break
 
   if OPTIONS.info_dict.get("avb_enable") == "true":
     # vbmeta_partitions includes the partitions that should be included into
@@ -1000,6 +1330,9 @@ def AddImagesToTargetFiles(filename):
   if os.path.exists(ab_partitions_txt):
     with open(ab_partitions_txt) as f:
       ab_partitions = f.read().splitlines()
+
+    #MIUI ADD: for ab symlink firmware partition
+    AddRadioAbImages(ab_partitions)
 
     # For devices using A/B update, make sure we have all the needed images
     # ready under IMAGES/ or RADIO/.

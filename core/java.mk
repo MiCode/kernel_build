@@ -360,6 +360,10 @@ $(eval $(call copy-one-file,$(full_classes_pre_proguard_jar),$(intermediates.COM
 
 # Run proguard if necessary
 ifdef LOCAL_PROGUARD_ENABLED
+ifeq ($(LOCAL_PROGUARD_ENABLED),obfuscate)
+LOCAL_PROGUARD_ENABLED := obfuscation
+endif
+
 ifneq ($(filter-out full custom obfuscation optimization,$(LOCAL_PROGUARD_ENABLED)),)
     $(warning while processing: $(LOCAL_MODULE))
     $(error invalid value for LOCAL_PROGUARD_ENABLED: $(LOCAL_PROGUARD_ENABLED))
@@ -423,6 +427,11 @@ endif
 ifeq ($(filter obfuscation,$(LOCAL_PROGUARD_ENABLED)),)
 # By default no obfuscation
 common_proguard_flags += -dontobfuscate
+else
+# MIUI - obfuscate the code only if LOCAL_PROGURAD_ENABLE=obfuscate and in user build
+ifneq ($(TARGET_BUILD_VARIANT),user)
+    common_proguard_flags += -dontobfuscate
+endif
 endif  # No obfuscation
 ifeq ($(filter optimization,$(LOCAL_PROGUARD_ENABLED)),)
 # By default no optimization
@@ -483,6 +492,11 @@ ifneq ($(filter obfuscation,$(LOCAL_PROGUARD_ENABLED)),)
   $(call add-dependency,$(LOCAL_BUILT_MODULE),\
     $(call local-packaging-dir,proguard_dictionary)/classes.jar)
 endif
+
+# MIUI ADD: START
+else  # LOCAL_PROGUARD_ENABLED not defined
+proguard_flag_files :=
+# END
 
 endif # LOCAL_PROGUARD_ENABLED defined
 

@@ -332,7 +332,7 @@ RETROFIT_DAP_UNZIP_PATTERN = ['OTA/super_*.img', AB_PARTITIONS]
 SECONDARY_PAYLOAD_SKIPPED_IMAGES = [
     'boot', 'dtbo', 'modem', 'odm', 'odm_dlkm', 'product', 'radio', 'recovery',
     'system_dlkm', 'system_ext', 'vbmeta', 'vbmeta_system', 'vbmeta_vendor',
-    'vendor', 'vendor_boot']
+    'vendor', 'vendor_boot', 'mi_ext']
 
 
 class PayloadSigner(object):
@@ -1484,7 +1484,10 @@ def main(argv):
     common.Usage(__doc__)
     sys.exit(1)
 
+  OPTIONS.verbose = True
   common.InitLogging()
+
+  logger.info("cmd: %s", argv)
 
   # Load the build info dicts from the zip directly or the extracted input
   # directory. We don't need to unzip the entire target-files zips, because they

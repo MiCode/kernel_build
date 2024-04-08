@@ -23,9 +23,13 @@ PRODUCT_PACKAGES := \
     libfwdlockengine \
     WAPPushManager
 
+ifneq (true, $(call is-missi-region-cn))
+    PRODUCT_PACKAGES += \
+      LiveWallpapersPicker \
+      PhotoTable
+endif
+
 PRODUCT_PACKAGES += \
-    LiveWallpapersPicker \
-    PhotoTable \
     preinstalled-packages-platform-full-base.xml
 
 # Net:
@@ -38,8 +42,8 @@ PRODUCT_PACKAGES += \
 
 # Additional settings used in all AOSP builds
 PRODUCT_VENDOR_PROPERTIES := \
-    ro.config.ringtone?=Ring_Synth_04.ogg \
-    ro.config.notification_sound?=pixiedust.ogg
+    ro.config.ringtone?=unknown \
+    ro.config.notification_sound?=unknown
 
 # Put en_US first in the list, so make it default.
 PRODUCT_LOCALES := en_US

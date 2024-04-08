@@ -74,7 +74,7 @@ def GetBlockDifferences(target_zip, source_zip, target_info, source_info,
 
   block_diff_dict = collections.OrderedDict()
   partition_names = ["system", "vendor", "product", "odm", "system_ext",
-                     "vendor_dlkm", "odm_dlkm", "system_dlkm"]
+                     "vendor_dlkm", "odm_dlkm", "system_dlkm", "mi_ext"]
   for partition in partition_names:
     if not HasPartition(target_zip, partition):
       continue
@@ -128,7 +128,13 @@ def WriteFullOTAPackage(input_zip, output_file):
   if target_info.oem_props and not OPTIONS.oem_no_mount:
     target_info.WriteMountOemScript(script)
 
+  # MIUI ADD
+  # Add a temporary variable to replace the buildfingerprint in the metadata file
+  tmp_fingerprint = target_info._fingerprint
+  target_info._fingerprint = target_info._metadata_fingerprint
   metadata = GetPackageMetadata(target_info)
+  target_info._fingerprint = tmp_fingerprint
+  # END
 
   if not OPTIONS.no_signing:
     staging_file = common.MakeTempFile(suffix='.zip')
@@ -150,8 +156,14 @@ def WriteFullOTAPackage(input_zip, output_file):
   assert HasRecoveryPatch(input_zip, info_dict=OPTIONS.info_dict)
 
   # Assertions (e.g. downgrade check, device properties check).
-  ts = target_info.GetBuildProp("ro.build.date.utc")
-  ts_text = target_info.GetBuildProp("ro.build.date")
+  # MIUI MOD: START
+  # Adapt for Google Requirements Freeze Devices ro.build.date.utc for odm partition
+  # ts = target_info.GetBuildProp("ro.build.date.utc")
+  # ts_text = target_info.GetBuildProp("ro.build.date")
+  ts = target_info.GetPartitionBuildProp("ro.build.date.utc","odm")
+  ts_text = target_info.GetPartitionBuildProp("ro.build.date","odm")
+  # END
+
   script.AssertOlderBuild(ts, ts_text)
 
   target_info.WriteDeviceAssertions(script, OPTIONS.oem_no_mount)
@@ -305,7 +317,19 @@ def WriteBlockIncrementalOTAPackage(target_zip, source_zip, output_file):
     if not OPTIONS.oem_no_mount:
       source_info.WriteMountOemScript(script)
 
+  # MIUI ADD
+  # Add a temporary variable to replace the buildfingerprint in the metadata file
+  tmp_target_fingerprint = target_info._fingerprint
+  target_info._fingerprint = target_info._metadata_fingerprint
+
+  tmp_source_fingerprint = source_info._fingerprint
+  source_info._fingerprint = source_info._metadata_fingerprint
+
   metadata = GetPackageMetadata(target_info, source_info)
+
+  target_info._fingerprint = tmp_target_fingerprint
+  source_info._fingerprint = tmp_source_fingerprint
+  # END
 
   if not OPTIONS.no_signing:
     staging_file = common.MakeTempFile(suffix='.zip')

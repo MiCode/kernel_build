@@ -68,7 +68,6 @@ PRODUCT_APEX_BOOT_JARS := \
     com.android.tethering:framework-connectivity \
     com.android.tethering:framework-connectivity-t \
     com.android.tethering:framework-tethering \
-    com.android.uwb:framework-uwb \
     com.android.wifi:framework-wifi \
 
 # List of system_server classpath jars delivered via apex.
@@ -95,7 +94,6 @@ PRODUCT_APEX_STANDALONE_SYSTEM_SERVER_JARS := \
     com.android.os.statsd:service-statsd \
     com.android.scheduling:service-scheduling \
     com.android.tethering:service-connectivity \
-    com.android.uwb:service-uwb \
     com.android.wifi:service-wifi \
 
 # Minimal configuration for running dex2oat (default argument values).

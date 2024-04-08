@@ -37,6 +37,7 @@ python_defaults {
         "releasetools_build_image",
         "releasetools_build_super_image",
         "releasetools_common",
+        "libavbtool",
     ],
     required: [
         "care_map_generator",
@@ -605,3 +606,50 @@ python_test_host {
         unit_test: true,
     },
 }
+python_binary_host {
+    name: "pangu_download_sku_files",
+    srcs: [
+        "pangu_download_sku_files.py",
+    ],
+
+    defaults: [
+        "releasetools_binary_defaults",
+    ],
+    
+    libs: [
+        "releasetools_common",
+    ],
+}
+
+python_binary_host {
+    name: "pangu_userdata_tools",
+    srcs: [
+        "pangu_userdata_tools.py",
+    ],
+
+    defaults: [
+        "releasetools_binary_defaults",
+    ],
+
+    libs: [
+        "releasetools_common",
+    ],
+}
+
+python_binary_host {
+    name: "mi_userdata_tools",
+    srcs: [
+        "mi_userdata_tools.py",
+    ],
+
+    defaults: [
+        "releasetools_binary_defaults",
+    ],
+
+    libs: [
+        "releasetools_common",
+    ],
+}
+
+
+
