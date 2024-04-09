@@ -190,7 +190,11 @@ def _config_trim(ctx):
             "$(cat {})".format(raw_symbol_list_path_file.path),
         ),
     ]
-    return struct(configs = configs, deps = [raw_symbol_list_path_file])
+    return struct(
+        configs = configs,
+        deps = [raw_symbol_list_path_file],
+        extra_post_setup_deps = ctx.files.raw_kmi_symbol_list,
+    )
 
 def _config_keys(ctx):
     """Return configs for module signing keys and system trusted keys.
@@ -204,28 +208,36 @@ def _config_keys(ctx):
         ctx: ctx
     Returns:
         A struct, where `configs` is a list of arguments to `scripts/config`,
-        and `deps` is a list of input files.
+        `deps` is a list of input files to kernel_config, and
+        `extra_post_setup_deps` is a list of files for downstream targets.
     """
 
-    module_signing_key_file = _determine_module_signing_key_path(ctx)
-    system_trusted_key_file = _determine_system_trusted_key_path(ctx)
+    module_signing_key_path_file = _determine_module_signing_key_path(ctx)
+    system_trusted_key_path_file = _determine_system_trusted_key_path(ctx)
     configs = []
     deps = []
-    if module_signing_key_file:
+    extra_post_setup_deps = []
+    if module_signing_key_path_file:
         configs.append(_config.set_str(
             "MODULE_SIG_KEY",
-            "$(cat {})".format(module_signing_key_file.path),
+            "$(cat {})".format(module_signing_key_path_file.path),
         ))
-        deps.append(module_signing_key_file)
+        deps.append(module_signing_key_path_file)
+        extra_post_setup_deps.append(ctx.file.module_signing_key)
 
-    if system_trusted_key_file:
+    if system_trusted_key_path_file:
         configs.append(_config.set_str(
             "SYSTEM_TRUSTED_KEYS",
-            "$(cat {})".format(system_trusted_key_file.path),
+            "$(cat {})".format(system_trusted_key_path_file.path),
         ))
-        deps.append(system_trusted_key_file)
+        deps.append(system_trusted_key_path_file)
+        extra_post_setup_deps.append(ctx.file.system_trusted_key)
 
-    return struct(configs = configs, deps = deps)
+    return struct(
+        configs = configs,
+        deps = deps,
+        extra_post_setup_deps = extra_post_setup_deps,
+    )
 
 def _config_kasan(ctx):
     """Return configs for --kasan.
@@ -308,6 +320,7 @@ def _reconfig(ctx):
     configs = []
     deps = []
     transitive_deps = []
+    extra_post_setup_deps = []
     apply_defconfig_fragments_cmd = ""
     check_defconfig_fragments_cmd = ""
 
@@ -324,6 +337,7 @@ def _reconfig(ctx):
         pair = fn(ctx)
         configs += pair.configs
         deps += pair.deps
+        extra_post_setup_deps += getattr(pair, "extra_post_setup_deps", [])
 
     if ctx.files.defconfig_fragments:
         transitive_deps += [target.files for target in ctx.attr.defconfig_fragments]
@@ -367,7 +381,11 @@ def _reconfig(ctx):
         check_defconfig_fragments_cmd = check_defconfig_fragments_cmd,
     )
 
-    return struct(cmd = cmd, deps = depset(deps, transitive = transitive_deps))
+    return struct(
+        cmd = cmd,
+        deps = depset(deps, transitive = transitive_deps),
+        extra_post_setup_deps = extra_post_setup_deps,
+    )
 
 def _kernel_config_impl(ctx):
     localversion_file = stamp.write_localversion(ctx)
@@ -455,11 +473,7 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    post_setup_deps = [out_dir]
-    if trim_nonlisted_kmi_utils.get_value(ctx):
-        # Ensure the dependent action uses the up-to-date abi_symbollist.raw
-        # at the absolute path specified in abi_symbollist.raw.abspath
-        post_setup_deps += ctx.files.raw_kmi_symbol_list  # This is 0 or 1 file
+    post_setup_deps = [out_dir] + reconfig.extra_post_setup_deps
 
     # <kernel_build>_config_setup.sh
     serialized_env_info_setup_script = ctx.actions.declare_file("{name}/{name}_setup.sh".format(name = ctx.attr.name))
