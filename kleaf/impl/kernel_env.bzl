@@ -396,6 +396,11 @@ def _get_env_setup_cmds(ctx):
             else
                 nproc
             fi
+        ) $(
+            keep_going="$({get_make_keep_going_cmd})"
+            if [[ "$keep_going" == "true" ]]; then
+                echo "--keep_going"
+            fi
         )"
         # setup LD_LIBRARY_PATH for prebuilts
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
@@ -436,6 +441,7 @@ def _get_env_setup_cmds(ctx):
         fi
     """.format(
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
+        get_make_keep_going_cmd = status.get_volatile_status_cmd(ctx, "MAKE_KEEP_GOING"),
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
         kleaf_repo_workspace_root_slash = kleaf_repo_workspace_root_slash,
     )

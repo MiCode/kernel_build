@@ -221,6 +221,9 @@ class BazelWrapper(KleafHelpPrinter):
             "--make_jobs", metavar="JOBS", type=int, default=None,
             help="--jobs to Kbuild")
         group.add_argument(
+            "--make_keep_going", action="store_true", default=False,
+            help="Add --keep_going to Kbuild")
+        group.add_argument(
             "--cache_dir", metavar="PATH",
             type=_require_absolute_path,
             default=absolute_cache_dir,
@@ -304,6 +307,8 @@ class BazelWrapper(KleafHelpPrinter):
 
         if self.known_args.make_jobs is not None:
             self.env["KLEAF_MAKE_JOBS"] = str(self.known_args.make_jobs)
+
+        self.env["KLEAF_MAKE_KEEP_GOING"] = "true" if self.known_args.make_keep_going else "false"
 
         if self.known_args.repo_manifest is not None:
             self.env["KLEAF_REPO_MANIFEST"] = self.known_args.repo_manifest
