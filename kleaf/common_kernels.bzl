@@ -536,6 +536,18 @@ def define_common_kernels(
                 "BUILD.bazel",
                 "**/*.bzl",
                 ".git/**",
+
+                # ctag files
+                "tags",
+                "TAGS",
+
+                # temporary ctag files
+                "tags.temp",
+                "tags.lock",
+
+                # cscope files
+                "cscope.*",
+                "ncscope.*",
             ],
         ),
     )
