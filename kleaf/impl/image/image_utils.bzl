@@ -164,6 +164,18 @@ def _build_modules_image_impl_common(
             options = "-al --chmod=F+w --include=source --include=build --exclude='*'",
         )
 
+    modules_order_cmd = ""
+    if ctx.attr.create_modules_order:
+        modules_order_depset = ctx.attr.kernel_modules_install[KernelModuleInfo].modules_order
+        modules_order_depset_list = modules_order_depset.to_list()
+        inputs += modules_order_depset_list
+        modules_order_cmd = """
+            cat {modules_order} > kleaf_modules.order
+            KLEAF_MODULES_ORDER=kleaf_modules.order
+        """.format(
+            modules_order = " ".join([modules_order.path for modules_order in modules_order_depset_list]),
+        )
+
     if set_ext_modules and ctx.attr._set_ext_modules[BuildSettingInfo].value:
         ext_modules = ctx.attr.kernel_modules_install[KernelModuleInfo].packages.to_list()
         command += """EXT_MODULES={quoted_ext_modules}""".format(
@@ -181,9 +193,11 @@ file a bug.""")
                mkdir -p ${{DIST_DIR}}
                cp {system_map} ${{DIST_DIR}}/System.map
 
+               {modules_order_cmd}
                {build_command}
     """.format(
         system_map = system_map.path,
+        modules_order_cmd = modules_order_cmd,
         build_command = build_command,
     )
 
@@ -213,6 +227,12 @@ def _build_modules_image_attrs_common(additional = None):
         ),
         "_set_ext_modules": attr.label(
             default = "//build/kernel/kleaf:set_ext_modules",
+        ),
+        "create_modules_order": attr.bool(
+            default = True,
+            doc = """Whether to create and keep a modules.order file generated
+                by a postorder traversal of the `kernel_modules_install` sources.
+                It defaults to `True`.""",
         ),
     }
     if additional != None:

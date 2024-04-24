@@ -112,8 +112,8 @@ function create_modules_order_lists() {
 
   declare -A module_lists_arr
   module_lists_arr["modules.order"]=${modules_list_file}
-  module_lists_arr["modules.order.recovery"]=${modules_recoverylist_file}
-  module_lists_arr["modules.order.charger"]=${modules_chargerlist_file}
+  module_lists_arr["modules.order.recovery"]=${modules_recovery_list_file}
+  module_lists_arr["modules.order.charger"]=${modules_charger_list_file}
 
   for mod_order_file in ${!module_lists_arr[@]}; do
     local mod_list_file=${module_lists_arr[${mod_order_file}]}
@@ -180,8 +180,8 @@ function create_modules_staging() {
   local dest_dir=$3/lib/modules/${version}
   local dest_stage=$3
   local modules_blocklist_file=$4
-  local modules_recoverylist_file=$5
-  local modules_chargerlist_file=$6
+  local modules_recovery_list_file=$5
+  local modules_charger_list_file=$6
   local depmod_flags=$7
 
   rm -rf ${dest_dir}
@@ -193,7 +193,11 @@ function create_modules_staging() {
   cp ${src_dir}/modules.builtin ${dest_dir}/modules.builtin
   cp ${src_dir}/modules.builtin.modinfo ${dest_dir}/modules.builtin.modinfo
 
-  if [[ -n "${EXT_MODULES}" ]] || [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
+  if [[ -n "${KLEAF_MODULES_ORDER}" ]] && [[ -d "${src_dir}/extra" ]]; then
+    mkdir -p ${dest_dir}/extra/
+    cp -r ${src_dir}/extra/* ${dest_dir}/extra/
+    cat ${KLEAF_MODULES_ORDER} >> ${dest_dir}/modules.order
+  elif [[ -n "${EXT_MODULES}" ]] || [[ -n "${EXT_MODULES_MAKEFILE}" ]]; then
     mkdir -p ${dest_dir}/extra/
     cp -r ${src_dir}/extra/* ${dest_dir}/extra/
 
@@ -283,17 +287,21 @@ function create_modules_staging() {
   # Re-run depmod to detect any dependencies between in-kernel and external
   # modules, as well as recovery and charger modules. Then, create the
   # modules.order files based on all the modules compiled.
-  declare -A module_load_lists_arr
-  module_load_lists_arr["modules.order"]="modules.load"
-  module_load_lists_arr["modules.order.recovery"]="modules.load.recovery"
-  module_load_lists_arr["modules.order.charger"]="modules.load.charger"
+  #
+  # It is important that "modules.order" is last, as that will force depmod
+  # to run on all the modules in the directory, instead of just a list of them.
+  # It is desirable for depmod to run with all the modules last so that the
+  # dependency information is available for all modules, not just the recovery
+  # or charger sets.
+  modules_order_files=("modules.order.recovery" "modules.order.charger" "modules.order")
+  modules_load_files=("modules.load.recovery" "modules.load.charger" "modules.load")
 
-  for mod_order_file in ${!module_load_lists_arr[@]}; do
-    local mod_order_filepath=${dest_dir}/${mod_order_file}
-    local mod_load_filepath=${dest_dir}/${module_load_lists_arr[${mod_order_file}]}
+  for i in ${!modules_order_files[@]}; do
+    local mod_order_filepath=${dest_dir}/${modules_order_files[$i]}
+    local mod_load_filepath=${dest_dir}/${modules_load_files[$i]}
 
     if [[ -f ${mod_order_filepath} ]]; then
-      if [[ "${mod_order_file}" == "modules.order" ]]; then
+      if [[ "${modules_order_files[$i]}" == "modules.order" ]]; then
         run_depmod ${dest_stage} "${depmod_flags}" "${version}"
       else
         run_depmod ${dest_stage} "${depmod_flags}" "${version}" "${mod_order_filepath}"
@@ -308,9 +316,12 @@ function build_system_dlkm() {
   echo " Creating system_dlkm image"
 
   rm -rf ${SYSTEM_DLKM_STAGING_DIR}
+  # MODULES_[RECOVERY_LIST|CHARGER]_LIST should not influence system_dlkm, as
+  # GKI modules are not loaded when booting into either recovery or charger
+  # modes, so do not consider them, and pass empty strings instead.
   create_modules_staging "${SYSTEM_DLKM_MODULES_LIST:-${MODULES_LIST}}" "${MODULES_STAGING_DIR}" \
     ${SYSTEM_DLKM_STAGING_DIR} "${SYSTEM_DLKM_MODULES_BLOCKLIST:-${MODULES_BLOCKLIST}}" \
-    "${MODULES_RECOVERY_LIST:-""}" "${MODULES_CHARGER_LIST:-""}" "-e"
+    "" "" "-e"
 
   local system_dlkm_root_dir=$(echo ${SYSTEM_DLKM_STAGING_DIR}/lib/modules/*)
   cp ${system_dlkm_root_dir}/modules.load ${DIST_DIR}/system_dlkm.modules.load
