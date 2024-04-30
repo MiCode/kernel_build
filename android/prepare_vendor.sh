@@ -164,6 +164,9 @@ case "${KERNEL_TARGET}" in
   volcano)
     KERNEL_TARGET="pineapple"
     ;;
+  anorak61)
+    KERNEL_TARGET="anorak"
+    ;;
 esac
 
 ################################################################################
