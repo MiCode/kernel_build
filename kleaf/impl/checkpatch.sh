@@ -183,6 +183,10 @@ echo "========================================================" >> "${MY_RESULTS
 echo "${DIR}: ${GIT_SHA1}" >> "${MY_RESULTS_PATH}"
 echo "========================================================" >> "${MY_RESULTS_PATH}"
 
+# TODO: b/199237323 - Run with --no-tree option for now to avoid spdxcheck.py
+#                     failures. A better fix would be to remove spdxcheck.py.
+CHECKPATCH_ARGS+=(--no-tree)
+
 # Delay exit on non-zero checkpatch.pl return code so we can finish logging.
 
 # Note, it's tricky to ignore this exit code completely and instead return only
