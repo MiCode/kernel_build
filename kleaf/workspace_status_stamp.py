@@ -96,8 +96,8 @@ def get_localversion_from_script(bin: pathlib.Path | None, project: pathlib.Path
                                  env=env)
 
         suffix = None
-        if os.environ.get("BUILD_NUMBER"):
-            suffix = "-ab" + os.environ["BUILD_NUMBER"]
+        #if os.environ.get("BUILD_NUMBER"):
+        #    suffix = "-ab" + os.environ["BUILD_NUMBER"]
         return LocalversionResult(
             path=project,
             popen=popen,
@@ -139,8 +139,8 @@ def get_localversion_from_git(project: pathlib.Path) -> PathCollectible | None:
     popen = subprocess.Popen(script, shell=True, text=True,
                              stdout=subprocess.PIPE, cwd=project)
     suffix = None
-    if os.environ.get("BUILD_NUMBER"):
-        suffix = "-ab" + os.environ["BUILD_NUMBER"]
+    #if os.environ.get("BUILD_NUMBER"):
+    #    suffix = "-ab" + os.environ["BUILD_NUMBER"]
     return LocalversionResult(
         path=project,
         popen=popen,
@@ -380,6 +380,25 @@ class Stamp(object):
         scmversion_result_map: dict[pathlib.Path, str],
         source_date_epoch_result_map: dict[pathlib.Path, str],
     ) -> None:
+        # Added for fixing Mi OKI Build can not find the right build params
+        real_common_dir_name = os.environ.get("REAL_KERNEL_DIR_NAME")
+        # real_common_dir_name will be None if building ko or the oki is unsupported
+        if real_common_dir_name != None and len(real_common_dir_name) != 0:
+            for key, value in scmversion_result_map.items():
+                if str(key) == real_common_dir_name:
+                    # Add mioki flag if we're building on oki repo.
+                    if real_common_dir_name == "common-oki":
+                        scmversion_result_map["common"] = "{}-{}".format(value, "mi")
+                    else:
+                        scmversion_result_map["common"] = value
+                    break
+
+            for key, value in source_date_epoch_result_map.items():
+                if str(key) == real_common_dir_name:
+                    source_date_epoch_result_map["common"] = value
+                    break
+        # END
+
         stable_source_date_epochs = json.dumps({
             str(key): value for key, value in source_date_epoch_result_map.items()
         }, sort_keys=True)

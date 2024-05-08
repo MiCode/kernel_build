@@ -97,8 +97,74 @@ function rel_path() {
   python -c "import os.path; import sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$1" "$2"
 }
 
+
+
+function clean_all_Android_mk {
+  echo
+  echo "  cleaning up kernel_platform tree for Android"
+  set -x
+  find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
+    -a -not -path ${ROOT_DIR}/common/Android.bp -a -not -path ${ROOT_DIR}/msm-kernel/Android.bp \
+    -a -not -path ${ROOT_DIR}/common-gki/Android.bp -a -not -path ${ROOT_DIR}/common-oki/Android.bp \
+    -delete
+  set +x
+}
+
+
+# Get the exact value of a build variable.
+function get_build_var()
+{
+    local T=${ANDROID_BUILD_TOP}
+    if [ ! "$T" ]; then
+        echo "Couldn't locate the top of the tree.  Try setting TOP." >&2
+        return 1
+    fi
+    (\cd $T; build/soong/soong_ui.bash --dumpvar-mode $1)
+}
+
+function prepare_env_for_oki {
+  echo
+  echo "  preparing 'common' kernel tree for Mi OKI build"
+  set -x
+  TARGET_USES_MI_OKI=$(get_build_var TARGET_USES_MI_OKI)
+  if [ -d ${ROOT_DIR}/common-oki -a -d ${ROOT_DIR}/common-gki ]; then
+    echo "  current tree supported mi oki build! TARGET_USES_MI_OKI: ${TARGET_USES_MI_OKI}"
+    # Cleanup previous link
+    rm -rf ${ROOT_DIR}/common
+    if [ "${TARGET_USES_MI_OKI}" == "true" ]; then
+      ln -fs ${ROOT_DIR}/common-oki ${ROOT_DIR}/common
+      export REAL_KERNEL_DIR_NAME="common-oki"
+    else
+      ln -fs ${ROOT_DIR}/common-gki ${ROOT_DIR}/common
+      export REAL_KERNEL_DIR_NAME="common-gki"
+    fi
+  elif [ "${TARGET_USES_MI_OKI}" == "true" ]; then
+    echo "Error: current tree is not supported mi oki build! but oki support macro is true!
+         the gki prebuilt img can not be used! Please check for it!" 1>&2
+    exit 1
+  else
+    echo "  The Mi OKI is not supported!"
+  fi
+  set +x
+}
+
+
 ROOT_DIR=$($(dirname $(readlink -f $0))/../gettop.sh)
 echo "  kernel platform root: $ROOT_DIR"
+
+DEVICE_NAME=$(echo ${TARGET_PRODUCT}|sed 's/_/ /g'|awk '{print $2}')
+DEVICE_COMPONENT=$(echo ${TARGET_PRODUCT}|sed 's/_/ /g'|awk '{print $1}')
+
+if [ "$(echo ${TARGET_PRODUCT} | grep "factory")" != "" ]; then
+    FACTORY_BUILD=1
+else
+    FACTORY_BUILD=0
+fi
+
+if [ "${SKIP_COMPILE_KERNEL}" ==  "1" ]; then
+    clean_all_Android_mk
+    exit 0
+fi
 
 # Merge vendor devicetree overlays
 
@@ -140,7 +206,13 @@ if [ -z "${ANDROID_KERNEL_OUT}" ]; then
     exit 1
   fi
 
-  ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/device/qcom/${TARGET_BOARD_PLATFORM}-kernel
+  if [ "${DEVICE_COMPONENT}" == "miodm" ];then
+    ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/out/target/product/${DEVICE_NAME}/prebuilt_kernel
+  else
+    echo "Error: Kernel and ko can only build when build odm target." 1>&2
+    exit 1
+  fi
+
 fi
 if [ ! -e ${ANDROID_KERNEL_OUT} ]; then
   mkdir -p ${ANDROID_KERNEL_OUT}
@@ -149,12 +221,25 @@ fi
 ################################################################################
 # Determine requested kernel target and variant
 
+case "${TARGET_BUILD_VARIANT}" in
+  user)
+      if [ "true" == "$ENABLE_SYSTEM_MTBF" ]; then
+          TARGET_BUILD_KERNEL_VARIANT=consolidate
+      else
+          TARGET_BUILD_KERNEL_VARIANT=gki
+      fi
+      ;;
+  *)
+      TARGET_BUILD_KERNEL_VARIANT=consolidate
+      ;;
+esac
+
 if [ -z "${KERNEL_TARGET}" ]; then
-  KERNEL_TARGET=${1:-${TARGET_BOARD_PLATFORM}}
+  KERNEL_TARGET=${1:-${DEVICE_NAME}}
 fi
 
 if [ -z "${KERNEL_VARIANT}" ]; then
-  KERNEL_VARIANT=${2}
+  KERNEL_VARIANT=${2:-${TARGET_BUILD_KERNEL_VARIANT}}
 fi
 
 case "${KERNEL_TARGET}" in
@@ -242,14 +327,24 @@ if [ "${RECOMPILE_KERNEL}" == "1" -o "${COPY_NEEDED}" == "1" ]; then
   rm -f ${ANDROID_KERNEL_OUT}/Image ${ANDROID_KERNEL_OUT}/vmlinux ${ANDROID_KERNEL_OUT}/System.map
 fi
 
+# Prepare tree for oki build
+prepare_env_for_oki
+
 ################################################################################
 if [ "${RECOMPILE_KERNEL}" == "1" ]; then
   echo
   echo "  Recompiling kernel"
 
+
+  if [ "${TARGET_USES_MI_OKI}" == "true" -a "${TARGET_BUILD_KERNEL_VARIANT}" == "gki" ]; then
+      echo "  Building release variant for OKI with \"GKI variant\""
+      OKI_ARG="--config release"
+  fi
+
   # shellcheck disable=SC2086
   "${ROOT_DIR}/build_with_bazel.py" \
-    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $LTO_KBUILD_ARG $EXTRA_KBUILD_ARGS \
+    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $LTO_KBUILD_ARG $EXTRA_KBUILD_ARGS --define=FACTORY_BUILD=${FACTORY_BUILD} --define=ENABLE_SYSTEM_MTBF=${ENABLE_SYSTEM_MTBF} \
+    $OKI_ARG \
     --out_dir "${ANDROID_KP_OUT_DIR}"
 
   COPY_NEEDED=1
@@ -283,6 +378,7 @@ if [ "${RECOMPILE_ABL}" == "1" ] && [ -n "${TARGET_BUILD_VARIANT}" ] && \
       cd "${ROOT_DIR}"
 
       ./tools/bazel run \
+        --define=FACTORY_BUILD=${FACTORY_BUILD} --define=ENABLE_SYSTEM_MTBF=${ENABLE_SYSTEM_MTBF} \
         --"//bootable/bootloader/edk2:target_build_variant=${TARGET_BUILD_VARIANT}" \
         "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
         -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist"
@@ -343,6 +439,14 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   else
     echo "  WARNING!! No system_dlkm (second stage) modules found"
   fi
+  # Mi OKI: copy GKI modules to system_dlkm also to keep the GKI compatibility
+  set -x
+  if [ ${TARGET_USES_MI_OKI} == "true" -a -d "${ANDROID_BUILD_TOP}/device/xiaomi/gki_images/system_dlkm_staging_archive/" ]; then
+    echo "  Copying GKI Modules into system_dlkm..."
+    cp -r ${ANDROID_BUILD_TOP}/device/xiaomi/gki_images/system_dlkm_staging_archive/* ${ANDROID_KERNEL_OUT}/system_dlkm/
+  fi
+  set +x
+  # End
 
   rm -f ${ANDROID_KERNEL_OUT}/vendor_dlkm/*.ko ${ANDROID_KERNEL_OUT}/vendor_dlkm/modules.*
   second_stage_kos=$(find ${ANDROID_KP_OUT_DIR}/dist/ -name \*.ko | \
@@ -389,6 +493,7 @@ if [ "${COPY_NEEDED}" == "1" ]; then
     "Module.symvers"
     "kernel-uapi-headers.tar.gz"
     "build_opts.txt"
+    "system_dlkm_symbol_archive.tar.gz"
   )
 
   cp "${files[@]/#/${ANDROID_KP_OUT_DIR}/dist/}" ${ANDROID_KERNEL_OUT}/
@@ -451,14 +556,7 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
   fi
 
   ################################################################################
-  echo
-  echo "  cleaning up kernel_platform tree for Android"
-
-  set -x
-  find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
-      -a -not -path ${ROOT_DIR}/common/Android.bp -a -not -path ${ROOT_DIR}/msm-kernel/Android.bp \
-      -delete
-  set +x
+  clean_all_Android_mk
 
   ################################################################################
   echo

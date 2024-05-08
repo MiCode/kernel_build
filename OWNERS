@@ -1,5 +1,5 @@
-adelva@google.com
-elsk@google.com
-maennich@google.com
-umendez@google.com
-willmcvicker@google.com
+# This top-level list should remain narrowly defined as team leads; individual
+# teams are strongly encouraged to define narrower OWNERS files at deeper
+# levels within the source tree; see OWNERS.javascript:void(0);md for more details
+xieqiang@xiaomi.com
+

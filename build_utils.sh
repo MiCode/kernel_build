@@ -411,6 +411,9 @@ function build_system_dlkm() {
 
   # Archive system_dlkm_staging_dir
   tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
+
+  # Archive system_dlkm symbol to DIST_DIR
+  tar -czf "${DIST_DIR}/system_dlkm_symbol_archive.tar.gz" -C "${MODULES_STAGING_DIR}/lib/modules" .
 }
 
 # $1 if set, generate the vendor_dlkm_staging_archive.tar.gz archive
