@@ -2195,6 +2195,13 @@ def _kmi_symbol_list_violations_check(ctx, modules_staging_archive):
               IGNORED because --kgdb is set!".format(this_label = ctx.label))
         return None
 
+    # Skip for --gcov builds.
+    if ctx.attr._gcov[BuildSettingInfo].value:
+        # buildifier: disable=print
+        print("\nWARNING: {this_label}: Attribute kmi_symbol_list_strict_mode\
+              IGNORED because --gcov is set!".format(this_label = ctx.label))
+        return None
+
     inputs = [
         modules_staging_archive,
     ]
