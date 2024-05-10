@@ -28,7 +28,7 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Changes from Qualcomm Innovation Center are provided under the following license:
-# Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ## prepare_vendor.sh prepares kernel/build's output for direct consumption in AOSP
@@ -328,10 +328,20 @@ if [ "${COPY_NEEDED}" == "1" ]; then
     cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
   fi
 
+  unprotected_dlkm_kos=$(mktemp)
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.unprotectedlist ]; then
+    cat ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.unprotectedlist | \
+    tr " " "\n" | xargs -L 1 basename | \
+    xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${unprotected_dlkm_kos}
+  else
+    echo "  vendor_dlkm.modules.unprotectedlist file is not found or is empty"
+  fi
+
   system_dlkm_kos=$(mktemp)
   if [ -s ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load ]; then
     xargs -L 1 -a "${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load" basename | \
-    sed -e "s|^|${ANDROID_KP_OUT_DIR}/dist/|g" > "$system_dlkm_kos"
+    sed -e "s|^|${ANDROID_KP_OUT_DIR}/dist/|g" | \
+    grep -v -F -f ${unprotected_dlkm_kos} > "$system_dlkm_kos"
   else
     echo "  system_dlkm_kos.modules.load file is not found or is empty"
   fi
@@ -420,6 +430,7 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   fi
 
   rm ${first_stage_kos}
+  rm ${unprotected_dlkm_kos}
   rm ${system_dlkm_kos}
 fi
 
