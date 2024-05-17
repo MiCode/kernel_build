@@ -49,6 +49,7 @@ bzl_library(
         "ddk/ddk_headers.bzl",
         "ddk/ddk_module.bzl",
         "ddk/ddk_submodule.bzl",
+        "ddk/ddk_uapi_headers.bzl",
         "ddk/makefiles.bzl",
         "debug.bzl",
         "file.bzl",

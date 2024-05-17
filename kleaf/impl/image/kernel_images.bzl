@@ -395,13 +395,14 @@ def kernel_images(
     vendor_boot_modules_load_recovery = None
     vendor_boot_modules_load_charger = None
     if build_initramfs:
-        vendor_boot_modules_load = "{}_initramfs/{}.modules.load".format(name, vendor_boot_name)
+        if vendor_boot_name:
+            vendor_boot_modules_load = "{}_initramfs/{}.modules.load".format(name, vendor_boot_name)
 
-        if modules_recovery_list:
-            vendor_boot_modules_load_recovery = "{}_initramfs/{}.modules.load.recovery".format(name, vendor_boot_name)
+            if modules_recovery_list:
+                vendor_boot_modules_load_recovery = "{}_initramfs/{}.modules.load.recovery".format(name, vendor_boot_name)
 
-        if modules_charger_list:
-            vendor_boot_modules_load_charger = "{}_initramfs/{}.modules.load.charger".format(name, vendor_boot_name)
+            if modules_charger_list:
+                vendor_boot_modules_load_charger = "{}_initramfs/{}.modules.load.charger".format(name, vendor_boot_name)
 
         if ramdisk_compression_args and ramdisk_compression != "lz4":
             fail(
