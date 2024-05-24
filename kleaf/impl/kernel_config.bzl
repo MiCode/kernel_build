@@ -38,71 +38,8 @@ load(":utils.bzl", "kernel_utils")
 
 visibility("//build/kernel/kleaf/...")
 
-def _determine_local_path(ctx, file_name, file_attr):
-    """A local action that stores the path to sandboxed file to a file object"""
-
-    # Use a local action so we get an absolute path in the execroot that
-    # does not tear down as sandboxes. Then write the absolute path into the
-    # abspath.
-    #
-    # In practice, the absolute path looks something like:
-    #    /<workspace_root>/out/bazel/output_user_root/<hash>/execroot/__main__/bazel-out/k8-fastbuild/<file>
-    #
-    # Alternatively, we could use a relative path. However, gen_autoksyms.sh
-    # interprets relative paths as paths relative to $abs_srctree, which
-    # is $(realpath $ROOT_DIR/$KERNEL_DIR). The $abs_srctree is:
-    # - A path within the sandbox for sandbox actions
-    # - /<workspace_root>/$KERNEL_DIR for local actions
-    # Whether KernelConfig is executed in a sandbox may not be consistent with
-    # whether a dependant action is executed in a sandbox. This causes the
-    # interpretation of CONFIG_* to be inconsistent in the two actions. Hence,
-    # we stick with absolute paths.
-    #
-    # NOTE: This may hurt remote caching for developer builds. We may want to
-    # re-visit this when we implement remote caching for developers.
-
-    hermetic_tools = hermetic_toolchain.get(ctx)
-    abspath = ctx.actions.declare_file("{}/{}.abspath".format(ctx.attr.name, file_name))
-    command = hermetic_tools.setup + """
-      # Record the absolute path so we can use in .config
-        readlink -e {file_attr_path} > {abspath}
-    """.format(
-        abspath = abspath.path,
-        file_attr_path = file_attr.path,
-    )
-    ctx.actions.run_shell(
-        command = command,
-        inputs = [file_attr],
-        outputs = [abspath],
-        tools = hermetic_tools.deps,
-        mnemonic = "KernelConfigLocalPath",
-        progress_message = "Storing sandboxed path for {}".format(file_name),
-        execution_requirements = {
-            "local": "1",
-        },
-    )
-    return abspath
-
-def _determine_raw_symbollist_path(ctx):
-    """A local action that stores the path to `abi_symbollist.raw` to a file object."""
-
-    return _determine_local_path(ctx, "abi_symbollist.raw", ctx.files.raw_kmi_symbol_list[0])
-
-def _determine_module_signing_key_path(ctx):
-    """A local action that stores the path to `signing_key.pem` to a file object."""
-
-    if not ctx.file.module_signing_key:
-        return None
-
-    return _determine_local_path(ctx, "signing_key.pem", ctx.file.module_signing_key)
-
-def _determine_system_trusted_key_path(ctx):
-    """A local action that stores the path to `trusted_key.pem` to a file object."""
-
-    if not ctx.file.system_trusted_key:
-        return None
-
-    return _determine_local_path(ctx, "trusted_key.pem", ctx.file.system_trusted_key)
+# Name of raw symbol list under $OUT_DIR
+_RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR = "abi_symbollist.raw"
 
 def _config_gcov(ctx):
     """Return configs for GCOV.
@@ -205,14 +142,13 @@ def _config_trim(ctx):
     return struct(configs = configs, deps = [])
 
 def _config_symbol_list(ctx):
-    """Return configs for `raw_symbol_list_path_file`.
+    """Return configs for `raw_symbol_list`.
 
     Args:
         ctx: ctx
     Returns:
         A struct, where `configs` is a list of arguments to `scripts/config`,
-        `deps` is a list of input files to kernel_config, and
-        `extra_post_setup_deps` is a list of files for downstream targets.
+        and `deps` is a list of input files.
     """
     if not ctx.files.raw_kmi_symbol_list:
         return struct(configs = [], deps = [])
@@ -220,17 +156,15 @@ def _config_symbol_list(ctx):
     if len(ctx.files.raw_kmi_symbol_list) > 1:
         fail("{}: raw_kmi_symbol_list must only provide at most one file".format(ctx.label))
 
-    raw_symbol_list_path_file = _determine_raw_symbollist_path(ctx)
     configs = [
         _config.set_str(
             "UNUSED_KSYMS_WHITELIST",
-            "$(cat {})".format(raw_symbol_list_path_file.path),
+            _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
         ),
     ]
     return struct(
         configs = configs,
-        deps = [raw_symbol_list_path_file],
-        extra_post_setup_deps = ctx.files.raw_kmi_symbol_list,
+        deps = [],
     )
 
 def _config_keys(ctx):
@@ -245,35 +179,24 @@ def _config_keys(ctx):
         ctx: ctx
     Returns:
         A struct, where `configs` is a list of arguments to `scripts/config`,
-        `deps` is a list of input files to kernel_config, and
-        `extra_post_setup_deps` is a list of files for downstream targets.
+        and `deps` is a list of input files.
     """
-
-    module_signing_key_path_file = _determine_module_signing_key_path(ctx)
-    system_trusted_key_path_file = _determine_system_trusted_key_path(ctx)
     configs = []
-    deps = []
-    extra_post_setup_deps = []
-    if module_signing_key_path_file:
+    if ctx.file.module_signing_key:
         configs.append(_config.set_str(
             "MODULE_SIG_KEY",
-            "$(cat {})".format(module_signing_key_path_file.path),
+            ctx.file.module_signing_key.basename,
         ))
-        deps.append(module_signing_key_path_file)
-        extra_post_setup_deps.append(ctx.file.module_signing_key)
 
-    if system_trusted_key_path_file:
+    if ctx.file.system_trusted_key:
         configs.append(_config.set_str(
             "SYSTEM_TRUSTED_KEYS",
-            "$(cat {})".format(system_trusted_key_path_file.path),
+            ctx.file.system_trusted_key.basename,
         ))
-        deps.append(system_trusted_key_path_file)
-        extra_post_setup_deps.append(ctx.file.system_trusted_key)
 
     return struct(
         configs = configs,
-        deps = deps,
-        extra_post_setup_deps = extra_post_setup_deps,
+        deps = [],
     )
 
 def _config_kasan(ctx):
@@ -392,7 +315,6 @@ def _reconfig(ctx):
     configs = []
     deps = []
     transitive_deps = []
-    extra_post_setup_deps = []
     apply_defconfig_fragments_cmd = ""
     check_defconfig_fragments_cmd = ""
 
@@ -410,7 +332,6 @@ def _reconfig(ctx):
         pair = fn(ctx)
         configs += pair.configs
         deps += pair.deps
-        extra_post_setup_deps += getattr(pair, "extra_post_setup_deps", [])
 
     if ctx.files.defconfig_fragments:
         transitive_deps += [target.files for target in ctx.attr.defconfig_fragments]
@@ -457,7 +378,6 @@ def _reconfig(ctx):
     return struct(
         cmd = cmd,
         deps = depset(deps, transitive = transitive_deps),
-        extra_post_setup_deps = extra_post_setup_deps,
     )
 
 def _kernel_config_impl(ctx):
@@ -497,6 +417,20 @@ def _kernel_config_impl(ctx):
     outputs += cache_dir_step.outputs
     tools += cache_dir_step.tools
 
+    sync_raw_kmi_symbol_list_cmd = ""
+    if ctx.files.raw_kmi_symbol_list:
+        sync_raw_kmi_symbol_list_cmd = """
+            rsync -aL {raw_kmi_symbol_list} {out_dir}/{raw_kmi_symbol_list_below_out_dir}
+        """.format(
+            out_dir = out_dir.path,
+            raw_kmi_symbol_list = ctx.files.raw_kmi_symbol_list[0].path,
+            raw_kmi_symbol_list_below_out_dir = _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
+        )
+        inputs += ctx.files.raw_kmi_symbol_list
+
+    # exclude keys in out_dir to avoid accidentally including them
+    # in the distribution.
+
     command = ctx.attr.env[KernelEnvInfo].setup + """
           {cache_dir_cmd}
         # Pre-defconfig commands
@@ -512,6 +446,7 @@ def _kernel_config_impl(ctx):
         # Grab outputs
           rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
           rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
+          {sync_raw_kmi_symbol_list_cmd}
 
         # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
           sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
@@ -526,6 +461,7 @@ def _kernel_config_impl(ctx):
         cache_dir_cmd = cache_dir_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         reconfig_cmd = reconfig.cmd,
+        sync_raw_kmi_symbol_list_cmd = sync_raw_kmi_symbol_list_cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -542,7 +478,19 @@ def _kernel_config_impl(ctx):
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
     )
 
-    post_setup_deps = [out_dir, localversion_file] + reconfig.extra_post_setup_deps
+    post_setup_deps = [out_dir, localversion_file]
+
+    extra_restore_outputs_cmd = ""
+    for file in (ctx.file.module_signing_key, ctx.file.system_trusted_key):
+        if not file:
+            continue
+        extra_restore_outputs_cmd += """
+            rsync -aL {file} ${{OUT_DIR}}/{basename}
+        """.format(
+            file = file.path,
+            basename = file.basename,
+        )
+
     post_setup = """
            [ -z ${{OUT_DIR}} ] && echo "FATAL: configs post_env_info setup run without OUT_DIR set!" >&2 && exit 1
          # Restore kernel config inputs
@@ -550,12 +498,20 @@ def _kernel_config_impl(ctx):
            rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
            rsync -aL --chmod=F+w {localversion_file} ${{OUT_DIR}}/localversion
+           if [[ -f {out_dir}/{raw_kmi_symbol_list_below_out_dir} ]]; then
+                rsync -aL --chmod=F+w \\
+                    {out_dir}/{raw_kmi_symbol_list_below_out_dir} ${{OUT_DIR}}/
+           fi
 
          # Restore real value of $ROOT_DIR in auto.conf.cmd
            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
+
+           {extra_restore_outputs_cmd}
     """.format(
         out_dir = out_dir.path,
         localversion_file = localversion_file.path,
+        raw_kmi_symbol_list_below_out_dir = _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
+        extra_restore_outputs_cmd = extra_restore_outputs_cmd,
     )
 
     env_and_outputs_info = KernelEnvAndOutputsInfo(
