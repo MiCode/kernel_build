@@ -276,6 +276,8 @@ for EXT_MOD in ${EXT_MODULES}; do
      btgt="sdmsteppeauto"
   elif [ "$TARGET_BOARD_PLATFORM" = "volcano" ]; then
      btgt="pineapple"
+  elif [ "$TARGET_BOARD_PLATFORM" = "anorak61" ]; then
+     btgt="anorak"
   else
      btgt="$TARGET_BOARD_PLATFORM"
   fi

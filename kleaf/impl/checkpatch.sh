@@ -138,6 +138,11 @@ if [[ "$SUBJECT" =~ ^UPSTREAM|^BACKPORT|^FROMGIT ]]; then
   exit 0
 fi
 
+if [[ "$SUBJECT" =~ ^Revert ]]; then
+  echo "Not linting revert patches for "${DIR}". Skipping this check."
+  exit 0
+fi
+
 # Now run checkpatch.pl on DIR: GIT_SHA1
 # Below is the equivalent of build/kernel/static_analysis/checkpatch.sh
 
