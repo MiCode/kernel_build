@@ -49,17 +49,14 @@ def _kernel_build_step(ctx):
         )
         outputs += [out_dir, compile_commands_with_vars]
         cmd = """
-            # Hack needed for branches which uses real paths in gen_compile_commands.py
-            KLEAF_BAZEL_SOURCE_ROOTS="/tmp/bazel-source-roots/[0-9]\\+"
             rsync -a --prune-empty-dirs \\
                 --include '*/' \\
                 --include '*.c' \\
                 --include '*.S' \\
                 --include '*.h' \\
                 --exclude '*' ${{OUT_DIR}}/ {out_dir}/
-            sed -e "s:${{OUT_DIR}}:\\${{OUT_DIR}}:g;s:${{ROOT_DIR}}:\\${{ROOT_DIR}}:g;s:${{KLEAF_BAZEL_SOURCE_ROOTS}}:\\${{ROOT_DIR}}:g" \\
+            sed -e "s:${{OUT_DIR}}:\\${{OUT_DIR}}:g;s:${{ROOT_DIR}}:\\${{ROOT_DIR}}:g" \\
                 ${{OUT_DIR}}/compile_commands.json > {compile_commands_with_vars}
-            unset KLEAF_BAZEL_SOURCE_ROOTS
         """.format(
             out_dir = out_dir.path,
             compile_commands_with_vars = compile_commands_with_vars.path,
