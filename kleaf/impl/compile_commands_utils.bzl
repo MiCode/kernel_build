@@ -49,14 +49,19 @@ def _kernel_build_step(ctx):
         )
         outputs += [out_dir, compile_commands_with_vars]
         cmd = """
+            (
+            # HACK: get the workspace root and replace it with the fake ROOT_DIR. (b/343803993)
+            KLEAF_INTERNAL_WORKSPACE_DIR=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}}/Makefile)
+            KLEAF_INTERNAL_WORKSPACE_DIR=${{KLEAF_INTERNAL_WORKSPACE_DIR%/${{KERNEL_DIR}}/Makefile}}
             rsync -a --prune-empty-dirs \\
                 --include '*/' \\
                 --include '*.c' \\
                 --include '*.S' \\
                 --include '*.h' \\
                 --exclude '*' ${{OUT_DIR}}/ {out_dir}/
-            sed -e "s:${{OUT_DIR}}:\\${{OUT_DIR}}:g;s:${{ROOT_DIR}}:\\${{ROOT_DIR}}:g" \\
+            sed -e "s:${{OUT_DIR}}:\\${{OUT_DIR}}:g;s:${{ROOT_DIR}}:\\${{ROOT_DIR}}:g;s:${{KLEAF_INTERNAL_WORKSPACE_DIR}}:\\${{ROOT_DIR}}:g" \\
                 ${{OUT_DIR}}/compile_commands.json > {compile_commands_with_vars}
+            )
         """.format(
             out_dir = out_dir.path,
             compile_commands_with_vars = compile_commands_with_vars.path,
