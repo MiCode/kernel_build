@@ -265,17 +265,19 @@ ANDROID_ABL_OUT_DIR=${ANDROID_KERNEL_OUT}/kernel-abl
 
 if [ "${KERNEL_TARGET}" == "autoghgvm" ]; then
   ABL_IMAGE=LinuxLoader.efi
+  DIST_ABL_IMAGE=LinuxLoader_${TARGET_BUILD_VARIANT}.efi
 else
   ABL_IMAGE=unsigned_abl.elf
+  DIST_ABL_IMAGE=unsigned_abl_${TARGET_BUILD_VARIANT}.elf
 fi
 
 if [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}/${ABL_IMAGE}" ] || \
     ! diff -q "${ANDROID_ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}/${ABL_IMAGE}" \
-  "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${TARGET_BUILD_VARIANT}.elf" ; then
+  "${ANDROID_KP_OUT_DIR}/dist/${DIST_ABL_IMAGE}" ; then
   COPY_ABL_NEEDED=1
 fi
 
-if [ ! -e "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${TARGET_BUILD_VARIANT}.elf" ] && \
+if [ ! -e "${ANDROID_KP_OUT_DIR}/dist/${DIST_ABL_IMAGE}" ] && \
    [ "${COPY_ABL_NEEDED}" == "1" ]; then
   RECOMPILE_ABL=1
 fi
