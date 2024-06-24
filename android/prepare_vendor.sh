@@ -28,7 +28,7 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Changes from Qualcomm Innovation Center are provided under the following license:
-# Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ## prepare_vendor.sh prepares kernel/build's output for direct consumption in AOSP
@@ -262,13 +262,22 @@ fi
 # Set up recompile and copy variables for edk2
 ANDROID_ABL_OUT_DIR=${ANDROID_KERNEL_OUT}/kernel-abl
 
-if [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}/unsigned_abl.elf" ] || \
-    ! diff -q "${ANDROID_ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}/unsigned_abl.elf" \
-  "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${TARGET_BUILD_VARIANT}.elf" ; then
+
+if [ "${KERNEL_TARGET}" == "autoghgvm" ]; then
+  ABL_IMAGE=LinuxLoader.efi
+  DIST_ABL_IMAGE=LinuxLoader_${TARGET_BUILD_VARIANT}.efi
+else
+  ABL_IMAGE=unsigned_abl.elf
+  DIST_ABL_IMAGE=unsigned_abl_${TARGET_BUILD_VARIANT}.elf
+fi
+
+if [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}/${ABL_IMAGE}" ] || \
+    ! diff -q "${ANDROID_ABL_OUT_DIR}/abl-${TARGET_BUILD_VARIANT}/${ABL_IMAGE}" \
+  "${ANDROID_KP_OUT_DIR}/dist/${DIST_ABL_IMAGE}" ; then
   COPY_ABL_NEEDED=1
 fi
 
-if [ ! -e "${ANDROID_KP_OUT_DIR}/dist/unsigned_abl_${TARGET_BUILD_VARIANT}.elf" ] && \
+if [ ! -e "${ANDROID_KP_OUT_DIR}/dist/${DIST_ABL_IMAGE}" ] && \
    [ "${COPY_ABL_NEEDED}" == "1" ]; then
   RECOMPILE_ABL=1
 fi
@@ -328,10 +337,20 @@ if [ "${COPY_NEEDED}" == "1" ]; then
     cp ${ANDROID_KP_OUT_DIR}/dist/modules.load ${ANDROID_KERNEL_OUT}/modules.load
   fi
 
+  unprotected_dlkm_kos=$(mktemp)
+  if [ -e ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.unprotectedlist ]; then
+    cat ${ANDROID_KP_OUT_DIR}/dist/vendor_dlkm.modules.unprotectedlist | \
+    tr " " "\n" | xargs -L 1 basename | \
+    xargs -L 1 find ${ANDROID_KP_OUT_DIR}/dist/ -name > ${unprotected_dlkm_kos}
+  else
+    echo "  vendor_dlkm.modules.unprotectedlist file is not found or is empty"
+  fi
+
   system_dlkm_kos=$(mktemp)
   if [ -s ${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load ]; then
     xargs -L 1 -a "${ANDROID_KP_OUT_DIR}/dist/system_dlkm.modules.load" basename | \
-    sed -e "s|^|${ANDROID_KP_OUT_DIR}/dist/|g" > "$system_dlkm_kos"
+    sed -e "s|^|${ANDROID_KP_OUT_DIR}/dist/|g" | \
+    grep -v -F -f ${unprotected_dlkm_kos} > "$system_dlkm_kos"
   else
     echo "  system_dlkm_kos.modules.load file is not found or is empty"
   fi
@@ -420,6 +439,7 @@ if [ "${COPY_NEEDED}" == "1" ]; then
   fi
 
   rm ${first_stage_kos}
+  rm ${unprotected_dlkm_kos}
   rm ${system_dlkm_kos}
 fi
 
@@ -430,7 +450,12 @@ if [ "${COPY_ABL_NEEDED}" == "1" ]; then
   [ -z "${ABL_BUILD_VARIANT}" ] && ABL_BUILD_VARIANT=("userdebug" "user")
   for variant in "${ABL_BUILD_VARIANT[@]}"
   do
-    for file in LinuxLoader_${variant}.debug unsigned_abl_${variant}.elf ; do
+    if [ "${KERNEL_TARGET}" == "autoghgvm" ]; then
+      file_list="LinuxLoader_${variant}.debug LinuxLoader_${variant}.efi"
+    else
+      file_list="LinuxLoader_${variant}.debug unsigned_abl_${variant}.elf"
+    fi
+    for file in ${file_list}; do
       if [ -e ${ANDROID_KP_OUT_DIR}/dist/${file} ]; then
         if [ ! -e "${ANDROID_ABL_OUT_DIR}/abl-${variant}" ]; then
           mkdir -p ${ANDROID_ABL_OUT_DIR}/abl-${variant}
