@@ -44,39 +44,79 @@ _kernel_compile_commands_transition = transition(
 def _kernel_compile_commands_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
 
-    compile_commands_infos = ctx.attr.kernel_build[CompileCommandsInfo].infos.to_list()
-    if len(compile_commands_infos) != 1:
-        fail("kernel_build should provide CompileCommandsInfo with exactly one CompileCommandsSingleInfo")
-    compile_commands_with_vars = compile_commands_infos[0].compile_commands_with_vars
-    compile_commands_common_out_dir = compile_commands_infos[0].compile_commands_common_out_dir
+    if ctx.attr.kernel_build:
+        # buildifier: disable=print
+        print("WARNING: {}: kernel_compile_commands.kernel_build is deprecated. Use deps instead.".format(
+            ctx.label,
+        ))
 
     script = ctx.actions.declare_file(ctx.attr.name + ".sh")
     script_content = hermetic_tools.run_setup + """
-        OUTPUT=${{1:-${{BUILD_WORKSPACE_DIRECTORY}}/compile_commands.json}}
-        sed -e "s:\\${{COMMON_OUT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}/{compile_commands_common_out_dir}:g;s:\\${{ROOT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}:g" \\
-            {compile_commands_with_vars} > ${{OUTPUT}}
-        echo "Written to ${{OUTPUT}}"
-    """.format(
-        compile_commands_with_vars = compile_commands_with_vars.short_path,
-        compile_commands_common_out_dir = compile_commands_common_out_dir.path,
-    )
+        OUTPUT=${1:-${BUILD_WORKSPACE_DIRECTORY}/compile_commands.json}
+        echo '[' > ${OUTPUT}
+    """
+
+    direct_runfiles = []
+    for dep in [ctx.attr.kernel_build] + ctx.attr.deps:
+        if dep == None:  # ctx.attr.kernel_build may be None
+            continue
+
+        # This depset.to_list could be avoided with a dedicated script taking
+        # arguments describing CompileCommandsInfo. However, for simplicity,
+        # expand it at the analysis phase. The list shouldn't be more than
+        # 1 + num(kernel_module).
+        for info in dep[CompileCommandsInfo].infos.to_list():
+            # A more robust way would be to parse the JSON list to concatenate them.
+            # But this is good enough for now, and more efficient because you
+            # don't need to load the whole JSON list to memory.
+            script_content += """
+                if [[ -s ${{OUTPUT}} ]]; then
+                    echo ',' >> ${{OUTPUT}}
+                fi
+                sed -e '1d;$d' \\
+                    -e "s:\\${{COMMON_OUT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}/{compile_commands_common_out_dir}:g" \\
+                    -e "s:\\${{ROOT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}:g" \\
+                    {compile_commands_with_vars} >> ${{OUTPUT}}
+            """.format(
+                compile_commands_with_vars = info.compile_commands_with_vars.short_path,
+                compile_commands_common_out_dir = info.compile_commands_common_out_dir.path,
+            )
+            direct_runfiles.append(info.compile_commands_with_vars)
+
+    script_content += """
+        echo ']' >> ${OUTPUT}
+        echo "Written to ${OUTPUT}"
+    """
     ctx.actions.write(script, script_content, is_executable = True)
 
     return DefaultInfo(
         executable = script,
         runfiles = ctx.runfiles(
-            files = [compile_commands_with_vars],
+            files = direct_runfiles,
             transitive_files = hermetic_tools.deps,
         ),
     )
 
 kernel_compile_commands = rule(
     implementation = _kernel_compile_commands_impl,
-    doc = """Define an executable that creates `compile_commands.json` from a `kernel_build`.""",
+    doc = """Define an executable that creates `compile_commands.json` from kernel targets.""",
     attrs = {
         "kernel_build": attr.label(
-            mandatory = True,
-            doc = "The `kernel_build` rule to extract from.",
+            doc = """The `kernel_build` rule to extract from.
+
+                Deprecated:
+                    Use `deps` instead.
+            """,
+            providers = [CompileCommandsInfo],
+        ),
+        "deps": attr.label_list(
+            doc = """The targets to extract from. The following are allowed:
+
+                - [`kernel_build`](#kernel_build)
+                - [`kernel_module`](#kernel_module)
+                - [`ddk_module`](#ddk_module)
+                - [`kernel_module_group`](#kernel_module_group)
+            """,
             providers = [CompileCommandsInfo],
         ),
         # Allow any package to use kernel_compile_commands because it is a public API.
