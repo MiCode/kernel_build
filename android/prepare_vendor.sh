@@ -115,17 +115,29 @@ fi
 ################################################################################
 # Determine requested kernel target and variant
 
+case "${TARGET_BUILD_VARIANT}" in
+  user)
+      TARGET_BUILD_KERNEL_VARIANT=gki
+  ;;
+  *)
+      TARGET_BUILD_KERNEL_VARIANT=consolidate
+  ;;
+esac
+
 if [ -z "${KERNEL_TARGET}" ]; then
-  KERNEL_TARGET=${1:-${TARGET_BOARD_PLATFORM}}
+  KERNEL_TARGET=${1:-${TARGET_PRODUCT}}
 fi
 
 if [ -z "${KERNEL_VARIANT}" ]; then
-  KERNEL_VARIANT=${2}
+  KERNEL_VARIANT=${2:-${TARGET_BUILD_KERNEL_VARIANT}}
 fi
 
 case "${KERNEL_TARGET}" in
   taro)
     KERNEL_TARGET="waipio"
+    ;;
+  breeze)
+    KERNEL_TARGET="breeze"
     ;;
 esac
 
