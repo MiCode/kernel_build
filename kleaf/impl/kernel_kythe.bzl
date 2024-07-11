@@ -18,7 +18,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
-    "KernelBuildInfo",
+    "CompileCommandsInfo",
     "KernelBuildOriginalEnvInfo",
 )
 load(":srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
@@ -63,8 +63,12 @@ def _kernel_kythe_impl(ctx):
         # buildifier: disable=print
         print("WARNING: {}: --{} is not defined!".format(ctx.label, ctx.attr.corpus.label))
 
-    compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
-    compile_commands_common_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_common_out_dir
+    compile_commands_infos = ctx.attr.kernel_build[CompileCommandsInfo].infos.to_list()
+    if len(compile_commands_infos) != 1:
+        fail("kernel_build should provide CompileCommandsInfo with exactly one CompileCommandsSingleInfo")
+    compile_commands_with_vars = compile_commands_infos[0].compile_commands_with_vars
+    compile_commands_common_out_dir = compile_commands_infos[0].compile_commands_common_out_dir
+
     all_kzip = ctx.actions.declare_file(ctx.attr.name + "/all.kzip")
     intermediates_dir = utils.intermediates_dir(ctx)
     kzip_dir = intermediates_dir + "/kzip"
@@ -146,7 +150,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
-            providers = [KernelBuildOriginalEnvInfo, KernelBuildInfo],
+            providers = [KernelBuildOriginalEnvInfo, CompileCommandsInfo],
             aspects = [srcs_aspect],
         ),
         "corpus": attr.label(

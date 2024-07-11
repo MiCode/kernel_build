@@ -20,7 +20,7 @@ load(
 )
 load(
     ":common_providers.bzl",
-    "KernelBuildInfo",
+    "CompileCommandsInfo",
 )
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
@@ -43,8 +43,12 @@ _kernel_compile_commands_transition = transition(
 
 def _kernel_compile_commands_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
-    compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
-    compile_commands_common_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_common_out_dir
+
+    compile_commands_infos = ctx.attr.kernel_build[CompileCommandsInfo].infos.to_list()
+    if len(compile_commands_infos) != 1:
+        fail("kernel_build should provide CompileCommandsInfo with exactly one CompileCommandsSingleInfo")
+    compile_commands_with_vars = compile_commands_infos[0].compile_commands_with_vars
+    compile_commands_common_out_dir = compile_commands_infos[0].compile_commands_common_out_dir
 
     script = ctx.actions.declare_file(ctx.attr.name + ".sh")
     script_content = hermetic_tools.run_setup + """
@@ -73,7 +77,7 @@ kernel_compile_commands = rule(
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` rule to extract from.",
-            providers = [KernelBuildInfo],
+            providers = [CompileCommandsInfo],
         ),
         # Allow any package to use kernel_compile_commands because it is a public API.
         # The ACK source tree may be checked out anywhere; it is not necessarily //common

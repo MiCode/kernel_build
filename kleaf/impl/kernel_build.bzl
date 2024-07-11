@@ -31,6 +31,8 @@ load(":btf.bzl", "btf")
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "CompileCommandsInfo",
+    "CompileCommandsSingleInfo",
     "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
@@ -1795,8 +1797,6 @@ def _create_infos(
         outs = depset(all_output_files["outs"].values()),
         base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
         interceptor_output = main_action_ret.interceptor_output,
-        compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
-        compile_commands_common_out_dir = main_action_ret.compile_commands_common_out_dir,
     )
 
     kernel_build_uname_info = KernelBuildUnameInfo(
@@ -1944,6 +1944,13 @@ def _create_infos(
         directories = depset([main_action_ret.cmd_dir]),
     )
 
+    compile_commands_info = CompileCommandsInfo(
+        infos = depset([CompileCommandsSingleInfo(
+            compile_commands_with_vars = main_action_ret.compile_commands_with_vars,
+            compile_commands_common_out_dir = main_action_ret.compile_commands_common_out_dir,
+        )]),
+    )
+
     modules_prepare_archive = utils.find_file(
         _MODULES_PREPARE_ARCHIVE,
         ctx.files.modules_prepare,
@@ -2002,6 +2009,7 @@ def _create_infos(
         images_info,
         gcov_info,
         filegroup_decl_info,
+        compile_commands_info,
         ctx.attr.config[KernelEnvAttrInfo],
         ctx.attr.config[KernelToolchainInfo],
         output_group_info,
