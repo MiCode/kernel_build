@@ -44,17 +44,17 @@ _kernel_compile_commands_transition = transition(
 def _kernel_compile_commands_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
-    compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
+    compile_commands_common_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_common_out_dir
 
     script = ctx.actions.declare_file(ctx.attr.name + ".sh")
     script_content = hermetic_tools.run_setup + """
         OUTPUT=${{1:-${{BUILD_WORKSPACE_DIRECTORY}}/compile_commands.json}}
-        sed -e "s:\\${{OUT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}/{compile_commands_out_dir}:g;s:\\${{ROOT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}:g" \\
+        sed -e "s:\\${{COMMON_OUT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}/{compile_commands_common_out_dir}:g;s:\\${{ROOT_DIR}}:${{BUILD_WORKSPACE_DIRECTORY}}:g" \\
             {compile_commands_with_vars} > ${{OUTPUT}}
         echo "Written to ${{OUTPUT}}"
     """.format(
         compile_commands_with_vars = compile_commands_with_vars.short_path,
-        compile_commands_out_dir = compile_commands_out_dir.path,
+        compile_commands_common_out_dir = compile_commands_common_out_dir.path,
     )
     ctx.actions.write(script, script_content, is_executable = True)
 
