@@ -507,6 +507,16 @@ def update_androidx_cf(gitlog, output_dir, version):
   if os.path.exists(i686_cf_dir) or os.path.exists(rockpi_cf_dir):
     commit_prebuilts(cf_dir, gitlog)
 
+def update_androidx_trusty_modules(gitlog, output_dir, version):
+  modules_dir = os.path.join(output_dir, "kernel", "prebuilts",
+                             "common-modules", "trusty")
+  modules_version_dir = os.path.join(modules_dir, version)
+  modules_arm64_dir = os.path.join(modules_version_dir, "arm64")
+
+  clean_download_dir(modules_arm64_dir)
+  download_kernel_modules("trusty_aarch64", modules_arm64_dir, fetch_initramfs=False)
+  commit_prebuilts(modules_arm64_dir, gitlog)
+
 def update_androidx(output_dir, version, android_version):
   arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", version, "arm64")
   x86_64_dir = os.path.join(output_dir, "kernel", "prebuilts", version,
@@ -540,6 +550,9 @@ def update_androidx(output_dir, version, android_version):
 
   update_androidx_virtual_device_modules(gitlog, output_dir, version)
   update_androidx_cf(gitlog, output_dir, version)
+
+  if android_version >= 15:
+    update_androidx_trusty_modules(gitlog, output_dir, version)
 
 def update_android_mainline_riscv64(output_dir):
   # Although we don't update the x86_64 kernel, we use it's path to compute the
