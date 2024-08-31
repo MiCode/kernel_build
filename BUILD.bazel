@@ -1,0 +1,200 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule", "hermetic_tools")
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
+
+filegroup(
+    name = "sysroot",
+    srcs = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ),
+    visibility = [
+        ":__subpackages__",
+        "//prebuilts/clang/host/linux-x86/kleaf:__subpackages__",
+        "@kleaf_user_clang_toolchain//:__subpackages__",
+    ],
+)
+
+hermetic_tools(
+    name = "hermetic-tools",
+    srcs = glob(
+        [
+            "build-tools/path/**",
+        ],
+        allow_empty = False,
+        # TODO(b/274975942): Delete these symlinks and the exclude clause once
+        #   build.sh goes away.
+        exclude = ["**/python*"],
+    ) + [
+        "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-strings".format(VARS["CLANG_VERSION"]),
+    ],
+    host_tools = [
+        "bash",
+        "perl",
+        "rsync",
+        "sh",
+    ],
+    py3_outs = [
+        "python",
+        "python3",
+    ],
+    rsync_args = [
+        "--no-group",
+    ],
+    symlinks = select({
+        "//build/kernel/kleaf:debug_cache_dir_conflict_needs_flock": {
+            "//prebuilts/build-tools:linux-x86/bin/toybox": "flock",
+        },
+        "//conditions:default": {},
+    }),
+    tar_args = [
+        "--mtime=@0",
+        "--owner=0",
+        "--group=0",
+        "--numeric-owner",
+        "--sort=name",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sysroot",
+        "//prebuilts/build-tools:linux-x86",
+        "//prebuilts/kernel-build-tools:linux-x86",
+        "@prebuilt_ndk//:sysroot",
+    ],
+)
+
+toolchain_type(
+    name = "hermetic_tools_toolchain_type",
+    visibility = ["//visibility:private"],
+)
+
+toolchain(
+    name = "hermetic_tools_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":hermetic-tools",
+    toolchain_type = ":hermetic_tools_toolchain_type",
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "_setup_env",
+    srcs = ["_setup_env.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "build_utils",
+    srcs = ["build_utils.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_verify_ksymtab",
+    srcs = ["abi/verify_ksymtab.py"],
+    main = "abi/verify_ksymtab.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_flatten_symbol_list",
+    srcs = ["abi/flatten_symbol_list.py"],
+    main = "abi/flatten_symbol_list.py",
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_process_symbols",
+    srcs = ["abi/process_symbols.py"],
+    data = [
+        "abi/symbols.allow",
+        "abi/symbols.deny",
+    ],
+    main = "abi/process_symbols.py",
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "symbol_extraction",
+    srcs = ["abi/symbol_extraction.py"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_abi
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "check_buildtime_symbol_protection",
+    srcs = ["abi/check_buildtime_symbol_protection.py"],
+    main = "abi/check_buildtime_symbol_protection.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "extract_symbols",
+    srcs = ["abi/extract_symbols.py"],
+    main = "abi/extract_symbols.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "extract_protected_exports",
+    srcs = ["abi/extract_gki_protected_exports.py"],
+    main = "abi/extract_gki_protected_exports.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+_GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
+
+_GKI_CERTIFICATION_BINARIES = [
+    "avbtool",
+    "certify_bootimg",
+]
+
+hermetic_genrule(
+    name = "gki_certification_tools",
+    srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
+    outs = ["gki_certification_tools.tar.gz"],
+    cmd = """
+        tar -czhf $@ \\
+            -C $$(dirname $$(dirname $(location {prefix}{first}))) \\
+            {files}
+    """.format(
+        files = " ".join(["bin/" + tool for tool in _GKI_CERTIFICATION_BINARIES]),
+        first = _GKI_CERTIFICATION_BINARIES[0],
+        prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
+    ),
+    visibility = ["//visibility:public"],
+)
