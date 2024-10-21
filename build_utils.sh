@@ -731,7 +731,16 @@ function build_boot_images() {
   fi
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
-    if [ -n "${VENDOR_BOOTCONFIG}" ]; then
+    if [ -n "${VENDOR_BOOTCONFIG_FILE}" ]; then
+      if [ -n "${VENDOR_BOOTCONFIG}" ]; then
+        echo "ERROR: vendor_boot_image.vendor_bootconfig is set. " >&2
+        echo "    Please delete the deprecated VENDOR_BOOTCONFIG variable." >&2
+        exit 1
+      fi
+      MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${VENDOR_BOOTCONFIG_FILE}")
+      KERNEL_VENDOR_CMDLINE+=" bootconfig"
+    elif [ -n "${VENDOR_BOOTCONFIG}" ]; then
+      echo "WARNING: VENDOR_BOOTCONFIG is deprecated. Use vendor_boot_image.vendor_bootconfig instead." >&2
       for PARAM in ${VENDOR_BOOTCONFIG}; do
         echo "${PARAM}"
       done >"${DIST_DIR}/vendor-bootconfig.img"

@@ -22,12 +22,21 @@ load(":image/initramfs.bzl", "InitramfsInfo")
 visibility("//build/kernel/kleaf/...")
 
 def _vendor_boot_image_impl(ctx):
+    outs = ctx.attr.outs
+    vendor_bootconfig_file = None
+    if ctx.attr.vendor_bootconfig:
+        vendor_bootconfig_file = ctx.actions.declare_file("{}/vendor-bootconfig.img".format(ctx.label.name))
+        ctx.actions.write(vendor_bootconfig_file, "\n".join(ctx.attr.vendor_bootconfig) + "\n")
+        outs = list(outs)
+        if vendor_bootconfig_file.basename in outs:
+            outs.remove(vendor_bootconfig_file.basename)
+
     return build_boot_or_vendor_boot(
         bin_dir = ctx.bin_dir,
         kernel_build = ctx.attr.kernel_build,
         initramfs = ctx.attr.initramfs,
         deps = ctx.attr.deps,
-        outs = ctx.attr.outs,
+        outs = outs,
         mkbootimg = ctx.attr.mkbootimg,
         build_boot = False,
         vendor_boot_name = ctx.attr.vendor_boot_name,
@@ -42,6 +51,7 @@ def _vendor_boot_image_impl(ctx):
         ramdisk_compression = ctx.attr.ramdisk_compression,
         ramdisk_compression_args = ctx.attr.ramdisk_compression_args,
         dtb_image_file = ctx.file.dtb_image,
+        vendor_bootconfig_file = vendor_bootconfig_file,
     )
 
 vendor_boot_image = rule(
@@ -126,6 +136,14 @@ vendor_boot_image = rule(
             intent.
             """,
             mandatory = True,
+        ),
+        "vendor_bootconfig": attr.string_list(
+            doc = """bootconfig parameters.
+
+                Each element is present as a line in the bootconfig section.
+
+                Requires header version >= 4.
+            """,
         ),
     },
     subrules = [build_boot_or_vendor_boot],

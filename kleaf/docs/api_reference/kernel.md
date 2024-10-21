@@ -527,9 +527,10 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_filegroup")
 
 kernel_filegroup(<a href="#kernel_filegroup-name">name</a>, <a href="#kernel_filegroup-deps">deps</a>, <a href="#kernel_filegroup-srcs">srcs</a>, <a href="#kernel_filegroup-outs">outs</a>, <a href="#kernel_filegroup-all_module_names">all_module_names</a>, <a href="#kernel_filegroup-collect_unstripped_modules">collect_unstripped_modules</a>,
                  <a href="#kernel_filegroup-config_out_dir">config_out_dir</a>, <a href="#kernel_filegroup-config_out_dir_files">config_out_dir_files</a>, <a href="#kernel_filegroup-ddk_module_defconfig_fragments">ddk_module_defconfig_fragments</a>,
-                 <a href="#kernel_filegroup-ddk_module_headers">ddk_module_headers</a>, <a href="#kernel_filegroup-env_setup_script">env_setup_script</a>, <a href="#kernel_filegroup-exec_platform">exec_platform</a>, <a href="#kernel_filegroup-gki_artifacts">gki_artifacts</a>, <a href="#kernel_filegroup-images">images</a>,
-                 <a href="#kernel_filegroup-internal_outs">internal_outs</a>, <a href="#kernel_filegroup-kernel_release">kernel_release</a>, <a href="#kernel_filegroup-kernel_uapi_headers">kernel_uapi_headers</a>, <a href="#kernel_filegroup-module_env_archive">module_env_archive</a>,
-                 <a href="#kernel_filegroup-modules_prepare_archive">modules_prepare_archive</a>, <a href="#kernel_filegroup-protected_modules_list">protected_modules_list</a>, <a href="#kernel_filegroup-strip_modules">strip_modules</a>, <a href="#kernel_filegroup-target_platform">target_platform</a>)
+                 <a href="#kernel_filegroup-ddk_module_headers">ddk_module_headers</a>, <a href="#kernel_filegroup-env_setup_script">env_setup_script</a>, <a href="#kernel_filegroup-exec_platform">exec_platform</a>, <a href="#kernel_filegroup-expected_toolchain_version">expected_toolchain_version</a>,
+                 <a href="#kernel_filegroup-gki_artifacts">gki_artifacts</a>, <a href="#kernel_filegroup-images">images</a>, <a href="#kernel_filegroup-internal_outs">internal_outs</a>, <a href="#kernel_filegroup-kernel_release">kernel_release</a>, <a href="#kernel_filegroup-kernel_uapi_headers">kernel_uapi_headers</a>,
+                 <a href="#kernel_filegroup-module_env_archive">module_env_archive</a>, <a href="#kernel_filegroup-modules_prepare_archive">modules_prepare_archive</a>, <a href="#kernel_filegroup-protected_modules_list">protected_modules_list</a>, <a href="#kernel_filegroup-strip_modules">strip_modules</a>,
+                 <a href="#kernel_filegroup-target_platform">target_platform</a>)
 </pre>
 
 **EXPERIMENTAL.** The API of `kernel_filegroup` rapidly changes and
@@ -562,6 +563,7 @@ It can be used in the `base_kernel` attribute of a [`kernel_build`](#kernel_buil
 | <a id="kernel_filegroup-ddk_module_headers"></a>ddk_module_headers |  Additional `ddk_headers` for dependant DDK modules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="kernel_filegroup-env_setup_script"></a>env_setup_script |  Setup script from `kernel_env`   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="kernel_filegroup-exec_platform"></a>exec_platform |  Execution platform, where the build is executed.<br><br>See https://bazel.build/extending/platforms.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="kernel_filegroup-expected_toolchain_version"></a>expected_toolchain_version |  Checks resolved toolchain version against this string.   | String | optional |  `""`  |
 | <a id="kernel_filegroup-gki_artifacts"></a>gki_artifacts |  A list of files that were built from the [`gki_artifacts`](#gki_artifacts) target. The `gki-info.txt` file should be part of that list.<br><br>If `kernel_release` is set, this attribute has no effect.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="kernel_filegroup-images"></a>images |  A label providing files similar to a [`kernel_images`](#kernel_images) target.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="kernel_filegroup-internal_outs"></a>internal_outs |  Keys: from `_kernel_build.internal_outs`. Values: path under `$OUT_DIR`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
@@ -927,7 +929,7 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "vendor_boot_image")
 
 vendor_boot_image(<a href="#vendor_boot_image-name">name</a>, <a href="#vendor_boot_image-deps">deps</a>, <a href="#vendor_boot_image-outs">outs</a>, <a href="#vendor_boot_image-dtb_image">dtb_image</a>, <a href="#vendor_boot_image-initramfs">initramfs</a>, <a href="#vendor_boot_image-kernel_build">kernel_build</a>, <a href="#vendor_boot_image-mkbootimg">mkbootimg</a>,
                   <a href="#vendor_boot_image-ramdisk_compression">ramdisk_compression</a>, <a href="#vendor_boot_image-ramdisk_compression_args">ramdisk_compression_args</a>, <a href="#vendor_boot_image-unpack_ramdisk">unpack_ramdisk</a>, <a href="#vendor_boot_image-vendor_boot_name">vendor_boot_name</a>,
-                  <a href="#vendor_boot_image-vendor_ramdisk_binaries">vendor_ramdisk_binaries</a>, <a href="#vendor_boot_image-vendor_ramdisk_dev_nodes">vendor_ramdisk_dev_nodes</a>)
+                  <a href="#vendor_boot_image-vendor_bootconfig">vendor_bootconfig</a>, <a href="#vendor_boot_image-vendor_ramdisk_binaries">vendor_ramdisk_binaries</a>, <a href="#vendor_boot_image-vendor_ramdisk_dev_nodes">vendor_ramdisk_dev_nodes</a>)
 </pre>
 
 Build `vendor_boot` or `vendor_kernel_boot` image.
@@ -948,6 +950,7 @@ Build `vendor_boot` or `vendor_kernel_boot` image.
 | <a id="vendor_boot_image-ramdisk_compression_args"></a>ramdisk_compression_args |  Command line arguments passed only to lz4 command to control compression level.   | String | optional |  `""`  |
 | <a id="vendor_boot_image-unpack_ramdisk"></a>unpack_ramdisk |  When false it skips unpacking the vendor ramdisk and copy it as is, without modifications, into the boot image. Also skip the mkbootfs step.<br><br>Unlike `kernel_images()`, `unpack_ramdisk` must be specified explicitly to clarify the intent.   | Boolean | required |  |
 | <a id="vendor_boot_image-vendor_boot_name"></a>vendor_boot_name |  Name of `vendor_boot` image.<br><br>* If `"vendor_boot"`, build `vendor_boot.img` * If `"vendor_kernel_boot"`, build `vendor_kernel_boot.img`   | String | optional |  `"vendor_boot"`  |
+| <a id="vendor_boot_image-vendor_bootconfig"></a>vendor_bootconfig |  bootconfig parameters.<br><br>Each element is present as a line in the bootconfig section.<br><br>Requires header version >= 4.   | List of strings | optional |  `[]`  |
 | <a id="vendor_boot_image-vendor_ramdisk_binaries"></a>vendor_ramdisk_binaries |  List of vendor ramdisk binaries which includes the device-specific components of ramdisk like the fstab file and the device-specific rc files. If specifying multiple vendor ramdisks and identical file paths exist in the ramdisks, the file from last ramdisk is used.<br><br>Note: **order matters**. To prevent buildifier from sorting the list, add the following: <pre><code># do not sort</code></pre>   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="vendor_boot_image-vendor_ramdisk_dev_nodes"></a>vendor_ramdisk_dev_nodes |  List of dev nodes description files which describes special device files to be added to the vendor ramdisk. File format is as accepted by mkbootfs.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 

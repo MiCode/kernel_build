@@ -46,6 +46,7 @@ def _build_boot_or_vendor_boot(
         ramdisk_compression_args,
         dtb_image_file,
         *,
+        vendor_bootconfig_file = None,
         _search_and_cp_output):
     ## Declare implicit outputs of the command
     ## This is like subrule_ctx.actions.declare_directory(subrule_ctx.label.name) without actually declaring it.
@@ -69,9 +70,13 @@ def _build_boot_or_vendor_boot(
         initramfs_staging_archive = initramfs[InitramfsInfo].initramfs_staging_archive
         initramfs_staging_dir = modules_staging_dir + "/initramfs_staging"
 
+    # Action output
     out_files = []
     for out in outs:
         out_files.append(subrule_ctx.actions.declare_file("{}/{}".format(subrule_ctx.label.name, out)))
+
+    # Rule output
+    extra_default_info_files = []
 
     kernel_build_outs = depset(transitive = [
         kernel_build[KernelBuildInfo].outs,
@@ -233,6 +238,14 @@ def _build_boot_or_vendor_boot(
         ramdisk_compression_args = ramdisk_compression_args,
     )
 
+    vendor_bootconfig_command = ""
+    if vendor_bootconfig_file:
+        vendor_bootconfig_command = """
+            VENDOR_BOOTCONFIG_FILE={}
+        """.format(vendor_bootconfig_file.path)
+        inputs.append(vendor_bootconfig_file)
+        extra_default_info_files.append(vendor_bootconfig_file)
+
     command += """
              # Build boot images
                (
@@ -245,6 +258,7 @@ def _build_boot_or_vendor_boot(
                  RAMDISK_COMPRESS="{ramdisk_compress}"
                  RAMDISK_DECOMPRESS="{ramdisk_decompress}"
                  RAMDISK_EXT="{ramdisk_ext}"
+                 {vendor_bootconfig_command}
                  build_boot_images
                )
                {search_and_cp_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
@@ -262,6 +276,7 @@ def _build_boot_or_vendor_boot(
         ramdisk_compress = ramdisk_options.ramdisk_compress,
         ramdisk_decompress = ramdisk_options.ramdisk_decompress,
         ramdisk_ext = ramdisk_options.ramdisk_ext,
+        vendor_bootconfig_command = vendor_bootconfig_command,
     )
 
     debug.print_scripts_subrule(command)
@@ -279,7 +294,7 @@ def _build_boot_or_vendor_boot(
         progress_message = "Building boot images %{label}",
         command = command,
     )
-    return DefaultInfo(files = depset(out_files))
+    return DefaultInfo(files = depset(out_files + extra_default_info_files))
 
 # Common implementation to build boot image or vendor boot image.
 # TODO: Split build_boot_images in build_utils
