@@ -106,7 +106,7 @@ if [ -z "${ANDROID_KERNEL_OUT}" ]; then
     exit 1
   fi
 
-  ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/device/qcom/${TARGET_BOARD_PLATFORM}-kernel
+  ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/out/target/product/${TARGET_PRODUCT}/prebuilt_kernel
 fi
 if [ ! -e ${ANDROID_KERNEL_OUT} ]; then
   mkdir -p ${ANDROID_KERNEL_OUT}
@@ -115,17 +115,33 @@ fi
 ################################################################################
 # Determine requested kernel target and variant
 
+case "${TARGET_BUILD_VARIANT}" in
+  user)
+      if [ "true" == "${ENABLE_SYSTEM_MTBF}" ]; then
+          TARGET_BUILD_KERNEL_VARIANT=consolidate
+      else
+          TARGET_BUILD_KERNEL_VARIANT=gki
+      fi
+  ;;
+  *)
+      TARGET_BUILD_KERNEL_VARIANT=consolidate
+  ;;
+esac
+
 if [ -z "${KERNEL_TARGET}" ]; then
-  KERNEL_TARGET=${1:-${TARGET_BOARD_PLATFORM}}
+  KERNEL_TARGET=${1:-${TARGET_PRODUCT}}
 fi
 
 if [ -z "${KERNEL_VARIANT}" ]; then
-  KERNEL_VARIANT=${2}
+  KERNEL_VARIANT=${2:-${TARGET_BUILD_KERNEL_VARIANT}}
 fi
 
 case "${KERNEL_TARGET}" in
   taro)
     KERNEL_TARGET="waipio"
+    ;;
+  flame)
+    KERNEL_TARGET="flame"
     ;;
 esac
 

@@ -809,6 +809,16 @@ if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
     eval ${POST_DEFCONFIG_CMDS}
     set +x
   fi
+
+  if [ ! -z "${FACTORY_BUILD}"  ];then
+    echo "========================================================"
+    echo "Rebuilding defconfig"
+    echo "CONFIG_FACTORY_BUILD=y" >> ${OUT_DIR}/.config;
+    set -x
+    (cd ${OUT_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
+    set +x
+  fi
+
 fi
 
 if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
