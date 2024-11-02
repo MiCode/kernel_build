@@ -994,6 +994,48 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
 | <a id="vendor_dlkm_image-vendor_boot_modules_load"></a>vendor_boot_modules_load |  File to `vendor_boot.modules.load`.<br><br>Modules listed in this file is stripped away from the `vendor_dlkm` image.<br><br>As a special case, you may also provide a [`initramfs`](#initramfs) target here, in which case the `vendor_boot.modules.load` of the initramfs is used.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 
 
+<a id="ddk_library"></a>
+
+## ddk_library
+
+<pre>
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_library")
+
+ddk_library(<a href="#ddk_library-name">name</a>, <a href="#ddk_library-kernel_build">kernel_build</a>, <a href="#ddk_library-srcs">srcs</a>, <a href="#ddk_library-deps">deps</a>, <a href="#ddk_library-hdrs">hdrs</a>, <a href="#ddk_library-includes">includes</a>, <a href="#ddk_library-linux_includes">linux_includes</a>, <a href="#ddk_library-local_defines">local_defines</a>, <a href="#ddk_library-copts">copts</a>,
+            <a href="#ddk_library-kconfig">kconfig</a>, <a href="#ddk_library-defconfig">defconfig</a>, <a href="#ddk_library-autofdo_profile">autofdo_profile</a>, <a href="#ddk_library-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_library-kwargs">**kwargs</a>)
+</pre>
+
+**EXPERIMENTAL**. A library that may be used by a DDK module.
+
+The library has its own list of dependencies, flags that are usually local, and
+not exported to the `ddk_module` using it. However, `hdrs`, `includes`,
+kconfig and defconfig are exported.
+
+Known issues:
+    - (b/392186874) The generated .o.cmd files contain absolute paths and are not reproducible.
+
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="ddk_library-name"></a>name |  name of module   |  none |
+| <a id="ddk_library-kernel_build"></a>kernel_build |  [`kernel_build`](#kernel_build)   |  none |
+| <a id="ddk_library-srcs"></a>srcs |  see [`ddk_module.srcs`](#ddk_module-srcs)   |  `None` |
+| <a id="ddk_library-deps"></a>deps |  see [`ddk_module.deps`](#ddk_module-deps). [`ddk_submodule`](#ddk_submodule)s are not allowed.   |  `None` |
+| <a id="ddk_library-hdrs"></a>hdrs |  see [`ddk_module.hdrs`](#ddk_module-hdrs)   |  `None` |
+| <a id="ddk_library-includes"></a>includes |  see [`ddk_module.includes`](#ddk_module-includes)   |  `None` |
+| <a id="ddk_library-linux_includes"></a>linux_includes |  see [`ddk_module.linux_includes`](#ddk_module-linux_includes)   |  `None` |
+| <a id="ddk_library-local_defines"></a>local_defines |  see [`ddk_module.local_defines`](#ddk_module-local_defines)   |  `None` |
+| <a id="ddk_library-copts"></a>copts |  see [`ddk_module.copts`](#ddk_module-copts)   |  `None` |
+| <a id="ddk_library-kconfig"></a>kconfig |  see [`ddk_module.kconfig`](#ddk_module-kconfig)   |  `None` |
+| <a id="ddk_library-defconfig"></a>defconfig |  see [`ddk_module.defconfig`](#ddk_module-defconfig)   |  `None` |
+| <a id="ddk_library-autofdo_profile"></a>autofdo_profile |  see [`ddk_module.autofdo_profile`](#ddk_module-autofdo_profile)   |  `None` |
+| <a id="ddk_library-debug_info_for_profiling"></a>debug_info_for_profiling |  see [`ddk_module.debug_info_for_profiling`](#ddk_module-debug_info_for_profiling)   |  `None` |
+| <a id="ddk_library-kwargs"></a>kwargs |  Additional attributes to the internal rule. See complete list [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).   |  none |
+
+
 <a id="ddk_module"></a>
 
 ## ddk_module
@@ -1286,7 +1328,7 @@ $(LINUXINCLUDE)
 | <a id="ddk_module-name"></a>name |  Name of target. This should usually be name of the output `.ko` file without the suffix.   |  none |
 | <a id="ddk_module-kernel_build"></a>kernel_build |  [`kernel_build`](#kernel_build)   |  none |
 | <a id="ddk_module-srcs"></a>srcs |  sources or local headers.<br><br>Source files (`.c`, `.S`, `.rs`) must be in the package of this `ddk_module` target, or in subpackages.<br><br>Generated source files (`.c`, `.S`, `.rs`) are accepted as long as they are in the package of this `ddk_module` target, or in subpackages.<br><br>Header files specified here are only visible to this `ddk_module` target, but not dependencies. To export a header so dependencies can use it, put it in `hdrs` and set `includes` accordingly.<br><br>Generated header files are accepted.   |  `None` |
-| <a id="ddk_module-deps"></a>deps |  A list of dependent targets. Each of them must be one of the following:<br><br>- [`kernel_module`](#kernel_module) - [`ddk_module`](#ddk_module) - [`ddk_headers`](#ddk_headers). - [`ddk_prebuilt_object`](#ddk_prebuilt_object)   |  `None` |
+| <a id="ddk_module-deps"></a>deps |  A list of dependent targets. Each of them must be one of the following:<br><br>- [`kernel_module`](#kernel_module) - [`ddk_module`](#ddk_module) - [`ddk_headers`](#ddk_headers). - [`ddk_prebuilt_object`](#ddk_prebuilt_object) - [`ddk_library`](#ddk_library)   |  `None` |
 | <a id="ddk_module-hdrs"></a>hdrs |  See [`ddk_headers.hdrs`](#ddk_headers-hdrs)   |  `None` |
 | <a id="ddk_module-textual_hdrs"></a>textual_hdrs |  See [`ddk_headers.textual_hdrs`](#ddk_headers-textual_hdrs). DEPRECATED. Use `hdrs`.   |  `None` |
 | <a id="ddk_module-includes"></a>includes |  See [`ddk_headers.includes`](#ddk_headers-includes)   |  `None` |

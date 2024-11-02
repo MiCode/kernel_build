@@ -335,6 +335,7 @@ def ddk_module(
             - [`ddk_module`](#ddk_module)
             - [`ddk_headers`](#ddk_headers).
             - [`ddk_prebuilt_object`](#ddk_prebuilt_object)
+            - [`ddk_library`](#ddk_library)
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
         textual_hdrs: See [`ddk_headers.textual_hdrs`](#ddk_headers-textual_hdrs). DEPRECATED. Use `hdrs`.
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)

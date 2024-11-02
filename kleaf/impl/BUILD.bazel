@@ -64,6 +64,7 @@ bzl_library(
         "ddk/ddk_config/ddk_config_script_subrule.bzl",
         "ddk/ddk_headers.bzl",
         "ddk/ddk_headers_archive.bzl",
+        "ddk/ddk_library.bzl",
         "ddk/ddk_module.bzl",
         "ddk/ddk_module_config.bzl",
         "ddk/ddk_prebuilt_object.bzl",

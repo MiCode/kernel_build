@@ -11,3 +11,5 @@ This document lists some common patterns when using DDK.
 [Conditional defines](conditional_defines/README.md)
 
 [Adding prebuilt .o files](ddk_prebuilt_object/README.md)
+
+[Experimental: ddk_library: Build certain files with specific flags](ddk_library/README.md)

@@ -4,10 +4,12 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 build_test(
     name = "ddk_examples",
     targets = [
-        "//build/kernel/kleaf/tests/ddk_examples/local_includes:foo",
-        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/child",
-        "//build/kernel/kleaf/tests/ddk_examples/ddk_prebuilt_object:mymod",
-        "//build/kernel/kleaf/tests/ddk_examples/conditional_dependency/child",
+        # keep sorted
         "//build/kernel/kleaf/tests/ddk_examples/conditional_defines:foo",
+        "//build/kernel/kleaf/tests/ddk_examples/conditional_dependency/child",
+        "//build/kernel/kleaf/tests/ddk_examples/ddk_library:mymod",
+        "//build/kernel/kleaf/tests/ddk_examples/ddk_prebuilt_object:mymod",
+        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/child",
+        "//build/kernel/kleaf/tests/ddk_examples/local_includes:foo",
     ],
 )

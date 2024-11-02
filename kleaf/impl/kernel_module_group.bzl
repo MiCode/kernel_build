@@ -18,6 +18,7 @@ load(
     ":common_providers.bzl",
     "CompileCommandsInfo",
     "DdkHeadersInfo",
+    "DdkLibraryInfo",
     "GcovInfo",
     "KernelCmdsInfo",
     "KernelModuleInfo",
@@ -130,6 +131,13 @@ def _kernel_module_group_impl(ctx):
         ]),
     )
 
+    ddk_library_info = DdkLibraryInfo(
+        files = depset(transitive = [
+            target[DdkLibraryInfo].files
+            for target in targets
+        ]),
+    )
+
     # Sync list of infos with kernel_module / ddk_module.
     return [
         default_info,
@@ -142,6 +150,7 @@ def _kernel_module_group_impl(ctx):
         cmds_info,
         compile_commands_info,
         gcov_info,
+        ddk_library_info,
     ]
 
 kernel_module_group = rule(
@@ -189,6 +198,7 @@ kernel_modules_install(
             doc = "List of [`kernel_module`](#kernel_module)s or [`ddk_module`](#ddk_module)s.",
             mandatory = True,
             providers = [
+                DdkLibraryInfo,
                 DdkHeadersInfo,
                 DefaultInfo,
                 GcovInfo,

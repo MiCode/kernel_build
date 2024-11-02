@@ -216,13 +216,16 @@ def _handle_module_srcs(ctx, ddk_library_deps):
         struct of
         -    srcs_json: a file containing the JSON content about sources
         -    gen_srcs_depset: depset of generated, non .h files
+        -    src_matrix: list of list of files. The sum of values is equivalent of ctx.files.module_srcs
     """
+    src_matrix = []
     srcs_json_list = []
     gen_srcs_depsets = []
     for targets, info in ((ctx.attr.module_srcs, DefaultInfo), (ddk_library_deps, DdkLibraryInfo)):
         for target in targets:
             # TODO(b/353811700): avoid depset expansion
             target_files = target[info].files.to_list()
+            src_matrix.append(target_files)
             ret = _handle_target_files_as_srcs(target, target_files)
             srcs_json_list.append(ret.srcs_json_dict)
             gen_srcs_depsets.append(ret.gen_srcs_depset)
@@ -236,6 +239,7 @@ def _handle_module_srcs(ctx, ddk_library_deps):
     return struct(
         srcs_json = srcs_json,
         gen_srcs_depset = depset(transitive = gen_srcs_depsets),
+        src_matrix = src_matrix,
     )
 
 def _handle_target_files_as_srcs(target, target_files):
@@ -384,6 +388,9 @@ def _makefiles_impl(ctx):
     if ctx.attr.internal_target_fail_message:
         args.add("--internal-target-fail-message", ctx.attr.internal_target_fail_message)
 
+    if ctx.attr.is_library:
+        args.add("--is-library")
+
     ctx.actions.run(
         mnemonic = "DdkMakefiles",
         inputs = depset([
@@ -396,10 +403,29 @@ def _makefiles_impl(ctx):
         progress_message = "Generating Makefile %{label}",
     )
 
-    outs_depset_direct = []
-    if ctx.attr.module_out:
-        outs_depset_direct.append(struct(out = ctx.attr.module_out, src = ctx.label))
-    outs_depset_transitive = [dep[DdkSubmoduleInfo].outs for dep in submodule_deps]
+    if ctx.attr.is_library:
+        my_pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
+        outs_depset_direct = []
+        for srcs_list in module_srcs_ret.src_matrix:
+            for src in srcs_list:
+                # All sources must be below this package.
+                # Use short_path here because we don't care about bin_dir for generated sources.
+                # path/to/foo.c -> [path/to/foo.o_shipped, path/to/.foo.o.cmd_shipped]
+                src_rel_pkg = paths.relativize(src.short_path, my_pkg_path)
+                object = paths.replace_extension(src_rel_pkg, ".o_shipped")
+                cmd_file_basename = "." + paths.replace_extension(paths.basename(src_rel_pkg), ".o.cmd_shipped")
+                cmd_file = paths.join(paths.dirname(src_rel_pkg), cmd_file_basename)
+                outs_depset_direct += [
+                    struct(out = object, src = ctx.label),
+                    struct(out = cmd_file, src = ctx.label),
+                ]
+        outs_depset = depset(outs_depset_direct)
+    else:
+        outs_depset_direct = []
+        if ctx.attr.module_out:
+            outs_depset_direct.append(struct(out = ctx.attr.module_out, src = ctx.label))
+        outs_depset_transitive = [dep[DdkSubmoduleInfo].outs for dep in submodule_deps]
+        outs_depset = depset(outs_depset_direct, transitive = outs_depset_transitive)
 
     srcs_depset_transitive = [target.files for target in ctx.attr.module_srcs]
     srcs_depset_transitive += [dep[DdkSubmoduleInfo].srcs for dep in submodule_deps]
@@ -434,8 +460,8 @@ def _makefiles_impl(ctx):
     return [
         DefaultInfo(files = depset([output_makefiles])),
         DdkSubmoduleInfo(
-            outs = depset(outs_depset_direct, transitive = outs_depset_transitive),
-            out = ctx.attr.module_out,
+            outs = outs_depset,
+            out = None if ctx.attr.is_library else ctx.attr.module_out,
             srcs = depset(transitive = srcs_depset_transitive),
             kernel_module_deps = depset(
                 [kernel_utils.create_kernel_module_dep_info(target) for target in kernel_module_deps],
@@ -485,6 +511,7 @@ makefiles = rule(
         "internal_target_fail_message": attr.string(
             doc = "For testing only. Assert that this target to fail to build with the given message.",
         ),
+        "is_library": attr.bool(doc = "True for `ddk_library`, False otherwise."),
         "_gen_makefile": attr.label(
             default = "//build/kernel/kleaf/impl:ddk/gen_makefiles",
             executable = True,

@@ -86,6 +86,8 @@ def _get_license_str():
 def _gen_makefile(
         module_symvers_list: list[pathlib.Path],
         output_makefile: pathlib.Path,
+        is_library: bool,
+        rel_srcs: list[dict[str, Any]],
 ):
     content = _get_license_str()
 
@@ -95,10 +97,25 @@ def _gen_makefile(
             EXTRA_SYMBOLS += $(COMMON_OUT_DIR)/{module_symvers}
             """)
 
-    content += textwrap.dedent("""\
-        modules modules_install clean compile_commands.json:
-        \t$(MAKE) -C $(KERNEL_SRC) M=$(M) $(KBUILD_OPTIONS) KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" $(@)
-        """)
+    if is_library:
+        # ddk_library does not support conditional_srcs for now, because we can't get
+        # the list of configs in Makefile.
+        objects = " ".join(str(path.with_suffix(".o")) for src_item in rel_srcs for path in src_item["files"])
+        content += textwrap.dedent(f"""\
+            .PHONY: kleaf-objects
+
+            kleaf-objects:
+            \t$(MAKE) -C $(KERNEL_SRC) M=$(M) $(KBUILD_OPTIONS) \\
+            \t    KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)"       \\
+            \t    {objects}
+            """)
+    else:
+        content += textwrap.dedent("""\
+            modules modules_install clean compile_commands.json:
+            \t$(MAKE) -C $(KERNEL_SRC) M=$(M) $(KBUILD_OPTIONS) \\
+            \t    KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)"       \\
+            \t    $(@)
+            """)
 
     os.makedirs(output_makefile.parent, exist_ok=True)
     with open(output_makefile, "w") as out_file:
@@ -169,21 +186,25 @@ def gen_ddk_makefile(
         kernel_module_out: Optional[pathlib.Path],
         linux_include_dirs: list[pathlib.Path],
         submodule_linux_include_dirs: dict[pathlib.Path, list[pathlib.Path]],
+        is_library: bool,
         **kwargs
 ):
-    if produce_top_level_makefile:
-        _gen_makefile(
-            module_symvers_list=module_symvers_list,
-            output_makefile=output_makefiles / "Makefile",
-        )
-
+    rel_srcs = []
     if kernel_module_out:
-        _gen_ddk_makefile_for_module(
+        rel_srcs = _gen_ddk_makefile_for_module(
             output_makefiles=output_makefiles,
             package=package,
             kernel_module_out=kernel_module_out,
             linux_include_dirs=linux_include_dirs,
             **kwargs
+        )
+
+    if produce_top_level_makefile:
+        _gen_makefile(
+            module_symvers_list=module_symvers_list,
+            output_makefile=output_makefiles / "Makefile",
+            is_library=is_library,
+            rel_srcs = rel_srcs,
         )
 
     ddk_markers: set[pathlib.Path] = set()
@@ -344,6 +365,8 @@ def _gen_ddk_makefile_for_module(
                 # Build {package / kernel_module_out}
                 obj-y += {kernel_module_out.parent}/
                 """))
+
+    return rel_srcs
 
 def _get_rel_srcs_flat(rel_srcs: list[dict[str, Any]]) -> list[pathlib.Path] :
     """List of source file paths(minus headers)."""
@@ -551,7 +574,7 @@ if __name__ == "__main__":
     parser.add_argument("--submodule-linux-include-dirs",
                         type=pathlib.Path, nargs="+", default={},
                         action=SubmoduleLinuxIncludeDirAction)
-
+    parser.add_argument("--is-library", action="store_true")
     args = parser.parse_args()
 
     die_exception = None
