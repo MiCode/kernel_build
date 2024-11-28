@@ -306,6 +306,7 @@ def _gen_ddk_makefile_for_module(
         _handle_includes(out_cflags, include_dirs)
         _handle_copts(out_cflags, copts)
 
+        out_files_with_cflags = set()
         for src_item in rel_srcs:
             config = src_item.get("config")
             value = src_item.get("value")
@@ -318,7 +319,9 @@ def _gen_ddk_makefile_for_module(
 
                 out = src.with_suffix(".o").relative_to(
                     kernel_module_out.parent)
-
+                if out in out_files_with_cflags:
+                    continue
+                out_files_with_cflags.add(out)
                 # kernel_module() copies makefiles and .cflags files to
                 # $(ROOT_DIR)/<package> (aka $ROOT_DIR/<ext_mod>) and fix up
                 # .cflags files there before building.

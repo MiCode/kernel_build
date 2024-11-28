@@ -215,6 +215,18 @@ def ddk_made_test(name):
     )
     tests.append(name + "_use_printk")
 
+    # Single source module with headers.
+    _ddk_module_test_make(
+        name = name + "_single_subdir_with_headers",
+        kernel_build = "//common:kernel_aarch64",
+        out = "dep.ko",
+        srcs = [
+            "subdir/dep.c",
+            "subdir/dep.h",
+        ],
+    )
+    tests.append(name + "_single_subdir_with_headers")
+
     native.test_suite(
         name = name,
         tests = tests,
