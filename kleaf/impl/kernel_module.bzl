@@ -320,7 +320,8 @@ def _kernel_module_impl(ctx):
     outdir = modules_staging_dws.directory.dirname
 
     unstripped_dir = None
-    if ctx.attr.kernel_build[KernelBuildExtModuleInfo].collect_unstripped_modules:
+    if ctx.attr.kernel_build[KernelBuildExtModuleInfo].collect_unstripped_modules or \
+       ctx.attr.internal_collect_unstripped_modules:
         unstripped_dir = ctx.actions.declare_directory("{name}/unstripped".format(name = ctx.label.name))
 
     output_files = [] + ctx.outputs.outs
@@ -738,6 +739,7 @@ _kernel_module = rule(
             KernelSerializedEnvInfo,
             DdkConfigInfo,
         ]),
+        "internal_collect_unstripped_modules": attr.bool(),
         "generate_btf": attr.bool(
             default = False,
             doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
