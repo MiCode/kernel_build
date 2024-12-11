@@ -24,10 +24,10 @@ common:no_internet --repository_cache=
 # Additional places to search for archives before accessing the network to download them.
 common:no_internet --distdir=
 # If set, downloading using ctx.download{,_and_extract} is not allowed during repository fetching.
-common:no_internet --experimental_repository_disable_download
+common:no_internet --repository_disable_download
 
 # --config=internet: Relax the block on network access.
-common:internet --noexperimental_repository_disable_download
+common:internet --norepository_disable_download
 
 # Disable internet access by default.
 common --config=no_internet
