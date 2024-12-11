@@ -612,6 +612,7 @@ def ddk_module(
         internal_exclude_kernel_build_module_srcs = True,
         internal_ddk_config = name + "_config",
         internal_mnemonic = "DDK module",
+        internal_collect_unstripped_modules = True,
         **kwargs
     )
 
