@@ -19,4 +19,4 @@ MYDIR=${MYPATH%/*}
 KLEAF_REPO_DIR=${MYDIR%build/kernel/kleaf}
 KLEAF_REPO_DIR=${KLEAF_REPO_DIR%/}
 
-exec "$KLEAF_REPO_DIR"/prebuilts/build-tools/path/linux-x86/python3 "$MYDIR"/bazel.py "$@"
+exec "$KLEAF_REPO_DIR"/prebuilts/build-tools/linux_musl-x86/bin/py3-cmd "$MYDIR"/bazel.py "$@"
