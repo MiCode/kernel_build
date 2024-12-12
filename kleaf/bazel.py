@@ -571,6 +571,7 @@ class BazelWrapper(KleafHelpPrinter):
                         override_module_path.relative_to(self.workspace_dir))
                 f.write(textwrap.dedent(f"""\
                     common --override_module={override_module}={override_module_path}
+                    common:docs --override_module={override_module}=
                 """))
 
         self.transformed_startup_options += self._transform_bazelrc_files([
@@ -596,6 +597,7 @@ class BazelWrapper(KleafHelpPrinter):
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/musl.bazelrc",
             # Control Network access - with no internet by default.
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/network.bazelrc",
+            self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/docs.bazelrc",
             # Experimental bzlmod support
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/bzlmod.bazelrc",
 

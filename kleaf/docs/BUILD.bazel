@@ -18,7 +18,7 @@ To update:
 
 ```
 rm -rf build/kernel/kleaf/docs/api_reference
-tools/bazel run --config=internet //build/kernel/kleaf/docs:docs_dist
+tools/bazel run --config=docs //build/kernel/kleaf/docs:docs_dist
 ```
 """
 
@@ -58,6 +58,8 @@ bzl_library(
         "@bazel_skylib//lib:unittest",
         "@bazel_skylib//rules:common_settings",
         "@kernel_toolchain_info//:dict",
+        "@rules_cc//cc/common",
+        "@rules_cc//cc/toolchains:toolchain_rules",
         "@rules_pkg//pkg:bzl_srcs",
         # TODO(b/371596399): remove once https://github.com/bazelbuild/rules_pkg/pull/898 is taken in.
         "@rules_python//python:defs_bzl",
