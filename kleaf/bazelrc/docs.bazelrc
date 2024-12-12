@@ -20,7 +20,7 @@
 common:docs --config=internet
 
 # Control auto-load modules
-common:docs --incompatible_autoload_externally=+@rules_cc,+@rules_python,+@rules_shell,@rules_android,+java_common,+JavaInfo,+JavaPluginInfo,+java_binary,+java_library,+@protobuf,+@com_google_protobuf
+common:docs --incompatible_autoload_externally=+@rules_cc,@rules_python,@rules_shell,-@rules_android,+java_common,+JavaInfo,+JavaPluginInfo,java_binary,java_library,-@protobuf,-@com_google_protobuf
 # See bazel.py for additional flags.
 
 # Restore BCR for Bazel to be able to find dependencies.
