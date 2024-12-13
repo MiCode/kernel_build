@@ -718,6 +718,15 @@ def _define_common_kernels_additional_tests(
         visibility = ["//visibility:private"],
     )
 
+    # Build ddk_examples to make sure our DDK examples are up-to-date. Note that these examples
+    # deliberately refers to //common explicitly to provide a clear example, so this build test
+    # is only included when we are building //common:kernel_aarch64.
+    extra_tests = []
+    if native.package_relative_label(kernel_build_name) == native.package_relative_label("//common:kernel_aarch64"):
+        extra_tests.append(
+            Label("//build/kernel/kleaf/tests/ddk_examples"),
+        )
+
     native.test_suite(
         name = name,
         tests = [
@@ -725,7 +734,7 @@ def _define_common_kernels_additional_tests(
             name + "_fake",
             name + "_device_modules_test",
             name + "_pre_defconfig_fragments_menuconfig_test",
-        ],
+        ] + extra_tests,
     )
 
 def _common_kernel_abi_dist(

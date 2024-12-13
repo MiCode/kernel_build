@@ -1,0 +1,26 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+
+ddk_module(
+    name = "child",
+    srcs = ["child.c"],
+    out = "child.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+    deps = [
+        # Note: If you would like to re-export `parent_1`'s headers, put `parent_1` in `hdrs`.
+        # You do not need explicit dependency on parent_1_exported_headers.
+        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/parent_1",
+
+        # Note: If you would like to re-export `parent_2`'s headers, put `parent_2` in `hdrs`.
+        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/parent_2",
+
+        # Depend on parent_3
+        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/parent_3",
+        # parent_3 requires children to include parent_3_exported_headers, so do it here.
+        # Note: If you would like to re-export `parent_3_exported_headers`, put it in `hdrs`.
+        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/parent_3:parent_3_exported_headers",
+    ],
+)

@@ -72,6 +72,8 @@ def ddk_module(
       of headers.
     - Using `hdrs`, `textual_hdrs` and `includes` of this target.
 
+    For details, see `build/kernel/kleaf/tests/ddk_examples/README.md`.
+
     `hdrs`, `textual_hdrs` and `includes` have the same semantics as [`ddk_headers`](#ddk_headers).
     That is, this target effectively acts as a `ddk_headers` target when specified in the `deps`
     attribute of another `ddk_module`. In other words, the following code snippet:

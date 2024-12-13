@@ -1,0 +1,35 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
+
+ddk_headers(
+    name = "parent_3_exported_headers",
+
+    # List of exported headers
+    hdrs = ["include/parent_3/parent_3_do_thing.h"],
+
+    # List of include directories. By adding `-Iinclude`, the source
+    # file can use `#include "parent_3/parent_3_do_thing.h"`.
+    includes = ["include"],
+
+    # Set which modules can see this headers. You can also use public visibility
+    # if it makes sense for your target. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples/exported_includes/child:__pkg__"],
+)
+
+ddk_module(
+    name = "parent_3",
+    srcs = ["parent_3.c"],
+    out = "parent_3.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+
+    # List of exported headers. Use `deps` not `hdrs` so they are NOT exported
+    # to children. Children are expected to depend on parent_3_exported_headers
+    # explicitly.
+    deps = [
+        ":parent_3_exported_headers",
+    ],
+)

@@ -1,0 +1,15 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+
+ddk_module(
+    name = "child",
+    srcs = ["child.c"],
+    out = "child.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+    deps = [
+        "//build/kernel/kleaf/tests/ddk_examples/conditional_dependency/parent",
+    ],
+)

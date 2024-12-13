@@ -39,3 +39,5 @@ The virtual device serves as a reference implementation for DDK modules. See
 [Configuring DDK module](config.md)
 
 [Resolving common errors](errors.md)
+
+[Examples](../../tests/ddk_examples/README.md)
