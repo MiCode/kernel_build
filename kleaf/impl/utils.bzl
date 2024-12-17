@@ -259,6 +259,12 @@ def _optional_path(file):
         return ""
     return file.path
 
+def _optional_short_path(file):
+    """If file is None, return empty string. Otherwise return its short path."""
+    if file == None:
+        return ""
+    return file.short_path
+
 def _optional_single_path(files, what = None):
     """If files is empty, return empty string.
 
@@ -304,6 +310,7 @@ utils = struct(
     get_check_sandbox_cmd = _get_check_sandbox_cmd,
     write_depset = _write_depset,
     optional_path = _optional_path,
+    optional_short_path = _optional_short_path,
     optional_single_path = _optional_single_path,
     optional_file = _optional_file,
     single_file = _single_file,

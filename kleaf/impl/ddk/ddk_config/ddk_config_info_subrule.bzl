@@ -67,3 +67,47 @@ ddk_config_info_subrule = subrule(
         utils.write_depset,
     ],
 )
+
+def _empty_ddk_config_info_impl(_subrule_ctx):
+    """Create an empty DdkConfigInfo."""
+    empty = depset()
+    written = utils.write_depset(empty, "empty_depset.txt")
+    return DdkConfigInfo(
+        kconfig = empty,
+        kconfig_written = written,
+        defconfig = empty,
+        defconfig_written = written,
+    )
+
+empty_ddk_config_info = subrule(
+    implementation = _empty_ddk_config_info_impl,
+    subrules = [
+        utils.write_depset,
+    ],
+)
+
+def _combine_ddk_config_info_impl(_subrule_ctx, *, child, parent):
+    """Combine the depsets in two ddk_config_info for inheritance."""
+
+    # Parent goes first.
+    kconfig = depset(
+        transitive = [parent.kconfig, child.kconfig],
+        order = "postorder",
+    )
+    defconfig = depset(
+        transitive = [parent.defconfig, child.defconfig],
+        order = "postorder",
+    )
+    return DdkConfigInfo(
+        kconfig = kconfig,
+        kconfig_written = utils.write_depset(kconfig, "combined_kconfig_depset.txt"),
+        defconfig = defconfig,
+        defconfig_written = utils.write_depset(defconfig, "combined_defconfig_depset.txt"),
+    )
+
+combine_ddk_config_info = subrule(
+    implementation = _combine_ddk_config_info_impl,
+    subrules = [
+        utils.write_depset,
+    ],
+)

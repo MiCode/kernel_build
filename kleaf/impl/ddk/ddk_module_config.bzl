@@ -16,6 +16,7 @@
 
 load(
     ":common_providers.bzl",
+    "DdkConfigInfo",
     "DdkConfigOutputsInfo",
     "KernelBuildExtModuleInfo",
     "KernelSerializedEnvInfo",
@@ -28,15 +29,20 @@ load(":ddk/ddk_config/ddk_config_script_subrule.bzl", "ddk_config_script_subrule
 visibility("//build/kernel/kleaf/...")
 
 def _ddk_module_config_impl(ctx):
+    ddk_config_info_deps = []
+    if ctx.attr.parent:
+        ddk_config_info_deps.append(ctx.attr.parent)
+    ddk_config_info_deps += ctx.attr.module_deps + ctx.attr.module_hdrs
     ddk_config_info = ddk_config_info_subrule(
         kconfig_targets = [ctx.attr.kconfig] if ctx.attr.kconfig else [],
         defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
-        deps = ctx.attr.module_deps + ctx.attr.module_hdrs,
+        deps = ddk_config_info_deps,
         extra_defconfigs = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
     )
 
     main_action_ret = ddk_config_main_action_subrule(
         ddk_config_info = ddk_config_info,
+        parent = ctx.attr.parent,
         kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
         defconfig_files = ctx.files.defconfig,
     )
@@ -132,6 +138,10 @@ for its format.
         "defconfig": attr.label(
             allow_single_file = True,
             doc = "The `defconfig` file.",
+        ),
+        "parent": attr.label(
+            doc = "Parent ddk_config to inherit from",
+            providers = [DdkConfigInfo, DdkConfigOutputsInfo],
         ),
         # Needed to compose DdkConfigInfo
         "module_deps": attr.label_list(),
