@@ -477,6 +477,14 @@ py_binary(
     deps = [":symbol_extraction"],
 )
 
+# Tools visible to all packages.
+py_binary(
+    name = "modinfo_summary",
+    srcs = ["gki/modinfo_summary.py"],
+    main = "gki/modinfo_summary.py",
+    visibility = ["//visibility:public"],
+)
+
 # Boostrap tool for DDK development.
 py_binary(
     name = "init_ddk",
