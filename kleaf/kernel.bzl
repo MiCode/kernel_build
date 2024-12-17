@@ -34,6 +34,7 @@ load("//build/kernel/kleaf/impl:abi/kernel_abi.bzl", _kernel_abi = "kernel_abi")
 load("//build/kernel/kleaf/impl:abi/kernel_abi_dist.bzl", _kernel_abi_dist = "kernel_abi_dist", _kernel_abi_wrapped_dist = "kernel_abi_wrapped_dist")
 load("//build/kernel/kleaf/impl:android_filegroup.bzl", _android_filegroup = "android_filegroup")
 load("//build/kernel/kleaf/impl:checkpatch.bzl", _checkpatch = "checkpatch")
+load("//build/kernel/kleaf/impl:ddk/ddk_config.bzl", _ddk_config = "ddk_config")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers_archive.bzl", _ddk_headers_archive = "ddk_headers_archive")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
@@ -66,6 +67,7 @@ load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_
 # Re-exports. This is the list of public rules and macros.
 android_filegroup = _android_filegroup
 checkpatch = _checkpatch
+ddk_config = _ddk_config
 ddk_headers = _ddk_headers
 ddk_headers_archive = _ddk_headers_archive
 ddk_module = _ddk_module
