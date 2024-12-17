@@ -14,17 +14,14 @@
 
 """A target that configures a [`ddk_module`](#ddk_module)."""
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load(
     ":common_providers.bzl",
     "KernelBuildExtModuleInfo",
     "KernelSerializedEnvInfo",
-    "StepInfo",
 )
-load(":config_utils.bzl", "config_utils")
 load(":ddk/ddk_config/ddk_config_info_subrule.bzl", "ddk_config_info_subrule")
-load(":debug.bzl", "debug")
-load(":utils.bzl", "kernel_utils", "utils")
+load(":ddk/ddk_config/ddk_config_main_action_subrule.bzl", "ddk_config_main_action_subrule")
+load(":utils.bzl", "kernel_utils")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -37,10 +34,12 @@ def _ddk_config_impl(ctx):
         extra_defconfigs = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
     )
 
-    main_action_ret = _create_main_action(
-        ctx = ctx,
+    main_action_ret = ddk_config_main_action_subrule(
+        bin_dir_path = ctx.bin_dir.path,
         out_dir = out_dir,
         ddk_config_info = ddk_config_info,
+        kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
+        defconfig_files = ctx.files.defconfig,
     )
 
     serialized_env_info = _create_serialized_env_info(
@@ -64,209 +63,6 @@ def _ddk_config_impl(ctx):
         serialized_env_info,
         ddk_config_info,
     ]
-
-def _create_merge_dot_config_step(defconfig_depset_written):
-    defconfig_depset_file = defconfig_depset_written.depset_file
-    cmd = """
-        if grep -q '\\S' {defconfig_depset_file} ; then
-            {merge_dot_config_cmd}
-        fi
-    """.format(
-        defconfig_depset_file = defconfig_depset_file.path,
-        merge_dot_config_cmd = config_utils.create_merge_config_cmd(
-            base_expr = "${OUT_DIR}/.config",
-            defconfig_fragments_paths_expr = "$(cat {})".format(defconfig_depset_file.path),
-        ),
-    )
-
-    return StepInfo(
-        inputs = defconfig_depset_written.depset,
-        cmd = cmd,
-        tools = [],
-        outputs = [],
-    )
-
-def _create_kconfig_ext_step(ctx, kconfig_depset_written):
-    run_intermediates_dir = paths.join(
-        ctx.label.workspace_root,
-        ctx.label.package,
-        ctx.label.name + "_intermediates",
-    )
-    intermediates_dir = utils.intermediates_dir(ctx)
-
-    cmd = """
-        if [ -n "${{BUILD_WORKSPACE_DIRECTORY}}" ] || [ "${{BAZEL_TEST}}" = "1" ]; then
-            kconfig_depset_file={kconfig_depset_file_short}
-            intermediates_dir={run_intermediates_dir}
-        else
-            kconfig_depset_file={kconfig_depset_file}
-            intermediates_dir={intermediates_dir}
-        fi
-
-        mkdir -p ${{intermediates_dir}}
-
-        # Copy all Kconfig files to our new KCONFIG_EXT directory
-        if [[ "${{KERNEL_DIR}}/" == "/" ]]; then
-            echo "ERROR: FATAL: KERNEL_DIR is not set!" >&2
-            exit 1
-        fi
-        rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} ${{intermediates_dir}}/
-
-        KCONFIG_EXT_PREFIX=$(realpath ${{ROOT_DIR}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/${{intermediates_dir}}/
-
-        # Source Kconfig from depending modules
-        if grep -q '\\S' < ${{kconfig_depset_file}} ; then
-            (
-                for kconfig in $(cat ${{kconfig_depset_file}}); do
-                    mod_kconfig_rel=$(realpath ${{ROOT_DIR}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/${{kconfig}}
-                    echo 'source "'"${{mod_kconfig_rel}}"'"' >> ${{intermediates_dir}}/Kconfig.ext
-                done
-            )
-        fi
-    """.format(
-        intermediates_dir = intermediates_dir,
-        run_intermediates_dir = run_intermediates_dir,
-        kconfig_depset_file = kconfig_depset_written.depset_file.path,
-        kconfig_depset_file_short = kconfig_depset_written.depset_file.short_path,
-    )
-
-    return StepInfo(
-        inputs = kconfig_depset_written.depset,
-        cmd = cmd,
-        tools = [],
-        outputs = [],
-    )
-
-def _create_oldconfig_step(ctx, defconfig_depset_written, kconfig_depset_written):
-    cmd = """
-        if grep -q '\\S' < {defconfig_depset_file} || grep -q '\\S' < {kconfig_depset_file} ; then
-            # Regenerate include/.
-            # We could also run `make syncconfig` but syncconfig is an implementation detail
-            # of Kbuild. Hence, just wipe out include/ to force it to be re-regenerated.
-            rm -rf ${{OUT_DIR}}/include
-
-            # Use olddefconfig because we want to use the (new and combined) .config as base, and
-            # set unspecified values to their default value.
-            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} \\
-                KCONFIG_EXT_PREFIX=${{KCONFIG_EXT_PREFIX}} \\
-                olddefconfig
-        fi
-    """.format(
-        defconfig_depset_file = defconfig_depset_written.depset_file.path,
-        kconfig_depset_file = kconfig_depset_written.depset_file.path,
-    )
-
-    transitive_inputs = [
-        defconfig_depset_written.depset,
-        kconfig_depset_written.depset,
-    ]
-    tools = []
-    outputs = []
-
-    if ctx.file.defconfig:
-        check_defconfig_step = config_utils.create_check_defconfig_step(
-            defconfig = None,
-            pre_defconfig_fragments = [],
-            post_defconfig_fragments = [ctx.file.defconfig],
-        )
-        transitive_inputs.append(check_defconfig_step.inputs)
-        tools += check_defconfig_step.tools
-        outputs += check_defconfig_step.outputs
-        cmd += """
-            # Check that configs in my defconfig are still there
-            # This does not include defconfig from dependencies, because values from
-            # dependencies could technically be overridden by this target.
-            {check_defconfig_cmd}
-        """.format(
-            check_defconfig_cmd = check_defconfig_step.cmd,
-        )
-
-    return StepInfo(
-        inputs = depset(
-            ctx.files.defconfig,
-            transitive = transitive_inputs,
-        ),
-        cmd = cmd,
-        tools = tools,
-        outputs = outputs,
-    )
-
-def _create_main_action(
-        ctx,
-        out_dir,
-        ddk_config_info):
-    """Registers the main action that creates the output files."""
-
-    kconfig_depset_written = utils.write_depset(ddk_config_info.kconfig, "kconfig_depset.txt")
-    defconfig_depset_written = utils.write_depset(ddk_config_info.defconfig, "defconfig_depset.txt")
-
-    ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env
-
-    transitive_inputs = [
-        ddk_config_env.inputs,
-    ]
-
-    tools = [ddk_config_env.tools]
-    outputs = [out_dir]
-
-    merge_dot_config_step = _create_merge_dot_config_step(
-        defconfig_depset_written = defconfig_depset_written,
-    )
-    kconfig_ext_step = _create_kconfig_ext_step(
-        ctx = ctx,
-        kconfig_depset_written = kconfig_depset_written,
-    )
-    oldconfig_step = _create_oldconfig_step(
-        ctx = ctx,
-        defconfig_depset_written = defconfig_depset_written,
-        kconfig_depset_written = kconfig_depset_written,
-    )
-
-    steps = [
-        merge_dot_config_step,
-        kconfig_ext_step,
-        oldconfig_step,
-    ]
-
-    for step in steps:
-        transitive_inputs.append(step.inputs)
-        tools += step.tools
-        outputs += step.outputs
-
-    command = kernel_utils.setup_serialized_env_cmd(
-        serialized_env_info = ddk_config_env,
-        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
-    )
-    command += kernel_utils.set_src_arch_cmd()
-    command += """
-        {merge_config_cmd}
-        {kconfig_ext_cmd}
-        {oldconfig_cmd}
-
-        # Copy outputs
-        rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
-        rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
-
-        rm -rf ${{intermediates_dir}}
-    """.format(
-        merge_config_cmd = merge_dot_config_step.cmd,
-        kconfig_ext_cmd = kconfig_ext_step.cmd,
-        oldconfig_cmd = oldconfig_step.cmd,
-        out_dir = out_dir.path,
-    )
-    debug.print_scripts(ctx, command)
-    ctx.actions.run_shell(
-        inputs = depset(transitive = transitive_inputs),
-        tools = tools,
-        outputs = outputs,
-        command = command,
-        mnemonic = "DdkConfig",
-        progress_message = "Creating DDK module configuration %{label}",
-    )
-
-    return struct(
-        kconfig_ext_step = kconfig_ext_step,
-    )
 
 def _create_serialized_env_info(ctx, out_dir):
     """Creates info for module build."""
@@ -474,12 +270,10 @@ for its format.
             default = False,
             doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
         ),
-        "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
     subrules = [
         ddk_config_info_subrule,
-        utils.write_depset,
-        config_utils.create_check_defconfig_step,
+        ddk_config_main_action_subrule,
         _get_config_script,
     ],
     executable = True,
