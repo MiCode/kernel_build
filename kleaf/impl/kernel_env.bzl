@@ -301,6 +301,11 @@ def _kernel_env_impl(ctx):
                 quoted_value = shell.quote(value),
             )
 
+    if ctx.file.clang_autofdo_profile:
+        set_clang_autofdo_profile_cmd = "export CLANG_AUTOFDO_PROFILE=${ROOT_DIR}/" + ctx.file.clang_autofdo_profile.path
+    else:
+        set_clang_autofdo_profile_cmd = ""
+
     command += """
           export KCFLAGS="${{KCFLAGS}}"{quoted_space_and_extra_kcflags}
           {set_kernel_dir_cmd}
@@ -311,6 +316,7 @@ def _kernel_env_impl(ctx):
           {set_ndk_triple_cmd}
         # Variables from resolved toolchain
           {toolchains_setup_env_var_cmd}
+          {set_clang_autofdo_profile_cmd}
         # TODO(b/236012223) Remove the warning after deprecation.
           {make_goals_deprecation_warning}
         # Enforce check configs.
@@ -358,6 +364,7 @@ def _kernel_env_impl(ctx):
         check_arch_cmd = _get_check_arch_cmd(ctx),
         set_ndk_triple_cmd = _get_set_ndk_triple_cmd(),
         toolchains_setup_env_var_cmd = toolchains.kernel_setup_env_var_cmd,
+        set_clang_autofdo_profile_cmd = set_clang_autofdo_profile_cmd,
         make_goals_deprecation_warning = make_goals_deprecation_warning,
         kconfig_werror_setup = kconfig_werror_setup,
         out = out_file.path,
@@ -404,6 +411,8 @@ def _kernel_env_impl(ctx):
     ]
     if kconfig_ext:
         setup_inputs.append(kconfig_ext)
+    if ctx.file.clang_autofdo_profile:
+        setup_inputs.append(ctx.file.clang_autofdo_profile)
     setup_inputs += dtstree_srcs
 
     env_info = KernelEnvInfo(
@@ -689,6 +698,7 @@ kernel_env = rule(
         ),
         "make_goals": attr.string_list(doc = "`MAKE_GOALS`"),
         "kcflags": attr.string_list(),
+        "clang_autofdo_profile": attr.label(allow_single_file = True),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils"),

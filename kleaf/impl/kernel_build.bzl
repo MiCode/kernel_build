@@ -136,6 +136,7 @@ def kernel_build(
         ddk_module_defconfig_fragments = None,
         ddk_module_headers = None,
         kcflags = None,
+        clang_autofdo_profile = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -591,6 +592,11 @@ def kernel_build(
 
             To add common KCFLAGS, you must explicitly set
             it to `COMMON_KCFLAGS` (see `//build/kernel/kleaf:constants.bzl`).
+        clang_autofdo_profile: Path to an AutoFDO profile,
+          For example:
+          ```
+            clang_autofdo_profile = "//toolchain/pgo-profiles/kernel:aarch64/android16-6.12/kernel.afdo"
+          ```
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -711,6 +717,7 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
         kcflags = kcflags,
+        clang_autofdo_profile = clang_autofdo_profile,
         **internal_kwargs
     )
 
