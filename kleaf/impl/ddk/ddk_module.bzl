@@ -15,7 +15,7 @@
 """Rules for defining a DDK (Driver Development Kit) module."""
 
 load(":ddk/ddk_conditional_filegroup.bzl", "flatten_conditional_srcs")
-load(":ddk/ddk_config.bzl", "ddk_config")
+load(":ddk/ddk_module_config.bzl", "ddk_module_config")
 load(":ddk/makefiles.bzl", "makefiles")
 load(":kernel_module.bzl", "kernel_module")
 
@@ -498,7 +498,7 @@ def ddk_module(
 
     module_hdrs = (hdrs or []) + (textual_hdrs or [])
 
-    ddk_config(
+    ddk_module_config(
         name = name + "_config",
         defconfig = defconfig,
         kconfig = kconfig,

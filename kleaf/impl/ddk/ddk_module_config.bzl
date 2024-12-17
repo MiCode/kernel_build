@@ -27,7 +27,7 @@ load(":ddk/ddk_config/ddk_config_script_subrule.bzl", "ddk_config_script_subrule
 
 visibility("//build/kernel/kleaf/...")
 
-def _ddk_config_impl(ctx):
+def _ddk_module_config_impl(ctx):
     ddk_config_info = ddk_config_info_subrule(
         kconfig_targets = [ctx.attr.kconfig] if ctx.attr.kconfig else [],
         defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
@@ -109,8 +109,8 @@ def _create_serialized_env_info(ctx, out_dir):
         tools = pre_info.tools,
     )
 
-ddk_config = rule(
-    implementation = _ddk_config_impl,
+ddk_module_config = rule(
+    implementation = _ddk_module_config_impl,
     doc = "A target that configures a [`ddk_module`](#ddk_module).",
     attrs = {
         "kernel_build": attr.label(

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test expectations on `ddk_config`.
+"""Test expectations on `ddk_module_config`.
 
 Require `//common` package.
 """
@@ -22,8 +22,8 @@ load("//build/kernel/kleaf:kernel.bzl", "ddk_module", "kernel_build")
 load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_test")
 load("//build/kernel/kleaf/tests/utils:ddk_config_get_dot_config.bzl", "ddk_config_get_dot_config")
 
-def ddk_config_test_suite(name):
-    """Defines analysis test for `ddk_config`.
+def ddk_module_config_test_suite(name):
+    """Defines analysis test for `ddk_module_config`.
 
     Args:
         name: Name for this test suite.
