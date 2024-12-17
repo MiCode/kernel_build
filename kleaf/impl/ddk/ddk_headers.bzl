@@ -17,7 +17,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load(":common_providers.bzl", "DdkIncludeInfo")
-load(":ddk/ddk_config_subrule.bzl", "ddk_config_subrule")
+load(":ddk/ddk_config/ddk_config_info_subrule.bzl", "ddk_config_info_subrule")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -153,7 +153,7 @@ def _ddk_headers_impl(ctx):
         ctx.attr.linux_includes,
     )
 
-    ddk_config_info = ddk_config_subrule(
+    ddk_config_info = ddk_config_info_subrule(
         kconfig_targets = ctx.attr.kconfigs,
         defconfig_targets = ctx.attr.defconfigs,
         deps = ctx.attr.hdrs + ctx.attr.textual_hdrs,
@@ -259,5 +259,5 @@ Like `includes`, `linux_includes` is applied to dependent `ddk_module`s.
             """,
         ),
     },
-    subrules = [ddk_config_subrule],
+    subrules = [ddk_config_info_subrule],
 )

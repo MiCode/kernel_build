@@ -57,7 +57,7 @@ bzl_library(
         "constants.bzl",
         "ddk/ddk_conditional_filegroup.bzl",
         "ddk/ddk_config.bzl",
-        "ddk/ddk_config_subrule.bzl",
+        "ddk/ddk_config/ddk_config_info_subrule.bzl",
         "ddk/ddk_headers.bzl",
         "ddk/ddk_headers_archive.bzl",
         "ddk/ddk_module.bzl",

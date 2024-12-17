@@ -22,7 +22,7 @@ load(
     "StepInfo",
 )
 load(":config_utils.bzl", "config_utils")
-load(":ddk/ddk_config_subrule.bzl", "ddk_config_subrule")
+load(":ddk/ddk_config/ddk_config_info_subrule.bzl", "ddk_config_info_subrule")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "kernel_utils", "utils")
 
@@ -30,7 +30,12 @@ visibility("//build/kernel/kleaf/...")
 
 def _ddk_config_impl(ctx):
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
-    ddk_config_info = _create_ddk_config_info(ctx)
+    ddk_config_info = ddk_config_info_subrule(
+        kconfig_targets = [ctx.attr.kconfig] if ctx.attr.kconfig else [],
+        defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
+        deps = ctx.attr.module_deps + ctx.attr.module_hdrs,
+        extra_defconfigs = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
+    )
 
     main_action_ret = _create_main_action(
         ctx = ctx,
@@ -293,14 +298,6 @@ def _create_serialized_env_info(ctx, out_dir):
         tools = pre_info.tools,
     )
 
-def _create_ddk_config_info(ctx):
-    return ddk_config_subrule(
-        kconfig_targets = [ctx.attr.kconfig] if ctx.attr.kconfig else [],
-        defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
-        deps = ctx.attr.module_deps + ctx.attr.module_hdrs,
-        extra_defconfigs = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
-    )
-
 def _get_config_script_impl(
         subrule_ctx,
         serialized_env_info,
@@ -480,7 +477,7 @@ for its format.
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
     subrules = [
-        ddk_config_subrule,
+        ddk_config_info_subrule,
         utils.write_depset,
         config_utils.create_check_defconfig_step,
         _get_config_script,

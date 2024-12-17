@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Subrule for handling rule attribute kconfigs and defconfigs"""
+"""Subrules for creating DdkConfigInfo."""
 
 load(
     ":common_providers.bzl",
@@ -21,14 +21,14 @@ load(
 
 visibility("//build/kernel/kleaf/impl/...")
 
-def _ddk_config_subrule_impl(
+def _ddk_config_info_subrule_impl(
         subrule_ctx,  # buildifier: disable=unused-variable
         kconfig_targets,
         defconfig_targets,
         deps,
         extra_defconfigs = None):
     """
-    Impl for ddk_config_subrule.
+    Create a regular DdkConfigInfo.
 
     Args:
         subrule_ctx: context
@@ -55,6 +55,6 @@ def _ddk_config_subrule_impl(
         ),
     )
 
-ddk_config_subrule = subrule(
-    implementation = _ddk_config_subrule_impl,
+ddk_config_info_subrule = subrule(
+    implementation = _ddk_config_info_subrule_impl,
 )
