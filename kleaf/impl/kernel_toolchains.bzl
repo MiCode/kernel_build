@@ -264,11 +264,14 @@ def _get_rust_env_impl(_subrule_ctx, rust_tools, host_libc, exec_glibc_info):
     cmd = """
         export PATH="${{PATH}}:${{ROOT_DIR}}/"{quoted_rust_bin}":${{ROOT_DIR}}/"{quoted_clangtools_bin}
         export HOSTRUSTFLAGS="--target {target}"
+        export PROCMACROLDFLAGS={quoted_proc_macro_ldflags}
 
         function kleaf_internal_append_one_rust_flags() {{
             local backtrack_relative=$1
             local RUNPATH_EXECROOT='$$$$\\{{ORIGIN\\}}/'"${{backtrack_relative}}$(realpath ${{ROOT_DIR}} --relative-to ${{OUT_DIR}})"
+            local RUNPATH_EXECROOT_LESSQUOTE='$$$$ORIGIN/'"${{backtrack_relative}}$(realpath ${{ROOT_DIR}} --relative-to ${{OUT_DIR}})"
             export HOSTRUSTFLAGS="${{HOSTRUSTFLAGS}} "-Clink-args=-Wl,-rpath,${{RUNPATH_EXECROOT}}/{quoted_rust_bin}/../lib64
+            export PROCMACROLDFLAGS="${{PROCMACROLDFLAGS}} "-Wl,-rpath,${{RUNPATH_EXECROOT_LESSQUOTE}}/{quoted_rust_bin}/../lib64
         }}
         export -f kleaf_internal_append_one_rust_flags
         function kleaf_internal_eval_rust_flags() {{
@@ -277,9 +280,6 @@ def _get_rust_env_impl(_subrule_ctx, rust_tools, host_libc, exec_glibc_info):
         export -f kleaf_internal_eval_rust_flags
 
         kleaf_internal_eval_rust_flags
-
-        export PROCMACROLDFLAGS={quoted_proc_macro_ldflags}
-        # Don't add runpaths until we need them
     """.format(
         target = target,
         quoted_rust_bin = shell.quote(rustc.dirname),
