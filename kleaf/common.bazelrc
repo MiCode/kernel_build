@@ -39,6 +39,9 @@ common --incompatible_autoload_externally=+@rules_cc,+@rules_python,-@rules_andr
 common --noincompatible_enable_proto_toolchain_resolution
 # See bazel.py for additional flags.
 
+# TODO: b/385005950 - drop this flag once partners added allow_empty properly
+common --noincompatible_disallow_empty_glob
+
 # Always dump full test results
 test --test_output=errors --test_summary=terse
 
