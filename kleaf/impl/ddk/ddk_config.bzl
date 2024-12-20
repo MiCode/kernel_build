@@ -21,6 +21,7 @@ load(
 )
 load(":ddk/ddk_config/ddk_config_info_subrule.bzl", "ddk_config_info_subrule")
 load(":ddk/ddk_config/ddk_config_main_action_subrule.bzl", "ddk_config_main_action_subrule")
+load(":ddk/ddk_config/ddk_config_restore_out_dir_step.bzl", "ddk_config_restore_out_dir_step")
 load(":ddk/ddk_config/ddk_config_script_subrule.bzl", "ddk_config_script_subrule")
 
 visibility("//build/kernel/kleaf/...")
@@ -72,23 +73,32 @@ def _create_serialized_env_info(ctx, out_dir):
     else:
         pre_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].mod_min_env
 
+    restore_out_dir_step = ddk_config_restore_out_dir_step(out_dir)
+
     # Overlay module-specific configs
     setup_script_cmd = """
         . {pre_setup_script}
-        rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
-        rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+        {restore_out_dir_cmd}
     """.format(
         pre_setup_script = pre_info.setup_script.path,
-        out_dir = out_dir.path,
+        restore_out_dir_cmd = restore_out_dir_step.cmd,
     )
     setup_script = ctx.actions.declare_file("{name}/{name}_setup.sh".format(name = ctx.attr.name))
     ctx.actions.write(
         output = setup_script,
         content = setup_script_cmd,
     )
+
+    # KernelSerializedEnvInfo.tools is a depset[File] but restore_out_dir_step.tools is
+    # a list of depset, File or FilesToRunProvider. Hence they can't be combined here. For now,
+    # just assume restore_out_dir_step.tools is empty.
+    # TODO: Properly combine them once KernelSerializedEnvInfo.tools is a list too.
+    if restore_out_dir_step.tools:
+        fail("restore_out_dir_step.tools should be empty, but is {}".format(restore_out_dir_step.tools))
+
     return KernelSerializedEnvInfo(
         setup_script = setup_script,
-        inputs = depset([out_dir, setup_script], transitive = [pre_info.inputs]),
+        inputs = depset([setup_script], transitive = [pre_info.inputs, restore_out_dir_step.inputs]),
         tools = pre_info.tools,
     )
 
@@ -129,6 +139,7 @@ for its format.
         ddk_config_info_subrule,
         ddk_config_main_action_subrule,
         ddk_config_script_subrule,
+        ddk_config_restore_out_dir_step,
     ],
     executable = True,
 )
