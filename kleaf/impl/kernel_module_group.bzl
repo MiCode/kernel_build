@@ -17,6 +17,7 @@
 load(
     ":common_providers.bzl",
     "CompileCommandsInfo",
+    "DdkHeadersInfo",
     "GcovInfo",
     "KernelCmdsInfo",
     "KernelModuleInfo",
@@ -25,7 +26,7 @@ load(
     "ModuleSymversFileInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl")
+load(":ddk/ddk_headers.bzl", "ddk_headers_common_impl")
 load(":gcov_utils.bzl", "gcov_attrs", "get_merge_gcno_step")
 load(":utils.bzl", "kernel_utils")
 

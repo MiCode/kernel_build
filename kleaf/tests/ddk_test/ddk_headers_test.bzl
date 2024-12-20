@@ -17,7 +17,8 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers")
+load("//build/kernel/kleaf/impl:common_providers.bzl", "DdkHeadersInfo")
+load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/makefiles.bzl", "gather_prefixed_includes")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
 

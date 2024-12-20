@@ -16,7 +16,11 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
-load(":common_providers.bzl", "DdkIncludeInfo")
+load(
+    ":common_providers.bzl",
+    "DdkHeadersInfo",
+    "DdkIncludeInfo",
+)
 load(":ddk/ddk_config/ddk_config_info_subrule.bzl", "ddk_config_info_subrule")
 
 visibility("//build/kernel/kleaf/...")
@@ -24,21 +28,6 @@ visibility("//build/kernel/kleaf/...")
 # At this time of writing (2022-11-01), this is what cc_library does;
 # includes of this target, then includes of deps
 DDK_INCLUDE_INFO_ORDER = "preorder"
-
-DdkHeadersInfo = provider(
-    "Information for a target that provides DDK headers to a dependent target.",
-    fields = {
-        "include_infos": """A [depset](https://bazel.build/rules/lib/depset) of DdkIncludeInfo
-
-            The direct list contains DdkIncludeInfos for the current target.
-
-            The transitive list contains DdkHeadersInfo.includes from dependencies.
-
-            Depset order must be `DDK_INCLUDE_INFO_ORDER`.
-        """,
-        "files": "A [depset](https://bazel.build/rules/lib/depset) of header files of this target and dependencies",
-    },
-)
 
 def get_extra_include_roots(headers):
     """Given a list of headers, return a list of include roots.

@@ -33,6 +33,7 @@ load(
     ":common_providers.bzl",
     "CompileCommandsInfo",
     "CompileCommandsSingleInfo",
+    "DdkHeadersInfo",
     "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
@@ -61,7 +62,6 @@ load(
 )
 load(
     ":ddk/ddk_headers.bzl",
-    "DdkHeadersInfo",
     "ddk_headers_common_impl",
 )
 load(":debug.bzl", "debug")

@@ -17,6 +17,7 @@
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load(
     ":common_providers.bzl",
+    "DdkHeadersInfo",
     "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
@@ -35,7 +36,7 @@ load(
     "MODULES_STAGING_ARCHIVE",
     "UNSTRIPPED_MODULES_ARCHIVE",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo", "ddk_headers_common_impl")
+load(":ddk/ddk_headers.bzl", "ddk_headers_common_impl")
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_build.bzl", "create_serialized_env_info")

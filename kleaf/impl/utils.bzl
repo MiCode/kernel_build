@@ -23,6 +23,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "DdkConfigInfo",
+    "DdkHeadersInfo",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
     "KernelImagesInfo",
@@ -33,7 +34,6 @@ load(
     "KernelSerializedEnvInfo",
     "ModuleSymversInfo",
 )
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 
 visibility("//build/kernel/kleaf/...")
 

@@ -18,10 +18,10 @@ load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load(
     "//build/kernel/kleaf/impl:common_providers.bzl",
+    "DdkHeadersInfo",
     "KernelModuleInfo",
     "KernelModuleSetupInfo",
 )
-load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", "ddk_module")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_module_group.bzl", "kernel_module_group")

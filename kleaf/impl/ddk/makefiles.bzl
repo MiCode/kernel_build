@@ -18,6 +18,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load(
     ":common_providers.bzl",
+    "DdkHeadersInfo",
     "DdkIncludeInfo",
     "DdkSubmoduleInfo",
     "ModuleSymversFileInfo",
@@ -27,7 +28,6 @@ load(":ddk/ddk_conditional_filegroup.bzl", "DdkConditionalFilegroupInfo")
 load(
     ":ddk/ddk_headers.bzl",
     "DDK_INCLUDE_INFO_ORDER",
-    "DdkHeadersInfo",
     "ddk_headers_common_impl",
     "get_ddk_transitive_include_infos",
     "get_headers_depset",

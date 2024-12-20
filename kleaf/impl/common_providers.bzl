@@ -487,6 +487,21 @@ DdkConfigInfo = provider(
     },
 )
 
+DdkHeadersInfo = provider(
+    "Information for a target that provides DDK headers to a dependent target.",
+    fields = {
+        "include_infos": """A [depset](https://bazel.build/rules/lib/depset) of DdkIncludeInfo
+
+            The direct list contains DdkIncludeInfos for the current target.
+
+            The transitive list contains DdkHeadersInfo.includes from dependencies.
+
+            Depset order must be `DDK_INCLUDE_INFO_ORDER`.
+        """,
+        "files": "A [depset](https://bazel.build/rules/lib/depset) of header files of this target and dependencies",
+    },
+)
+
 DdkIncludeInfo = provider(
     """Describes include info of current target, excluding dependencies.
 

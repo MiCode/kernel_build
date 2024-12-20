@@ -17,7 +17,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 load(
-    ":ddk/ddk_headers.bzl",
+    ":common_providers.bzl",
     "DdkHeadersInfo",
 )
 

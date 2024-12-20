@@ -30,6 +30,7 @@ load(
     "CompileCommandsInfo",
     "CompileCommandsSingleInfo",
     "DdkConfigInfo",
+    "DdkHeadersInfo",
     "DdkSubmoduleInfo",
     "GcovInfo",
     "KernelBuildExtModuleInfo",
@@ -43,7 +44,6 @@ load(
     "ModuleSymversInfo",
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
-load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":gcov_utils.bzl", "gcov_attrs", "get_grab_gcno_step")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
