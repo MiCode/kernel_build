@@ -33,6 +33,7 @@ load(
     "KernelModuleSetupInfo",
     "KernelSerializedEnvInfo",
     "ModuleSymversInfo",
+    "WrittenDepsetInfo",
 )
 
 visibility("//build/kernel/kleaf/...")
@@ -216,7 +217,7 @@ def _write_depset_impl(subrule_ctx, d, out, *, _write_depset):
         mnemonic = "WriteDepset",
         progress_message = "Dumping depset to {} %{{label}}".format(out),
     )
-    return struct(
+    return WrittenDepsetInfo(
         depset_file = out_file,
         depset = depset([out_file], transitive = [d]),
     )

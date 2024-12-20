@@ -35,8 +35,11 @@ DdkConfigMainActionInfo = provider(
     },
 )
 
-def _create_merge_dot_config_step_impl(_subrule_ctx, *, defconfig_depset_written):
-    defconfig_depset_file = defconfig_depset_written.depset_file
+def _create_merge_dot_config_step_impl(
+        _subrule_ctx,
+        *,
+        ddk_config_info):
+    defconfig_depset_file = ddk_config_info.defconfig_written.depset_file
     cmd = """
         if grep -q '\\S' {defconfig_depset_file} ; then
             {merge_dot_config_cmd}
@@ -50,7 +53,7 @@ def _create_merge_dot_config_step_impl(_subrule_ctx, *, defconfig_depset_written
     )
 
     return StepInfo(
-        inputs = defconfig_depset_written.depset,
+        inputs = ddk_config_info.defconfig_written.depset,
         cmd = cmd,
         tools = [],
         outputs = [],
@@ -60,7 +63,11 @@ _create_merge_dot_config_step = subrule(
     implementation = _create_merge_dot_config_step_impl,
 )
 
-def _create_kconfig_ext_step_impl(subrule_ctx, *, bin_dir_path, kconfig_depset_written):
+def _create_kconfig_ext_step_impl(
+        subrule_ctx,
+        *,
+        bin_dir_path,
+        ddk_config_info):
     run_intermediates_dir = paths.join(
         subrule_ctx.label.workspace_root,
         subrule_ctx.label.package,
@@ -103,12 +110,12 @@ def _create_kconfig_ext_step_impl(subrule_ctx, *, bin_dir_path, kconfig_depset_w
     """.format(
         intermediates_dir = intermediates_dir,
         run_intermediates_dir = run_intermediates_dir,
-        kconfig_depset_file = kconfig_depset_written.depset_file.path,
-        kconfig_depset_file_short = kconfig_depset_written.depset_file.short_path,
+        kconfig_depset_file = ddk_config_info.kconfig_written.depset_file.path,
+        kconfig_depset_file_short = ddk_config_info.kconfig_written.depset_file.short_path,
     )
 
     return StepInfo(
-        inputs = kconfig_depset_written.depset,
+        inputs = ddk_config_info.kconfig_written.depset,
         cmd = cmd,
         tools = [],
         outputs = [],
@@ -116,7 +123,10 @@ def _create_kconfig_ext_step_impl(subrule_ctx, *, bin_dir_path, kconfig_depset_w
 
 _create_kconfig_ext_step = subrule(implementation = _create_kconfig_ext_step_impl)
 
-def _create_oldconfig_step_impl(_subrule_ctx, defconfig_depset_written, kconfig_depset_written, defconfig_files):
+def _create_oldconfig_step_impl(
+        _subrule_ctx,
+        ddk_config_info,
+        defconfig_files):
     cmd = """
         if grep -q '\\S' < {defconfig_depset_file} || grep -q '\\S' < {kconfig_depset_file} ; then
             # Regenerate include/.
@@ -131,13 +141,13 @@ def _create_oldconfig_step_impl(_subrule_ctx, defconfig_depset_written, kconfig_
                 olddefconfig
         fi
     """.format(
-        defconfig_depset_file = defconfig_depset_written.depset_file.path,
-        kconfig_depset_file = kconfig_depset_written.depset_file.path,
+        defconfig_depset_file = ddk_config_info.defconfig_written.depset_file.path,
+        kconfig_depset_file = ddk_config_info.kconfig_written.depset_file.path,
     )
 
     transitive_inputs = [
-        defconfig_depset_written.depset,
-        kconfig_depset_written.depset,
+        ddk_config_info.defconfig_written.depset,
+        ddk_config_info.kconfig_written.depset,
     ]
     tools = []
     outputs = []
@@ -199,9 +209,6 @@ def _ddk_config_main_action_subrule_impl(
 
     out_dir = subrule_ctx.actions.declare_directory(subrule_ctx.label.name + "/out_dir")
 
-    kconfig_depset_written = utils.write_depset(ddk_config_info.kconfig, "kconfig_depset.txt")
-    defconfig_depset_written = utils.write_depset(ddk_config_info.defconfig, "defconfig_depset.txt")
-
     transitive_inputs = [
         kernel_build_ddk_config_env.inputs,
     ]
@@ -210,15 +217,14 @@ def _ddk_config_main_action_subrule_impl(
     outputs = [out_dir]
 
     merge_dot_config_step = _create_merge_dot_config_step(
-        defconfig_depset_written = defconfig_depset_written,
+        ddk_config_info = ddk_config_info,
     )
     kconfig_ext_step = _create_kconfig_ext_step(
         bin_dir_path = bin_dir_path,
-        kconfig_depset_written = kconfig_depset_written,
+        ddk_config_info = ddk_config_info,
     )
     oldconfig_step = _create_oldconfig_step(
-        defconfig_depset_written = defconfig_depset_written,
-        kconfig_depset_written = kconfig_depset_written,
+        ddk_config_info = ddk_config_info,
         defconfig_files = defconfig_files,
     )
 
@@ -273,7 +279,6 @@ ddk_config_main_action_subrule = subrule(
     implementation = _ddk_config_main_action_subrule_impl,
     subrules = [
         debug.print_scripts_subrule,
-        utils.write_depset,
         _create_merge_dot_config_step,
         _create_kconfig_ext_step,
         _create_oldconfig_step,

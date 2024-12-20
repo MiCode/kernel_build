@@ -18,6 +18,7 @@ load(
     ":common_providers.bzl",
     "DdkConfigInfo",
 )
+load(":utils.bzl", "utils")
 
 visibility("//build/kernel/kleaf/impl/...")
 
@@ -41,20 +42,28 @@ def _ddk_config_info_subrule_impl(
     if extra_defconfigs == None:
         extra_defconfigs = depset()
 
+    kconfig = depset(
+        transitive = [dep[DdkConfigInfo].kconfig for dep in deps if DdkConfigInfo in dep] +
+                     [target.files for target in kconfig_targets],
+        order = "postorder",
+    )
+    defconfig = depset(
+        transitive = [extra_defconfigs] +
+                     [dep[DdkConfigInfo].defconfig for dep in deps if DdkConfigInfo in dep] +
+                     [target.files for target in defconfig_targets],
+        order = "postorder",
+    )
+
     return DdkConfigInfo(
-        kconfig = depset(
-            transitive = [dep[DdkConfigInfo].kconfig for dep in deps if DdkConfigInfo in dep] +
-                         [target.files for target in kconfig_targets],
-            order = "postorder",
-        ),
-        defconfig = depset(
-            transitive = [extra_defconfigs] +
-                         [dep[DdkConfigInfo].defconfig for dep in deps if DdkConfigInfo in dep] +
-                         [target.files for target in defconfig_targets],
-            order = "postorder",
-        ),
+        kconfig = kconfig,
+        kconfig_written = utils.write_depset(kconfig, "kconfig_depset.txt"),
+        defconfig = defconfig,
+        defconfig_written = utils.write_depset(defconfig, "defconfig_depset.txt"),
     )
 
 ddk_config_info_subrule = subrule(
     implementation = _ddk_config_info_subrule_impl,
+    subrules = [
+        utils.write_depset,
+    ],
 )
