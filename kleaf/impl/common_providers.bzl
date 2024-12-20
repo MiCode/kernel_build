@@ -497,6 +497,14 @@ DdkConfigInfo = provider(
     },
 )
 
+DdkConfigOutputsInfo = provider(
+    doc = "Describes output of a `ddk_config` target.",
+    fields = {
+        "out_dir": "Output directory",
+        "kconfig_ext": "The directory for KCONFIG_EXT",
+    },
+)
+
 DdkHeadersInfo = provider(
     "Information for a target that provides DDK headers to a dependent target.",
     fields = {

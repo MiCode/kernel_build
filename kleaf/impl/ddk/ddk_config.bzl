@@ -16,6 +16,7 @@
 
 load(
     ":common_providers.bzl",
+    "DdkConfigOutputsInfo",
     "KernelBuildExtModuleInfo",
     "KernelSerializedEnvInfo",
 )
@@ -35,7 +36,6 @@ def _ddk_config_impl(ctx):
     )
 
     main_action_ret = ddk_config_main_action_subrule(
-        bin_dir_path = ctx.bin_dir.path,
         ddk_config_info = ddk_config_info,
         kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
         defconfig_files = ctx.files.defconfig,
@@ -55,12 +55,19 @@ def _ddk_config_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset([main_action_ret.out_dir]),
+            files = depset([
+                main_action_ret.out_dir,
+                main_action_ret.kconfig_ext,
+            ]),
             executable = menuconfig_ret.executable,
             runfiles = ctx.runfiles(transitive_files = menuconfig_ret.runfiles_depset),
         ),
         serialized_env_info,
         ddk_config_info,
+        DdkConfigOutputsInfo(
+            out_dir = main_action_ret.out_dir,
+            kconfig_ext = main_action_ret.kconfig_ext,
+        ),
     ]
 
 def _create_serialized_env_info(ctx, out_dir):

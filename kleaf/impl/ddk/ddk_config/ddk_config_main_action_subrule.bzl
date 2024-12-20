@@ -16,7 +16,6 @@
 
 One notable output for the action is .config for the DDK module."""
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load(
     ":common_providers.bzl",
     "StepInfo",
@@ -32,6 +31,7 @@ DdkConfigMainActionInfo = provider(
     fields = {
         "out_dir": "Output directory",
         "kconfig_ext_step": "StepInfo to set up Kconfig.ext",
+        "kconfig_ext": "The directory for KCONFIG_EXT",
     },
 )
 
@@ -66,59 +66,48 @@ _create_merge_dot_config_step = subrule(
 def _create_kconfig_ext_step_impl(
         subrule_ctx,
         *,
-        bin_dir_path,
         ddk_config_info):
-    run_intermediates_dir = paths.join(
-        subrule_ctx.label.workspace_root,
-        subrule_ctx.label.package,
-        subrule_ctx.label.name + "_intermediates",
-    )
-    intermediates_dir = paths.join(
-        bin_dir_path,
-        run_intermediates_dir,
-    )
+    kconfig_ext = subrule_ctx.actions.declare_directory(subrule_ctx.label.name + "/kconfig_ext")
 
     cmd = """
         if [ -n "${{BUILD_WORKSPACE_DIRECTORY}}" ] || [ "${{BAZEL_TEST}}" = "1" ]; then
             kconfig_depset_file={kconfig_depset_file_short}
-            intermediates_dir={run_intermediates_dir}
+            kconfig_ext_dir={kconfig_ext_short}
         else
             kconfig_depset_file={kconfig_depset_file}
-            intermediates_dir={intermediates_dir}
+            kconfig_ext_dir={kconfig_ext}
         fi
-
-        mkdir -p ${{intermediates_dir}}
 
         # Copy all Kconfig files to our new KCONFIG_EXT directory
         if [[ "${{KERNEL_DIR}}/" == "/" ]]; then
             echo "ERROR: FATAL: KERNEL_DIR is not set!" >&2
             exit 1
         fi
-        rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} ${{intermediates_dir}}/
+        rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} ${{kconfig_ext_dir}}/
 
-        KCONFIG_EXT_PREFIX=$(realpath ${{ROOT_DIR}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/${{intermediates_dir}}/
+        KCONFIG_EXT_PREFIX=$(realpath ${{kconfig_ext_dir}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
 
         # Source Kconfig from depending modules
         if grep -q '\\S' < ${{kconfig_depset_file}} ; then
             (
                 for kconfig in $(cat ${{kconfig_depset_file}}); do
                     mod_kconfig_rel=$(realpath ${{ROOT_DIR}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/${{kconfig}}
-                    echo 'source "'"${{mod_kconfig_rel}}"'"' >> ${{intermediates_dir}}/Kconfig.ext
+                    echo 'source "'"${{mod_kconfig_rel}}"'"' >> ${{kconfig_ext_dir}}/Kconfig.ext
                 done
             )
         fi
     """.format(
-        intermediates_dir = intermediates_dir,
-        run_intermediates_dir = run_intermediates_dir,
         kconfig_depset_file = ddk_config_info.kconfig_written.depset_file.path,
+        kconfig_ext = kconfig_ext.path,
         kconfig_depset_file_short = ddk_config_info.kconfig_written.depset_file.short_path,
+        kconfig_ext_short = kconfig_ext.short_path,
     )
 
     return StepInfo(
         inputs = ddk_config_info.kconfig_written.depset,
         cmd = cmd,
         tools = [],
-        outputs = [],
+        outputs = [kconfig_ext],
     )
 
 _create_kconfig_ext_step = subrule(implementation = _create_kconfig_ext_step_impl)
@@ -190,7 +179,6 @@ _create_oldconfig_step = subrule(
 def _ddk_config_main_action_subrule_impl(
         subrule_ctx,
         *,
-        bin_dir_path,
         ddk_config_info,
         kernel_build_ddk_config_env,
         defconfig_files):
@@ -198,7 +186,6 @@ def _ddk_config_main_action_subrule_impl(
 
     Args:
         subrule_ctx: subrule_ctx
-        bin_dir_path: ctx.bin_dir.path
         ddk_config_info: from ddk_config_info_subrule
         kernel_build_ddk_config_env: environment for building DDK config from kernel_build
         defconfig_files: defconfig files of the ddk_module to check against at the end
@@ -220,7 +207,6 @@ def _ddk_config_main_action_subrule_impl(
         ddk_config_info = ddk_config_info,
     )
     kconfig_ext_step = _create_kconfig_ext_step(
-        bin_dir_path = bin_dir_path,
         ddk_config_info = ddk_config_info,
     )
     oldconfig_step = _create_oldconfig_step(
@@ -252,8 +238,6 @@ def _ddk_config_main_action_subrule_impl(
         # Copy outputs
         rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
         rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
-
-        rm -rf ${{intermediates_dir}}
     """.format(
         merge_config_cmd = merge_dot_config_step.cmd,
         kconfig_ext_cmd = kconfig_ext_step.cmd,
@@ -273,6 +257,7 @@ def _ddk_config_main_action_subrule_impl(
     return DdkConfigMainActionInfo(
         out_dir = out_dir,
         kconfig_ext_step = kconfig_ext_step,
+        kconfig_ext = utils.single_file(kconfig_ext_step.outputs),
     )
 
 ddk_config_main_action_subrule = subrule(
