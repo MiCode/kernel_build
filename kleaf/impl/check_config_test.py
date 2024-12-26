@@ -20,7 +20,8 @@ import tempfile
 import unittest
 from typing import Iterable
 
-from check_config import CheckConfig, ConfigValue, Mismatch
+from check_config import CheckConfig, Mismatch
+from parse_config import parse_config, ConfigValue, ConfigFormat
 
 
 class CheckConfigTest(unittest.TestCase):
@@ -48,7 +49,7 @@ CONFIG_E=""
 """)
         self.assertEqual(
             # pylint: disable=protected-access
-            CheckConfig._parse_config(self.dot_config, is_dot_config=True),
+            parse_config(self.dot_config, ConfigFormat.DOT_CONFIG),
             {
                 "CONFIG_A": ConfigValue("y", self.dot_config),
                 "CONFIG_B": ConfigValue("hello world", self.dot_config),
@@ -76,7 +77,7 @@ CONFIG_K="n"
 """)
         self.assertEqual(
             # pylint: disable=protected-access
-            CheckConfig._parse_config(self.defconfig, is_dot_config=False),
+            parse_config(self.defconfig, ConfigFormat.DEFCONFIG),
             {
                 "CONFIG_A": ConfigValue("y", self.defconfig),
                 "CONFIG_B": ConfigValue("hello world", self.defconfig),
@@ -101,7 +102,7 @@ CONFIG_C=y # nocheck: with reason
 """)
         self.assertEqual(
             # pylint: disable=protected-access
-            CheckConfig._parse_config(self.defconfig, is_dot_config=False),
+            parse_config(self.defconfig, ConfigFormat.DEFCONFIG),
             {
                 "CONFIG_A": ConfigValue("y", self.defconfig, ""),
                 "CONFIG_B": ConfigValue("y", self.defconfig, ""),
@@ -115,7 +116,7 @@ bad line
 """)
         with self.assertRaises(ValueError):
             # pylint: disable=protected-access
-            CheckConfig._parse_config(self.defconfig, is_dot_config=False)
+            parse_config(self.defconfig, ConfigFormat.DEFCONFIG)
 
     def test_merge(self):
         self.dot_config.write_text("")

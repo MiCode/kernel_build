@@ -344,10 +344,20 @@ py_binary(
     ],
 )
 
+py_library(
+    name = "parse_config",
+    srcs = [
+        "parse_config.py",
+    ],
+    imports = ["."],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+)
+
 py_binary(
     name = "check_config",
     srcs = ["check_config.py"],
     visibility = ["//visibility:public"],
+    deps = [":parse_config"],
 )
 
 py_binary(
