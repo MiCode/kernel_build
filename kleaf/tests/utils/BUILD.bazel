@@ -12,8 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test utilities.
+"""Test utilities."""
+
+load("@rules_python//python:py_test.bzl", "py_test")
 
 exports_files([
     "contain_lines_test.py",
 ])
+
+py_test(
+    name = "config_test",
+    srcs = ["config_test.py"],
+    main = "config_test.py",
+    deps = [
+        "//build/kernel/kleaf/impl:parse_config",
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
