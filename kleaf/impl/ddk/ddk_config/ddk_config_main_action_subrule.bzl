@@ -40,6 +40,8 @@ DdkConfigMainActionInfo = provider(
         "out_dir": "Output directory",
         "kconfig_ext_step": "StepInfo to set up Kconfig.ext",
         "kconfig_ext": "The directory for KCONFIG_EXT",
+        "override_parent_log": """override_parent.log file that explains why this target overrides
+            .config/Kconfig from parent, triggering olddefconfig""",
     },
 )
 
@@ -48,7 +50,8 @@ def _create_merge_dot_config_step_impl(
         *,
         combined,
         parent_ddk_config_info,
-        parent_outputs_info):
+        parent_outputs_info,
+        override_parent_log):
     restore_parent_out_dir = ddk_config_restore_out_dir_step(
         out_dir = parent_outputs_info.out_dir,
         delete_dest_include = True,
@@ -67,6 +70,14 @@ def _create_merge_dot_config_step_impl(
         # If adding extra defconfig on top of parent, then merge combined defconfig depset on
         # kernel_build's .config
         if ! diff -q {parent_defconfig_depset} {combined_defconfig_depset} > /dev/null; then
+
+            (
+                echo "WARNING: Adding extra defconfig files:"
+                diff {parent_defconfig_depset} {combined_defconfig_depset} || true
+                echo "This may cause an extra olddefconfig step."
+                echo
+            ) >> {override_parent_log}
+
             {merge_combined_defconfig_on_kernel_build_dot_config}
             # If .config changes, it differs from .config.old and will trigger olddefconfig later.
 
@@ -91,6 +102,7 @@ def _create_merge_dot_config_step_impl(
             defconfig_fragments_paths_expr = "$(cat {})".format(combined.defconfig_written.depset_file.path),
         ),
         restore_parent_out_dir_cmd = restore_parent_out_dir.cmd,
+        override_parent_log = override_parent_log.path,
     )
 
     return StepInfo(
@@ -116,7 +128,8 @@ def _create_kconfig_ext_step_impl(
         *,
         combined,
         parent_ddk_config_info,
-        parent_outputs_info):
+        parent_outputs_info,
+        override_parent_log):
     kconfig_ext = subrule_ctx.actions.declare_directory(subrule_ctx.label.name + "/kconfig_ext")
 
     cmd = """
@@ -125,11 +138,13 @@ def _create_kconfig_ext_step_impl(
             combined_kconfig_depset_file={combined_kconfig_depset_file_short}
             kconfig_ext_dir={kconfig_ext_short}
             parent_kconfig_ext_dir={parent_kconfig_ext_short}
+            override_parent_log={override_parent_log_short}
         else
             parent_kconfig_depset_file={parent_kconfig_depset_file}
             combined_kconfig_depset_file={combined_kconfig_depset_file}
             kconfig_ext_dir={kconfig_ext}
             parent_kconfig_ext_dir={parent_kconfig_ext}
+            override_parent_log={override_parent_log}
         fi
 
         # Backup the value of KCONFIG_EXT_PREFIX for comparison later.
@@ -147,6 +162,13 @@ def _create_kconfig_ext_step_impl(
         # KCONFIG_EXT_PREFIX from kernel_build.
         if ! diff -q ${{parent_kconfig_depset_file}} ${{combined_kconfig_depset_file}} > /dev/null; then
 
+            (
+                echo "WARNING: Adding extra Kconfig files:"
+                diff ${{parent_kconfig_depset_file}} ${{combined_kconfig_depset_file}} || true
+                echo "This may cause an extra olddefconfig step."
+                echo
+            ) >> ${{override_parent_log}}
+
             rsync -aL --include="*/" --include="Kconfig*" --exclude="*" ${{KERNEL_DIR}}/${{KCONFIG_EXT_PREFIX}} ${{kconfig_ext_dir}}/
             KCONFIG_EXT_PREFIX=$(realpath ${{kconfig_ext_dir}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
             (
@@ -161,7 +183,7 @@ def _create_kconfig_ext_step_impl(
         # Otherwise if there's a parent and parent kconfig depset is not empty, use parent's kconfig_ext
         elif [[ -n "${{parent_kconfig_ext_dir}}" ]] && grep -q '\\S' < ${{parent_kconfig_depset_file}}; then
 
-            cp -r -L ${{parent_kconfig_ext_dir}}/* -t ${{kconfig_ext_dir}}
+            rsync -aL ${{parent_kconfig_ext_dir}}/ ${{kconfig_ext_dir}}/
             KCONFIG_EXT_PREFIX=$(realpath ${{kconfig_ext_dir}} --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})/
 
             # Prefer .config and include/ from parent.
@@ -181,10 +203,12 @@ def _create_kconfig_ext_step_impl(
         combined_kconfig_depset_file = combined.kconfig_written.depset_file.path,
         kconfig_ext = kconfig_ext.path,
         parent_kconfig_ext = utils.optional_path(parent_outputs_info.kconfig_ext),
+        override_parent_log = override_parent_log.path,
         parent_kconfig_depset_file_short = parent_ddk_config_info.kconfig_written.depset_short_file.short_path,
         combined_kconfig_depset_file_short = combined.kconfig_written.depset_short_file.short_path,
         kconfig_ext_short = kconfig_ext.short_path,
         parent_kconfig_ext_short = utils.optional_short_path(parent_outputs_info.kconfig_ext),
+        override_parent_log_short = override_parent_log.short_path,
     )
 
     inputs = []
@@ -205,11 +229,28 @@ _create_kconfig_ext_step = subrule(implementation = _create_kconfig_ext_step_imp
 
 def _create_oldconfig_step_impl(
         _subrule_ctx,
-        defconfig_files):
+        defconfig_files,
+        has_parent,
+        override_parent,
+        override_parent_log):
     cmd = """
         if ! diff -q ${{OUT_DIR}}/.config.old ${{OUT_DIR}}/.config > /dev/null || \\
             ! $( cd ${{KERNEL_DIR}}; diff -q ${{OLD_KCONFIG_EXT_PREFIX}}Kconfig.ext ${{KCONFIG_EXT_PREFIX}}Kconfig.ext ) > /dev/null
         then
+            (
+                echo "ERROR: detected defconfig/Kconfig changes, triggering olddefconfig."
+                echo "Changes in .config:"
+                diff ${{OUT_DIR}}/.config.old ${{OUT_DIR}}/.config || true
+                echo "Changes in Kconfig:"
+                ( cd ${{KERNEL_DIR}}; diff -q ${{OLD_KCONFIG_EXT_PREFIX}}Kconfig.ext ${{KCONFIG_EXT_PREFIX}}Kconfig.ext || true )
+                echo
+            ) >> {override_parent_log}
+
+            if {has_parent} && [[ "{override_parent}" == "deny" ]]; then
+                cat {override_parent_log} >&2
+                exit 1
+            fi
+
             # Regenerate include/.
             # We could also run `make syncconfig` but syncconfig is an implementation detail
             # of Kbuild. Hence, just wipe out include/ to force it to be re-regenerated.
@@ -220,11 +261,17 @@ def _create_oldconfig_step_impl(
             make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} \\
                 KCONFIG_EXT_PREFIX=${{KCONFIG_EXT_PREFIX}} \\
                 olddefconfig
+        elif [[ "{override_parent}" == "expect_override" ]]; then
+            echo "ERROR: Expecting target to override parent values, but not overriding anything!" >&2
+            exit 1
         fi
 
         rm -f ${{OUT_DIR}}/.config.old
         unset OLD_KCONFIG_EXT_PREFIX
     """.format(
+        has_parent = "true" if has_parent else "false",
+        override_parent = override_parent,
+        override_parent_log = override_parent_log.path,
     )
 
     transitive_inputs = []
@@ -272,7 +319,8 @@ def _ddk_config_main_action_subrule_impl(
         ddk_config_info,
         parent,
         kernel_build_ddk_config_env,
-        defconfig_files):
+        defconfig_files,
+        override_parent):
     """Impl for ddk_config_main_action_subrule
 
     Args:
@@ -281,10 +329,13 @@ def _ddk_config_main_action_subrule_impl(
         parent: optional parent target
         kernel_build_ddk_config_env: environment for building DDK config from kernel_build
         defconfig_files: defconfig files of the ddk_module to check against at the end
+        override_parent: See ddk_module_config.override_parent.
 
     Returns:
         DdkConfigMainActionInfo
     """
+
+    override_parent_log = subrule_ctx.actions.declare_file("{}/override_parent.log".format(subrule_ctx.label.name))
 
     # If there is no parent, use an empty info to simplify shell checks.
     parent_outputs_info = DdkConfigOutputsInfo(
@@ -303,7 +354,7 @@ def _ddk_config_main_action_subrule_impl(
     ]
 
     tools = [kernel_build_ddk_config_env.tools]
-    outputs = [out_dir]
+    outputs = [out_dir, override_parent_log]
 
     combined = combine_ddk_config_info(
         parent = parent_ddk_config_info,
@@ -314,14 +365,19 @@ def _ddk_config_main_action_subrule_impl(
         combined = combined,
         parent_ddk_config_info = parent_ddk_config_info,
         parent_outputs_info = parent_outputs_info,
+        override_parent_log = override_parent_log,
     )
     kconfig_ext_step = _create_kconfig_ext_step(
         combined = combined,
         parent_ddk_config_info = parent_ddk_config_info,
         parent_outputs_info = parent_outputs_info,
+        override_parent_log = override_parent_log,
     )
     oldconfig_step = _create_oldconfig_step(
         defconfig_files = defconfig_files,
+        has_parent = bool(parent),
+        override_parent = override_parent,
+        override_parent_log = override_parent_log,
     )
 
     steps = [
@@ -341,6 +397,7 @@ def _ddk_config_main_action_subrule_impl(
     )
     command += kernel_utils.set_src_arch_cmd()
     command += """
+        : > {override_parent_log}
         {kconfig_ext_cmd}
         {merge_config_cmd}
         {oldconfig_cmd}
@@ -349,6 +406,7 @@ def _ddk_config_main_action_subrule_impl(
         rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
         rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
     """.format(
+        override_parent_log = override_parent_log.path,
         merge_config_cmd = merge_dot_config_step.cmd,
         kconfig_ext_cmd = kconfig_ext_step.cmd,
         oldconfig_cmd = oldconfig_step.cmd,
@@ -368,6 +426,7 @@ def _ddk_config_main_action_subrule_impl(
         out_dir = out_dir,
         kconfig_ext_step = kconfig_ext_step,
         kconfig_ext = utils.single_file(kconfig_ext_step.outputs),
+        override_parent_log = override_parent_log,
     )
 
 ddk_config_main_action_subrule = subrule(

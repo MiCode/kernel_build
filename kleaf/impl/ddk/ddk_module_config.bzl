@@ -29,6 +29,9 @@ load(":ddk/ddk_config/ddk_config_script_subrule.bzl", "ddk_config_script_subrule
 visibility("//build/kernel/kleaf/...")
 
 def _ddk_module_config_impl(ctx):
+    if not ctx.attr.testonly and ctx.attr.override_parent == "expect_override":
+        fail("{}: override_parent can only be expect_override if testonly = True".format(ctx.label))
+
     ddk_config_info_deps = []
     if ctx.attr.parent:
         ddk_config_info_deps.append(ctx.attr.parent)
@@ -45,6 +48,7 @@ def _ddk_module_config_impl(ctx):
         parent = ctx.attr.parent,
         kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
         defconfig_files = ctx.files.defconfig,
+        override_parent = ctx.attr.override_parent,
     )
 
     serialized_env_info = _create_serialized_env_info(
@@ -67,6 +71,9 @@ def _ddk_module_config_impl(ctx):
             ]),
             executable = menuconfig_ret.executable,
             runfiles = ctx.runfiles(transitive_files = menuconfig_ret.runfiles_depset),
+        ),
+        OutputGroupInfo(
+            override_parent_log = depset([main_action_ret.override_parent_log]),
         ),
         serialized_env_info,
         ddk_config_info,
@@ -150,6 +157,23 @@ for its format.
         "generate_btf": attr.bool(
             default = False,
             doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
+        ),
+        "override_parent": attr.string(
+            doc = """Whether it is allowed to override .config/Kconfig from parent.
+
+                -   deny (the default): It is not allowed to override .config/Kconfig from
+                    parent. If this module has dependencies that declares extra defconfig/Kconfig,
+                    a build error is raised.
+                    This means all your dependencies that has extra defconfig/Kconfig
+                    must be present in the parent config as well. By using parent's .config
+                    directly, you save build time.
+                -   expect_override: an **internal only** option that is used for tests. This is
+                    similar to `deny`, except that the build error is suppressed and the error
+                    message is recorded in the output group `override_parent_log` for tests to
+                    inspect. This requires `testonly = True` to prevent usage in production.
+            """,
+            values = ["deny", "expect_override"],
+            default = "deny",
         ),
     },
     subrules = [

@@ -39,6 +39,7 @@ def _ddk_config_impl(ctx):
         parent = None,
         kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
         defconfig_files = ctx.files.defconfig,
+        override_parent = "deny",
     )
 
     menuconfig_ret = ddk_config_script_subrule(

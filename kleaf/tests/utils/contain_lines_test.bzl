@@ -14,7 +14,7 @@
 
 """Tests for contents of a given file."""
 
-def contain_lines_test(name, expected, actual, order = None):
+def contain_lines_test(name, expected, actual, order = None, **kwargs):
     """See `contain_lines_test.py` for explanation.
 
     Args:
@@ -22,6 +22,7 @@ def contain_lines_test(name, expected, actual, order = None):
         expected: A label expanding into the expected files.
         actual: A label expanding into the actual files.
         order: If True, also assert ordering.
+        **kwargs: kwargs to internal rule
     """
 
     args = [
@@ -44,4 +45,5 @@ def contain_lines_test(name, expected, actual, order = None):
         deps = [
             "@io_abseil_py//absl/testing:absltest",
         ],
+        **kwargs
     )

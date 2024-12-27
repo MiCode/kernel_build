@@ -14,8 +14,10 @@
 
 """Helper macro for DDK config inheritance test."""
 
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:ddk/ddk_module_config.bzl", "ddk_module_config")
 load("//build/kernel/kleaf/tests/utils:config_test.bzl", "config_test")
+load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_test")
 load("//build/kernel/kleaf/tests/utils:ddk_config_get_dot_config.bzl", "ddk_config_get_dot_config")
 
 def ddk_config_inheritance_test(
@@ -24,6 +26,8 @@ def ddk_config_inheritance_test(
         kernel_build,
         parent = None,
         defconfig = None,
+        override_parent = None,
+        override_parent_log_expected_lines = None,
         **kwargs):
     """Helper macro for DDK config inheritance test.
 
@@ -33,6 +37,8 @@ def ddk_config_inheritance_test(
         kernel_build: kernel_build
         parent: parent ddk_config
         defconfig: defconfig file
+        override_parent: ddk_module_config.override_parent
+        override_parent_log_expected_lines: Expected lines in override_parent.log
         **kwargs: kwargs to internal targets
     """
 
@@ -43,6 +49,7 @@ def ddk_config_inheritance_test(
         kernel_build = kernel_build,
         parent = parent,
         defconfig = defconfig,
+        override_parent = override_parent,
         **kwargs
     )
 
@@ -59,6 +66,29 @@ def ddk_config_inheritance_test(
         **kwargs
     )
     tests.append(name + "_config_test")
+
+    native.filegroup(
+        name = name + "_override_parent_log_actual",
+        srcs = [name + "_module_config"],
+        output_group = "override_parent_log",
+        **kwargs
+    )
+
+    write_file(
+        name = name + "_override_parent_log_expected",
+        out = name + "_override_parent_log_expected/override_parent.log",
+        content = (override_parent_log_expected_lines or []) + [""],
+        **kwargs
+    )
+
+    contain_lines_test(
+        name = name + "_override_parent_log_test",
+        expected = name + "_override_parent_log_expected",
+        actual = name + "_override_parent_log_actual",
+        order = True,
+        **kwargs
+    )
+    tests.append(name + "_override_parent_log_test")
 
     native.test_suite(
         name = name,

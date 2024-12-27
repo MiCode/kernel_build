@@ -72,6 +72,15 @@ ddk_config_inheritance_test(
         "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "",
     },
     kernel_build = ":kernel_build",
+    override_parent = "expect_override",
+    override_parent_log_expected_lines = [
+        "WARNING: Adding extra defconfig files:",
+        "+build/kernel/kleaf/tests/ddk_config_test/override_defconfig",
+        "ERROR: detected defconfig/Kconfig changes, triggering olddefconfig.",
+        "Changes in .config:",
+        "+CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N=y",
+        "+# CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y is not set",
+    ],
     parent = ":common_ddk_config",
     tags = ["manual"],
 )
