@@ -23,8 +23,7 @@ visibility("//build/kernel/kleaf/impl/...")
 
 def _ddk_config_restore_out_dir_step_impl(
         _subrule_ctx,
-        out_dir,
-        delete_dest_include = None):
+        out_dir):
     if not out_dir:
         return StepInfo(
             inputs = depset(),
@@ -34,11 +33,14 @@ def _ddk_config_restore_out_dir_step_impl(
         )
     cmd = """
         rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
-        # --delete to delete configs in kernel_build but not in parent ddk_config
-        rsync -aL {delete_dest_include_arg} --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+
+        if [[ "${{kleaf_do_not_rsync_out_dir_include}}" == "1" ]]; then
+            kleaf_out_dir_include_candidate="{out_dir}/include/"
+        else
+            rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+        fi
     """.format(
         out_dir = out_dir.path,
-        delete_dest_include_arg = "--delete" if delete_dest_include else "",
     )
     return StepInfo(
         inputs = depset([out_dir]),

@@ -54,12 +54,11 @@ def _create_merge_dot_config_step_impl(
         override_parent_log):
     restore_parent_out_dir = ddk_config_restore_out_dir_step(
         out_dir = parent_outputs_info.out_dir,
-        delete_dest_include = True,
     )
 
     cmd = """
         # Backup existing .config for comparison later. The .config.old is a snapshot of the
-        # existing $OUT_DIR/include.
+        # existing $kleaf_out_dir_include_candidate.
         cp ${{OUT_DIR}}/.config ${{OUT_DIR}}/.config.old
 
         if [[ -z "${{ddk_config_using_parent_kconfig_ext}}" ]]; then
@@ -82,11 +81,13 @@ def _create_merge_dot_config_step_impl(
             # If .config changes, it differs from .config.old and will trigger olddefconfig later.
 
         # Otherwise if parent defconfig depset is not empty, use parent's .config and include/ directly
-        # Also, if using parent's Kconfig.ext directly, also sync parent's .config and include/ to
+        # Also, if using parent's Kconfig.ext directly, also sync parent's .config and set
+        # kleaf_out_dir_include_candidate to parent's include/
         #   make sure .config has the correct default values from parent's Kconfig.ext
         elif grep -q '\\S' < {parent_defconfig_depset} || [[ "${{ddk_config_using_parent_kconfig_ext}}" == "1" ]]; then
             {restore_parent_out_dir_cmd}
-            # Because include/ is also restored, update .config.old to maybe skip olddefconfig.
+            # Because kleaf_out_dir_include_candidate is updated, update .config.old to maybe skip
+            # olddefconfig.
             cp ${{OUT_DIR}}/.config ${{OUT_DIR}}/.config.old
 
         # Otherwise nothing to do. Use kernel_build's .config directly
@@ -251,16 +252,15 @@ def _create_oldconfig_step_impl(
                 exit 1
             fi
 
-            # Regenerate include/.
-            # We could also run `make syncconfig` but syncconfig is an implementation detail
-            # of Kbuild. Hence, just wipe out include/ to force it to be re-regenerated.
-            rm -rf ${{OUT_DIR}}/include
-
             # Use olddefconfig because we want to use the (new and combined) .config as base, and
             # set unspecified values to their default value.
             make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} \\
                 KCONFIG_EXT_PREFIX=${{KCONFIG_EXT_PREFIX}} \\
                 olddefconfig
+
+            # Tell oldconfig_step to capture $OUT_DIR/include instead.
+            kleaf_out_dir_include_candidate="${{OUT_DIR}}/include/"
+
         elif [[ "{override_parent}" == "expect_override" ]]; then
             echo "ERROR: Expecting target to override parent values, but not overriding anything!" >&2
             exit 1
@@ -393,7 +393,9 @@ def _ddk_config_main_action_subrule_impl(
 
     command = kernel_utils.setup_serialized_env_cmd(
         serialized_env_info = kernel_build_ddk_config_env,
-        restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
+        restore_out_dir_cmd = utils.get_check_sandbox_cmd() + """
+            kleaf_do_not_rsync_out_dir_include=1
+        """,
     )
     command += kernel_utils.set_src_arch_cmd()
     command += """
@@ -404,7 +406,11 @@ def _ddk_config_main_action_subrule_impl(
 
         # Copy outputs
         rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
-        rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
+        if [[ -z ${{kleaf_out_dir_include_candidate}} ]]; then
+            echo "ERROR: kleaf_out_dir_include_candidate is not set!" >&2
+            exit 1
+        fi
+        rsync -aL "${{kleaf_out_dir_include_candidate}}" {out_dir}/include/
     """.format(
         override_parent_log = override_parent_log.path,
         merge_config_cmd = merge_dot_config_step.cmd,

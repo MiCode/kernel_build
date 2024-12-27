@@ -888,23 +888,30 @@ def get_config_setup_command(
         # Restore kernel config inputs
         mkdir -p ${{OUT_DIR}}/include/
 
-        (
-            if [ -n "${{BUILD_WORKSPACE_DIRECTORY}}" ] || [ "${{BAZEL_TEST}}" = "1" ]; then
-                rule_out_dir={out_dir_short}
-            else
-                rule_out_dir={out_dir}
-            fi
-            rsync -aL ${{rule_out_dir}}/.config ${{OUT_DIR}}/.config
+
+        if [ -n "${{BUILD_WORKSPACE_DIRECTORY}}" ] || [ "${{BAZEL_TEST}}" = "1" ]; then
+            rule_out_dir={out_dir_short}
+        else
+            rule_out_dir={out_dir}
+        fi
+        rsync -aL ${{rule_out_dir}}/.config ${{OUT_DIR}}/.config
+        if [[ "${{kleaf_do_not_rsync_out_dir_include}}" == "1" ]]; then
+            export kleaf_out_dir_include_candidate="${{rule_out_dir}}/include/"
+        else
             rsync -aL --chmod=D+w ${{rule_out_dir}}/include/ ${{OUT_DIR}}/include/
-            rsync -aL --chmod=F+w ${{rule_out_dir}}/localversion ${{OUT_DIR}}/localversion
-            if [[ -f ${{rule_out_dir}}/{raw_kmi_symbol_list_below_out_dir} ]]; then
-                rsync -aL --chmod=F+w \\
-                    ${{rule_out_dir}}/{raw_kmi_symbol_list_below_out_dir} ${{OUT_DIR}}/
-            fi
-        )
+        fi
+        rsync -aL --chmod=F+w ${{rule_out_dir}}/localversion ${{OUT_DIR}}/localversion
+        if [[ -f ${{rule_out_dir}}/{raw_kmi_symbol_list_below_out_dir} ]]; then
+            rsync -aL --chmod=F+w \\
+                ${{rule_out_dir}}/{raw_kmi_symbol_list_below_out_dir} ${{OUT_DIR}}/
+        fi
+        unset rule_out_dir
 
         # Restore real value of $ROOT_DIR in auto.conf.cmd
-        sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
+        if [[ "${{kleaf_do_not_rsync_out_dir_include}}" != "1" ]]; then
+            # Restore real value of $ROOT_DIR in auto.conf.cmd
+            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
+        fi
     """.format(
         env_setup_command = env_setup_command,
         eval_restore_out_dir_cmd = kernel_utils.eval_restore_out_dir_cmd(),
