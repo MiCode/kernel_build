@@ -19,44 +19,8 @@ Require `//common` package.
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf:kernel.bzl", "ddk_module", "kernel_build")
-load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
-load("//build/kernel/kleaf/impl:utils.bzl", "utils")
 load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_test")
-
-def _get_config_impl(ctx):
-    out_dir = utils.find_file(
-        name = "out_dir",
-        files = ctx.files.ddk_config,
-        what = "{}: ddk_config outputs".format(ctx.attr.ddk_config.label),
-    )
-
-    out = ctx.actions.declare_file("{}/.config".format(ctx.label.name))
-    hermetic_tools = hermetic_toolchain.get(ctx)
-    command = hermetic_tools.setup + """
-        cp -pL {out_dir}/.config {out}
-    """.format(
-        out_dir = out_dir.path,
-        out = out.path,
-    )
-
-    ctx.actions.run_shell(
-        inputs = [out_dir],
-        outputs = [out],
-        command = command,
-        tools = hermetic_tools.deps,
-        mnemonic = "GetDdkConfigFile",
-        progress_message = "Getting .config %{label}",
-    )
-
-    return DefaultInfo(files = depset([out]))
-
-_get_config = rule(
-    implementation = _get_config_impl,
-    attrs = {
-        "ddk_config": attr.label(),
-    },
-    toolchains = [hermetic_toolchain.type],
-)
+load("//build/kernel/kleaf/tests/utils:ddk_config_get_dot_config.bzl", "ddk_config_get_dot_config")
 
 def ddk_config_test_suite(name):
     """Defines analysis test for `ddk_config`.
@@ -94,9 +58,9 @@ def ddk_config_test_suite(name):
         tags = ["manual"],
     )
 
-    _get_config(
+    ddk_config_get_dot_config(
         name = name + "_actual",
-        ddk_config = name + "_ddk_module_config",
+        target = name + "_ddk_module_config",
         tags = ["manual"],
     )
 
