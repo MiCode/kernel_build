@@ -26,7 +26,6 @@ load(":utils.bzl", "kernel_utils")
 visibility("//build/kernel/kleaf/...")
 
 def _ddk_config_impl(ctx):
-    out_dir = ctx.actions.declare_directory(ctx.attr.name + "/out_dir")
     ddk_config_info = ddk_config_info_subrule(
         kconfig_targets = [ctx.attr.kconfig] if ctx.attr.kconfig else [],
         defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
@@ -36,7 +35,6 @@ def _ddk_config_impl(ctx):
 
     main_action_ret = ddk_config_main_action_subrule(
         bin_dir_path = ctx.bin_dir.path,
-        out_dir = out_dir,
         ddk_config_info = ddk_config_info,
         kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
         defconfig_files = ctx.files.defconfig,
@@ -44,19 +42,19 @@ def _ddk_config_impl(ctx):
 
     serialized_env_info = _create_serialized_env_info(
         ctx = ctx,
-        out_dir = out_dir,
+        out_dir = main_action_ret.out_dir,
     )
 
     _menuconfig_ret = _get_config_script(
         serialized_env_info = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
-        out_dir = out_dir,
+        out_dir = main_action_ret.out_dir,
         main_action_ret = main_action_ret,
         src_defconfig = ctx.file.defconfig,
     )
 
     return [
         DefaultInfo(
-            files = depset([out_dir]),
+            files = depset([main_action_ret.out_dir]),
             executable = _menuconfig_ret.executable,
             runfiles = ctx.runfiles(transitive_files = _menuconfig_ret.runfiles_depset),
         ),

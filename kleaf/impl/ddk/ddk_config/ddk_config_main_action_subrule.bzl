@@ -30,6 +30,7 @@ visibility("//build/kernel/kleaf/impl/...")
 DdkConfigMainActionInfo = provider(
     "Return value of ddk_config_main_action_subrule",
     fields = {
+        "out_dir": "Output directory",
         "kconfig_ext_step": "StepInfo to set up Kconfig.ext",
     },
 )
@@ -180,7 +181,6 @@ def _ddk_config_main_action_subrule_impl(
         subrule_ctx,
         *,
         bin_dir_path,
-        out_dir,
         ddk_config_info,
         kernel_build_ddk_config_env,
         defconfig_files):
@@ -189,7 +189,6 @@ def _ddk_config_main_action_subrule_impl(
     Args:
         subrule_ctx: subrule_ctx
         bin_dir_path: ctx.bin_dir.path
-        out_dir: declared output directory that the action writes to
         ddk_config_info: from ddk_config_info_subrule
         kernel_build_ddk_config_env: environment for building DDK config from kernel_build
         defconfig_files: defconfig files of the ddk_module to check against at the end
@@ -197,6 +196,8 @@ def _ddk_config_main_action_subrule_impl(
     Returns:
         DdkConfigMainActionInfo
     """
+
+    out_dir = subrule_ctx.actions.declare_directory(subrule_ctx.label.name + "/out_dir")
 
     kconfig_depset_written = utils.write_depset(ddk_config_info.kconfig, "kconfig_depset.txt")
     defconfig_depset_written = utils.write_depset(ddk_config_info.defconfig, "defconfig_depset.txt")
@@ -264,6 +265,7 @@ def _ddk_config_main_action_subrule_impl(
     )
 
     return DdkConfigMainActionInfo(
+        out_dir = out_dir,
         kconfig_ext_step = kconfig_ext_step,
     )
 
