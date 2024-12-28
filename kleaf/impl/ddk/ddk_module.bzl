@@ -34,6 +34,7 @@ def ddk_module(
         out = None,
         local_defines = None,
         copts = None,
+        config = None,
         kconfig = None,
         defconfig = None,
         generate_btf = None,
@@ -336,7 +337,19 @@ def ddk_module(
             - [`ddk_headers`](#ddk_headers).
             - [`ddk_prebuilt_object`](#ddk_prebuilt_object)
             - [`ddk_library`](#ddk_library)
+
+            If [`config`](#ddk_module-config) is set, if some `deps` of this target have `kconfig`
+            / `defconfig` set (including transitive dependencies), you may need to duplicate these
+            targets in `ddk_config.deps`. Inconsistent configs are disallowed; if the resulting
+            `.config` is not the same as the one from [`config`](#ddk_module-config), you get a
+            build error.
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
+
+            If [`config`](#ddk_module-config) is set, if some `hdrs` of this target have `kconfig`
+            / `defconfig` set (including transitive dependencies), you may need to duplicate these
+            targets in `ddk_config.deps`. Inconsistent configs are disallowed; if the resulting
+            `.config` is not the same as the one from [`config`](#ddk_module-config), you get a
+            build error.
         textual_hdrs: See [`ddk_headers.textual_hdrs`](#ddk_headers-textual_hdrs). DEPRECATED. Use `hdrs`.
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)
         linux_includes: See [`ddk_headers.linux_includes`](#ddk_headers-linux_includes)
@@ -465,6 +478,9 @@ def ddk_module(
           `package/Makefile`, and `make` is executed under `package/`. In order
           to find `other/header.h`, its path relative to `package/` is given.
 
+        config: **EXPERIMENTAL**. The parent [ddk_config](#ddk_config) that encapsulates
+            Kconfig/defconfig.
+
         kconfig: The Kconfig files for this external module.
 
           See
@@ -506,6 +522,7 @@ def ddk_module(
 
     ddk_module_config(
         name = name + "_config",
+        parent = config,
         defconfig = defconfig,
         kconfig = kconfig,
         kernel_build = kernel_build,
