@@ -504,6 +504,7 @@ def ddk_module(
         module_deps = deps,
         module_hdrs = module_hdrs,
         generate_btf = generate_btf,
+        **kwargs
     )
 
     kernel_module(
