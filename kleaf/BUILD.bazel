@@ -770,6 +770,14 @@ print_flags(
     ] + [":config_" + value for value in _config_values],
 )
 
+# If true, compile_commands.json additionally replaces `"command": "clang` with
+#   `"command": "<path_to_clang>` from toolchain resolution.
+bool_flag(
+    name = "force_full_clang_path",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
 # Tools visible to all packages that uses kernel_build.
 # Implementation detail of kernel_build; do not use directly.
 sh_binary(

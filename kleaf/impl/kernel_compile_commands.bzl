@@ -14,6 +14,7 @@
 
 """Support `compile_commands.json`."""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":abi/abi_transitions.bzl",
     "FORCE_IGNORE_BASE_KERNEL_SETTING",
@@ -21,6 +22,7 @@ load(
 load(
     ":common_providers.bzl",
     "CompileCommandsInfo",
+    "KernelEnvToolchainsInfo",
 )
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
@@ -51,7 +53,12 @@ def _kernel_compile_commands_impl(ctx):
         ))
 
     script = ctx.actions.declare_file(ctx.attr.name + ".sh")
-    script_content = hermetic_tools.setup + """
+    script_content = hermetic_tools.setup
+
+    if ctx.attr._force_full_clang_path[BuildSettingInfo].value:
+        script_content += ctx.attr._toolchains[KernelEnvToolchainsInfo].setup_env_var_cmd
+
+    script_content += """
         OUTPUT=${1:-${BUILD_WORKSPACE_DIRECTORY}/compile_commands.json}
         : > ${OUTPUT}.tmp
     """
@@ -83,6 +90,14 @@ def _kernel_compile_commands_impl(ctx):
             )
             direct_runfiles.append(info.compile_commands_with_vars)
 
+    transitive_deps = [hermetic_tools.deps]
+    if ctx.attr._force_full_clang_path[BuildSettingInfo].value:
+        transitive_deps.append(ctx.attr._toolchains[KernelEnvToolchainsInfo].all_files)
+        script_content += """
+            real_clang_path=$(realpath $(which clang))
+            sed -i "s:\\"command\\"\\: \\"clang:\\"command\\"\\: \\"${real_clang_path}:g" ${OUTPUT}.tmp
+        """
+
     script_content += """
         echo '[' > ${OUTPUT}
         cat ${OUTPUT}.tmp >> ${OUTPUT}
@@ -96,7 +111,9 @@ def _kernel_compile_commands_impl(ctx):
         executable = script,
         runfiles = ctx.runfiles(
             files = direct_runfiles,
-            transitive_files = hermetic_tools.deps,
+            transitive_files = depset(
+                transitive = transitive_deps,
+            ),
         ),
     )
 
@@ -126,6 +143,14 @@ kernel_compile_commands = rule(
         # The ACK source tree may be checked out anywhere; it is not necessarily //common
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+        "_force_full_clang_path": attr.label(
+            default = "//build/kernel/kleaf:force_full_clang_path",
+        ),
+        "_toolchains": attr.label(
+            default = "//build/kernel/kleaf/impl:kernel_toolchains",
+            providers = [KernelEnvToolchainsInfo],
+            cfg = "exec",
         ),
     },
     executable = True,
