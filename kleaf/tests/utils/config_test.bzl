@@ -48,7 +48,7 @@ def _config_test_impl(ctx):
 config_test = rule(
     implementation = _config_test_impl,
     doc = """Generic test for checking a .config or defconfig file, if
-        contain_lines_testis not sufficient.""",
+        contain_lines_test is not sufficient.""",
     attrs = {
         "_test_script": attr.label(
             cfg = "exec",
