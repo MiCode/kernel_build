@@ -64,7 +64,6 @@ def common_kernel(
         makefile = None,
         arch = None,
         visibility = None,
-        toolchain_version = None,
         defconfig = None,
         post_defconfig_fragments = None,
         enable_interceptor = None,
@@ -128,7 +127,6 @@ def common_kernel(
         arch: See [kernel_build.arch](kernel.md#kernel_build-arch)
         build_config: See [kernel_build.build_config](kernel.md#kernel_build-build_config)
         makefile: See [kernel_build.makefile](kernel.md#kernel_build-makefile)
-        toolchain_version: See [kernel_build.toolchain_version](kernel.md#kernel_build-toolchain_version)
         defconfig: See [kernel_build.defconfig](kernel.md#kernel_build-defconfig)
         post_defconfig_fragments: See [kernel_build.post_defconfig_fragments](kernel.md#kernel_build-post_defconfig_fragments)
         enable_interceptor: See [kernel_build.enable_interceptor](kernel.md#kernel_build-enable_interceptor)
@@ -162,7 +160,6 @@ def common_kernel(
         makefile = makefile,
         defconfig = defconfig,
         post_defconfig_fragments = post_defconfig_fragments,
-        toolchain_version = toolchain_version,
         visibility = visibility,
         enable_interceptor = enable_interceptor,
         kmi_symbol_list = kmi_symbol_list,
@@ -249,7 +246,6 @@ def common_kernel(
         visibility = visibility,
         collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
         strip_modules = _STRIP_MODULES,
-        toolchain_version = toolchain_version,
         keep_module_symvers = _KEEP_MODULE_SYMVERS,
         keep_dot_config = _KEEP_DOT_CONFIG,
         kmi_symbol_list = kmi_symbol_list,

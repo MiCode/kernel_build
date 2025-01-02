@@ -121,7 +121,6 @@ def kernel_build(
         collect_unstripped_modules = None,
         enable_interceptor = None,
         kbuild_symtypes = None,
-        toolchain_version = None,
         strip_modules = None,
         module_signing_key = None,
         system_trusted_key = None,
@@ -459,14 +458,6 @@ def kernel_build(
 
           If the value is `"false"`; or the value is `"auto"` and
           `--kbuild_symtypes` is not specified, then `KBUILD_SYMTYPES=`.
-        toolchain_version: **Deprecated**.
-          [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
-          The toolchain version to depend on.
-
-          It is an error to specify `toolchain_version`. Instead, delete the attribute, so it
-          uses the default clang toolchain. The default clang toolchain version is specified in the
-          `@kernel_toolchain_info` repository, usually containing the content of
-          `common/build.config.constants`.
         strip_modules: If `None` or not specified, default is `False`.
           If set to `True`, debug information for distributed modules is stripped.
 
@@ -666,22 +657,12 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
     # Prevent accidental usage
     trim_nonlisted_kmi = struct(message = "DO NOT USE ME! Use trim_post_defconfig_fragment instead.")
 
-    toolchain_constraints = []
-    if toolchain_version != None:
-        fail("{}: kernel_build.toolchain_version is deprecated. Please delete it.".format(
-            native.package_relative_label(name),
-        ))
-    else:
-        # use default toolchain, e.g.
-        # //prebuilts/clang/host/linux-x86/kleaf:android_arm64_clang_toolchain
-        pass
-
     native.platform(
         name = name + "_platform_target",
         constraint_values = [
             Label("@platforms//os:android"),
             Label("@platforms//cpu:{}".format(arch)),
-        ] + toolchain_constraints,
+        ],
         **internal_kwargs
     )
 
@@ -689,7 +670,6 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         name = name + "_platform_exec",
         # Note that this does not respect --host_platform.
         parents = [Label("@platforms//host")],
-        constraint_values = toolchain_constraints,
         **internal_kwargs
     )
 

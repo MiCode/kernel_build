@@ -7,7 +7,7 @@ Functions that are useful in the common kernel package (usually `//common`).
 ## common_kernel
 
 <pre>
-common_kernel(<a href="#common_kernel-name">name</a>, <a href="#common_kernel-outs">outs</a>, <a href="#common_kernel-build_config">build_config</a>, <a href="#common_kernel-makefile">makefile</a>, <a href="#common_kernel-arch">arch</a>, <a href="#common_kernel-visibility">visibility</a>, <a href="#common_kernel-toolchain_version">toolchain_version</a>, <a href="#common_kernel-defconfig">defconfig</a>,
+common_kernel(<a href="#common_kernel-name">name</a>, <a href="#common_kernel-outs">outs</a>, <a href="#common_kernel-build_config">build_config</a>, <a href="#common_kernel-makefile">makefile</a>, <a href="#common_kernel-arch">arch</a>, <a href="#common_kernel-visibility">visibility</a>, <a href="#common_kernel-defconfig">defconfig</a>,
               <a href="#common_kernel-post_defconfig_fragments">post_defconfig_fragments</a>, <a href="#common_kernel-enable_interceptor">enable_interceptor</a>, <a href="#common_kernel-kmi_symbol_list">kmi_symbol_list</a>,
               <a href="#common_kernel-additional_kmi_symbol_lists">additional_kmi_symbol_lists</a>, <a href="#common_kernel-trim_nonlisted_kmi">trim_nonlisted_kmi</a>, <a href="#common_kernel-kmi_symbol_list_strict_mode">kmi_symbol_list_strict_mode</a>,
               <a href="#common_kernel-kmi_symbol_list_add_only">kmi_symbol_list_add_only</a>, <a href="#common_kernel-module_implicit_outs">module_implicit_outs</a>, <a href="#common_kernel-protected_exports_list">protected_exports_list</a>,
@@ -63,7 +63,6 @@ Usually, for ABI monitoring to be fully turned on, you should set:
 | <a id="common_kernel-makefile"></a>makefile |  See [kernel_build.makefile](kernel.md#kernel_build-makefile)   |  `None` |
 | <a id="common_kernel-arch"></a>arch |  See [kernel_build.arch](kernel.md#kernel_build-arch)   |  `None` |
 | <a id="common_kernel-visibility"></a>visibility |  default visibility for some targets instantiated with this macro   |  `None` |
-| <a id="common_kernel-toolchain_version"></a>toolchain_version |  See [kernel_build.toolchain_version](kernel.md#kernel_build-toolchain_version)   |  `None` |
 | <a id="common_kernel-defconfig"></a>defconfig |  See [kernel_build.defconfig](kernel.md#kernel_build-defconfig)   |  `None` |
 | <a id="common_kernel-post_defconfig_fragments"></a>post_defconfig_fragments |  See [kernel_build.post_defconfig_fragments](kernel.md#kernel_build-post_defconfig_fragments)   |  `None` |
 | <a id="common_kernel-enable_interceptor"></a>enable_interceptor |  See [kernel_build.enable_interceptor](kernel.md#kernel_build-enable_interceptor)   |  `None` |
