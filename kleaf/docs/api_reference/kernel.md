@@ -1389,28 +1389,23 @@ kernel_abi_dist(<a href="#kernel_abi_dist-name">name</a>, <a href="#kernel_abi_d
                 <a href="#kernel_abi_dist-kwargs">kwargs</a>)
 </pre>
 
-A wrapper over `copy_to_dist_dir` for [`kernel_abi`](#kernel_abi).
-
-After copying all files to dist dir, return the exit code from `diff_abi`.
-
-**Implementation notes**:
-
-`with_vmlinux_transition` is applied on all targets by default. In
-particular, the `kernel_build` targets in `data` automatically builds
-`vmlinux` regardless of whether `vmlinux` is specified in `outs`.
-
+This macro is no longer supported. Invoking this macro triggers an error.
 
 **PARAMETERS**
 
 
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
-| <a id="kernel_abi_dist-name"></a>name |  name of the dist target   |  none |
-| <a id="kernel_abi_dist-kernel_abi"></a>kernel_abi |  name of the [`kernel_abi`](#kernel_abi) invocation.   |  none |
-| <a id="kernel_abi_dist-kernel_build_add_vmlinux"></a>kernel_build_add_vmlinux |  [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes). If `True`, all `kernel_build` targets depended on by this change automatically applies a [transition](https://bazel.build/extending/config#user-defined-transitions) that always builds `vmlinux`. For up-to-date implementation details, look for `with_vmlinux_transition` in `build/kernel/kleaf/impl/abi`.<br><br>If there are multiple `kernel_build` targets in `data`, only keep the one for device build. Otherwise, the build may break. For example:<br><br><pre><code>kernel_build(&#10;    name = "tuna",&#10;    base_kernel = "//common:kernel_aarch64"&#10;    ...&#10;)&#10;&#10;kernel_abi(...)&#10;kernel_abi_dist(&#10;    name = "tuna_abi_dist",&#10;    data = [&#10;        ":tuna",&#10;        # "//common:kernel_aarch64", # remove GKI&#10;    ],&#10;    kernel_build_add_vmlinux = True,&#10;)</code></pre><br><br>Enabling this option ensures that `tuna_abi_dist` doesn't build `//common:kernel_aarch64` and `:tuna` twice, once with the transition and once without. Enabling this ensures that `//common:kernel_aarch64` and `:tuna` always built with the transition.<br><br>**Note**: Its value will be `True` by default in the future. During the migration period, this is `False` by default. Once all devices have been fixed, this attribute will be set to `True` by default.   |  `None` |
-| <a id="kernel_abi_dist-ignore_diff"></a>ignore_diff |  [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes). If `True` and the return code of `stgdiff` signals the ABI difference, then the result is ignored.   |  `None` |
-| <a id="kernel_abi_dist-no_ignore_diff_target"></a>no_ignore_diff_target |  [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes). If `ignore_diff` is `True`, this need to be set to a name of the target that doesn't have `ignore_diff`. This target will be recommended as an alternative to a user. If `no_ignore_diff_target` is None, there will be no alternative recommended.   |  `None` |
-| <a id="kernel_abi_dist-kwargs"></a>kwargs |  attributes to the `copy_to_dist_dir` macro.   |  none |
+| <a id="kernel_abi_dist-name"></a>name |  ignored   |  none |
+| <a id="kernel_abi_dist-kernel_abi"></a>kernel_abi |  ignored   |  none |
+| <a id="kernel_abi_dist-kernel_build_add_vmlinux"></a>kernel_build_add_vmlinux |  ignored   |  `None` |
+| <a id="kernel_abi_dist-ignore_diff"></a>ignore_diff |  ignored   |  `None` |
+| <a id="kernel_abi_dist-no_ignore_diff_target"></a>no_ignore_diff_target |  ignored   |  `None` |
+| <a id="kernel_abi_dist-kwargs"></a>kwargs |  ignored   |  none |
+
+**DEPRECATED**
+
+Use [`kernel_abi_wrapped_dist`](#kernel_abi_wrapped_dist) instead.
 
 
 <a id="kernel_abi_wrapped_dist"></a>

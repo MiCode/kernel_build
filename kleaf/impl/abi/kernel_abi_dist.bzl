@@ -14,13 +14,13 @@
 
 """Dist rules for devices with ABI monitoring enabled."""
 
-load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":abi/abi_stgdiff.bzl", "STGDIFF_CHANGE_CODE")
 load(":abi/abi_transitions.bzl", "abi_common_attrs", "with_vmlinux_transition")
 
 visibility("//build/kernel/kleaf/...")
 
+# buildifier: disable=unused-variable
 def kernel_abi_dist(
         name,
         kernel_abi,
@@ -28,106 +28,27 @@ def kernel_abi_dist(
         ignore_diff = None,
         no_ignore_diff_target = None,
         **kwargs):
-    """A wrapper over `copy_to_dist_dir` for [`kernel_abi`](#kernel_abi).
-
-    After copying all files to dist dir, return the exit code from `diff_abi`.
-
-    **Implementation notes**:
-
-    `with_vmlinux_transition` is applied on all targets by default. In
-    particular, the `kernel_build` targets in `data` automatically builds
-    `vmlinux` regardless of whether `vmlinux` is specified in `outs`.
+    """This macro is no longer supported. Invoking this macro triggers an error.
 
     Args:
-      name: name of the dist target
-      kernel_abi: name of the [`kernel_abi`](#kernel_abi) invocation.
-      kernel_build_add_vmlinux: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
-        If `True`, all `kernel_build` targets depended
-        on by this change automatically applies a
-        [transition](https://bazel.build/extending/config#user-defined-transitions)
-        that always builds `vmlinux`. For
-        up-to-date implementation details, look for `with_vmlinux_transition`
-        in `build/kernel/kleaf/impl/abi`.
+      name: ignored
+      kernel_abi: ignored
+      kernel_build_add_vmlinux: ignored
+      ignore_diff: ignored
+      no_ignore_diff_target: ignored
+      **kwargs: ignored
 
-        If there are multiple `kernel_build` targets in `data`, only keep the
-        one for device build. Otherwise, the build may break. For example:
-
-        ```
-        kernel_build(
-            name = "tuna",
-            base_kernel = "//common:kernel_aarch64"
-            ...
-        )
-
-        kernel_abi(...)
-        kernel_abi_dist(
-            name = "tuna_abi_dist",
-            data = [
-                ":tuna",
-                # "//common:kernel_aarch64", # remove GKI
-            ],
-            kernel_build_add_vmlinux = True,
-        )
-        ```
-
-        Enabling this option ensures that `tuna_abi_dist` doesn't build
-        `//common:kernel_aarch64` and `:tuna` twice, once with the transition
-        and once without. Enabling this ensures that `//common:kernel_aarch64`
-        and `:tuna` always built with the transition.
-
-        **Note**: Its value will be `True` by default in the future.
-        During the migration period, this is `False` by default. Once all
-        devices have been fixed, this attribute will be set to `True` by default.
-      ignore_diff: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
-        If `True` and the return code of `stgdiff` signals the ABI difference,
-        then the result is ignored.
-      no_ignore_diff_target: [Nonconfigurable](https://bazel.build/reference/be/common-definitions#configurable-attributes).
-        If `ignore_diff` is `True`, this need to be set to a name of the target
-        that doesn't have `ignore_diff`. This target will be recommended as an
-        alternative to a user. If `no_ignore_diff_target` is None, there will
-        be no alternative recommended.
-      **kwargs: attributes to the `copy_to_dist_dir` macro.
+    Deprecated:
+        Use [`kernel_abi_wrapped_dist`](#kernel_abi_wrapped_dist) instead.
     """
 
-    # TODO(b/231647455): Clean up hard-coded name "_abi_diff_executable".
-
     # buildifier: disable=print
-    print("""
-WARNING: {}: kernel_abi_dist is deprecated. use kernel_abi_wrapped_dist instead.
+    fail("""{}: kernel_abi_dist is deprecated. use kernel_abi_wrapped_dist instead.
     See build/kernel/kleaf/docs/impl.md for creating pkg_files/pkg_install targets.
     See build/kernel/kleaf/docs/api_reference/kernel.md for using the
     kernel_abi_wrapped_dist macro.""".format(
         native.package_relative_label(name),
     ))
-
-    if kwargs.get("data") == None:
-        kwargs["data"] = []
-
-    # Use explicit + to prevent modifying the original list.
-    kwargs["data"] = kwargs["data"] + [kernel_abi]
-
-    # Default value of kernel_build_add_vmlinux and enable_vmlinux is different,
-    # so manually set it if it is set to None.
-    if kernel_build_add_vmlinux == None:
-        kernel_build_add_vmlinux = False
-
-    # Prevent the use of select() expressions; use its legacy behavior that the expression
-    # is evaluated at the macro expansion phase.
-    kernel_build_add_vmlinux = bool(kernel_build_add_vmlinux)
-
-    copy_to_dist_dir(
-        name = name + "_copy_to_dist_dir",
-        **kwargs
-    )
-
-    kernel_abi_wrapped_dist_internal(
-        name = name,
-        dist = name + "_copy_to_dist_dir",
-        diff_stg = kernel_abi + "_diff_executable",
-        enable_add_vmlinux = kernel_build_add_vmlinux,
-        ignore_diff = ignore_diff,
-        no_ignore_diff_target = no_ignore_diff_target,
-    )
 
 def kernel_abi_wrapped_dist(
         name,
