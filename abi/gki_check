@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2020 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import argparse
+import base64
+import json
+import logging
+import os
+import subprocess
+import sys
+import urllib.request
+
+from abitool import get_abi_tool
+
+_BASE_URL_ABI_XML = ('https://android.googlesource.com/kernel/common/'
+                     '+/refs/heads/android-{}/abi_gki_aarch64.xml?format={}')
+
+logger = logging.getLogger('gki_check')
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+
+def main():
+  parser = argparse.ArgumentParser()
+
+  parser.add_argument(
+      '--kernel-version',
+      help='The Kernel version to compare against',
+      choices=['4.19', '5.4'],
+      default='5.4')
+
+  parser.add_argument(
+      '--linux-tree',
+      help='Path to kernel tree containing '
+      'vmlinux and modules',
+      required=True)
+
+  parser.add_argument(
+      '--abi-tool',
+      default='libabigail',
+      help='tool to monitor the ABI')
+
+  parser.add_argument(
+      '--kmi-symbol-list', '--kmi-whitelist',
+      default=None,
+      help='KMI symbol list to filter for')
+
+  args = parser.parse_args()
+
+  abi_tool = get_abi_tool(args.abi_tool)
+
+  # We assume the --linux-tree to be our working directory, hence download all
+  # the stuff there.
+
+  gki_check_dir = os.path.join(args.linux_tree, '.gki_check')
+  logger.info('Creating working directory %s ...', gki_check_dir)
+  os.makedirs(gki_check_dir, exist_ok=True)
+
+  upstream_xml = os.path.join(gki_check_dir, 'upstream.xml')
+  local_xml = os.path.join(gki_check_dir, 'local.xml')
+  abi_report = os.path.join(gki_check_dir, 'abi.report')
+  abi_report_short = os.path.join(gki_check_dir, 'abi.report.short')
+
+  # Download GKI abi.xml from either 5.4 (default) or 4.19
+  abi_xml_url = _BASE_URL_ABI_XML.format(args.kernel_version, 'TEXT')
+
+  base_is_current = False
+  if os.path.exists(upstream_xml):
+    current_hash = subprocess.check_output(['git', 'hash-object',
+                                            upstream_xml]).strip().decode()
+
+    response = urllib.request.urlopen(
+        _BASE_URL_ABI_XML.format(args.kernel_version, 'JSON'))
+    data = response.read().decode('utf-8')
+    new_hash = json.loads(data[data.index('{'):])['id']
+
+    if current_hash == new_hash:
+      base_is_current = True
+      logger.info('ABI representation is already up-to-date. '
+                  'Skipping download ...')
+
+  if not base_is_current:
+    logger.info('Downloading ABI representation for android-%s ...',
+                args.kernel_version)
+
+    response = urllib.request.urlopen(abi_xml_url)
+    data = response.read()
+    with open(upstream_xml, 'wb') as reference_xml:
+      reference_xml.write(base64.b64decode(data))
+
+  logger.info('Extracting ABI information from your local build ...')
+  abi_tool.dump_kernel_abi(args.linux_tree, local_xml, args.kmi_symbol_list)
+
+  logger.info('Comparing ABI information to reference ...')
+  abi_tool.diff_abi(local_xml, upstream_xml, abi_report, abi_report_short,
+                    args.kmi_symbol_list)
+
+  logger.info('ABI Analysis complete, please find the result below')
+  with open(abi_report_short) as short_report:
+    print(short_report.read())
+
+  logger.info('Upstream %s', upstream_xml)
+  logger.info('Local representation: %s', local_xml)
+  logger.info('Full report: %s', abi_report)
+  logger.info('Short report: %s', abi_report_short)
+
+
+if __name__ == '__main__':
+  sys.exit(main())
