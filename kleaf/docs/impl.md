@@ -330,11 +330,14 @@ file in the device kernel tree, then create a symlink at the repo root.
 Bazel builds are hermetic by default. Hermeticity is ensured by manually
 declaring each target to depend on `//build/kernel:hermetic-tools`.
 
-At this time of writing (2022-03-08), the following binaries are still
+At this time of writing (2025-01-03), the following binaries are still
 expected from the environement, or host machine, to build the kernel with
 Bazel, in addition to the list of the allowlist of host tools specified in
 `//build/kernel:hermetic-tools`. This is because the following usage does
 not depend on `//build/kernel:hermetic-tools`.
-* `cp` used by [`copy_file`](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/copy_file.bzl)
-  in `copy_to_dist_dir` rules
 * `echo`, `readlink`, `git` used by `build/kernel/kleaf/workspace_status.sh`
+
+If you use the following rules, there are known issues of non-hermeticity:
+
+* [`copy_file`](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/copy_file.bzl)
+  uses `cp` from the host machine

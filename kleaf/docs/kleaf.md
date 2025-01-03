@@ -64,7 +64,7 @@ $ tools/bazel run //common:kernel_dist
 
 You may override the destination of distribution directory in the command line
 via the `--destdir` argument. The `--destdir` is an
-argument to the `copy_to_dist_dir` or `pkg_install` script, not to Bazel. Hence,
+argument to the `pkg_install` script, not to Bazel. Hence,
 put them after the `--` delimiter.
 
 ```shell

@@ -762,7 +762,8 @@ Build an unsparsed image.
 
 Takes in a .img file and unsparses it.
 
-When included in a `copy_to_dist_dir` rule, this rule copies a `super_unsparsed.img` to `DIST_DIR`.
+When included in a `pkg_files`/`pkg_install` rule, this rule copies a `super_unsparsed.img` to
+`destdir`.
 
 **ATTRIBUTES**
 
@@ -1327,13 +1328,6 @@ kernel_abi(
     kernel_build = ":kernel_aarch64",
     ...
 )
-_dist_targets = ["kernel_aarch64", ...]
-copy_to_dist_dir(name = "kernel_aarch64_dist", data = _dist_targets)
-kernel_abi_dist(
-    name = "kernel_aarch64_abi_dist",
-    kernel_abi = "kernel_aarch64_abi",
-    data = _dist_targets,
-)
 ```
 
 The `kernel_abi` invocation above defines the following targets:
@@ -1356,6 +1350,9 @@ In addition, the following targets are defined if `define_abi_targets = True`:
   - Building this target extracts the ABI.
   - Include this target in a [`kernel_abi_dist`](#kernel_abi_dist)
     target to copy ABI dump to `--dist-dir`.
+
+To create a distribution, see
+[`kernel_abi_wrapped_dist`](#kernel_abi_wrapped_dist).
 
 See build/kernel/kleaf/abi.md for a conversion chart from `build_abi.sh`
 commands to Bazel commands.

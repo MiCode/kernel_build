@@ -160,12 +160,6 @@ You may specify it statically with
 pkg_install(destdir=...)
 ```
 
-or
-
-```python
-copy_to_dist_dir(dist_dir=...)
-```
-
 You may override it in the command line with `--destdir`:
 
 ```shell

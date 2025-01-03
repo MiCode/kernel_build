@@ -152,7 +152,8 @@ unsparsed_image = rule(
 
 Takes in a .img file and unsparses it.
 
-When included in a `copy_to_dist_dir` rule, this rule copies a `super_unsparsed.img` to `DIST_DIR`.
+When included in a `pkg_files`/`pkg_install` rule, this rule copies a `super_unsparsed.img` to
+`destdir`.
 """,
     attrs = {
         "src": attr.label(

@@ -17,7 +17,6 @@ In particular, look out for these places:
 
 * `kernel_build()`: `base_kernel`
 * Any target: `kernel_build`
-* `copy_to_dist_dir`: `data`
 * `pkg_files`: `srcs`
 * `kernel_abi_dist`: `data`
 
