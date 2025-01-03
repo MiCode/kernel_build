@@ -274,12 +274,10 @@ for EXT_MOD in ${EXT_MODULES}; do
      btgt="gen3auto"
   elif [ "$TARGET_BOARD_PLATFORM" = "sm6150" ]; then
      btgt="sdmsteppeauto"
-  elif [ "$TARGET_BOARD_PLATFORM" = "volcano" ]; then
-     btgt="pineapple"
   elif [ "$TARGET_BOARD_PLATFORM" = "anorak61" ]; then
      btgt="anorak"
   else
-     btgt="$TARGET_BOARD_PLATFORM"
+     btgt="$DEVICE_NAME"
   fi
 
   filter_regex="${btgt/_/-}_${VARIANT/_/-}_${SUBTARGET_REGEX:-.*}_dist$"
@@ -314,10 +312,13 @@ for EXT_MOD in ${EXT_MODULES}; do
       build_flags+=("--allow_ddk_unsafe_headers")
     fi
 
-    if [ -n "$EXTRA_DDK_ARGS" ]; then
-      IFS=" " read -r -a extra_args <<< "$EXTRA_DDK_ARGS"
-      build_flags+=("${extra_args[@]}")
+    if [ "${IS_FACTORY_BUILD}" == "true" ]; then
+        FACTORY_BUILD=1
+    else
+        FACTORY_BUILD=0
     fi
+    build_flags+=("--define=FACTORY_BUILD=${FACTORY_BUILD}")
+
 
     # Run the dist command passing in the output directory from Android build system
     ./tools/bazel run "${build_flags[@]}" "$build_target" \
@@ -325,7 +326,7 @@ for EXT_MOD in ${EXT_MODULES}; do
 
     # The Module.symvers file is named "<target>_<variant>_Modules.symvers, but other modules are
     # looking for just "Module.symvers". Concatenate any of them into one Module.symvers file.
-    cat "${OUT_DIR}/${EXT_MOD_REL}/${btgt}_${VARIANT}"_*_Module.symvers \
+    cat "${OUT_DIR}/${EXT_MOD_REL}/${DEVICE_NAME}_${VARIANT}"_*_Module.symvers \
       > "${OUT_DIR}/${EXT_MOD_REL}/Module.symvers"
 
     # Intermediate directories aren't generated automatically, so we need to create them manually

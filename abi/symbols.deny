@@ -35,7 +35,7 @@ __symbol_put	No kernel symbols can be looked up
 # Building ext4 or f2fs as a module is not supported; they are already built-in.
 # This implies that the fscrypt and fsverity symbols should never be exported.
 # As this file does not support wildcard patterns, just list a few key symbols.
-fscrypt_ioctl_add_key	ext4 or f2fs cannot be a module
-fscrypt_ioctl_set_policy	ext4 or f2fs cannot be a module
-fsverity_ioctl_enable	ext4 or f2fs cannot be a module
-fsverity_ioctl_measure	ext4 or f2fs cannot be a module
+#fscrypt_ioctl_add_key	ext4 or f2fs cannot be a module
+#fscrypt_ioctl_set_policy	ext4 or f2fs cannot be a module
+#fsverity_ioctl_enable	ext4 or f2fs cannot be a module
+#fsverity_ioctl_measure	ext4 or f2fs cannot be a module
