@@ -121,7 +121,7 @@ ddk_module_config = rule(
             mandatory = True,
         ),
         "kconfig": attr.label(
-            allow_single_file = True,
+            allow_files = True,
             doc = """The `Kconfig` file for this external module.
 
 See

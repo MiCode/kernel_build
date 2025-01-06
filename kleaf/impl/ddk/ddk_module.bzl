@@ -463,7 +463,7 @@ def ddk_module(
           `package/Makefile`, and `make` is executed under `package/`. In order
           to find `other/header.h`, its path relative to `package/` is given.
 
-        kconfig: The Kconfig file for this external module.
+        kconfig: The Kconfig files for this external module.
 
           See
           [`Documentation/kbuild/kconfig-language.rst`](https://www.kernel.org/doc/html/latest/kbuild/kconfig.html)
@@ -475,6 +475,10 @@ def ddk_module(
           - Kconfig from `kernel_build`
           - Kconfig from dependent modules, if any
           - Kconfig of this module, if any
+
+          For legacy reasons, this is singular and accepts a single target. If multiple `Kconfig`
+          files should be added, use a
+          [`filegroup`](https://bazel.build/reference/be/general#filegroup) to wrap the files.
         defconfig: The `defconfig` file.
 
           Items must already be declared in `kconfig`. An item not declared
