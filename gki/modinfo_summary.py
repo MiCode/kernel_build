@@ -19,7 +19,7 @@ import dataclasses
 import hashlib
 import pathlib
 import subprocess
-import xml.dom.minidom
+import xml_handler
 
 
 @dataclasses.dataclass(frozen=True)
@@ -53,46 +53,15 @@ def _get_module_hexdigest(module: pathlib.Path) -> str:
     ).hexdigest()
 
 
-def _add_modules(
-    branch_element: xml.dom.minidom.Element,
-    directory: pathlib.Path,
-    root_document: xml.dom.minidom.Document,
-) -> None:
-
+def _get_modules(directory: pathlib.Path) -> list[str]:
     module_hashes = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
         module_hashes = list(
             executor.map(_get_module_hexdigest, directory.glob("**/*.ko"))
         )
 
-    # Sort before writing.
-    for module_hash in sorted(module_hashes):
-        module_element = root_document.createElement("module")
-        module_element.setAttribute("value", module_hash)
-        branch_element.appendChild(module_element)
-
-
-def _create_xml(
-    arch: str,
-    branch: str,
-) -> tuple[xml.dom.minidom.Document, xml.dom.minidom.Element]:
-    root_document = xml.dom.minidom.Document()
-    kernel_modules = root_document.createElement("kernel-modules")
-    kernel_modules.setAttribute("version", "0")
-    root_document.appendChild(kernel_modules)
-    branch_element = root_document.createElement("branch")
-    branch_element.setAttribute("name", branch)
-    branch_element.setAttribute("arch", arch)
-    kernel_modules.appendChild(branch_element)
-    return root_document, branch_element
-
-
-def _write_report(
-    output: pathlib.Path,
-    root_document: xml.dom.minidom.Document,
-) -> None:
-    kernel_modules_str = root_document.toprettyxml()
-    output.write_text(kernel_modules_str)
+    # Keep it deterministic and make it easy for searchs.
+    return sorted(module_hashes)
 
 
 def load_arguments():
@@ -119,14 +88,9 @@ def generate_report(
     output: pathlib.Path,
 ) -> None:
 
-    # Create the XML document.
-    root_document, branch_element = _create_xml(arch, branch)
-
+    module_hashes = _get_modules(directory)
     # Populate the XML document with information from modules.
-    _add_modules(branch_element, directory, root_document)
-
-    # Write down the information in the requested lcoation.
-    _write_report(output, root_document)
+    xml_handler.create_report(module_hashes, arch, branch, output)
 
 
 if __name__ == "__main__":

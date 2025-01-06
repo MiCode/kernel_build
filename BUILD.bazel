@@ -478,11 +478,20 @@ py_binary(
 )
 
 # Tools visible to all packages.
+py_library(
+    name = "xml_handler",
+    srcs = ["gki/xml_handler.py"],
+    imports = ["gki"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages.
 py_binary(
     name = "modinfo_summary",
     srcs = ["gki/modinfo_summary.py"],
     main = "gki/modinfo_summary.py",
     visibility = ["//visibility:public"],
+    deps = [":xml_handler"],
 )
 
 # Boostrap tool for DDK development.
