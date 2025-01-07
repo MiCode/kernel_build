@@ -99,7 +99,7 @@ def _create_kconfig_ext_step_impl(
     """.format(
         kconfig_depset_file = ddk_config_info.kconfig_written.depset_file.path,
         kconfig_ext = kconfig_ext.path,
-        kconfig_depset_file_short = ddk_config_info.kconfig_written.depset_file.short_path,
+        kconfig_depset_file_short = ddk_config_info.kconfig_written.depset_short_file.short_path,
         kconfig_ext_short = kconfig_ext.short_path,
     )
 
