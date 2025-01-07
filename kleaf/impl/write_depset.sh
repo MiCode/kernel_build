@@ -22,4 +22,7 @@ export PATH=
 
 out="$1"
 shift
-echo "$@" > $out
+: > $out
+for arg in "$@"; do
+    echo "$arg" >> $out
+done
