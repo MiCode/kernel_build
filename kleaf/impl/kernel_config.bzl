@@ -647,9 +647,14 @@ def _kernel_config_impl(ctx):
         if not file:
             continue
         extra_restore_outputs_cmd += """
-            rsync -aL {file} ${{OUT_DIR}}/{basename}
+            if [ -n "${{BUILD_WORKSPACE_DIRECTORY}}" ] || [ "${{BAZEL_TEST}}" = "1" ] ; then
+                rsync -aL {file_short} ${{OUT_DIR}}/{basename}
+            else
+                rsync -aL {file} ${{OUT_DIR}}/{basename}
+            fi
         """.format(
             file = file.path,
+            file_short = file.short_path,
             basename = file.basename,
         )
         post_setup_deps.append(file)
