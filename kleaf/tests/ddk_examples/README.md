@@ -9,3 +9,5 @@ This document lists some common patterns when using DDK.
 [Conditional module dependency](conditional_dependency/README.md)
 
 [Conditional defines](conditional_defines/README.md)
+
+[Adding prebuilt .o files](ddk_prebuilt_object/README.md)

@@ -38,6 +38,7 @@ load("//build/kernel/kleaf/impl:ddk/ddk_config.bzl", _ddk_config = "ddk_config")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers.bzl", _ddk_headers = "ddk_headers")
 load("//build/kernel/kleaf/impl:ddk/ddk_headers_archive.bzl", _ddk_headers_archive = "ddk_headers_archive")
 load("//build/kernel/kleaf/impl:ddk/ddk_module.bzl", _ddk_module = "ddk_module")
+load("//build/kernel/kleaf/impl:ddk/ddk_prebuilt_object.bzl", _ddk_prebuilt_object = "ddk_prebuilt_object")
 load("//build/kernel/kleaf/impl:ddk/ddk_submodule.bzl", _ddk_submodule = "ddk_submodule")
 load("//build/kernel/kleaf/impl:ddk/ddk_uapi_headers.bzl", _ddk_uapi_headers = "ddk_uapi_headers")
 load("//build/kernel/kleaf/impl:gki_artifacts.bzl", _gki_artifacts = "gki_artifacts", _gki_artifacts_prebuilts = "gki_artifacts_prebuilts")
@@ -71,6 +72,7 @@ ddk_config = _ddk_config
 ddk_headers = _ddk_headers
 ddk_headers_archive = _ddk_headers_archive
 ddk_module = _ddk_module
+ddk_prebuilt_object = _ddk_prebuilt_object
 ddk_submodule = _ddk_submodule
 ddk_uapi_headers = _ddk_uapi_headers
 dependency_graph = _dependency_graph

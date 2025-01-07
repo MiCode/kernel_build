@@ -14,6 +14,7 @@
 
 """Sources conditional to a [`ddk_module`](#ddk_module)."""
 
+load(":constants.bzl", "DDK_MODULE_SRCS_ALLOWED_EXTENSIONS")
 load(":utils.bzl", "utils")
 
 visibility("//build/kernel/kleaf/...")
@@ -122,7 +123,7 @@ This should be set to `_DDK_CONDITIONAL_TRUE` when `True` is in
 """,
         ),
         "srcs": attr.label_list(
-            allow_files = [".c", ".h", ".S", ".rs"],
+            allow_files = DDK_MODULE_SRCS_ALLOWED_EXTENSIONS,
             doc = "See [`ddk_module.srcs`](#ddk_module-srcs).",
         ),
     },

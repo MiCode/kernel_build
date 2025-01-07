@@ -114,6 +114,44 @@ semantically identical to the original `ddk_headers` definition.
 | <a id="ddk_headers_archive-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
+<a id="ddk_prebuilt_object"></a>
+
+## ddk_prebuilt_object
+
+<pre>
+ddk_prebuilt_object(<a href="#ddk_prebuilt_object-name">name</a>, <a href="#ddk_prebuilt_object-src">src</a>, <a href="#ddk_prebuilt_object-cmd">cmd</a>)
+</pre>
+
+Wraps a `<stem>.o` file so it can be used in [ddk_module.srcs](#ddk_module-srcs).
+
+An optional `.<stem>.o.cmd` file may be provided. If not provided, a fake
+`.<stem>.o.cmd` is generated.
+
+Example:
+
+```
+ddk_prebuilt_object(
+    name = "foo",
+    src = "foo.o",
+)
+
+ddk_module(
+    name = "mymod",
+    srcs = [":foo"],
+    # ...
+)
+```
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="ddk_prebuilt_object-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="ddk_prebuilt_object-src"></a>src |  The .o file, e.g. `foo.o`   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="ddk_prebuilt_object-cmd"></a>cmd |  The .cmd file, e.g. `.foo.o.cmd`. If missing, an empty file is provided.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+
+
 <a id="ddk_uapi_headers"></a>
 
 ## ddk_uapi_headers
@@ -1138,7 +1176,7 @@ $(LINUXINCLUDE)
 | :------------- | :------------- | :------------- |
 | <a id="ddk_module-name"></a>name |  Name of target. This should usually be name of the output `.ko` file without the suffix.   |  none |
 | <a id="ddk_module-kernel_build"></a>kernel_build |  [`kernel_build`](#kernel_build)   |  none |
-| <a id="ddk_module-srcs"></a>srcs |  sources and local headers.<br><br>Source files (`.c`, `.S`, `.rs`) must be in the package of this `ddk_module` target, or in subpackages.<br><br>Generated source files (`.c`, `.S`, `.rs`) are accepted as long as they are in the package of this `ddk_module` target, or in subpackages.<br><br>Header files specified here are only visible to this `ddk_module` target, but not dependencies. To export a header so dependencies can use it, put it in `hdrs` and set `includes` accordingly.<br><br>Generated header files are accepted.   |  `None` |
+| <a id="ddk_module-srcs"></a>srcs |  sources, local headers, or prebuilt objects.<br><br>Source files (`.c`, `.S`, `.rs`) must be in the package of this `ddk_module` target, or in subpackages.<br><br>Generated source files (`.c`, `.S`, `.rs`) are accepted as long as they are in the package of this `ddk_module` target, or in subpackages.<br><br>Header files specified here are only visible to this `ddk_module` target, but not dependencies. To export a header so dependencies can use it, put it in `hdrs` and set `includes` accordingly.<br><br>Generated header files are accepted.<br><br>Prebuilt objects (`.o`) should be wrapped in a [`ddk_prebuilt_object`](#ddk_prebuilt_object) rule. Check the rule for details.   |  `None` |
 | <a id="ddk_module-deps"></a>deps |  A list of dependent targets. Each of them must be one of the following:<br><br>- [`kernel_module`](#kernel_module) - [`ddk_module`](#ddk_module) - [`ddk_headers`](#ddk_headers).   |  `None` |
 | <a id="ddk_module-hdrs"></a>hdrs |  See [`ddk_headers.hdrs`](#ddk_headers-hdrs)   |  `None` |
 | <a id="ddk_module-textual_hdrs"></a>textual_hdrs |  See [`ddk_headers.textual_hdrs`](#ddk_headers-textual_hdrs). DEPRECATED. Use `hdrs`.   |  `None` |

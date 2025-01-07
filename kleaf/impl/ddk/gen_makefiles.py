@@ -34,6 +34,8 @@ _SOURCE_SUFFIXES = (
     ".c",
     ".rs",
     ".S",
+    ".o_shipped",
+    ".cmd_shipped",
 )
 
 # Example:
@@ -133,7 +135,8 @@ def _merge_directories(
                     dst.write(f"// {submodule_file}\n")
                 elif dst_path.suffix == ".S":
                     dst.write(f"/* {submodule_file} */\n")
-                elif dst_path.name in ("Kbuild", "Makefile"):
+                elif (dst_path.name in ("Kbuild", "Makefile") or
+                      dst_path.suffix in (".cmd_shipped")):
                     dst.write(f"# {submodule_file}\n")
                 dst.write(src.read())
                 dst.write("\n")
@@ -416,15 +419,25 @@ def _handle_src(
         die("%s is not a valid source because it is not under %s",
             src, kernel_module_out.parent)
 
-    out = src.with_suffix(".o").relative_to(kernel_module_out.parent)
+    if src.suffix == ".cmd_shipped":
+        abs_out = src.with_suffix(".cmd")
+    else:
+        abs_out = src.with_suffix(".o")
+
+    out = abs_out.relative_to(kernel_module_out.parent)
     # Ignore self (don't omit obj-foo += foo.o)
     if src.with_suffix(".ko") == kernel_module_out:
         out_file.write(textwrap.dedent(f"""\
                         # The module {kernel_module_out} has a source file {src}
                     """))
     else:
+        if src.suffix == ".cmd_shipped":
+            object_to_build = "always"
+        else:
+            object_to_build = kernel_module_out.with_suffix('').name
+
         out_file.write(textwrap.dedent(f"""\
-                        {kernel_module_out.with_suffix('').name}-{obj_suffix} += {out}
+                        {object_to_build}-{obj_suffix} += {out}
                     """))
 
 
