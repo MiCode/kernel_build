@@ -20,7 +20,8 @@ WrittenDepsetInfo = provider(
     doc = "Describes a depset written to a file",
     fields = {
         "depset_file": "The text file, where each line is a path to an item in the depset",
-        "depset": "A depset containing the text file and the original depset",
+        "depset_short_file": "Same as depset_file, but each line is the short_path to an item in the depset.",
+        "depset": "A depset containing both text files and the original depset",
     },
 )
 

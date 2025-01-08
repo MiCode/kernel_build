@@ -190,6 +190,9 @@ def _get_check_sandbox_cmd():
            fi
     """
 
+def _write_short_depset_arg(file):
+    return file.short_path
+
 def _write_depset_impl(subrule_ctx, d, out, *, _write_depset):
     """Writes a depset to a file.
 
@@ -203,7 +206,9 @@ def _write_depset_impl(subrule_ctx, d, out, *, _write_depset):
     Returns:
         A struct with the following fields:
         - depset_file: the declared output file.
-        - depset: a depset that contains `d` and `depset_file`
+        - depset_short_file: the declared output file, prefixed with short_ and
+            containing the short paths for `bazel run` environment.
+        - depset: a depset that contains `d`, `depset_file`, and `depset_short_file`
     """
     out_file = subrule_ctx.actions.declare_file("{}/{}".format(subrule_ctx.label.name, out))
 
@@ -217,9 +222,24 @@ def _write_depset_impl(subrule_ctx, d, out, *, _write_depset):
         mnemonic = "WriteDepset",
         progress_message = "Dumping depset to {} %{{label}}".format(out),
     )
+
+    short_file = subrule_ctx.actions.declare_file("{}/short_{}".format(subrule_ctx.label.name, out))
+
+    args = subrule_ctx.actions.args()
+    args.add(short_file)
+    args.add_all(d, map_each = _write_short_depset_arg)
+    subrule_ctx.actions.run(
+        executable = _write_depset,
+        arguments = [args],
+        outputs = [short_file],
+        mnemonic = "WriteDepsetShort",
+        progress_message = "Dumping depset to {} %{{label}}".format(out),
+    )
+
     return WrittenDepsetInfo(
         depset_file = out_file,
-        depset = depset([out_file], transitive = [d]),
+        depset_short_file = short_file,
+        depset = depset([out_file, short_file], transitive = [d]),
     )
 
 _write_depset = subrule(
