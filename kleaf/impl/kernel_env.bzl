@@ -16,6 +16,7 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
@@ -247,6 +248,10 @@ def _kernel_env_impl(ctx):
     else:
         bin_dir_and_workspace_root = ctx.bin_dir.path
 
+    quoted_space_and_extra_kcflags = ""
+    if ctx.attr.kcflags:
+        quoted_space_and_extra_kcflags = shell.quote(" " + (" ".join(ctx.attr.kcflags)))
+
     command += """
           export DEPMOD=depmod
           export DTC=$(command -v dtc)
@@ -254,6 +259,7 @@ def _kernel_env_impl(ctx):
         # create a build environment
           source {build_utils_sh}
           export BUILD_CONFIG={build_config}
+          export KCFLAGS="${{KCFLAGS}}"{quoted_space_and_extra_kcflags}
           {set_kernel_dir_cmd}
           {set_localversion_cmd}
           {set_arch_cmd}
@@ -303,6 +309,7 @@ def _kernel_env_impl(ctx):
         """.format(
         build_utils_sh = ctx.file._build_utils_sh.path,
         build_config = build_config.path,
+        quoted_space_and_extra_kcflags = quoted_space_and_extra_kcflags,
         set_kernel_dir_cmd = set_kernel_dir_ret.cmd,
         set_localversion_cmd = stamp.set_localversion_cmd(ctx),
         set_arch_cmd = _get_set_arch_cmd(ctx),
@@ -639,6 +646,7 @@ kernel_env = rule(
             values = ["true", "false", "auto"],
         ),
         "make_goals": attr.string_list(doc = "`MAKE_GOALS`"),
+        "kcflags": attr.string_list(),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils"),

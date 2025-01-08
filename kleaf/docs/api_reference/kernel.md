@@ -1483,7 +1483,8 @@ kernel_build(<a href="#kernel_build-name">name</a>, <a href="#kernel_build-build
              <a href="#kernel_build-kbuild_symtypes">kbuild_symtypes</a>, <a href="#kernel_build-strip_modules">strip_modules</a>, <a href="#kernel_build-module_signing_key">module_signing_key</a>, <a href="#kernel_build-system_trusted_key">system_trusted_key</a>,
              <a href="#kernel_build-modules_prepare_force_generate_headers">modules_prepare_force_generate_headers</a>, <a href="#kernel_build-defconfig">defconfig</a>, <a href="#kernel_build-pre_defconfig_fragments">pre_defconfig_fragments</a>,
              <a href="#kernel_build-post_defconfig_fragments">post_defconfig_fragments</a>, <a href="#kernel_build-defconfig_fragments">defconfig_fragments</a>, <a href="#kernel_build-check_defconfig">check_defconfig</a>, <a href="#kernel_build-page_size">page_size</a>,
-             <a href="#kernel_build-pack_module_env">pack_module_env</a>, <a href="#kernel_build-sanitizers">sanitizers</a>, <a href="#kernel_build-ddk_module_defconfig_fragments">ddk_module_defconfig_fragments</a>, <a href="#kernel_build-ddk_module_headers">ddk_module_headers</a>, <a href="#kernel_build-kwargs">kwargs</a>)
+             <a href="#kernel_build-pack_module_env">pack_module_env</a>, <a href="#kernel_build-sanitizers">sanitizers</a>, <a href="#kernel_build-ddk_module_defconfig_fragments">ddk_module_defconfig_fragments</a>, <a href="#kernel_build-ddk_module_headers">ddk_module_headers</a>, <a href="#kernel_build-kcflags">kcflags</a>,
+             <a href="#kernel_build-kwargs">kwargs</a>)
 </pre>
 
 Defines a kernel build target with all dependent targets.
@@ -1546,6 +1547,7 @@ For example, if name is `"kernel_aarch64"`:
 | <a id="kernel_build-sanitizers"></a>sanitizers |  **non-configurable**. A list of sanitizer configurations. By default, no sanitizers are explicity configured; values in defconfig are respected. Possible values are:   - `["kasan_any_mode"]`   - `["kasan_sw_tags"]`   - `["kasan_generic"]`   - `["kcsan"]`   |  `None` |
 | <a id="kernel_build-ddk_module_defconfig_fragments"></a>ddk_module_defconfig_fragments |  A list of additional defconfigs, to be used in `ddk_module`s building against this kernel. Unlike `post_defconfig_fragments`, `ddk_module_defconfig_fragments` is not applied to this `kernel_build` target, nor dependent legacy `kernel_module`s.   |  `None` |
 | <a id="kernel_build-ddk_module_headers"></a>ddk_module_headers |  A list of `ddk_headers`, to be used in `ddk_module`s building against this kernel.<br><br>Inherits `ddk_module_headers` from `base_kernel`, with a lower priority than `ddk_module_headers` of this kernel_build.<br><br>These headers are not applied to this `kernel_build` target.   |  `None` |
+| <a id="kernel_build-kcflags"></a>kcflags |  Extra `KCFLAGS`. If `None`, this is set to `["-D__ANDROID_COMMON_KERNEL__"]`.<br><br>To prevent the default KCFLAGS to be added (this is unusual), you must explicitly set it to `[]`.   |  `None` |
 | <a id="kernel_build-kwargs"></a>kwargs |  Additional attributes to the internal rule, e.g. [`visibility`](https://docs.bazel.build/versions/main/visibility.html). See complete list [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).   |  none |
 
 

@@ -865,6 +865,14 @@ See [documentation for all rules].
 
 See [documentation for ABI monitoring].
 
+## KCFLAGS
+
+```python
+kernel_build(kcflags=[...])
+```
+
+See [kernel_build.kcflags](api_reference/kernel.md#kernel_build-kcflags).
+
 [documentation for all rules]: api_reference.md
 
 [documentation for ABI monitoring]: abi.md

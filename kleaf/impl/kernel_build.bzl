@@ -135,6 +135,7 @@ def kernel_build(
         sanitizers = None,
         ddk_module_defconfig_fragments = None,
         ddk_module_headers = None,
+        kcflags = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -579,6 +580,10 @@ def kernel_build(
           than `ddk_module_headers` of this kernel_build.
 
           These headers are not applied to this `kernel_build` target.
+        kcflags: Extra `KCFLAGS`. Empty by default.
+
+            To add common KCFLAGS, you must explicitly set
+            it to `COMMON_KCFLAGS` (see `//build/kernel/kleaf:constants.bzl`).
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -698,6 +703,7 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         }),
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
+        kcflags = kcflags,
         **internal_kwargs
     )
 

@@ -13,7 +13,7 @@ common_kernel(<a href="#common_kernel-name">name</a>, <a href="#common_kernel-ou
               <a href="#common_kernel-kmi_symbol_list_add_only">kmi_symbol_list_add_only</a>, <a href="#common_kernel-module_implicit_outs">module_implicit_outs</a>, <a href="#common_kernel-protected_exports_list">protected_exports_list</a>,
               <a href="#common_kernel-protected_modules_list">protected_modules_list</a>, <a href="#common_kernel-gki_system_dlkm_modules">gki_system_dlkm_modules</a>, <a href="#common_kernel-make_goals">make_goals</a>, <a href="#common_kernel-abi_definition_stg">abi_definition_stg</a>,
               <a href="#common_kernel-kmi_enforced">kmi_enforced</a>, <a href="#common_kernel-build_gki_artifacts">build_gki_artifacts</a>, <a href="#common_kernel-gki_boot_img_sizes">gki_boot_img_sizes</a>, <a href="#common_kernel-page_size">page_size</a>, <a href="#common_kernel-deprecation">deprecation</a>,
-              <a href="#common_kernel-ddk_headers_archive">ddk_headers_archive</a>, <a href="#common_kernel-ddk_module_headers">ddk_module_headers</a>, <a href="#common_kernel-extra_dist">extra_dist</a>)
+              <a href="#common_kernel-ddk_headers_archive">ddk_headers_archive</a>, <a href="#common_kernel-ddk_module_headers">ddk_module_headers</a>, <a href="#common_kernel-extra_dist">extra_dist</a>, <a href="#common_kernel-kcflags">kcflags</a>)
 </pre>
 
 Macro for an Android Common Kernel.
@@ -85,6 +85,7 @@ Usually, for ABI monitoring to be fully turned on, you should set:
 | <a id="common_kernel-ddk_headers_archive"></a>ddk_headers_archive |  nonconfigurable. Target to the archive packing DDK headers   |  `None` |
 | <a id="common_kernel-ddk_module_headers"></a>ddk_module_headers |  See [kernel_build.ddk_module_headers](kernel.md#kernel_build-ddk_module_headers)   |  `None` |
 | <a id="common_kernel-extra_dist"></a>extra_dist |  extra targets added to `<name>_dist`   |  `None` |
+| <a id="common_kernel-kcflags"></a>kcflags |  [kernel_build.kcflags](kernel.md#kernel_build-kcflags)   |  `None` |
 
 
 <a id="define_prebuilts"></a>

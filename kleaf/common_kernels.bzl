@@ -85,7 +85,8 @@ def common_kernel(
         deprecation = None,
         ddk_headers_archive = None,
         ddk_module_headers = None,
-        extra_dist = None):
+        extra_dist = None,
+        kcflags = None):
     """Macro for an Android Common Kernel.
 
     The following targets are declared as public API:
@@ -151,6 +152,7 @@ def common_kernel(
         deprecation: If set, mark target deprecated with given message.
         ddk_headers_archive: nonconfigurable. Target to the archive packing DDK headers
         extra_dist: extra targets added to `<name>_dist`
+        kcflags: [kernel_build.kcflags](kernel.md#kernel_build-kcflags)
     """
     json_target_config = dict(
         name = name,
@@ -263,6 +265,7 @@ def common_kernel(
             Label("//build/kernel/kleaf/impl/defconfig:signing_modules_disabled"),
         ],
         ddk_module_headers = ddk_module_headers,
+        kcflags = kcflags,
     )
 
     kernel_abi(

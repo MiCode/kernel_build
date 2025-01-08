@@ -49,3 +49,5 @@ LTO_VALUES = (
     "full",
     "fast",
 )
+
+COMMON_KCFLAGS = ("-D__ANDROID_COMMON_KERNEL__",)
