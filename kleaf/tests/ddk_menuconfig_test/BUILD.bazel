@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
 load(
     "//build/kernel/kleaf:kernel.bzl",
     "ddk_module",
@@ -83,10 +84,35 @@ fail_binary_test(
     error_message = "Unable to update any file because defconfig is not set.",
 )
 
+hermetic_genrule(
+    name = "generated_kconfig",
+    srcs = ["Kconfig.ddk"],
+    outs = ["kconfig.generated"],
+    cmd = "cat $(execpath Kconfig.ddk) > $@",
+    tags = ["manual"],
+)
+
+ddk_module(
+    name = "my_ddk_module_with_generated_kconfig",
+    srcs = ["ddk_mod.c"],
+    out = "my_ddk_module_with_generated_kconfig.ko",
+    defconfig = _DEFCONFIG,
+    kconfig = ":generated_kconfig",
+    kernel_build = ":kernel_build",
+    tags = ["manual"],
+)
+
+ddk_menuconfig_test(
+    name = "with_generated_kconfig_test",
+    ddk_config = ":my_ddk_module_with_generated_kconfig_config",
+    defconfig = _DEFCONFIG,
+)
+
 test_suite(
     name = "ddk_menuconfig_test",
     tests = [
         ":no_defconfig_test",
         ":with_defconfig_test",
+        ":with_generated_kconfig_test",
     ],
 )
