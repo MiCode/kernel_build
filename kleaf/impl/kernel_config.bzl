@@ -469,6 +469,14 @@ def _kernel_config_impl(ctx):
           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{DEFCONFIG}}
         # Post-defconfig commands
           eval ${{POST_DEFCONFIG_CMDS}}
+          if [ "${{FACTORY_BUILD}}" ==  "1" ];then
+            echo "========================================================"
+            echo "Rebuilding defconfig"
+            echo "CONFIG_FACTORY_BUILD=y" >> ${{OUT_DIR}}/.config;
+            set -x
+            (cd ${{OUT_DIR}} && make "${{TOOL_ARGS[@]}}" O=${{OUT_DIR}} "${{MAKE_ARGS[@]}}" olddefconfig)
+            set +x
+          fi
         # Re-config
           {reconfig_cmd}
         # HACK: run syncconfig to avoid re-triggerring kernel_build
@@ -504,6 +512,7 @@ def _kernel_config_impl(ctx):
         ),
         command = command,
         execution_requirements = kernel_utils.local_exec_requirements(ctx),
+        env = {"FACTORY_BUILD": ctx.var["FACTORY_BUILD"]},
     )
 
     post_setup_deps = [out_dir, localversion_file]
