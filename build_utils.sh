@@ -422,6 +422,9 @@ function build_system_dlkm() {
 
   # Archive system_dlkm_staging_dir
   tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
+
+  # Archive system_dlkm symbol to DIST_DIR
+  tar -czf "${DIST_DIR}/system_dlkm_symbol_archive.tar.gz" -C "${MODULES_STAGING_DIR}/lib/modules" .
 }
 
 # $1 if set, generate the vendor_dlkm_staging_archive.tar.gz archive
@@ -919,13 +922,13 @@ function build_gki_boot_images() {
       # overwritten by the Android platform build to include an accurate SPL.
       # Note, the certified GKI release builds will not include the SPL
       # property.
-      local spl_month=$((($(date +'%m') + 3) % 12))
+      local spl_month=$((($(date +'%-m') + 3) % 12))
       local spl_year="$(date +'%Y')"
       if [ $((${spl_month} % 3)) -gt 0 ]; then
         # Round up to the next quarterly platform release (QPR) month
         spl_month=$((${spl_month} + 3 - (${spl_month} % 3)))
       fi
-      if [ "${spl_month}" -lt "$(date +'%m')" ]; then
+      if [ "${spl_month}" -lt "$(date +'%-m')" ]; then
         # rollover to the next year
         spl_year="$((${spl_year} + 1))"
       fi

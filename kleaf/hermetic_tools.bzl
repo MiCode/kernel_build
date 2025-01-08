@@ -177,6 +177,7 @@ def _handle_rsync(ctx, out, hermetic_base, deps):
 
     command = """
         set -e
+        PATH=/bin:$PATH
         export PATH
         rsync=$(realpath $({hermetic_base}/which rsync))
         cat > {out} << EOF
@@ -239,6 +240,7 @@ def _handle_host_tools(ctx, hermetic_base, deps):
     command = """
             set -e
           # export PATH so which can work
+            PATH=/bin:$PATH
             export PATH
             for i in {host_outs}; do
                 {hermetic_base}/ln -s $({hermetic_base}/which $({hermetic_base}/basename $i)) $i
