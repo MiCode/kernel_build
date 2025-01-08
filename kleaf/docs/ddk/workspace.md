@@ -45,6 +45,16 @@ $ python3 init.py --local \
     --prebuilts_dir /path/to/ddk/workspace/prebuilts/kernel
 ```
 
+##### Known issues
+
+Due to a known issue, the `--kleaf_repo` must be
+`<ddk_workspace>/external/kleaf` so that the SCM version works correctly with
+`--config=stamp`. See
+[kleaf: temp workaround for SOURCE_DATE_EPOCH when @kleaf is submodule.](https://r.android.com/3343301)
+for details.
+
+<!-- TODO: b/377954908 delete this section when bug is fixed. -->
+
 #### Build against prebuilts from a build
 
 Populate DDK workspace `/path/to/ddk/workspace/`, with the following:
