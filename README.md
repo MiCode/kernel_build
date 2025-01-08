@@ -39,5 +39,5 @@
 | gale-s-oss | Redmi 13C，POCO C65 | Android T | t-alps-release-s0.mp1.tc8sp-cs2-V1.31 |[gale-s-oss](https://github.com/MiCode/kernel_build/tree/gale-s-oss) |
 | spark-s-oss | Redmi Pad SE 4G, Redmi Pad SE 8.7 4G | Android U | t-alps-release-s0.mp1.tc8sp-cs3-V1.43 |[spark-s-oss](https://github.com/MiCode/kernel_build/tree/spark-s-oss) |
 | malachite-u-oss | Redmi Note 14 Pro | Android U | t-alps-release-u0.mp1.tc8sp3-V1 |[malachite-u-oss](https://github.com/MiCode/kernel_build/tree/malachite-u-oss) |
-| muyu-v-oss | Xiaomi Pad 7 Pro | Android U | LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[muyu-v-oss](https://github.com/MiCode/kernel_build/tree/muyu-v-oss) |
 | beryl-u-oss | POCO M7 Pro 5G / Redmi Note 14 5G | Android U | t-alps-release-s0.mp1.tc8sp-cs3-V1.67 |[beryl-u-oss](https://github.com/MiCode/kernel_build/tree/beryl-u-oss) |
+| muyu-v-oss | Xiaomi Pad 7 Pro | Android U | LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[muyu-v-oss](https://github.com/MiCode/kernel_build/tree/muyu-v-oss) |
