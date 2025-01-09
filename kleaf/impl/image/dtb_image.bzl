@@ -10,7 +10,8 @@ visibility("//build/kernel/kleaf/...")
 def _dtb_image_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
 
-    out = ctx.actions.declare_file(ctx.label.name)
+    out_name = ctx.attr.out or ctx.label.name
+    out = ctx.actions.declare_file(out_name)
     inputs = depset(transitive = [target.files for target in ctx.attr.srcs])
 
     cmd = hermetic_tools.setup + """
@@ -40,6 +41,12 @@ dtb_image = rule(
         "srcs": attr.label_list(
             allow_files = [".dtb"],
             doc = "DTB sources to add to the dtb image",
+        ),
+        "out": attr.string(
+            doc = """Name of `dtb` image.
+
+                Default to `name` if not set
+                """,
         ),
     },
     toolchains = [hermetic_toolchain.type],
