@@ -59,7 +59,7 @@ Usually, for ABI monitoring to be fully turned on, you should set:
 | :------------- | :------------- | :------------- |
 | <a id="common_kernel-name"></a>name |  name of the kernel_build().   |  none |
 | <a id="common_kernel-outs"></a>outs |  See [kernel_build.outs](kernel.md#kernel_build-outs)   |  none |
-| <a id="common_kernel-build_config"></a>build_config |  See [kernel_build.build_config](kernel.md#kernel_build-build_config)   |  none |
+| <a id="common_kernel-build_config"></a>build_config |  See [kernel_build.build_config](kernel.md#kernel_build-build_config)   |  `None` |
 | <a id="common_kernel-makefile"></a>makefile |  See [kernel_build.makefile](kernel.md#kernel_build-makefile)   |  `None` |
 | <a id="common_kernel-arch"></a>arch |  See [kernel_build.arch](kernel.md#kernel_build-arch)   |  `None` |
 | <a id="common_kernel-visibility"></a>visibility |  default visibility for some targets instantiated with this macro   |  `None` |

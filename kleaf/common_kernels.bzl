@@ -60,7 +60,7 @@ _GKI_ADD_VMLINUX = False
 def common_kernel(
         name,
         outs,
-        build_config,
+        build_config = None,
         makefile = None,
         arch = None,
         visibility = None,
@@ -214,14 +214,18 @@ def common_kernel(
         srcs = all_kmi_symbol_lists,
     )
 
-    kernel_build_config(
-        name = name + "_build_config",
-        srcs = [
-            # do not sort
-            build_config,
-            Label("//build/kernel/kleaf:gki_build_config_fragment"),
-        ],
-    )
+    if build_config:
+        kernel_build_config(
+            name = name + "_build_config",
+            srcs = [
+                # do not sort
+                build_config,
+                Label("//build/kernel/kleaf:gki_build_config_fragment"),
+            ],
+        )
+        build_config = name + "_build_config"
+    else:
+        build_config = Label("//build/kernel/kleaf:gki_build_config_fragment")
 
     kernel_build(
         name = name,
@@ -236,7 +240,7 @@ def common_kernel(
             "certs/signing_key.pem",
             "certs/signing_key.x509",
         ],
-        build_config = name + "_build_config",
+        build_config = build_config,
         makefile = makefile,
         check_defconfig = select({
             Label("//build/kernel/kleaf:gki_build_config_fragment_is_unset"): "minimized",

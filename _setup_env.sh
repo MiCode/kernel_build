@@ -22,7 +22,9 @@
 # TODO: Use a $(gettop) style method.
 export ROOT_DIR=$(readlink -f $PWD)
 
-export BUILD_CONFIG=${BUILD_CONFIG:-build.config}
+if [ "$KLEAF_INTERNAL_NO_BUILD_CONFIG" != "1" ]; then
+    export BUILD_CONFIG=${BUILD_CONFIG:-build.config}
+fi
 
 # Helper function to let build.config files add command to PRE_DEFCONFIG_CMDS, EXTRA_CMDS, etc.
 # Usage: append_cmd PRE_DEFCONFIG_CMDS 'the_cmd'
@@ -40,7 +42,7 @@ if [ -n "${KLEAF_INTERNAL_PREFERRED_KERNEL_DIR}" ]; then
   KERNEL_DIR="${KLEAF_INTERNAL_PREFERRED_KERNEL_DIR}"
 fi
 # for case that KERNEL_DIR is not specified in environment
-if [ -z "${KERNEL_DIR}" ]; then
+if [ -z "${KERNEL_DIR}" ] && [ -n "${BUILD_CONFIG}" ]; then
     # for the case that KERNEL_DIR is not specified in the BUILD_CONFIG file
     # use the directory of the build config file as KERNEL_DIR
     # for the case that KERNEL_DIR is specified in the BUILD_CONFIG file,
@@ -53,9 +55,15 @@ if [ -z "${KERNEL_DIR}" ]; then
     build_config_dir=${build_config_dir##${real_root_dir}}
     KERNEL_DIR="${build_config_dir}"
 fi
+if [ -z "${KERNEL_DIR}" ]; then
+  echo "ERROR: If kernel_build.build_config is not provided, kernel_build.makefile must be set." >&2
+  exit 1
+fi
 
 set -a
-. ${ROOT_DIR}/${BUILD_CONFIG}
+if [ -n "${BUILD_CONFIG}" ]; then
+  . ${ROOT_DIR}/${BUILD_CONFIG}
+fi
 for fragment in ${BUILD_CONFIG_FRAGMENTS}; do
   . ${ROOT_DIR}/${fragment}
 done

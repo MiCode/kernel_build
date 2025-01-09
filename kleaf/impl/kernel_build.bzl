@@ -96,8 +96,8 @@ _MODULES_PREPARE_ARCHIVE = "modules_prepare_outdir.tar.gz"
 
 def kernel_build(
         name,
-        build_config,
         outs,
+        build_config = None,
         makefile = None,
         keep_module_symvers = None,
         keep_dot_config = None,
@@ -154,6 +154,13 @@ def kernel_build(
     Args:
         name: The final kernel target name, e.g. `"kernel_aarch64"`.
         build_config: Label of the build.config file, e.g. `"build.config.gki.aarch64"`.
+
+            If it contains no files, the list of constants in `@kernel_toolchain_info` is used. This
+            is `//common:build.config.constants` by default, unless otherwise specified.
+
+            If it contains no files, [`makefile`](#kernel_build-makefile) must be set as the anchor
+            to the directory to run `make`.
+
         makefile: `Makefile` governing the kernel tree sources (see `srcs`).
             Example values:
 
