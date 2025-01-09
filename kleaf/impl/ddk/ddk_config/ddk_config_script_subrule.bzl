@@ -54,16 +54,20 @@ def _ddk_config_script_subrule_impl(
         export HOSTLDFLAGS="${{HOSTLDFLAGS}} --sysroot="
 
         usage() {{
-            echo "usage: tools/bazel run {label} -- [--stdout] [<menucommand>]" >&2
+            echo "usage: tools/bazel run {label} -- [--stdout] [-f|--file FILE] [<menucommand>]" >&2
         }}
 
-        KLEAF_DDK_CONFIG_EMIT_STDOUT=
+        KLEAF_DDK_CONFIG_EMIT_FILE=
         menucommand=
         while [[ $# -gt 0 ]]; do
             case "$1" in
             --stdout)
-                KLEAF_DDK_CONFIG_EMIT_STDOUT=1
+                KLEAF_DDK_CONFIG_EMIT_FILE=/dev/stdout
                 shift
+                ;;
+            --file|-f)
+                KLEAF_DDK_CONFIG_EMIT_FILE="$2"
+                shift 2
                 ;;
             -*)
                 usage
@@ -113,8 +117,8 @@ def _ddk_config_script_subrule_impl(
     if src_defconfig:
         script += """
             KCONFIG_CONFIG=${{new_config}} ${{KERNEL_DIR}}/scripts/kconfig/merge_config.sh -m {src_defconfig} ${{changed_config}} > /dev/null
-            if [ "${{KLEAF_DDK_CONFIG_EMIT_STDOUT}}" = 1 ]; then
-                sort_config ${{new_config}}
+            if [ -n "${{KLEAF_DDK_CONFIG_EMIT_FILE}}" ]; then
+                sort_config ${{new_config}} > "${{KLEAF_DDK_CONFIG_EMIT_FILE}}"
             else
                 sort_config ${{new_config}} > $(realpath {src_defconfig})
                 echo "Updated $(realpath {src_defconfig})"
@@ -124,8 +128,8 @@ def _ddk_config_script_subrule_impl(
         )
     else:
         script += """
-            if [ "${{KLEAF_DDK_CONFIG_EMIT_STDOUT}}" = 1 ]; then
-                sort_config ${{new_config}}
+            if [ -n "${{KLEAF_DDK_CONFIG_EMIT_FILE}}" ]; then
+                sort_config ${{new_config}} > "${{KLEAF_DDK_CONFIG_EMIT_FILE}}"
             else
                 sorted_new_fragment=$(mktemp)
                 sort_config ${{new_config}} > ${{sorted_new_fragment}}
