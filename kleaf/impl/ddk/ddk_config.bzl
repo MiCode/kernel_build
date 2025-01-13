@@ -31,6 +31,7 @@ def _ddk_config_impl(ctx):
         defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
         deps = ctx.attr.deps,
         extra_defconfigs = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
+        kernel_build_ddk_config_env = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
     )
 
     main_action_ret = ddk_config_main_action_subrule(

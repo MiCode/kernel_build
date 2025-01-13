@@ -495,6 +495,14 @@ DdkConfigInfo = provider(
         "defconfig": """A [depset](https://bazel.build/extending/depsets) containing the Kconfig
             file of this and its dependencies. Uses `postorder` ordering (dependencies first).""",
         "defconfig_written": "WrittenDepsetInfo representing defconfig",
+        "kernel_build_ddk_config_env": """
+            Optional `ddk_config_env` from `kernel_build`.
+            This should be None if the rule doesn't have a reference to the `kernel_build`,
+            and not None otherwise.
+
+            This environment itself is not used in the subrule, but it is kept as a reference
+            to ensure the `kernel_build` of this target and `deps` are consistent.
+        """,
     },
 )
 

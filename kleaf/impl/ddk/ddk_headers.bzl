@@ -146,6 +146,7 @@ def _ddk_headers_impl(ctx):
         kconfig_targets = ctx.attr.kconfigs,
         defconfig_targets = ctx.attr.defconfigs,
         deps = ctx.attr.hdrs + ctx.attr.textual_hdrs,
+        kernel_build_ddk_config_env = None,
     )
 
     return [

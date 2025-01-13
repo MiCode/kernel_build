@@ -1,0 +1,74 @@
+# Copyright (C) 2025 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "ddk_config",
+    "kernel_build",
+)
+load("//build/kernel/kleaf/impl:ddk/ddk_module_config.bzl", "ddk_module_config")
+load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
+
+kernel_build(
+    name = "test_kernel_build_1",
+    outs = [],
+    tags = ["manual"],
+)
+
+kernel_build(
+    name = "test_kernel_build_2",
+    outs = [],
+    tags = ["manual"],
+)
+
+ddk_config(
+    name = "parent_config",
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+ddk_module_config(
+    name = "child_config_1",
+    kernel_build = "test_kernel_build_2",
+    parent = ":parent_config",
+    tags = ["manual"],
+)
+
+failure_test(
+    name = "parent_child_test",
+    error_message_substrs = [
+        "The following dependencies refers to a different kernel_build. They must refer to the same kernel_build.",
+    ],
+    target_under_test = ":child_config_1",
+)
+
+ddk_module_config(
+    name = "child_config_2",
+    kernel_build = "test_kernel_build_2",
+    module_deps = [":parent_config"],
+    tags = ["manual"],
+)
+
+failure_test(
+    name = "dep_test",
+    error_message_substrs = [
+        "The following dependencies refers to a different kernel_build. They must refer to the same kernel_build.",
+    ],
+    target_under_test = ":child_config_2",
+)
+
+test_suite(
+    name = "ddk_config_analysis_test",
+    tests = None,  # All tests in this package
+)

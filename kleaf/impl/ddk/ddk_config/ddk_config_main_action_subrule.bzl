@@ -342,7 +342,7 @@ def _ddk_config_main_action_subrule_impl(
         out_dir = None,
         kconfig_ext = None,
     )
-    parent_ddk_config_info = empty_ddk_config_info()
+    parent_ddk_config_info = empty_ddk_config_info(kernel_build_ddk_config_env = None)
     if parent:
         parent_outputs_info = parent[DdkConfigOutputsInfo]
         parent_ddk_config_info = parent[DdkConfigInfo]
@@ -357,6 +357,7 @@ def _ddk_config_main_action_subrule_impl(
     outputs = [out_dir, override_parent_log]
 
     combined = combine_ddk_config_info(
+        parent_label = parent.label if parent else None,
         parent = parent_ddk_config_info,
         child = ddk_config_info,
     )

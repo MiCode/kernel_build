@@ -652,7 +652,10 @@ def _kernel_module_impl(ctx):
     if ctx.attr.internal_ddk_config:
         ddk_config_info = ctx.attr.internal_ddk_config[DdkConfigInfo]
     else:
-        ddk_config_info = empty_ddk_config_info()
+        ddk_config_info = empty_ddk_config_info(
+            kernel_build_ddk_config_env =
+                ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_config_env,
+        )
 
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
