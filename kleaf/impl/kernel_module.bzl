@@ -44,6 +44,7 @@ load(
     "ModuleSymversInfo",
 )
 load(":compile_commands_utils.bzl", "compile_commands_utils")
+load(":ddk/ddk_config/ddk_config_info_subrule.bzl", "empty_ddk_config_info")
 load(":debug.bzl", "debug")
 load(":gcov_utils.bzl", "gcov_attrs", "get_grab_gcno_step")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
@@ -651,7 +652,7 @@ def _kernel_module_impl(ctx):
     if ctx.attr.internal_ddk_config:
         ddk_config_info = ctx.attr.internal_ddk_config[DdkConfigInfo]
     else:
-        ddk_config_info = DdkConfigInfo(kconfig = depset(), defconfig = depset())
+        ddk_config_info = empty_ddk_config_info()
 
     # Only declare outputs in the "outs" list. For additional outputs that this rule created,
     # the label is available, but this rule doesn't explicitly return it in the info.
@@ -770,6 +771,9 @@ _kernel_module = rule(
         "_kernel_module_fail": attr.label(default = "//build/kernel/kleaf:incompatible_kernel_module_fail"),
     } | _kernel_module_additional_attrs() | gcov_attrs(),
     toolchains = [hermetic_toolchain.type],
+    subrules = [
+        empty_ddk_config_info,
+    ],
 )
 
 def _kernel_module_set_defaults(kwargs):
