@@ -281,7 +281,7 @@ def _kernel_env_impl(ctx):
         build_utils_sh = ctx.file._build_utils_sh.path,
     )
 
-    if ctx.attr.build_config.files:
+    if ctx.attr.build_config and ctx.attr.build_config.files:
         command += """
             export BUILD_CONFIG={build_config}
         """.format(
