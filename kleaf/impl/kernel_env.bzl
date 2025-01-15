@@ -553,7 +553,7 @@ def _get_env_setup_cmds(ctx):
             export KERNEL_DIR=${{KLEAF_REPO_WORKSPACE_ROOT:+$KLEAF_REPO_WORKSPACE_ROOT/}}${{KERNEL_DIR}}
         fi
 
-        ## Set up KCPPFLAGS and KCPPFLAGS_COMPAT
+        ## Set up KCPPFLAGS, KCPPFLAGS_COMPAT, and KRUSTFLAGS
 
         # Replace ${{ROOT_DIR}} with "/proc/self/cwd" in the file name
         # references in the binaries (e.g. debug info).
@@ -563,6 +563,7 @@ def _get_env_setup_cmds(ctx):
         # top directory, all paths should resolve correctly even on another
         # machine.
         export KCPPFLAGS="-ffile-prefix-map=${{ROOT_DIR}}=/proc/self/cwd"
+        export KRUSTFLAGS="--remap-path-prefix=${{ROOT_DIR}}=/proc/self/cwd"
 
         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
@@ -574,6 +575,7 @@ def _get_env_setup_cmds(ctx):
         # ${{ROOT_DIR}}/${{KERNEL_DIR}} before calling realpath.
         if [[ "$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})" != "${{ROOT_DIR}}/${{KERNEL_DIR}}" ]]; then
             export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}}/..)=/proc/self/cwd"
+            export KRUSTFLAGS="$KRUSTFLAGS --remap-path-prefix=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}}/..)=/proc/self/cwd"
         fi
         export KCPPFLAGS_COMPAT="$KCPPFLAGS"
 
