@@ -1156,8 +1156,8 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         self.uname_pattern_prefix = re.compile(
             r"^Linux version [0-9]+[.][0-9]+[.][0-9]+(\S*)")
 
-        self.build_config_constants_path = f"{self._common()}/build.config.constants"
-        self.restore_file_after_test(self.build_config_constants_path)
+        self.build_config_common_path = f"{self._common()}/build.config.common"
+        self.restore_file_after_test(self.build_config_common_path)
 
         self.gki_defconfig_path = f"{self._common()}/arch/arm64/configs/gki_defconfig"
         self.restore_file_after_test(self.gki_defconfig_path)
@@ -1166,15 +1166,9 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         self.restore_file_after_test(self.makefile_path)
 
     def _setup_mainline(self):
-        lines = [
-            "BRANCH=android-mainline\n",
-            "KMI_GENERATION=\n"
-        ]
-        with open(self.build_config_constants_path, "r") as f:
-            lines += [line for line in f if not line.startswith("BRANCH") and
-                      not line.startswith("KMI_GENERATION")]
-        with open(self.build_config_constants_path, "w") as f:
-            f.write("".join(lines))
+        with open(self.build_config_common_path, "a") as f:
+            f.write("BRANCH=android-mainline\n")
+            f.write("unset KMI_GENERATION\n")
 
         # Writing to defconfig directly requires us to disable check_defconfig,
         # because the ordering is not correct.
@@ -1189,15 +1183,12 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
                            ["EXTRAVERSION = -rc999"])
 
     def _setup_release_branch(self):
-        lines = [
-            "BRANCH=android99-100.110\n",
-            "KMI_GENERATION=56\n"
-        ]
-        with open(self.build_config_constants_path, "r") as f:
-            lines += [line for line in f if not line.startswith("BRANCH") and
-                      not line.startswith("KMI_GENERATION")]
-        with open(self.build_config_constants_path, "w") as f:
-            f.write("".join(lines))
+        with open(self.build_config_common_path, "a") as f:
+            f.write(
+                textwrap.dedent("""\
+                BRANCH=android99-100.110
+                KMI_GENERATION=56
+            """))
 
         localversion_pattern = re.compile(r"^CONFIG_LOCALVERSION=")
         self.filter_lines(self.gki_defconfig_path,
