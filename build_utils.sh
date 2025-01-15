@@ -451,6 +451,10 @@ function build_system_dlkm() {
   done
 
   # Archive system_dlkm_staging_dir
+  if [ -n "${SYSTEM_DLKM_EXTRA_ARCHIVE_FILES}" ]; then
+    # Don't quote because this contains multiple tokens
+    cp ${SYSTEM_DLKM_EXTRA_ARCHIVE_FILES} -t "${SYSTEM_DLKM_STAGING_DIR}"
+  fi
   tar -czf "${DIST_DIR}/system_dlkm_staging_archive.tar.gz" -C "${SYSTEM_DLKM_STAGING_DIR}" .
 }
 

@@ -91,6 +91,7 @@ def _system_dlkm_image_impl(ctx):
     additional_inputs.extend(ctx.files.modules_list)
     additional_inputs.extend(ctx.files.modules_blocklist)
     additional_inputs.extend(ctx.files.props)
+    additional_inputs.extend(ctx.files.internal_extra_archive_files)
 
     command = ""
     outputs = []
@@ -133,6 +134,7 @@ def _system_dlkm_image_impl(ctx):
                      SYSTEM_DLKM_STAGING_DIR={system_dlkm_staging_dir}
                      SYSTEM_DLKM_IMAGE_NAME={system_dlkm_img_name}
                      SYSTEM_DLKM_GEN_FLATTEN_IMAGE={build_flatten_image}
+                     SYSTEM_DLKM_EXTRA_ARCHIVE_FILES="{system_dlkm_extra_archive_files}"
                      {extra_flags_cmd}
                      build_system_dlkm
                    )
@@ -167,6 +169,7 @@ def _system_dlkm_image_impl(ctx):
             system_dlkm_img_name = system_dlkm_img_name,
             system_dlkm_modules_load = system_dlkm_modules_load.path,
             system_dlkm_staging_archive = system_dlkm_staging_archive.path,
+            system_dlkm_extra_archive_files = " ".join([file.path for file in ctx.files.internal_extra_archive_files]),
             out_modules_blocklist = out_modules_blocklist.path,
         )
 
@@ -270,6 +273,12 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
             `build_system_dlkm` is), a default set of properties will be used
             which assumes an ext4 filesystem and a dynamic partition.
         """),
+        "internal_extra_archive_files": attr.label_list(
+            allow_files = True,
+            doc = """**Internal only; subject to change without notice.** 
+                Extra files to be placed at the root of the archive.
+            """,
+        ),
     },
     subrules = [image_utils.build_modules_image],
 )
