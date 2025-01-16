@@ -8,6 +8,3 @@ CONFIG_KASAN_INLINE=y # nocheck: Not supported for HW tag based KASAN. See b/295
 CONFIG_KCOV=y
 # CONFIG_KASAN_OUTLINE is not set
 CONFIG_FRAME_WARN=0
-
-# TODO(b/359429865) Remove once our clang has https://github.com/llvm/llvm-project/pull/104826
-# CONFIG_CFI_CLANG is not set

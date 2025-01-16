@@ -3,6 +3,3 @@ CONFIG_KASAN_SW_TAGS=y
 CONFIG_KASAN_OUTLINE=y
 # CONFIG_KASAN_HW_TAGS is not set
 CONFIG_FRAME_WARN=0
-
-# TODO(b/359429865) Remove once our clang has https://github.com/llvm/llvm-project/pull/104826
-# CONFIG_CFI_CLANG is not set
