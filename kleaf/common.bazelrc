@@ -42,6 +42,11 @@ common --noincompatible_enable_proto_toolchain_resolution
 # TODO: b/385005950 - drop this flag once partners added allow_empty properly
 common --noincompatible_disallow_empty_glob
 
+# b/390213080: This is needed because CONFIG_UAPI_HEADER_TEST needs cc-can-link.sh in
+# kernel_config menuconfig script. The command line from the toolchain uses paths,
+# not short_paths.
+common --legacy_external_runfiles
+
 # Always dump full test results
 test --test_output=errors --test_summary=terse
 
