@@ -7,6 +7,8 @@ Turn a simple build.config into a Bazel extension.
 ## key_value_repo
 
 <pre>
+load("@kleaf//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+
 key_value_repo(<a href="#key_value_repo-name">name</a>, <a href="#key_value_repo-srcs">srcs</a>, <a href="#key_value_repo-additional_values">additional_values</a>, <a href="#key_value_repo-repo_mapping">repo_mapping</a>)
 </pre>
 

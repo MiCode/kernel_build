@@ -315,7 +315,7 @@ def ddk_module(
     Args:
         name: Name of target. This should usually be name of the output `.ko` file without the
           suffix.
-        srcs: sources, local headers, or prebuilt objects.
+        srcs: sources or local headers.
 
             Source files (`.c`, `.S`, `.rs`) must be in the package of
             this `ddk_module` target, or in subpackages.
@@ -329,14 +329,12 @@ def ddk_module(
             can use it, put it in `hdrs` and set `includes` accordingly.
 
             Generated header files are accepted.
-
-            Prebuilt objects (`.o`) should be wrapped in a
-            [`ddk_prebuilt_object`](#ddk_prebuilt_object) rule. Check the rule for details.
         deps: A list of dependent targets. Each of them must be one of the following:
 
             - [`kernel_module`](#kernel_module)
             - [`ddk_module`](#ddk_module)
             - [`ddk_headers`](#ddk_headers).
+            - [`ddk_prebuilt_object`](#ddk_prebuilt_object)
         hdrs: See [`ddk_headers.hdrs`](#ddk_headers-hdrs)
         textual_hdrs: See [`ddk_headers.textual_hdrs`](#ddk_headers-textual_hdrs). DEPRECATED. Use `hdrs`.
         includes: See [`ddk_headers.includes`](#ddk_headers-includes)

@@ -7,6 +7,8 @@
 ## print_debug
 
 <pre>
+load("@kleaf//build/kernel/kleaf:print_debug.bzl", "print_debug")
+
 print_debug(<a href="#print_debug-name">name</a>, <a href="#print_debug-content">content</a>, <a href="#print_debug-prefix_label">prefix_label</a>)
 </pre>
 

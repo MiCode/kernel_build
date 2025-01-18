@@ -7,6 +7,8 @@ Upon `bazel run`, updates a source file.
 ## update_source_file
 
 <pre>
+load("@kleaf//build/kernel/kleaf:update_source_file.bzl", "update_source_file")
+
 update_source_file(<a href="#update_source_file-name">name</a>, <a href="#update_source_file-deps">deps</a>, <a href="#update_source_file-src">src</a>, <a href="#update_source_file-dst">dst</a>)
 </pre>
 

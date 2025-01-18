@@ -7,6 +7,8 @@ A rule that fails.
 ## fail_action
 
 <pre>
+load("@kleaf//build/kernel/kleaf:fail.bzl", "fail_action")
+
 fail_action(<a href="#fail_action-name">name</a>, <a href="#fail_action-message">message</a>)
 </pre>
 
@@ -26,6 +28,8 @@ A rule that fails at execution phase
 ## fail_rule
 
 <pre>
+load("@kleaf//build/kernel/kleaf:fail.bzl", "fail_rule")
+
 fail_rule(<a href="#fail_rule-name">name</a>, <a href="#fail_rule-message">message</a>)
 </pre>
 

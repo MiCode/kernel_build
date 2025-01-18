@@ -11,6 +11,8 @@ in a text file.
 ## directory_with_structure.files
 
 <pre>
+load("@kleaf//build/kernel/kleaf:directory_with_structure.bzl", "directory_with_structure")
+
 directory_with_structure.files(<a href="#directory_with_structure.files-directory_with_structure">directory_with_structure</a>)
 </pre>
 
@@ -29,6 +31,8 @@ Return the list of declared [File](https://bazel.build/rules/lib/File) objects i
 ## directory_with_structure.isinstance
 
 <pre>
+load("@kleaf//build/kernel/kleaf:directory_with_structure.bzl", "directory_with_structure")
+
 directory_with_structure.isinstance(<a href="#directory_with_structure.isinstance-obj">obj</a>)
 </pre>
 
@@ -47,6 +51,8 @@ directory_with_structure.isinstance(<a href="#directory_with_structure.isinstanc
 ## directory_with_structure.make
 
 <pre>
+load("@kleaf//build/kernel/kleaf:directory_with_structure.bzl", "directory_with_structure")
+
 directory_with_structure.make(<a href="#directory_with_structure.make-ctx">ctx</a>, <a href="#directory_with_structure.make-filename">filename</a>)
 </pre>
 
@@ -73,6 +79,8 @@ Return a struct with the following fields:
 ## directory_with_structure.record
 
 <pre>
+load("@kleaf//build/kernel/kleaf:directory_with_structure.bzl", "directory_with_structure")
+
 directory_with_structure.record(<a href="#directory_with_structure.record-directory_with_structure">directory_with_structure</a>)
 </pre>
 
@@ -94,6 +102,8 @@ It is expected that the shell has properly set up [hermetic tools](hermetic_tool
 ## directory_with_structure.restore
 
 <pre>
+load("@kleaf//build/kernel/kleaf:directory_with_structure.bzl", "directory_with_structure")
+
 directory_with_structure.restore(<a href="#directory_with_structure.restore-directory_with_structure">directory_with_structure</a>, <a href="#directory_with_structure.restore-dst">dst</a>, <a href="#directory_with_structure.restore-options">options</a>)
 </pre>
 
