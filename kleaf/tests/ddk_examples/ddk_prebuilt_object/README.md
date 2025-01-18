@@ -7,7 +7,7 @@ This example demonstrates how a `ddk_module` may use prebuilt `.o` files.
 See [BUILD.bazel](BUILD.bazel) for the example.
 
 In short, wrap the `.o` file with a `ddk_prebuilt_object` target before
-feeding it into `ddk_module.srcs`.
+feeding it into `ddk_module.deps`.
 
 You may optionally provide a `.o.cmd` file to the `ddk_prebuilt_object` target.
 

@@ -20,6 +20,7 @@ load(
     ":common_providers.bzl",
     "DdkHeadersInfo",
     "DdkIncludeInfo",
+    "DdkLibraryInfo",
     "DdkSubmoduleInfo",
     "ModuleSymversFileInfo",
     "ModuleSymversInfo",
@@ -196,7 +197,7 @@ def _check_submodule_same_package(module_label, submodule_deps):
     if bad:
         fail("{}: submodules must be in the same package: {}".format(module_label, bad))
 
-def _handle_module_srcs(ctx):
+def _handle_module_srcs(ctx, ddk_library_deps):
     """Parses module_srcs.
 
     For each item in ddk_module.srcs:
@@ -218,34 +219,13 @@ def _handle_module_srcs(ctx):
     """
     srcs_json_list = []
     gen_srcs_depsets = []
-    for target in ctx.attr.module_srcs:
-        # TODO(b/353811700): avoid depset expansion
-        target_files = target.files.to_list()
-        srcs_json_dict = {}
-
-        source_files = []
-        generated_sources = []
-
-        for file in target_files:
-            if file.is_source:
-                source_files.append(file)
-            elif file.extension != "h":
-                generated_sources.append(file)
-
-            # Generated headers in srcs are handled by _gather_prefixed_includes_common
-
-        if source_files:
-            srcs_json_dict["files"] = [file.path for file in source_files]
-
-        if generated_sources:
-            srcs_json_dict["gen"] = {file.short_path: file.path for file in generated_sources}
-
-        if DdkConditionalFilegroupInfo in target:
-            srcs_json_dict["config"] = target[DdkConditionalFilegroupInfo].config
-            srcs_json_dict["value"] = target[DdkConditionalFilegroupInfo].value
-
-        srcs_json_list.append(srcs_json_dict)
-        gen_srcs_depsets.append(depset(generated_sources))
+    for targets, info in ((ctx.attr.module_srcs, DefaultInfo), (ddk_library_deps, DdkLibraryInfo)):
+        for target in targets:
+            # TODO(b/353811700): avoid depset expansion
+            target_files = target[info].files.to_list()
+            ret = _handle_target_files_as_srcs(target, target_files)
+            srcs_json_list.append(ret.srcs_json_dict)
+            gen_srcs_depsets.append(ret.gen_srcs_depset)
 
     srcs_json = ctx.actions.declare_file("{}/srcs.json".format(ctx.attr.name))
     ctx.actions.write(
@@ -256,6 +236,35 @@ def _handle_module_srcs(ctx):
     return struct(
         srcs_json = srcs_json,
         gen_srcs_depset = depset(transitive = gen_srcs_depsets),
+    )
+
+def _handle_target_files_as_srcs(target, target_files):
+    srcs_json_dict = {}
+
+    source_files = []
+    generated_sources = []
+
+    for file in target_files:
+        if file.is_source:
+            source_files.append(file)
+        elif file.extension != "h":
+            generated_sources.append(file)
+
+        # Generated headers in srcs are handled by _gather_prefixed_includes_common
+
+    if source_files:
+        srcs_json_dict["files"] = [file.path for file in source_files]
+
+    if generated_sources:
+        srcs_json_dict["gen"] = {file.short_path: file.path for file in generated_sources}
+
+    if DdkConditionalFilegroupInfo in target:
+        srcs_json_dict["config"] = target[DdkConditionalFilegroupInfo].config
+        srcs_json_dict["value"] = target[DdkConditionalFilegroupInfo].value
+
+    return struct(
+        srcs_json_dict = srcs_json_dict,
+        gen_srcs_depset = depset(generated_sources),
     )
 
 def _makefiles_impl(ctx):
@@ -270,6 +279,7 @@ def _makefiles_impl(ctx):
     submodule_deps = split_deps.submodules
     hdr_deps = split_deps.hdrs
     module_symvers_deps = split_deps.module_symvers_deps
+    ddk_library_deps = split_deps.ddk_library_deps
 
     if submodule_deps:
         _check_empty_with_submodules(ctx, module_label, kernel_module_deps)
@@ -312,7 +322,7 @@ def _makefiles_impl(ctx):
         for target in module_symvers_deps
     ])
 
-    module_srcs_ret = _handle_module_srcs(ctx)
+    module_srcs_ret = _handle_module_srcs(ctx, ddk_library_deps)
 
     args = ctx.actions.args()
 

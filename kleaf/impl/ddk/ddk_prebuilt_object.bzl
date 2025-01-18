@@ -14,6 +14,7 @@
 
 """Wraps .o so it can be used in `ddk_module.srcs`."""
 
+load(":common_providers.bzl", "DdkLibraryInfo")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
@@ -59,7 +60,11 @@ def _ddk_prebuilt_object_impl(ctx):
     else:
         ctx.actions.write(cmd_file, "")
 
-    return DefaultInfo(files = depset([out_file, cmd_file]))
+    out_depset = depset([out_file, cmd_file])
+    return [
+        DefaultInfo(files = out_depset),
+        DdkLibraryInfo(files = out_depset),
+    ]
 
 ddk_prebuilt_object = rule(
     implementation = _ddk_prebuilt_object_impl,
@@ -78,7 +83,7 @@ ddk_prebuilt_object = rule(
 
         ddk_module(
             name = "mymod",
-            srcs = [":foo"],
+            deps = [":foo"],
             # ...
         )
         ```

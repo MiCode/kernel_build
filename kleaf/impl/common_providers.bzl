@@ -555,6 +555,13 @@ DdkIncludeInfo = provider(
     },
 )
 
+DdkLibraryInfo = provider(
+    """Describes info from a ddk_library""",
+    fields = {
+        "files": "A depset of .o/.o.cmd files",
+    },
+)
+
 ImagesInfo = provider(
     doc = "Provider from individual *_image rule to [`kernel_images`](kernel.md#kernel_images) rule",
     fields = {

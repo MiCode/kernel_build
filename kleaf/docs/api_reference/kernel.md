@@ -171,7 +171,7 @@ ddk_prebuilt_object(
 
 ddk_module(
     name = "mymod",
-    srcs = [":foo"],
+    deps = [":foo"],
     # ...
 )
 ```

@@ -24,6 +24,7 @@ load(
     ":common_providers.bzl",
     "DdkConfigInfo",
     "DdkHeadersInfo",
+    "DdkLibraryInfo",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
     "KernelImagesInfo",
@@ -420,6 +421,7 @@ def _split_kernel_module_deps(deps, this_label):
     submodule_deps = []
     module_symvers_deps = []
     ddk_config_deps = []
+    ddk_library_deps = []
     for dep in deps:
         is_valid_dep = False
         if DdkHeadersInfo in dep:
@@ -437,6 +439,9 @@ def _split_kernel_module_deps(deps, this_label):
         if DdkConfigInfo in dep:
             ddk_config_deps.append(dep)
             is_valid_dep = True
+        if DdkLibraryInfo in dep:
+            ddk_library_deps.append(dep)
+            is_valid_dep = True
         if not is_valid_dep:
             fail("{}: {} is not a valid item in deps. Only kernel_module, ddk_module, ddk_headers, ddk_submodule are accepted.".format(this_label, dep.label))
     return struct(
@@ -445,6 +450,7 @@ def _split_kernel_module_deps(deps, this_label):
         submodules = submodule_deps,
         module_symvers_deps = module_symvers_deps,
         ddk_configs = ddk_config_deps,
+        ddk_library_deps = ddk_library_deps,
     )
 
 def _create_kernel_module_dep_info(kernel_module):
