@@ -60,3 +60,5 @@ DDK_MODULE_SRCS_ALLOWED_EXTENSIONS = [
     ".o_shipped",
     ".rs",
 ]
+
+DDK_CONDITIONAL_TRUE = "__kleaf_ddk_conditional_srcs_true_value__"

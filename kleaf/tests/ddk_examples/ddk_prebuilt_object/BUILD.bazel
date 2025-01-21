@@ -40,6 +40,10 @@ ddk_prebuilt_object(
 
     # In practice, just say `src = "bar.o"` to point to the prebuilt file.
     src = ":bar_object",
+
+    # If the object should be conditional on some config, add the conditional here.
+    config = "CONFIG_ARM64",
+    config_bool_value = True,
     visibility = ["//visibility:private"],
 )
 
@@ -47,15 +51,6 @@ ddk_module(
     name = "mymod",
     srcs = ["mod.c"],
     out = "mymod.ko",
-
-    # You can use ddk_prebuilt_object in conditional_srcs as well.
-    conditional_srcs = {
-        "CONFIG_ARM64": {
-            # Add the ddk_prebuilt_object target to ddk_module.conditional_srcs. This adds
-            # the bar.o and the .bar.o.cmd file.
-            True: [":bar"],
-        },
-    },
     kernel_build = "@kleaf//common:kernel_aarch64",
 
     # Adjust visibility of the module accordingly. See
@@ -63,8 +58,10 @@ ddk_module(
     visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
 
     # Add the ddk_prebuilt_object target to ddk_module.deps. This adds
-    # the foo.o and the .foo.o.cmd file.
+    # the foo.o and the .foo.o.cmd file. If CONFIG_ARM64 is set (which is
+    # True in this case), bar.o and .bar.o.cmd are also added.
     deps = [
+        ":bar",
         ":foo",
     ],
 )

@@ -486,6 +486,17 @@ DdkSubmoduleInfo = provider(
     },
 )
 
+DdkConditionalFilegroupInfo = provider(
+    "Provides attributes for [`ddk_conditional_filegroup`](#ddk_conditional_filegroup)",
+    fields = {
+        "config": "`ddk_conditional_filegroup.config`",
+        "value": """bool or str. `ddk_conditional_filegroup.value`
+
+This may be a special value `True` when it is set to `True` in `ddk_module`.
+        """,
+    },
+)
+
 DdkConfigInfo = provider(
     doc = "Describes a pair of kconfig/defconfig depsets.",
     fields = {

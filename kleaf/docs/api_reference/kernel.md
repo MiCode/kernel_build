@@ -153,7 +153,7 @@ semantically identical to the original `ddk_headers` definition.
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_prebuilt_object")
 
-ddk_prebuilt_object(<a href="#ddk_prebuilt_object-name">name</a>, <a href="#ddk_prebuilt_object-src">src</a>, <a href="#ddk_prebuilt_object-cmd">cmd</a>)
+ddk_prebuilt_object(<a href="#ddk_prebuilt_object-name">name</a>, <a href="#ddk_prebuilt_object-src">src</a>, <a href="#ddk_prebuilt_object-cmd">cmd</a>, <a href="#ddk_prebuilt_object-config">config</a>, <a href="#ddk_prebuilt_object-config_bool_value">config_bool_value</a>)
 </pre>
 
 Wraps a `<stem>.o` file so it can be used in [ddk_module.srcs](#ddk_module-srcs).
@@ -184,6 +184,8 @@ ddk_module(
 | <a id="ddk_prebuilt_object-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 | <a id="ddk_prebuilt_object-src"></a>src |  The .o file, e.g. `foo.o`   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 | <a id="ddk_prebuilt_object-cmd"></a>cmd |  The .cmd file, e.g. `.foo.o.cmd`. If missing, an empty file is provided.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+| <a id="ddk_prebuilt_object-config"></a>config |  If set, name of the config with the `CONFIG_` prefix. The prebuilt object is only linked when the given config matches `config_bool_value`.   | String | optional |  `""`  |
+| <a id="ddk_prebuilt_object-config_bool_value"></a>config_bool_value |  If `config` is set, and `config_bool_value == True`, the object is only included if the config is `y` or `m`. If `config` is set and `config_bool_value == False`, the object is only included if the config is not set.   | Boolean | optional |  `False`  |
 
 
 <a id="ddk_uapi_headers"></a>

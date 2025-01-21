@@ -14,27 +14,19 @@
 
 """Sources conditional to a [`ddk_module`](#ddk_module)."""
 
-load(":constants.bzl", "DDK_MODULE_SRCS_ALLOWED_EXTENSIONS")
+load(":common_providers.bzl", "DdkConditionalFilegroupInfo")
+load(
+    ":constants.bzl",
+    "DDK_CONDITIONAL_TRUE",
+    "DDK_MODULE_SRCS_ALLOWED_EXTENSIONS",
+)
 load(":utils.bzl", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
-_DDK_CONDITIONAL_TRUE = "__kleaf_ddk_conditional_srcs_true_value__"
-
-DdkConditionalFilegroupInfo = provider(
-    "Provides attributes for [`ddk_conditional_filegroup`](#ddk_conditional_filegroup)",
-    fields = {
-        "config": "`ddk_conditional_filegroup.config`",
-        "value": """bool or str. `ddk_conditional_filegroup.value`
-
-This may be a special value `True` when it is set to `True` in `ddk_module`.
-        """,
-    },
-)
-
 def _ddk_conditional_filegroup_impl(ctx):
     value = ctx.attr.value
-    if value == _DDK_CONDITIONAL_TRUE:
+    if value == DDK_CONDITIONAL_TRUE:
         value = True
 
     return [
@@ -77,13 +69,13 @@ mymodule-y += foo_is_set.c
 endif
 ```
 
-A special value `_DDK_CONDITIONAL_TRUE` means `y` or `m`. Example:
+A special value `DDK_CONDITIONAL_TRUE` means `y` or `m`. Example:
 
 ```
 _ddk_conditional_filegroup(
     name = "srcs_when_foo_is_set",
     config = "CONFIG_FOO",
-    value = _DDK_CONDITIONAL_TRUE,
+    value = DDK_CONDITIONAL_TRUE,
     srcs = ["foo_is_set.c"]
 )
 
@@ -118,7 +110,7 @@ is only examined in Kbuild.
 
 If and only if the config matches this value, `srcs` are included.
 
-This should be set to `_DDK_CONDITIONAL_TRUE` when `True` is in
+This should be set to `DDK_CONDITIONAL_TRUE` when `True` is in
 `ddk_modules.conditional_srcs`.
 """,
         ),
@@ -152,7 +144,7 @@ def ddk_conditional_filegroup(
         **kwargs: kwargs
     """
     if value == True:
-        value = _DDK_CONDITIONAL_TRUE
+        value = DDK_CONDITIONAL_TRUE
     elif value == False:
         value = ""
 

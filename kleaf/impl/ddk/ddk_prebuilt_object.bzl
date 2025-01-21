@@ -14,7 +14,11 @@
 
 """Wraps .o so it can be used in `ddk_module.srcs`."""
 
-load(":common_providers.bzl", "DdkLibraryInfo")
+load(
+    ":common_providers.bzl",
+    "DdkConditionalFilegroupInfo",
+    "DdkLibraryInfo",
+)
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
@@ -61,10 +65,20 @@ def _ddk_prebuilt_object_impl(ctx):
         ctx.actions.write(cmd_file, "")
 
     out_depset = depset([out_file, cmd_file])
-    return [
+    infos = [
         DefaultInfo(files = out_depset),
         DdkLibraryInfo(files = out_depset),
     ]
+
+    if ctx.attr.config:
+        infos.append(DdkConditionalFilegroupInfo(
+            config = ctx.attr.config,
+            # ctx.attr.bool_value == True -> True; ctx.attr.bool_value == False -> ""
+            # See doc for DdkConditionalFilegroupInfo for details.
+            value = True if ctx.attr.config_bool_value else "",
+        ))
+
+    return infos
 
 ddk_prebuilt_object = rule(
     implementation = _ddk_prebuilt_object_impl,
@@ -97,6 +111,17 @@ ddk_prebuilt_object = rule(
         "cmd": attr.label(
             allow_single_file = True,
             doc = "The .cmd file, e.g. `.foo.o.cmd`. If missing, an empty file is provided.",
+        ),
+        "config": attr.string(
+            doc = """If set, name of the config with the `CONFIG_` prefix.
+                The prebuilt object is only linked when the given config matches
+                `config_bool_value`.""",
+        ),
+        "config_bool_value": attr.bool(
+            doc = """If `config` is set, and `config_bool_value == True`, the object is only included
+                if the config is `y` or `m`.
+                If `config` is set and `config_bool_value == False`, the object is only included
+                if the config is not set.""",
         ),
     },
     toolchains = [hermetic_toolchain.type],
