@@ -558,7 +558,7 @@ DdkIncludeInfo = provider(
 DdkLibraryInfo = provider(
     """Describes info from a ddk_library""",
     fields = {
-        "files": "A depset of .o/.o.cmd files",
+        "files": "A depset of .o_shipped/.o.cmd_shipped files",
     },
 )
 
