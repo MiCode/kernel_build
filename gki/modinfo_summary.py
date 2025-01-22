@@ -54,9 +54,9 @@ def _get_module_hexdigest(module: pathlib.Path) -> str:
 
 
 def _get_modules(directory: pathlib.Path) -> list[str]:
-    module_hashes = []
+    module_hashes = set()
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        module_hashes = list(
+        module_hashes = set(
             executor.map(_get_module_hexdigest, directory.glob("**/*.ko"))
         )
 
@@ -66,8 +66,6 @@ def _get_modules(directory: pathlib.Path) -> list[str]:
 
 def load_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--arch", help="String with target architecture.")
-    parser.add_argument("--branch", help="String with branch version.")
     parser.add_argument(
         "--directory",
         type=pathlib.Path,
@@ -82,15 +80,13 @@ def load_arguments():
 
 
 def generate_report(
-    arch: str,
-    branch: str,
     directory: pathlib.Path,
     output: pathlib.Path,
 ) -> None:
 
     module_hashes = _get_modules(directory)
     # Populate the XML document with information from modules.
-    xml_handler.create_report(module_hashes, arch, branch, output)
+    xml_handler.create_report(module_hashes, output)
 
 
 if __name__ == "__main__":

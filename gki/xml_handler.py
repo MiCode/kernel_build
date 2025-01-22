@@ -17,19 +17,12 @@ import pathlib
 import xml.dom.minidom
 
 
-def _create_xml(
-    arch: str,
-    branch: str,
-) -> tuple[xml.dom.minidom.Document, xml.dom.minidom.Element]:
+def _create_xml() -> tuple[xml.dom.minidom.Document, xml.dom.minidom.Element]:
     root_document = xml.dom.minidom.Document()
     kernel_modules = root_document.createElement("kernel-modules")
     kernel_modules.setAttribute("version", "0")
     root_document.appendChild(kernel_modules)
-    branch_element = root_document.createElement("branch")
-    branch_element.setAttribute("name", branch)
-    branch_element.setAttribute("arch", arch)
-    kernel_modules.appendChild(branch_element)
-    return root_document, branch_element
+    return root_document, kernel_modules
 
 
 def _write_report(
@@ -42,19 +35,15 @@ def _write_report(
 
 def create_report(
     module_hashes: list[str],
-    arch: str,
-    branch: str,
     output: pathlib.Path,
 ) -> None:
     """Creates an XML report containing module hashes.
 
     This generates an XML report file containing a list of module
-    hashes associated with a specific architecture and branch.
+    hashes.
 
     Args:
         module_hashes: A list of module hashes to include in the report.
-        arch: The architecture the report is for (e.g., "x86_64").
-        branch: The branch the report is for (e.g., "android16-6.12").
         output: A pathlib.Path object representing the location where the report
           should be saved.
 
@@ -62,13 +51,13 @@ def create_report(
         None. The function writes the report to the specified file.
     """
     # Create the XML document.
-    root_document, branch_element = _create_xml(arch, branch)
+    root_document, kernel_modules = _create_xml()
 
     # Populate the XML document with information from modules.
     for module_hash in module_hashes:
         module_element = root_document.createElement("module")
         module_element.setAttribute("value", module_hash)
-        branch_element.appendChild(module_element)
+        kernel_modules.appendChild(module_element)
 
     # Write down the information in the requested lcoation.
     _write_report(output, root_document)
