@@ -66,6 +66,7 @@ load("//build/kernel/kleaf/impl:merge_kzip.bzl", _merge_kzip = "merge_kzip")
 load("//build/kernel/kleaf/impl:merge_module_symvers.bzl", _merge_module_symvers = "merge_module_symvers")
 load("//build/kernel/kleaf/impl:merged_kernel_uapi_headers.bzl", _merged_kernel_uapi_headers = "merged_kernel_uapi_headers")
 load("//build/kernel/kleaf/impl:modinfo_summary.bzl", _modinfo_summary_report = "modinfo_summary_report")
+load("//build/kernel/kleaf/impl/testing:kernel_unit_test.bzl", _kunit_test = "kunit_test")
 
 # Re-exports. This is the list of public rules and macros.
 android_filegroup = _android_filegroup
@@ -115,3 +116,4 @@ vendor_dlkm_image = _vendor_dlkm_image
 
 # Tests
 kernel_module_test = _kernel_module_test
+kunit_test = _kunit_test
