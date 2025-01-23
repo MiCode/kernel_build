@@ -3,3 +3,5 @@
 # support for Rust and Rust drivers being tested.
 
 CONFIG_RUST=y
+CONFIG_ANDROID_BINDER_IPC_RUST=y
+CONFIG_ANDROID_BINDERFS_RUST=y

@@ -34,6 +34,8 @@
 
 [Debugging Kleaf](docs/debugging.md)
 
+[Visualizing dependencies](docs/dependencies.md)
+
 ### Advanced topics
 
 [Handling SCM version](docs/scmversion.md)
@@ -56,6 +58,8 @@
 
 [Kleaf Development](docs/kleaf_development.md)
 
+[Discover newest Kleaf features in Canary](docs/canary.md)
+
 ### Configurations in command line
 
 `--config=fast`: [Make local builds faster](docs/fast.md)
@@ -65,6 +69,8 @@
 `--config=release`: [Release builds](docs/release.md)
 
 `--config=stamp`: [Handling SCM version](docs/scmversion.md)
+
+`--config=canary`: [Kleaf Canary Features](docs/canary.md)
 
 ### Flags
 

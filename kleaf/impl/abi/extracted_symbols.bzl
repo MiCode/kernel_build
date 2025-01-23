@@ -18,11 +18,11 @@ load(":abi/abi_transitions.bzl", "abi_common_attrs", "notrim_transition")
 load(
     ":common_providers.bzl",
     "KernelBuildAbiInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelModuleInfo",
+    "KernelSerializedEnvInfo",
 )
 load(":debug.bzl", "debug")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -54,9 +54,9 @@ def _extracted_symbols_impl(ctx):
             srcs += kernel_module.files.to_list()
 
     inputs = [] + srcs
-    transitive_inputs = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs]
+    transitive_inputs = [ctx.attr.kernel_build[KernelSerializedEnvInfo].inputs]
     tools = [ctx.executable._extract_symbols]
-    transitive_tools = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools]
+    transitive_tools = [ctx.attr.kernel_build[KernelSerializedEnvInfo].tools]
 
     cp_src_cmd = ""
     flags = ["--symbol-list", out.path]
@@ -82,8 +82,8 @@ def _extracted_symbols_impl(ctx):
         base_modules_archive = ctx.attr.kernel_build[KernelBuildAbiInfo].modules_staging_archive
     inputs.append(base_modules_archive)
 
-    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.kernel_build[KernelSerializedEnvInfo],
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
     command += """
@@ -127,7 +127,7 @@ extracted_symbols = rule(
         # - extract_symbols depends on the clang toolchain, which requires us to
         #   know the toolchain_version ahead of time.
         # - We also don't have the necessity to extract symbols from prebuilts.
-        "kernel_build": attr.label(providers = [KernelEnvAndOutputsInfo, KernelBuildAbiInfo]),
+        "kernel_build": attr.label(providers = [KernelSerializedEnvInfo, KernelBuildAbiInfo]),
         # KernelModuleInfo
         "kernel_modules": attr.label_list(allow_files = True),
         "kernel_modules_exclude_list": attr.string_list(

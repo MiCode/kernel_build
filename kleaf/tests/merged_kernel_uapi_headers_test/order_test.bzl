@@ -17,7 +17,6 @@
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo", "KernelModuleInfo")
-load("//build/kernel/kleaf/impl:constants.bzl", "TOOLCHAIN_VERSION_FILENAME")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
 load("//build/kernel/kleaf/impl:kernel_module.bzl", "kernel_module")
@@ -108,13 +107,6 @@ def order_test(name):
     )
 
     native.filegroup(
-        name = name + "_base_" + TOOLCHAIN_VERSION_FILENAME,
-        srcs = [name + "_base"],
-        output_group = TOOLCHAIN_VERSION_FILENAME,
-        tags = ["manual"],
-    )
-
-    native.filegroup(
         name = name + "_base_modules_staging_archive",
         srcs = [name + "_base"],
         output_group = "modules_staging_archive",
@@ -134,12 +126,12 @@ def order_test(name):
         name = name + "_fg",
         srcs = [name + "_base"],
         deps = [
-            name + "_base_" + TOOLCHAIN_VERSION_FILENAME,
             name + "_base_modules_staging_archive",
         ],
         kernel_uapi_headers = name + "_base_uapi_headers",
-        module_outs_file = name + "_module_outs_file",
         gki_artifacts = name + "_gki_info",
+        target_platform = Label("//build/kernel/kleaf/impl:android_arm64"),
+        exec_platform = Label("//build/kernel/kleaf/impl:linux_x86_64"),
         tags = ["manual"],
     )
 

@@ -16,10 +16,10 @@ Rules for building boot images.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":common_providers.bzl", "KernelBuildInfo", "KernelEnvAndOutputsInfo")
+load(":common_providers.bzl", "KernelBuildInfo", "KernelSerializedEnvInfo")
 load(":debug.bzl", "debug")
 load(":image/initramfs.bzl", "InitramfsInfo")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -65,17 +65,20 @@ def _boot_images_impl(ctx):
         ]
     inputs += ctx.files.deps
     inputs += ctx.files.vendor_ramdisk_binaries
+    inputs += ctx.files.vendor_ramdisk_dev_nodes
+    if ctx.attr.gki_ramdisk_prebuilt_binary:
+        inputs += [ctx.file.gki_ramdisk_prebuilt_binary]
 
     transitive_inputs = [
         kernel_build_outs,
-        ctx.attr.kernel_build[KernelEnvAndOutputsInfo].inputs,
+        ctx.attr.kernel_build[KernelSerializedEnvInfo].inputs,
     ]
 
     tools = [ctx.executable._search_and_cp_output]
-    transitive_tools = [ctx.attr.kernel_build[KernelEnvAndOutputsInfo].tools]
+    transitive_tools = [ctx.attr.kernel_build[KernelSerializedEnvInfo].tools]
 
-    command = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].get_setup_script(
-        data = ctx.attr.kernel_build[KernelEnvAndOutputsInfo].data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = ctx.attr.kernel_build[KernelSerializedEnvInfo],
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 
@@ -115,6 +118,18 @@ def _boot_images_impl(ctx):
             VENDOR_RAMDISK_BINARY="{vendor_ramdisk_binaries}"
         """.format(
             vendor_ramdisk_binaries = " ".join([file.path for file in ctx.files.vendor_ramdisk_binaries]),
+        )
+
+    if ctx.attr.gki_ramdisk_prebuilt_binary:
+        command += """
+            GKI_RAMDISK_PREBUILT_BINARY="{gki_ramdisk_prebuilt_binary}"
+        """.format(gki_ramdisk_prebuilt_binary = ctx.file.gki_ramdisk_prebuilt_binary.path)
+
+    if ctx.files.vendor_ramdisk_dev_nodes:
+        command += """
+            VENDOR_RAMDISK_DEV_NODES="{vendor_ramdisk_dev_nodes}"
+        """.format(
+            vendor_ramdisk_dev_nodes = " ".join([file.path for file in ctx.files.vendor_ramdisk_dev_nodes]),
         )
 
     command += """
@@ -221,7 +236,7 @@ Execute `build_boot_images` in `build_utils.sh`.""",
     attrs = {
         "kernel_build": attr.label(
             mandatory = True,
-            providers = [KernelEnvAndOutputsInfo, KernelBuildInfo],
+            providers = [KernelSerializedEnvInfo, KernelBuildInfo],
         ),
         "initramfs": attr.label(
             providers = [InitramfsInfo],
@@ -241,6 +256,8 @@ Execute `build_boot_images` in `build_utils.sh`.""",
 * If `None`, skip `vendor_boot`.
 """, values = ["vendor_boot", "vendor_kernel_boot"]),
         "vendor_ramdisk_binaries": attr.label_list(allow_files = True),
+        "gki_ramdisk_prebuilt_binary": attr.label(allow_single_file = True),
+        "vendor_ramdisk_dev_nodes": attr.label_list(allow_files = True),
         "unpack_ramdisk": attr.bool(
             doc = """ When false it skips unpacking the vendor ramdisk and copy it as
             is, without modifications, into the boot image. Also skip the mkbootfs step.

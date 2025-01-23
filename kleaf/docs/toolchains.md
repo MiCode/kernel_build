@@ -50,8 +50,6 @@ A hermetic toolchain is registered with the type `hermetic_toolchain.type`
 All rules provided by Kleaf, including `hermetic_genrule` and `hermetic_exec`,
 uses this registered toolchain.
 
-If `--incompatible_disable_hermetic_tools_info` is set,
-`//build/kernel:hermetic-tools` no longer provides `HermeticToolsInfo`. Any
-custom rules that uses `HermeticToolsInfo` from `//build/kernel:hermetic-tools`
-directly should find the hermetic toolchain from toolchain resolution.
-For details, see [Hermeticity: custom rules](hermeticity.md#custom-rules).
+Any custom rules that needs the hermetic toolchain should find it from toolchain
+resolution. For details, see
+[Hermeticity: custom rules](hermeticity.md#custom-rules).

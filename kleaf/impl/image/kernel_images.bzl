@@ -35,6 +35,7 @@ def kernel_images(
         base_kernel_images = None,
         build_initramfs = None,
         build_vendor_dlkm = None,
+        build_vendor_dlkm_flatten = None,
         build_boot = None,
         build_vendor_boot = None,
         build_vendor_kernel_boot = None,
@@ -42,15 +43,18 @@ def kernel_images(
         build_system_dlkm_flatten = None,
         build_dtbo = None,
         dtbo_srcs = None,
+        dtbo_config = None,
         mkbootimg = None,
         deps = None,
         boot_image_outs = None,
+        gki_ramdisk_prebuilt_binary = None,
         modules_list = None,
         modules_recovery_list = None,
         modules_charger_list = None,
         modules_blocklist = None,
         modules_options = None,
         vendor_ramdisk_binaries = None,
+        vendor_ramdisk_dev_nodes = None,
         system_dlkm_fs_type = None,
         system_dlkm_fs_types = None,
         system_dlkm_modules_list = None,
@@ -91,6 +95,7 @@ def kernel_images(
 
     Allowed strings in `filegroup.output_group`:
     * `vendor_dlkm.img`, if `build_vendor_dlkm` is set
+    * `vendor_dlkm_flatten.img` if `build_vendor_dlkm_flatten` is not empty
     * `system_dlkm.img`, if `build_system_dlkm` and `system_dlkm_fs_type` is set
     * `system_dlkm.<type>.img` for each of `system_dlkm_fs_types`, if
         `build_system_dlkm` is set and `system_dlkm_fs_types` is not empty.
@@ -153,6 +158,8 @@ def kernel_images(
           This image have directory structure as `/lib/modules/*.ko` i.e. no `uname -r` in the path.
         build_vendor_dlkm: Whether to build `vendor_dlkm` image. It must be set if
           `vendor_dlkm_modules_list` is set.
+        build_vendor_dlkm_flatten: Whether to build `vendor_dlkm_flatten` image. The image
+          have directory structure as `/lib/modules/*.ko` i.e. no `uname -r` in the path
 
           Note: at the time of writing (Jan 2022),
           `vendor_dlkm.modules.blocklist` is **always** created regardless of
@@ -210,6 +217,7 @@ def kernel_images(
               ]
           )
           ```
+        dtbo_config: a config file to create dtbo image by cfg_create command.
         base_kernel_images: The `kernel_images()` corresponding to the `base_kernel` of the
           `kernel_build`. This is required for building a device-specific `system_dlkm` image.
           For example, if `base_kernel` of `kernel_build()` is `//common:kernel_aarch64`,
@@ -287,6 +295,9 @@ def kernel_images(
           ```
           # do not sort
           ```
+        vendor_ramdisk_dev_nodes: List of dev nodes description files
+          which describes special device files to be added to the vendor
+          ramdisk. File format is as accepted by mkbootfs.
         ramdisk_compression: If provided it specfies the format used for any ramdisks generated.
           If not provided a fallback value from build.config is used.
           Possible values are `lz4`, `gzip`, None.
@@ -359,6 +370,9 @@ def kernel_images(
 
     if build_boot and "boot.img" not in boot_image_outs:
         boot_image_outs.append("boot.img")
+
+    if gki_ramdisk_prebuilt_binary and "init_boot.img" not in boot_image_outs:
+        boot_image_outs.append("init_boot.img")
 
     if build_vendor_boot and "vendor_boot.img" not in boot_image_outs:
         boot_image_outs.append("vendor_boot.img")
@@ -441,6 +455,7 @@ def kernel_images(
             name = "{}_vendor_dlkm_image".format(name),
             kernel_modules_install = kernel_modules_install,
             vendor_boot_modules_load = vendor_boot_modules_load,
+            build_vendor_dlkm_flatten_image = build_vendor_dlkm_flatten,
             deps = deps,
             vendor_dlkm_archive = vendor_dlkm_archive,
             vendor_dlkm_etc_files = vendor_dlkm_etc_files,
@@ -465,6 +480,8 @@ def kernel_images(
             initramfs = ":{}_initramfs".format(name) if build_initramfs else None,
             mkbootimg = mkbootimg,
             vendor_ramdisk_binaries = vendor_ramdisk_binaries,
+            gki_ramdisk_prebuilt_binary = gki_ramdisk_prebuilt_binary,
+            vendor_ramdisk_dev_nodes = vendor_ramdisk_dev_nodes,
             build_boot = build_boot,
             vendor_boot_name = vendor_boot_name,
             unpack_ramdisk = unpack_ramdisk,
@@ -488,6 +505,7 @@ def kernel_images(
         dtbo(
             name = "{}_dtbo".format(name),
             srcs = dtbo_srcs,
+            config_file = dtbo_config,
             kernel_build = kernel_build,
             **kwargs
         )

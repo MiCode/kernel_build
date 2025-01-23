@@ -167,6 +167,7 @@ def _system_dlkm_image_impl(ctx):
         )
 
     outputs += [
+        system_dlkm_img,
         system_dlkm_modules_load,
         system_dlkm_staging_archive,
         system_dlkm_modules_blocklist,

@@ -11,10 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-exports_files(
-    [
-        "make_kernel_toolchain_ext.bzl",
-    ],
-    visibility = ["//build/kernel/kleaf/docs:__pkg__"],
-)

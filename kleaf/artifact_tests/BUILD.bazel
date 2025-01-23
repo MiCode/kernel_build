@@ -24,12 +24,12 @@ bzl_library(
     srcs = [
         "device_modules_test.bzl",
         "kernel_test.bzl",
-        "py_test_hack.bzl",
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
         "//build/kernel/kleaf/impl",
         "//build/kernel/kleaf/tests:empty_test",
+        "//build/kernel/kleaf/tests:hermetic_test",
         "@bazel_skylib//rules:write_file",
     ],
 )

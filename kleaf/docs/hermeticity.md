@@ -30,7 +30,7 @@ machine.
 Example:
 
 ```python
-load("//build/kernel:hermetic_tools.bzl", "hermetic_genrule")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
 hermetic_genrule(
     name = "generated_source",
     srcs = ["in.template"],
@@ -44,12 +44,30 @@ To make the change more transparent, you may use an alias in the `load`
 statement:
 
 ```python
-load("//build/kernel:hermetic_tools.bzl", genrule = "hermetic_genrule")
+load("//build/kernel/kleaf:hermetic_tools.bzl", genrule = "hermetic_genrule")
 genrule(
     name = "generated_source",
     ...
 )
 ```
+
+### Accessing CC toolchain
+
+Setting `use_cc_toolchain` to `True` in `hermetic_genrule` makes C/C++ tools
+and binaries available. For example:
+
+```python
+hermetic_genrule(
+    name = "readelf_version",
+    outs = ["version.txt"],
+    # llvm-readelf comes from the resolved CC toolchain.
+    cmd = "llvm-readelf --version > $@",
+    use_cc_toolchain = True,
+)
+```
+
+**NOTE**: This is recommended for very simple use cases, for complex ones,
+prefer to use [custom rules](#custom-rules).
 
 ## Use hermetic\_exec and hermetic\_exec\_test
 
@@ -134,6 +152,63 @@ rename = rule(
     ],
 )
 ```
+
+### Accessing CC toolchain
+
+Accessing the CC tools is possible for custom rules too. The following shows an
+example on how to access the `strip` tool from the resolved toolchain.
+
+```python
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
+load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_toolchain")
+
+def _strip_version_impl(ctx):
+    version = ctx.actions.declare_file("{}/strip_version.txt".format(ctx.attr.name))
+
+    # Retrieve the tools toolchain.
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
+    # Set up environment (PATH)
+    command = hermetic_tools.setup
+
+    # Retrieve default resolved CC toolchain.
+    cc_toolchain = find_cpp_toolchain(ctx, mandatory = False)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+    )
+
+    # Customize this according to the tool needed.
+    strip_path = cc_common.get_tool_for_action(
+        feature_configuration = feature_configuration,
+        action_name = ACTION_NAMES.strip,
+    )
+    command += """
+        {strip} --version > {version}
+    """.format(
+        version = version.path,
+        strip = strip_path,
+    )
+    ctx.actions.run_shell(
+        tools = [cc_toolchain.all_files, hermetic_tools.deps],
+        outputs = [version],
+        command = command,
+    )
+    return DefaultInfo(files = depset([version]))
+
+strip_version = rule(
+    implementation = _strip_version_impl,
+    attrs = {
+        "_cc_toolchain": attr.label(default = "//build/kernel/kleaf/impl:kernel_toolchains"),
+    },
+    toolchains = [hermetic_toolchain.type] + use_cpp_toolchain(mandatory = False),
+    fragments = ["cpp"],
+)
+```
+For more action names mapping to tool names, refer to
+`prebuilts/clang/host/linux-x86/kleaf/common.bzl`.
 
 ## Known violations
 

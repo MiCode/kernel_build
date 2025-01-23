@@ -18,8 +18,12 @@ This is a non exhaustive list of options to help debugging compilation issues:
 
 *   Customise Kbuild:
 
-    *   `--debug_make_verbosity`: Controls verbosity of `make` executions `E
-        (default) = Error, I = Info, D = Debug`
+    *   `--debug_make_verbosity`: Controls verbosity of `make` executions.
+        *   `E` (default): Only print errors (`make -s`)
+        *   `I`: print brief description of make targets being built (`make`)
+        *   `D`: print full commands (`make V=1`)
+        *   `V`: print the reason for the rebuild of each make target
+            (`make V=2`)
 
     *   `--debug_modpost_warn`: Sets
         [`KBUILD_MODPOST_WARN=1`](https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-modpost-warn).
@@ -55,6 +59,12 @@ development cycle. Usually, these flags should not be set on a release build.
 *   `--nokmi_symbol_list_strict_mode`: Disable KMI symbol list check.
 *   `--nokmi_symbol_list_violations_check`: Disable KMI symbol list violations
     check.
+
+**NOTE**: In addition to `--nokmi_symbol_list_strict_mode` and
+`--nokmi_symbol_list_violations_check` the following list of
+[predefined flags](kernel_config.md#other-pre_defined-flags) also skip the
+symbol list and symbol list violations checks (`--notrim`, `--debug`, `--gcov`,
+`--k*san`, `--kgdb`).
 
 ## Debugging incremental build issues
 
@@ -145,3 +155,26 @@ struct(module_outs_file = <source file file/kernel_aarch64_modules>, modules_sta
 ...
 
 ```
+
+## Reproducing sandboxed commands
+
+Sometimes you need to reproduce commands that was exectuted in hermetic sandbox
+environment, for example, to catch a bug in compiler. Then you may follow these
+approximate steps:
+
+1. Run `tools/bazel build --debug_make_verbosity=D --debug_print_scripts
+   --sandbox_debug //common:kernel_aarch64`. These options will print out all
+   executed commands and preserve sandbox environment.
+2. Run `find out -name 'command.log'` and open log in your favorite text editor.
+   This log have the same contents as stdout and stderr of Bazel invocation.
+3. Find in log for example `drivers/net/usb/usbnet.o` to get corresponding
+   compiler invocation.
+4. Search *up* for `Run this command to start an interactive shell in an
+   identical sandboxed environment`. There may be multiple sandboxed
+   environments, you need to find the closest one before the interesting
+   command.
+5. Search *down* from here for `+ export PATH=`. Plus sign is important, it will
+   show an actual path to hermetic toolchain with expanded variables.
+6. Run commands from step 4 to get into sandboxed environment, then from step 5
+   to have toolchain binaries in your path, and then from step 3 to reproduce
+   compiler invocation.

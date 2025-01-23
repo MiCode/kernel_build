@@ -18,6 +18,7 @@ Defines repositories in a Kleaf workspace.
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//build/kernel/kleaf:key_value_repo.bzl", "key_value_repo")
+load("//build/kernel/kleaf/impl:declare_host_tools.bzl", "kleaf_host_tools_repo")
 load(
     "//build/kernel/kleaf/impl:kernel_prebuilt_repo.bzl",
     "kernel_prebuilt_repo",
@@ -26,7 +27,6 @@ load(
     "//build/kernel/kleaf/impl:kernel_prebuilt_utils.bzl",
     "CI_TARGET_MAPPING",
 )
-load("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_repo")
 load(
     "//build/kernel/kleaf/impl:local_repository.bzl",
     "kleaf_local_repository",
@@ -44,7 +44,7 @@ def define_kleaf_workspace(
     **This macro must only be called from `WORKSPACE` or `WORKSPACE.bazel`
     files, not `BUILD` or `BUILD.bazel` files!**
 
-    If [`define_kleaf_workspace_epilog`](#define_kleaf_workspace_epilog) is
+    If [`define_kleaf_workspace_epilog`](workspace_epilog.md#define_kleaf_workspace_epilog) is
     called, it must be called after `define_kleaf_workspace` is called.
 
     Args:
@@ -64,7 +64,17 @@ def define_kleaf_workspace(
           * {build_number}
           * {target}
           * {filename}
+
+    Deprecated:
+      The use of legacy WORKSPACE is deprecated. Please migrate to Bazel modules.
+      See [bzlmod.md](../bzlmod.md).
     """
+
+    # buildifier: disable=print
+    print("""
+WARNING: The use of legacy WORKSPACE is deprecated. Please migrate to Bazel modules.
+  For details, see build/kernel/kleaf/docs/bzlmod.md.
+""")
 
     if common_kernel_package == None:
         common_kernel_package = str(Label("//common:x")).removesuffix(":x")
@@ -146,6 +156,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
     )
 
     new_kleaf_local_repository(
+        name = "zlib",
+        path = "external/zlib",
+        build_file = "build/kernel/kleaf/zlib.BUILD",
+    )
+
+    new_kleaf_local_repository(
         name = "zopfli",
         path = "external/zopfli",
         build_file = "build/kernel/kleaf/zopfli.BUILD",
@@ -165,10 +181,12 @@ WARNING: define_kleaf_workspace() should be called with common_kernel_package={}
         },
     )
 
-    for repo_name in CI_TARGET_MAPPING:
+    for target, value in CI_TARGET_MAPPING.items():
         kernel_prebuilt_repo(
-            name = repo_name,
+            name = value["repo_name"],
+            apparent_name = value["repo_name"],
             artifact_url_fmt = artifact_url_fmt,
+            target = target,
         )
 
     maybe(

@@ -16,16 +16,6 @@
 
 visibility("//build/kernel/kleaf/...")
 
-TOOLCHAIN_VERSION_FILENAME = "toolchain_version"
-
-# The suffix of the file in the default outputs of kernel_build that stores
-# the list of `module_outs` for that kernel_build.
-MODULE_OUTS_FILE_SUFFIX = "_modules"
-
-# The output group of the file of a kernel_build that stores
-# the list of `module_outs` for that kernel_build.
-MODULE_OUTS_FILE_OUTPUT_GROUP = "module_outs_file"
-
 # List of images produced by non-x86 kernels.
 DEFAULT_IMAGES = [
     "Image",
@@ -51,3 +41,10 @@ SYSTEM_DLKM_COMMON_OUTS = [
 MODULES_STAGING_ARCHIVE = "modules_staging_dir.tar.gz"
 
 MODULE_ENV_ARCHIVE_SUFFIX = "_module_env.tar.gz"
+
+UNSTRIPPED_MODULES_ARCHIVE = "unstripped_modules.tar.gz"
+
+# Archive emitted by kernel_build that contains the kernel_filegroup
+# definition and extra files.
+FILEGROUP_DEF_BUILD_FRAGMENT_NAME = "filegroup_decl_build_frag.txt"
+FILEGROUP_DEF_ARCHIVE_SUFFIX = "_filegroup_decl.tar.gz"

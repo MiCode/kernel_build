@@ -53,7 +53,7 @@ def _get_base_kernel(ctx):
         return None
     return ctx.attr.base_kernel
 
-def _get_base_kernel_for_module_outs(ctx):
+def _get_base_kernel_for_module_names(ctx):
     """Returns base_kernel for getting the list of module_outs in the base kernel (GKI modules)."""
 
     # base_kernel_for_module_outs ignores _force_ignore_base_kernel
@@ -69,6 +69,6 @@ base_kernel_utils = struct(
     config_settings_raw = _base_kernel_config_settings_raw,
     non_config_attrs = _base_kernel_non_config_attrs,
     get_base_kernel = _get_base_kernel,
-    get_base_kernel_for_module_outs = _get_base_kernel_for_module_outs,
+    get_base_kernel_for_module_names = _get_base_kernel_for_module_names,
     get_base_modules_staging_archive = _get_base_modules_staging_archive,
 )

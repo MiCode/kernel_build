@@ -15,6 +15,7 @@
 """Source-able build environment for kernel build."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@kernel_toolchain_info//:dict.bzl", "VARS")
@@ -111,6 +112,11 @@ def _get_make_goals_deprecation_warning(ctx):
     )
     return msg
 
+def _get_kconfig_werror_setup(ctx):
+    if not ctx.attr._kconfig_werror[BuildSettingInfo].value:
+        return ""
+    return "export KCONFIG_WERROR=1"
+
 def _kernel_env_impl(ctx):
     srcs = [
         s
@@ -197,6 +203,8 @@ def _kernel_env_impl(ctx):
     make_goals = _get_make_goals(ctx)
     make_goals_deprecation_warning = _get_make_goals_deprecation_warning(ctx)
 
+    kconfig_werror_setup = _get_kconfig_werror_setup(ctx)
+
     if ctx.attr._rust_tools:
         rustc = utils.find_file("rustc", ctx.files._rust_tools, "rust tools", required = True)
         bindgen = utils.find_file("bindgen", ctx.files._rust_tools, "rust tools", required = True)
@@ -215,6 +223,12 @@ def _kernel_env_impl(ctx):
     ctx.actions.write(post_env_script, env_setup_cmds.post_env)
     inputs += [pre_env_script, post_env_script]
 
+    kleaf_repo_workspace_root = Label(":kernel_env.bzl").workspace_root
+    if kleaf_repo_workspace_root:
+        bin_dir_and_workspace_root = paths.join(ctx.bin_dir.path, kleaf_repo_workspace_root)
+    else:
+        bin_dir_and_workspace_root = ctx.bin_dir.path
+
     command += """
         # create a build environment
           source {build_utils_sh}
@@ -226,6 +240,8 @@ def _kernel_env_impl(ctx):
           {toolchains_setup_env_var_cmd}
         # TODO(b/236012223) Remove the warning after deprecation.
           {make_goals_deprecation_warning}
+        # Enforce check configs.
+          {kconfig_werror_setup}
         # Identify the build user as 'kleaf' to recognize a kleaf-built kernel
           export KBUILD_BUILD_USER=kleaf
         # Add a comment with config_tags for debugging
@@ -248,8 +264,9 @@ def _kernel_env_impl(ctx):
             sed "s|${{PWD}}|\\$PWD|g" | \\
             # Drop reference to bin_dir and replace with variable;
             # Replace $PWD/<not out> with $KLEAF_REPO_DIR/$1
-            sed "s|\\$PWD/{bin_dir}|\\$PWD/\\$KLEAF_BIN_DIR|g" | \\
-            sed "s|{bin_dir}|\\$KLEAF_BIN_DIR|g" | \\
+            sed "s|\\$PWD/{hermetic_base}|\\$PWD/\\$KLEAF_HERMETIC_BASE|g" | \\
+            sed "s|\\$PWD/{bin_dir_and_workspace_root}|\\$PWD/\\$KLEAF_BIN_DIR_AND_WORKSPACE_ROOT|g" | \\
+            sed "s|{bin_dir_and_workspace_root}|\\$KLEAF_BIN_DIR_AND_WORKSPACE_ROOT|g" | \\
             # List of packages that //build/kernel/... depends on. This excludes
             # external/ because they are in different Bazel repositories.
             sed "s|\\$PWD/build|\\$KLEAF_REPO_DIR/build|g" | \\
@@ -267,11 +284,13 @@ def _kernel_env_impl(ctx):
         check_arch_cmd = _get_check_arch_cmd(ctx),
         toolchains_setup_env_var_cmd = toolchains.setup_env_var_cmd,
         make_goals_deprecation_warning = make_goals_deprecation_warning,
+        kconfig_werror_setup = kconfig_werror_setup,
         out = out_file.path,
         config_tags_comment_file = config_tags_out.env.path,
         pre_env_script = pre_env_script.path,
         post_env_script = post_env_script.path,
-        bin_dir = ctx.bin_dir.path,
+        hermetic_base = hermetic_tools.internal_hermetic_base,
+        bin_dir_and_workspace_root = bin_dir_and_workspace_root,
     )
 
     progress_message_note = kernel_config_settings.get_progress_message_note(ctx, defconfig_fragments)
@@ -286,14 +305,10 @@ def _kernel_env_impl(ctx):
         command = command,
     )
 
-    setup = hermetic_tools.setup
-    setup += """
-        source {build_utils_sh}
-        # source the build environment
-        source {env}
-    """.format(
-        build_utils_sh = ctx.file._build_utils_sh.path,
-        env = out_file.path,
+    setup = get_env_info_setup_command(
+        hermetic_tools_setup = hermetic_tools.setup,
+        build_utils_sh = ctx.file._build_utils_sh,
+        env_setup_script = out_file,
     )
 
     setup_tools = [
@@ -337,25 +352,59 @@ def _kernel_env_impl(ctx):
         DefaultInfo(files = depset([out_file])),
     ]
 
+def get_env_info_setup_command(hermetic_tools_setup, build_utils_sh, env_setup_script):
+    """Returns text for KernelEnvInfo.setup"""
+
+    return """
+        {hermetic_tools_setup}
+        source {build_utils_sh}
+        # source the build environment
+        source {env_setup_script}
+    """.format(
+        hermetic_tools_setup = hermetic_tools_setup,
+        build_utils_sh = build_utils_sh.path,
+        env_setup_script = env_setup_script.path,
+    )
+
 def _get_env_setup_cmds(ctx):
+    hermetic_tools = hermetic_toolchain.get(ctx)
+
     pre_env = ""
     if ctx.attr._debug_annotate_scripts[BuildSettingInfo].value:
         pre_env += debug.trap()
 
+    kleaf_repo_workspace_root = Label(":kernel_env.bzl").workspace_root
+    kleaf_repo_workspace_root_slash = (kleaf_repo_workspace_root + "/") if kleaf_repo_workspace_root else ""
+
     pre_env += """
         # KLEAF_REPO_WORKSPACE_ROOT: workspace_root of the Kleaf repository. See Label.workspace_root.
-        # This should either be an empty string or (usually) external/kleaf.
-        # This needs to be defined by the user.
+        # This should be:
+        # - Either an empty string if @kleaf is the root module;
+        # - or external/kleaf (or some variations of it) if @kleaf is a dependent module
+        # This may be overridden by kernel_filegroup.
+        KLEAF_REPO_WORKSPACE_ROOT=${{KLEAF_REPO_WORKSPACE_ROOT:-{kleaf_repo_workspace_root}}}
+
+        # hermetic_base for hermetic tools, relative to execroot. This is
+        # handled separately from bin_dir because hermetic_tools has a transition
+        # attached to it.
+        KLEAF_HERMETIC_BASE=${{KLEAF_HERMETIC_BASE:-{hermetic_base}}}
 
         # bin_dir for Kleaf repository, relative to execroot
-        #  This is either bazel-out/k8-fastbuild/bin or bazel-out/k8-fastbuild/bin/external/kleaf.
-        KLEAF_BIN_DIR="{bin_dir}${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
+        # This is:
+        # - either bazel-out/k8-fastbuild/bin if @kleaf is the root module;
+        # - or bazel-out/k8-fastbuild/bin/external/kleaf (or some variations of it)
+        #   if @kleaf is a dependent module
+        KLEAF_BIN_DIR_AND_WORKSPACE_ROOT="{bin_dir}${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
 
         # Root of Kleaf repository (under execroot aka PWD)
-        #  This is either $PWD or $PWD/external/kleaf.
+        # This is:
+        # - either $PWD if @kleaf is the root module
+        # - or $PWD/external/kleaf (or some variations of it) if @kleaf is a dependent module
         KLEAF_REPO_DIR="$PWD${{KLEAF_REPO_WORKSPACE_ROOT:+/$KLEAF_REPO_WORKSPACE_ROOT}}"
     """.format(
+        hermetic_base = hermetic_tools.internal_hermetic_base,
         bin_dir = ctx.bin_dir.path,
+        kleaf_repo_workspace_root = kleaf_repo_workspace_root,
     )
 
     post_env = """
@@ -367,6 +416,11 @@ def _get_env_setup_cmds(ctx):
             else
                 nproc
             fi
+        ) $(
+            keep_going="$({get_make_keep_going_cmd})"
+            if [[ "$keep_going" == "true" ]]; then
+                echo "--keep_going"
+            fi
         )"
         # setup LD_LIBRARY_PATH for prebuilts
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ROOT_DIR}}/{linux_x86_libs_path}
@@ -377,16 +431,44 @@ def _get_env_setup_cmds(ctx):
         if [ -n "${{DTSTREE_MAKEFILE}}" ]; then
             export dtstree=$(realpath -s $(dirname ${{DTSTREE_MAKEFILE}}) --relative-to ${{ROOT_DIR}}/${{KERNEL_DIR}})
         fi
-        # Set up KCPPFLAGS
+
+        # Redeclare KERNEL_DIR to be under $KLEAF_REPO_WORKSPACE_ROOT.
+        if [ -n "${{KLEAF_REPO_WORKSPACE_ROOT}}" ]; then
+            export KERNEL_DIR=${{KLEAF_REPO_WORKSPACE_ROOT:+$KLEAF_REPO_WORKSPACE_ROOT/}}${{KERNEL_DIR#{kleaf_repo_workspace_root_slash}}}
+        fi
+
+        ## Set up KCPPFLAGS and KCPPFLAGS_COMPAT
+
+        # Replace ${{ROOT_DIR}} with "/proc/self/cwd" in the file name
+        # references in the binaries (e.g. debug info).
+        # "/proc/self/cwd" is an absolute path that resolves to a directory
+        # where debugger runs. And ${{ROOT_DIR}} layout should be the same as
+        # layout on the top of the repo, so if you start a debugger from the
+        # top directory, all paths should resolve correctly even on another
+        # machine.
+        export KCPPFLAGS="-ffile-prefix-map=${{ROOT_DIR}}=/proc/self/cwd"
+
         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
         # workspace root, making $abs_srctree not under $ROOT_DIR.
+        # Because compiler puts a real path to a binary, it should be a real
+        # path in -ffile-prefix-map. Also we would like to leave
+        # ${{KERNEL_DIR}} part in the path to be able to run debugger from the
+        # top directory, so we go one directory up from
+        # ${{ROOT_DIR}}/${{KERNEL_DIR}} before calling realpath.
         if [[ "$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})" != "${{ROOT_DIR}}/${{KERNEL_DIR}}" ]]; then
-            export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}})/="
+            export KCPPFLAGS="$KCPPFLAGS -ffile-prefix-map=$(realpath ${{ROOT_DIR}}/${{KERNEL_DIR}}/..)=/proc/self/cwd"
         fi
+        export KCPPFLAGS_COMPAT="$KCPPFLAGS"
+
+        # Set libclang.so location for use by bindgen for Rust
+        LIBCLANG_PATH=$(dirname $(which clang))/../lib
+        export LIBCLANG_PATH
     """.format(
         get_make_jobs_cmd = status.get_volatile_status_cmd(ctx, "MAKE_JOBS"),
+        get_make_keep_going_cmd = status.get_volatile_status_cmd(ctx, "MAKE_KEEP_GOING"),
         linux_x86_libs_path = ctx.files._linux_x86_libs[0].dirname,
+        kleaf_repo_workspace_root_slash = kleaf_repo_workspace_root_slash,
     )
     return struct(
         pre_env = pre_env,

@@ -138,6 +138,11 @@ if [[ "$SUBJECT" =~ ^UPSTREAM|^BACKPORT|^FROMGIT ]]; then
   exit 0
 fi
 
+if [[ "$SUBJECT" =~ ^Revert|^Reapply ]]; then
+  echo "Not linting revert/reapply patches for "${DIR}". Skipping this check."
+  exit 0
+fi
+
 # Now run checkpatch.pl on DIR: GIT_SHA1
 # Below is the equivalent of build/kernel/static_analysis/checkpatch.sh
 
@@ -178,6 +183,14 @@ echo "========================================================" >> "${MY_RESULTS
 echo "${DIR}: ${GIT_SHA1}" >> "${MY_RESULTS_PATH}"
 echo "========================================================" >> "${MY_RESULTS_PATH}"
 
+# TODO: b/199237323 - Run with --no-tree option for now to avoid spdxcheck.py
+#                     failures. A better fix would be to remove spdxcheck.py.
+CHECKPATCH_ARGS+=(--no-tree)
+
+# Run with --noshowfile option to ensure consistent output in cases where
+# --showfile is present in a .checkpatch.conf file.
+CHECKPATCH_ARGS+=(--noshowfile)
+
 # Delay exit on non-zero checkpatch.pl return code so we can finish logging.
 
 # Note, it's tricky to ignore this exit code completely and instead return only
@@ -207,6 +220,13 @@ if [[ $CHECKPATCH_RC -ne 0 ]]; then
   echo "" >&2
   echo "See ${MY_RESULTS_PATH} for complete output." >&2
   CLEANUP_CHECKPATCH_RESULTS=0
+fi
+
+# Suppress checkpatch errors if Ignore-Checkpatch: is in commit message.
+if "${GIT}" -C "${ABS_DIR}" log --format="%B" -1 ${GIT_SHA1} | \
+   grep -q "^Ignore-Checkpatch:\s*\S\+"; then
+  echo "Suppressing checkpatch errors due to \"Ignore-Checkpatch:\"".
+  CHECKPATCH_RC=0
 fi
 
 # Append my results to --log

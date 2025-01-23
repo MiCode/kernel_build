@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# When a directory created dy ctx.actions.declare_directory is referred to
-# in a sandbox, if it is empty, or a subdirectory of it is empty, the empty
-# directory won't be created in the sandbox.
-# These functions resolve the problem by also recording the directory structure
-# in a text file.
+"""
+When a directory created dy ctx.actions.declare_directory is referred to
+in a sandbox, if it is empty, or a subdirectory of it is empty, the empty
+directory won't be created in the sandbox.
+These functions resolve the problem by also recording the directory structure
+in a text file.
+"""
 
 def _make(ctx, filename):
     """The replacement of [ctx.actions.declare_directory](https://bazel.build/rules/lib/actions#declare_directory) that also preserves empty directories.
@@ -28,6 +30,7 @@ def _make(ctx, filename):
           directory structure.
 
     Args:
+        ctx: ctx
         filename: See [ctx.actions.declare_directory](https://bazel.build/rules/lib/actions#declare_directory).
     """
     directory = ctx.actions.declare_directory(filename)
@@ -37,10 +40,10 @@ def _make(ctx, filename):
 def _record(directory_with_structure):
     """Return a command that records the directory structure to the `structure_file`.
 
-    It is expected that the shell has properly set up [hermetic tools](#hermetic_tools).
+    It is expected that the shell has properly set up [hermetic tools](hermetic_tools.md#hermetic_tools).
 
     Args:
-        directory_with_structure: struct returned by `[directory_with_structure.declare](#directory_with_structuredeclare)`.
+        directory_with_structure: struct returned by [`directory_with_structure.declare`](#directory_with_structuredeclare).
     """
     return """
         mkdir -p {structure_file_dir}
@@ -69,11 +72,11 @@ def _restore(
         options = None):
     """Return a command that restores a `directory_with_structure`.
 
-    It is expected that the shell has properly set up [hermetic tools](#hermetic_tools).
+    It is expected that the shell has properly set up [hermetic tools](hermetic_tools.md#hermetic_tools).
 
     Args:
         directory_with_structure: struct returned by `declare_directory_with_structure`.
-        dest: a string containing the path to the destination directory.
+        dst: a string containing the path to the destination directory.
         options: a string containing options to `rsync`. If `None`, default to `"-a"`.
     """
 

@@ -37,16 +37,24 @@ in the repository.
 Either:
 
 - repo is installed on the host machine
-- The git repository defining the `kernel_build()` is managed by a repo manifest
+- The git repository defining the `kernel_build()` is below a `repo` reository.
 
 Or:
 
 - A `manifest.xml` file is generated in advance with
-  `repo manifest -r`, then provided to
-  Bazel with `bazel build --repo_manifest=$(realpath <manifest.xml>)`.
+  `repo manifest -r`, then provided to Bazel with
+  `tools/bazel build --repo_manifest=$(realpath <repo root>):$(realpath <manifest.xml>)`.
+
+The `<repo root>` should be the root of the `repo` repository where `.repo`
+resides.
 
 The `manifest.xml` file is needed by the build system when `repo` is not available
 in the build environment. This is uncommon.
+
+Extra git projects not listed in the repo manifest may be provided via
+`--extra_git_project`. Multiple uses are accumulated. This may be useful if
+you have symlinks to Git projects in your repository that does not show up
+as a `<project>` element in the repo manifest.
 
 ### `setlocalversion` requirements
 
@@ -100,6 +108,88 @@ check the following.
   see [testing.md#external-kernel_module](testing.md#external-kernel_module).
 - `modinfo -F scmversion <modulename>.ko`
 - Boot the device, and check `/sys/module/<MODULENAME>/scmversion`.
+
+## Examples
+
+### Simple Example
+
+Suppose you have the following directory structure, with no symlinks to Git
+projects, and the repo root is the Bazel workspace root:
+
+```
+repo_root
+  |- .repo
+  |- tools/bazel
+  |- MODULE.bazel
+  |- common
+  |  `- BUILD.bazel (defines :kernel_aarch64)
+  `- mydevice
+     `- BUILD.bazel (defines :mydevice_dist that depends on //common:kernel_aarch64)
+```
+
+If `repo` is installed in the build environment, run
+
+```
+cd repo_root && \
+tools/bazel run --config=stamp //mydevice:mydevice_dist
+```
+
+If `repo` is not installed in the isolated build environment:
+1.  Outside the isolated build environment, prepare repo manifest by running
+    ```
+    cd repo_root && repo manifest -r > out/manifest.xml
+    ```
+2.  Inside the isolated build environment, run
+    ```
+    cd repo_root && \
+    tools/bazel run \
+        --repo_manifest $(realpath .):$(realpath out/manifest.xml) \
+        --config=stamp //mydevice:mydevice_dist
+    ```
+
+### Advanced Example
+
+Suppose you have the following directory structure, with symlinks to Git
+projects, and the repo root is not the same as the Bazel workspace root:
+
+```
+repo_root
+  |- .repo
+  `- kernel_srctree
+      |- tools/bazel
+      |- MODULE.bazel
+      |- kernel-next
+      |  `- BUILD.bazel (defines :kernel_aarch64)
+      |- common (symlink to kernel-next)
+      |- mydevice-next
+      |  `- BUILD.bazel (defines :mydevice_dist that depends on //common:kernel_aarch64)
+      `- mydevice (symlink to mydevice-next)
+```
+
+If `repo` is installed in the build environment, run
+
+```
+cd repo_root/kernel_srctree && \
+tools/bazel run \
+    --extra_git_project common \
+    --extra_git_project mydevice \
+    --config=stamp //mydevice:mydevice_dist
+```
+
+If `repo` is not installed in the isolated build environment:
+1.  Outside the isolated build environment, prepare repo manifest by running
+    ```
+    cd repo_root && repo manifest -r > out/manifest.xml
+    ```
+2.  Inside the isolated build environment, run
+    ```
+    cd repo_root/kernel_srctree && \
+    tools/bazel run \
+        --extra_git_project common \
+        --extra_git_project mydevice \
+        --repo_manifest $(realpath .):$(realpath out/manifest.xml) \
+        --config=stamp //mydevice:mydevice_dist
+    ```
 
 ## Deprecated: `.source_date_epoch_dir` and `build.config`
 

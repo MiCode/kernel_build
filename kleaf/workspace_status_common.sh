@@ -19,3 +19,7 @@
 if [[ -n "$KLEAF_MAKE_JOBS" ]]; then
   echo "MAKE_JOBS $KLEAF_MAKE_JOBS"
 fi
+
+if [[ "$KLEAF_MAKE_KEEP_GOING" == "true" ]]; then
+  echo "MAKE_KEEP_GOING true"
+fi

@@ -77,13 +77,28 @@ of `//common:kernel_aarch64`, which is `common/android/abi_gki_aarch64.stg`. The
 exit code reflects whether an ABI change is detected in the comparison, just
 like `build_abi.sh --update`.
 
-Running the script with `--commit` creates a git commit with
-pre-filled message. For example:
+Running the script with `--print_git_commands` prints git commands you
+may run to create a commit with pre-filled message. For example:
 
 ```shell
-# -- is needed before --commit to pass the argument to the script.
-$ tools/bazel run //common:kernel_aarch64_abi_update -- --commit
+# -- is needed before --print_git_commands to pass the argument to the script.
+$ tools/bazel run //common:kernel_aarch64_abi_update -- --print_git_commands
 ```
+
+Example output:
+
+```
+$ tools/bazel run //common:kernel_aarch64_abi_update -- --print_git_commands
+[...]
+INFO: Running command line: bazel-bin/common/kernel_aarch64_abi_update.sh --print_git_commands
+  git -C /path/to/common/android commit \
+    -F /path/to/bazel-out/k8-fastbuild/bin/common/kernel_aarch64_abi_diff/git_message.txt \
+    --signoff --edit -- abi_gki_aarch64.stg
+```
+
+**NOTE**: The printed command (especially the path to git_message.txt) may
+occasionally change. Always run with `--print_git_commands` to get the current
+command for your source tree.
 
 The command brings up your pre-configured text editor for git to edit the
 commit message. You may edit the subject line, add additional message, and add

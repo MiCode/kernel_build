@@ -12,20 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Hacks for running `py_binary` in custom rules."""
+cc_library(
+    name = "liblz4",
+    srcs = glob([
+        "lib/*.c",
+    ]),
+    hdrs = glob([
+        "lib/*.h",
+    ]),
+    copts = ["-O3"],
+    includes = ["lib"],
+    textual_hdrs = ["lib/lz4.c"],
+)
 
-def run_py_binary_cmd(test_binary):
-    """Returns a cmd that runs `test_binary` with $@.
-
-    Args:
-        test_binary: label to a `py_binary`.
-    """
-
-    # https://github.com/bazelbuild/bazel/issues/20038
-    # HACK: py_binary puts multiple File's in DefaultInfo, including the
-    # source files. Only filter the one with executable bit.
-    return """
-        $(find $(rootpaths {test_binary}) $(rootpaths {test_binary}) -executable | head -n1) "$@"
-    """.format(
-        test_binary = test_binary,
-    )
+cc_binary(
+    name = "lz4",
+    srcs = glob([
+        "programs/*.c",
+        "programs/*.h",
+    ]),
+    copts = ["-O3"],
+    visibility = ["//visibility:public"],
+    deps = [":liblz4"],
+)

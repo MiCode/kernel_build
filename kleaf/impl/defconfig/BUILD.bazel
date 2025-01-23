@@ -22,6 +22,7 @@ exports_files([
     "arm64_64k_defconfig",
     "btf_debug_info_disabled_defconfig",
     "btf_debug_info_enabled_defconfig",
+    "gki_module_protection_disabled_defconfig",
 ])
 
 [[
@@ -64,6 +65,15 @@ filegroup(
     name = "rust",
     srcs = select({
         "//build/kernel/kleaf:rust_is_enabled": ["rust_defconfig"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "zstd_dwarf_compression",
+    srcs = select({
+        "//build/kernel/kleaf:zstd_dwarf_compression_is_disabled": ["zstd_dwarf_compression_disabled_defconfig"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
@@ -161,5 +171,14 @@ fail_action(
 filegroup(
     name = "signing_modules_disabled",
     srcs = ["signing_modules_disabled_defconfig"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "gcov",
+    srcs = select({
+        "//build/kernel/kleaf:gcov_is_true": ["gcov_defconfig"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )

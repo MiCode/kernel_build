@@ -14,34 +14,69 @@
 
 """A genrule that uses hermetic tools."""
 
+load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelEnvToolchainsInfo")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
 
+def _attrs():
+    return {
+        "_toolchains": attr.label(
+            default = "//build/kernel/kleaf/impl:kernel_toolchains",
+            providers = [KernelEnvToolchainsInfo],
+            cfg = "exec",
+        ),
+        "use_cc_toolchain": attr.bool(
+            doc = "When set to `True` resolved CC toolchain is accessible from the genrule.",
+        ),
+    }
+
+def _get_toolchains(ctx):
+    return ctx.attr._toolchains[KernelEnvToolchainsInfo]
+
 def _hermetic_genrule_toolchain_setup_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
     setup_sh = ctx.actions.declare_file("{}/setup.sh".format(ctx.label.name))
-    ctx.actions.write(setup_sh, hermetic_tools.setup, is_executable = True)
+    setup_cmd = hermetic_tools.setup
+
+    if ctx.attr.use_cc_toolchain:
+        toolchains = _get_toolchains(ctx)
+        setup_cmd += toolchains.setup_env_var_cmd
+
+    ctx.actions.write(
+        setup_sh,
+        setup_cmd,
+        is_executable = True,
+    )
     return DefaultInfo(files = depset([setup_sh]))
 
 _hermetic_genrule_toolchain_setup = rule(
     implementation = _hermetic_genrule_toolchain_setup_impl,
     toolchains = [hermetic_toolchain.type],
+    attrs = _attrs(),
 )
 
 def _hermetic_genrule_toolchain_deps_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
-    return DefaultInfo(files = hermetic_tools.deps)
+    if ctx.attr.use_cc_toolchain:
+        toolchains = _get_toolchains(ctx)
+        return DefaultInfo(files = depset(
+            hermetic_tools.deps.to_list() + toolchains.all_files.to_list(),
+        ))
+    else:
+        return DefaultInfo(files = hermetic_tools.deps)
 
 _hermetic_genrule_toolchain_deps = rule(
     implementation = _hermetic_genrule_toolchain_deps_impl,
     toolchains = [hermetic_toolchain.type],
+    attrs = _attrs(),
 )
 
 def hermetic_genrule(
         name,
         cmd,
         tools = None,
+        use_cc_toolchain = None,
         **kwargs):
     """A genrule that uses hermetic tools.
 
@@ -55,6 +90,7 @@ def hermetic_genrule(
         name: name of the target
         cmd: See [genrule.cmd](https://bazel.build/reference/be/general#genrule.cmd)
         tools: See [genrule.tools](https://bazel.build/reference/be/general#genrule.tools)
+        use_cc_toolchain: When set to `True` resolved CC toolchain is accessible from the genrule.
         **kwargs: See [genrule](https://bazel.build/reference/be/general#genrule)
     """
 
@@ -63,10 +99,12 @@ def hermetic_genrule(
     # repository.
     _hermetic_genrule_toolchain_setup(
         name = name + "_hermetic_genrule_toolchain_setup",
+        use_cc_toolchain = use_cc_toolchain,
     )
 
     _hermetic_genrule_toolchain_deps(
         name = name + "_hermetic_genrule_toolchain_deps",
+        use_cc_toolchain = use_cc_toolchain,
     )
 
     if tools == None:

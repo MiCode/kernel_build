@@ -1,0 +1,12 @@
+out
+bazel-*
+MODULE.bazel.lock
+
+# Generated files by init_ddk.py
+device.bazelrc
+MODULE.bazel
+tools
+external/kleaf/
+gki_prebuilts
+WORKSPACE.bzlmod
+.repo

@@ -25,13 +25,12 @@ load(
     "DdkConfigInfo",
     "DdkSubmoduleInfo",
     "KernelBuildExtModuleInfo",
-    "KernelBuildInfo",
-    "KernelEnvAndOutputsInfo",
     "KernelImagesInfo",
     "KernelModuleDepInfo",
     "KernelModuleInfo",
     "KernelModuleKernelBuildInfo",
     "KernelModuleSetupInfo",
+    "KernelSerializedEnvInfo",
     "ModuleSymversInfo",
 )
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
@@ -184,8 +183,8 @@ def _get_check_sandbox_cmd():
     Note: This is not always accurate."""
 
     return """
-           if [[ ! $PWD =~ /(sandbox|bazel-working-directory)/ ]]; then
-             echo "FATAL: this action must be executed in a sandbox!" >&2
+           if [[ ! $PWD =~ /(sandbox|bazel-working-directory|linux-sandbox|processwrapper-sandbox)/ ]]; then
+             echo "FATAL: this action must be executed in a sandbox! Actual: $PWD" >&2
              exit 1
            fi
     """
@@ -315,8 +314,7 @@ def _create_kernel_module_kernel_build_info(kernel_build):
         ext_module_info = kernel_build[KernelBuildExtModuleInfo],
         # TODO(b/308492731): Implement the following for kernel_filegroup
         #   in order to build images
-        env_and_outputs_info = kernel_build[KernelEnvAndOutputsInfo] if KernelEnvAndOutputsInfo in kernel_build else None,
-        kernel_build_info = kernel_build[KernelBuildInfo] if KernelBuildInfo in kernel_build else None,
+        serialized_env_info = kernel_build[KernelSerializedEnvInfo] if KernelSerializedEnvInfo in kernel_build else None,
         images_info = kernel_build[KernelImagesInfo] if KernelImagesInfo in kernel_build else None,
     )
 

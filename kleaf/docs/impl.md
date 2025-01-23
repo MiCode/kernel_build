@@ -5,27 +5,14 @@ You may view the documentation for the following Bazel rules and macros on
 Android Continuous Integration. See
 [API Reference and Documentation for all rules](api_reference.md).
 
-## Manifest changes
+## Setting up the workspace
 
-Make the following changes to the kernel manifest to support Bazel build.
-
-* Add `tools/bazel` symlink to `build/kernel/kleaf/bazel.sh`
-* Add `WORKSPACE` symlink to `build/kernel/kleaf/bazel.WORKSPACE`
-  * See [workspace.md](workspace.md) for building with a custom workspace.
-* Dependent repositories for Bazel, including:
-    * [prebuilts/bazel/linux-x86\_64](https://android.googlesource.com/platform/prebuilts/bazel/linux-x86_64/)
-    * [prebuilts/jdk/jdk11](https://android.googlesource.com/platform/prebuilts/jdk/jdk11/)
-    * [build/bazel\_common\_rules](https://android.googlesource.com/platform/build/bazel_common_rules/)
-    * [external/bazel-skylib](https://android.googlesource.com/platform/external/bazel-skylib/)
-    * [external/stardoc](https://android.googlesource.com/platform/external/stardoc/)
-
-Example for Pixel 2021:
-
-[https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml](https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml)
-
-Example for Android Common Kernel and Cloud Android kernel:
-
-[https://android.googlesource.com/kernel/manifest/+/refs/heads/common-android-mainline/default.xml](https://android.googlesource.com/kernel/manifest/+/refs/heads/common-android-mainline/default.xml)
+* (Recommended) To use Kleaf tooling as a dependent Bazel module, see
+  [Setting up DDK workspace](ddk/workspace.md).
+* To use Kleaf tooling as the root Bazel module, see
+  [Use @kleaf as root module (legacy)](bzlmod.md#use-kleaf-as-root-module-legacy).
+* Building without Bzlmod is deprecated and will not be supported in
+  Android 16 and above.
 
 ## Building a custom kernel
 

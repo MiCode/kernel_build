@@ -19,22 +19,6 @@ module(
     version = "0.0.0",
 )
 
-# Superset of all tools we need from host.
-# For the subset of host tools we typically use for a kernel build,
-# see //build/kernel:hermetic-tools.
-kleaf_host_tools_ext = use_extension("//build/kernel/kleaf/impl:kleaf_host_tools_repo.bzl", "kleaf_host_tools_ext")
-kleaf_host_tools_ext.declare(
-    host_tools = [
-        "bash",
-        "perl",
-        "rsync",
-        "sh",
-        # For BTRFS (b/292212788)
-        "find",
-    ],
-)
-use_repo(kleaf_host_tools_ext, "kleaf_host_tools")
-
 new_kleaf_local_repository = use_repo_rule(
     "//build/kernel/kleaf/impl:local_repository.bzl",
     "new_kleaf_local_repository",
@@ -50,6 +34,24 @@ new_kleaf_local_repository(
     name = "libcap_ng",
     build_file = "build/kernel/kleaf/libcap_ng.BUILD",
     path = "external/libcap-ng",
+)
+
+new_kleaf_local_repository(
+    name = "lz4",
+    build_file = "build/kernel/kleaf/lz4.BUILD",
+    path = "external/lz4",
+)
+
+new_kleaf_local_repository(
+    name = "toybox",
+    build_file = "build/kernel/kleaf/toybox.BUILD",
+    path = "external/toybox",
+)
+
+new_kleaf_local_repository(
+    name = "zlib",
+    build_file = "build/kernel/kleaf/zlib.BUILD",
+    path = "external/zlib",
 )
 
 new_kleaf_local_repository(
@@ -70,10 +72,16 @@ new_kleaf_local_repository(
     path = "prebuilts/ndk-r26",
 )
 
-kernel_toolchain_ext = use_extension("//build:kernel_toolchain_ext.bzl", "kernel_toolchain_ext")
-kernel_toolchain_ext.install()
+new_kleaf_local_repository(
+    name = "dtc",
+    build_file = "msm-kernel/BUILD.dtc",
+    path = "external/dtc",
+)
+
+kernel_toolchain_ext = use_extension("//build/kernel/kleaf:kernel_toolchain_ext.bzl", "kernel_toolchain_ext")
 use_repo(kernel_toolchain_ext, "kernel_toolchain_info")
 use_repo(kernel_toolchain_ext, "kleaf_clang_toolchain")
+use_repo(kernel_toolchain_ext, "kleaf_host_tools")
 
 register_toolchains(
     "@kleaf_clang_toolchain//:all",
@@ -93,7 +101,7 @@ bazel_dep(
 )
 bazel_dep(
     name = "platforms",
-    version = "0.0.8",
+    version = "0.0.10",
 )
 bazel_dep(
     name = "rules_cc",
@@ -101,23 +109,12 @@ bazel_dep(
 )
 bazel_dep(
     name = "rules_pkg",
-    version = "0.9.1",
-)
-
-bazel_dep(
-    name = "rules_rust",
-    version = "0.39.0",
-)
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2021",
-    # If in a future we need to specify a version, keep it in sync with //prebuilts/rust/linux-x86/
-    # versions = ["1.70.2"],
+    version = "0.10.1",
 )
 
 bazel_dep(
     name = "stardoc",
-    version = "0.5.3",
+    version = "0.6.2",
     dev_dependency = True,
     repo_name = "io_bazel_stardoc",
 )
@@ -166,14 +163,3 @@ local_path_override(
     module_name = "rules_python",
     path = "external/bazelbuild-rules_python",
 )
-
-local_path_override(
-    module_name = "rules_rust",
-    path = "external/bazelbuild-rules_rust",
-)
-
-# TODO(b/276493276): Update stardoc to contain MODULE.bazel
-# local_path_override(
-#     module_name = "stardoc",
-#     path = "external/stardoc",
-# )

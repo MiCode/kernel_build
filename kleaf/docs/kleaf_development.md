@@ -2,14 +2,20 @@
 
 This documentation summarizes principles used in Kleaf development.
 
-### Style Guides
+## Style Guides
 
 * Follow [.bzl style guide](https://bazel.build/rules/bzl-style) for
   [Starlark](https://bazel.build/rules/language) files.
 * Follow [BUILD Style Guide](https://bazel.build/build/style-guide) for BUILD
   files.
 
-### Conventions
+For Python:
+* Use PEP 8 for formatting. Our team uses autopep8.
+* Use [.pylintrc](../../.pylintrc) for linting. The file is copied from
+  [https://google.github.io/styleguide/pylintrc](https://google.github.io/styleguide/pylintrc)
+  with indent size changed to 4 to follow PEP 8.
+
+## Conventions
 
 * Follow these [conventions](https://bazel.build/extending/macros#conventions)
   for Macros, in particular:
@@ -23,7 +29,7 @@ This documentation summarizes principles used in Kleaf development.
     and thus individual test names change as well. Continuous testing processes
     may be confused and show incomplete test histories because of name changes.
 
-#### "DAMP" BUILD.bazel files {#damp}
+### "DAMP" BUILD.bazel files {#damp}
 
 `BUILD.bazel` files should apply the "DAMP" (descriptive and meaningful
 phrases) rule, as opposed to the "DRY" (do not repeat yourself) rule that is
@@ -102,14 +108,14 @@ due to backwards compatibility of the API, they might not be completely
 - `define_common_kernels`
 - etc.
 
-### Performance
+## Performance
 
 * For performance optimizations follow the tips in
   [Optimizing Performance](https://bazel.build/rules/performance).
   * E.g. Use `depsets` instead of `lists`; `depsets` are a tree of objects that
   can be concatenated effortlessly.`lists` are concatenated by copying contents.
 
-#### Prefer depset over `ctx.files.X` in rules
+### Prefer depset over `ctx.files.X` in rules
 
 In general, in rule implementations, prefer depsets and avoid using `ctx.files.X`.
 
@@ -128,3 +134,29 @@ In general, in rule implementations, prefer depsets and avoid using `ctx.files.X
   implementation so it works with `depset`s.
 - `ctx.file.X` is okay to use because there's only a single file.
 
+## Updating external repositories
+
+Inside the kernel tree, run:
+
+```sh
+prebuilts/kernel-build-tools/linux-x86/bin/external_updater update <project_path> --no-build
+```
+
+Example:
+
+```sh
+prebuilts/kernel-build-tools/linux-x86/bin/external_updater update external/python/absl-py --no-build
+```
+
+Always prefer tags. For example, if you are prompted with:
+
+```
+Current version: v1.4.0
+Latest version: v2.1.0
+Alternative latest version: fae7e951d46011fdaf62685893ef4efd48544c0a
+Out of date!
+Would you like to upgrade to sha fae7e951d46011fdaf62685893ef4efd48544c0a instead of tag v2.1.0? (yes/no)
+We DO NOT recommend upgrading to sha fae7e951d46011fdaf62685893ef4efd48544c0a.
+```
+
+Enter "no" and proceed.

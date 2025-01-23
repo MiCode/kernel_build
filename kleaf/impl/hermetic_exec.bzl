@@ -14,7 +14,7 @@
 
 """An `exec` that uses hermetic tools."""
 
-load("//build/bazel_common_rules/exec:exec.bzl", "exec", "exec_test")
+load("//build/bazel_common_rules/exec/impl:exec.bzl", "exec", "exec_test")
 load("//build/kernel/kleaf/impl:hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")

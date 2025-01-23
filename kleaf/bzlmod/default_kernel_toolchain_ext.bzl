@@ -12,39 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Default content for `@kleaf//build:kernel_toolchain_ext.bzl` if the common
-package is checked out at `common/`. In this case, symlink this file to
-`build/kernel_toolchain_ext.bzl` under the `@kleaf` module.
+"""Deprecated. Use //build/kernel/kleaf:kernel_toolchain_ext.bzl directly."""
 
-Do not `load()` this extension directly. Instead, load
-`@kleaf//build:kernel_toolchain_ext.bzl`.
-
-If common package is checked out at a different location other than
-`common/` (e.g. at `aosp/`),
-the user must replace `@kleaf//build:kernel_toolchain_ext.bzl` with the following
-content:
-
-```
-load("//build/kernel/kleaf/bzlmod:make_kernel_toolchain_ext.bzl", "make_kernel_toolchain_ext")
-
-kernel_toolchain_ext = make_kernel_toolchain_ext(
-    toolchain_constants = "//aosp:build.config.constants",
-)
-```
-
-The above equivalent to `define_kleaf_workspace(common_kernel_package = "//aosp")`.
-
-Note: Under the directory of `@kleaf//build`, you also need a `BUILD.bazel`
-file to make this a package. If it does not already exist, you may create a
-symlink to `build/kernel/kleaf/bzlmod/empty_BUILD.bazel` in your repo manifest.
-"""
-
-# Not using relative label because this file is used as
-# //build:kernel_toolchain_ext.bzl
-load("//build/kernel/kleaf/bzlmod:make_kernel_toolchain_ext.bzl", "make_kernel_toolchain_ext")
-
-visibility("public")
-
-kernel_toolchain_ext = make_kernel_toolchain_ext(
-    toolchain_constants = "//common:build.config.constants",
-)
+fail("Use //build/kernel/kleaf:kernel_toolchain_ext.bzl directly.")

@@ -36,8 +36,12 @@ Example:
 """
 
 import argparse
+import collections
 import contextlib
+import dataclasses
 import hashlib
+import io
+import json
 import os
 import re
 import shlex
@@ -48,6 +52,7 @@ import pathlib
 import tempfile
 import textwrap
 import unittest
+import xml.dom.minidom
 from typing import Any, Callable, Iterable, TextIO
 
 from absl.testing import absltest
@@ -85,6 +90,20 @@ def load_arguments():
                         dest="include_abi_tests",
                         help="Include ABI Monitoring related tests." +
                         "NOTE: It requires a branch with ABI monitoring enabled.")
+    parser.add_argument("--mount-spec",
+                        type=_deserialize_mount_spec,
+                        help="""A JSON dictionary specifying bind mounts.
+
+                            If not set, some tests will re-run itself
+                            in an unshare-d namespace with the flag set.""",
+                        default=MountSpec())
+    parser.add_argument("--link-spec",
+                        type=_deserialize_link_spec,
+                        help="""A JSON dictionary specifying symlinks.
+
+                            If not set, some tests will re-run itself
+                            with the flag set.""",
+                        default=LinkSpec())
     group = parser.add_argument_group("CI", "flags for ci.android.com")
     group.add_argument("--test_result_dir",
                        type=_require_absolute_path,
@@ -105,6 +124,69 @@ def _require_absolute_path(p: str) -> pathlib.Path:
     return path
 
 
+MountSpec = collections.OrderedDict[pathlib.Path, pathlib.Path]
+
+
+def _serialize_mount_spec(val: MountSpec) -> str:
+    return json.dumps([[str(key), str(value)] for key, value in val.items()])
+
+
+def _deserialize_mount_spec(s: str) -> MountSpec:
+    return MountSpec((pathlib.Path(key), pathlib.Path(value))
+                     for key, value in json.loads(s))
+
+
+@dataclasses.dataclass
+class Link:
+    # Value in repo manifest. Relative against repo root.
+    dest: pathlib.Path
+
+    # Unlike the value in repo manifest, this is relative against repo root
+    # not project path.
+    src: pathlib.Path
+
+    @classmethod
+    def from_element(cls, element: xml.dom.minidom.Element,
+                     project_path: pathlib.Path) -> "Link":
+        return cls(dest=pathlib.Path(element.getAttribute("dest")),
+                   src=project_path / element.getAttribute("src"))
+
+
+LinkSpec = list[Link]
+
+
+def _serialize_link_spec(links: LinkSpec) -> str:
+    return json.dumps([{"dest": str(link.dest), "src": str(link.src)}
+                       for link in links])
+
+
+def _deserialize_link_spec(s: str) -> LinkSpec:
+    return [Link(dest=pathlib.Path(obj["dest"]), src=pathlib.Path(obj["src"]))
+            for obj in json.loads(s)]
+
+
+@dataclasses.dataclass
+class RepoProject:
+    # Project path
+    path: pathlib.Path
+
+    # List of symlinks to create
+    links: list[Link] = dataclasses.field(default_factory=list)
+
+    # List of groups
+    groups: list[str] = dataclasses.field(default_factory=list)
+
+    @classmethod
+    def from_element(cls, element: xml.dom.minidom.Element) -> "RepoProject":
+        path = pathlib.Path(
+                element.getAttribute("path") or element.getAttribute("name"))
+        project = cls(path=path)
+        for link_element in element.getElementsByTagName("linkfile"):
+            project.links.append(Link.from_element(link_element, path))
+        project.groups = re.split(r",| ", element.getAttribute("groups"))
+        return project
+
+
 class Exec(object):
 
     @staticmethod
@@ -113,6 +195,13 @@ class Exec(object):
         kwargs.setdefault("text", True)
         sys.stderr.write(f"+ {' '.join(args)}\n")
         subprocess.check_call(args, **kwargs)
+
+    @staticmethod
+    def call(args: list[str], **kwargs) -> None:
+        """Executes a shell command."""
+        kwargs.setdefault("text", True)
+        sys.stderr.write(f"+ {' '.join(args)}\n")
+        subprocess.call(args, **kwargs)
 
     @staticmethod
     def check_output(args: list[str], **kwargs) -> str:
@@ -144,62 +233,57 @@ class Exec(object):
 
 class KleafIntegrationTestBase(unittest.TestCase):
 
-    def _check_call(self,
-                    command: str,
-                    command_args: list[str],
-                    startup_options=(),
-                    **kwargs) -> None:
+    def _build_subprocess_args(
+        self,
+        command: str,
+        command_args: Iterable[str] = (),
+        use_bazelrc=True,
+        startup_options=(),
+        use_wrapper_args=True,
+        **kwargs,
+    ) -> tuple[list[str], dict[str, Any]]:
+        """Builds subprocess arguments."""
+        subprocess_args = [str(_BAZEL)]
+        subprocess_args.extend(startup_options)
+        if use_bazelrc:
+            subprocess_args.append(f"--bazelrc={self._bazel_rc.name}")
+        subprocess_args.append(command)
+
+        if use_wrapper_args:
+            subprocess_args.extend(arguments.bazel_wrapper_args)
+        subprocess_args.extend(command_args)
+
+        # kwargs has known arguments filtered out.
+        return subprocess_args, kwargs
+
+    def _check_call(self, *args, **kwargs) -> None:
         """Executes a bazel command."""
+        subprocess_args, kwargs = self._build_subprocess_args(*args, **kwargs)
+        Exec.check_call(subprocess_args, **kwargs)
 
-        startup_options = list(startup_options)
-        startup_options.append(f"--bazelrc={self._bazel_rc.name}")
-        command_args = list(command_args)
-        command_args.extend(arguments.bazel_wrapper_args)
-        Exec.check_call([str(_BAZEL)] + startup_options + [
-            command,
-        ] + command_args, **kwargs)
-
-    def _build(self, command_args: list[str], **kwargs) -> None:
+    def _build(self, *args, **kwargs) -> None:
         """Executes a bazel build command."""
-        self._check_call("build", command_args, **kwargs)
+        self._check_call("build", *args, **kwargs)
 
-    def _check_output(self, command: str, command_args: list[str],
-                      use_bazelrc=True,
-                      **kwargs) -> str:
+    def _check_output(self, *args, **kwargs) -> str:
         """Returns output of a bazel command."""
+        subprocess_args, kwargs = self._build_subprocess_args(*args, **kwargs)
+        return Exec.check_output(subprocess_args, **kwargs)
 
-        args = [str(_BAZEL)]
-        if use_bazelrc:
-            args.append(f"--bazelrc={self._bazel_rc.name}")
-        args.append(command)
-        args += command_args
-
-        return Exec.check_output(args, **kwargs)
-
-    def _check_errors(self, command: str, command_args: list[str],
-                      use_bazelrc=True,
-                      **kwargs) -> str:
+    def _check_errors(self, *args, **kwargs) -> str:
         """Returns errors of a bazel command."""
+        subprocess_args, kwargs = self._build_subprocess_args(*args, **kwargs)
+        return Exec.check_errors(subprocess_args, **kwargs)
 
-        args = [str(_BAZEL)]
-        if use_bazelrc:
-            args.append(f"--bazelrc={self._bazel_rc.name}")
-        args.append(command)
-        args += command_args
-
-        return Exec.check_errors(args, **kwargs)
-
-    def _popen(self, command: str, command_args: list[str], **kwargs) \
-            -> subprocess.Popen:
-        return Exec.popen([
-            str(_BAZEL),
-            f"--bazelrc={self._bazel_rc.name}",
-            command,
-        ] + command_args, **kwargs)
+    def _popen(self, *args, **kwargs) -> subprocess.Popen:
+        """Executes a bazel command, returning the Popen object."""
+        subprocess_args, kwargs = self._build_subprocess_args(*args, **kwargs)
+        return Exec.popen(subprocess_args, **kwargs)
 
     def setUp(self) -> None:
         self.assertTrue(os.environ.get("BUILD_WORKSPACE_DIRECTORY"),
-                        "BUILD_WORKSPACE_DIRECTORY is not set")
+                        "BUILD_WORKSPACE_DIRECTORY is not set. " +
+                        "Did you use `tools/bazel test` instead of `tools/bazel run`?")
         os.chdir(os.environ["BUILD_WORKSPACE_DIRECTORY"])
         sys.stderr.write(
             f"BUILD_WORKSPACE_DIRECTORY={os.environ['BUILD_WORKSPACE_DIRECTORY']}\n"
@@ -210,7 +294,6 @@ class KleafIntegrationTestBase(unittest.TestCase):
         self._bazel_rc = tempfile.NamedTemporaryFile()
         self.addCleanup(self._bazel_rc.close)
         with open(self._bazel_rc.name, "w") as f:
-            f.write(f"import %workspace%/build/kernel/kleaf/common.bazelrc\n")
             for arg in arguments.bazel_args:
                 f.write(f"build {shlex.quote(arg)}\n")
 
@@ -223,6 +306,7 @@ class KleafIntegrationTestBase(unittest.TestCase):
                 new_file.write(old_content)
 
         self.addCleanup(cleanup)
+        return cleanup
 
     def filter_lines(
         self,
@@ -284,6 +368,134 @@ class KleafIntegrationTestBase(unittest.TestCase):
         """Returns the common package."""
         return "common"
 
+    def _mount(self, kleaf_repo: pathlib.Path):
+        """Mount according to --mount-spec"""
+        for from_path, to_path in arguments.mount_spec.items():
+            to_path.mkdir(parents=True, exist_ok=True)
+            Exec.check_call([shutil.which("mount"), "--bind", "-o", "ro",
+                            str(from_path), str(to_path)])
+            self.addCleanup(Exec.call,
+                            [shutil.which("umount"), str(to_path)])
+
+        for link in arguments.link_spec:
+            real_dest = kleaf_repo / link.dest
+            real_src = kleaf_repo / link.src
+            relative_src = self._force_relative_to(real_src, real_dest.parent)
+            real_dest.parent.mkdir(parents=True, exist_ok=True)
+            # Ignore symlinks inside projects that already exist in the tree
+            # e.g. common/patches
+            if not real_dest.is_symlink():
+                real_dest.symlink_to(relative_src)
+
+    @staticmethod
+    def _force_relative_to(path: pathlib.Path, other: pathlib.Path):
+        """Naive implementation of pathlib.Path.relative_to(walk_up)"""
+        if sys.version_info[0] == 3 and sys.version_info[1] >= 12:
+            return path.relative_to(other, walk_up=True)
+
+        path = path.resolve()
+        other = other.resolve()
+
+        if path.is_relative_to(other):
+            return path.relative_to(other)
+
+        path_parts = collections.deque(path.parts)
+        other_parts = collections.deque(other.parts)
+        while path_parts and other_parts and path_parts[0] == other_parts[0]:
+            path_parts.popleft()
+            other_parts.popleft()
+        parts = [".."] * len(other_parts) + list(path_parts)
+        return pathlib.Path(*parts)
+
+    def _check_repo_manifest(self, value: str) \
+            -> tuple[pathlib.Path | None, pathlib.Path | None]:
+        tokens = value.split(":")
+        match len(tokens):
+            case 0: return (None, None)
+            case 1:
+                return (pathlib.Path(".").resolve(),
+                        _require_absolute_path(value))
+            case 2:
+                repo_root, repo_manifest = tokens
+                return (_require_absolute_path(repo_root),
+                        _require_absolute_path(repo_manifest))
+        raise argparse.ArgumentTypeError(
+            "Must be <REPO_MANIFEST> or <REPO_ROOT>:<REPO_MANIFEST>"
+        )
+
+    def _get_repo_manifest(self, revision=False) -> xml.dom.minidom.Document:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--repo_manifest",
+                            type=self._check_repo_manifest,
+                            default=(None, None))
+        known, _ = parser.parse_known_args(arguments.bazel_wrapper_args)
+        _, repo_manifest = known.repo_manifest
+        if repo_manifest:
+            with open(repo_manifest) as file:
+                return xml.dom.minidom.parse(file)
+        args = ["repo", "manifest"]
+        if revision:
+            args.append("-r")
+        manifest_content = Exec.check_output(args)
+        return xml.dom.minidom.parseString(manifest_content)
+
+    def _get_projects(self) -> list[RepoProject]:
+        manifest_element = self._get_repo_manifest().documentElement
+        project_elements = manifest_element.getElementsByTagName("project")
+        return [RepoProject.from_element(element)
+                for element in project_elements]
+
+    def _get_project_mount_link_spec(self, mount_root: pathlib.Path,
+                                     groups: list[str]) \
+        -> tuple[MountSpec, LinkSpec]:
+        """Returns MountSpec / LinkSpec for projects that matches any group.
+
+        Args:
+            groups: List of groups to match projects. Projects with the `groups`
+                attribute matching any of the given |groups| are included.
+                If empty, all projects are included.
+            mount_root: The root of the mount point where projects will be
+                mounted below.
+        """
+
+        projects = self._get_projects()
+
+        relevant_projects = list[RepoProject]()
+        for project in projects:
+            if not groups or any(group in project.groups for group in groups):
+                relevant_projects.append(project)
+
+        src_mount_root = pathlib.Path(".").resolve()
+        mount_spec = MountSpec()
+        link_spec = LinkSpec()
+        for project in relevant_projects:
+            mount_spec[src_mount_root / project.path] = \
+                mount_root / project.path
+            link_spec.extend(project.links)
+
+        return mount_spec, link_spec
+
+    def _unshare_mount_run(self, mount_spec: MountSpec, link_spec: list[Link]):
+        """Reruns the test in an unshare-d namespace with --mount-spec set."""
+        args = [shutil.which("unshare"), "--mount", "--map-root-user"]
+
+        # toybox unshare -R does not imply -U, so explicitly say so.
+        args.append("--user")
+
+        args.extend([shutil.which("bash"), "-c"])
+
+        test_args = [sys.executable, __file__]
+        test_args.extend(f"--bazel-arg={arg}" for arg in arguments.bazel_args)
+        test_args.extend(f"--bazel-wrapper-arg={arg}"
+                         for arg in arguments.bazel_wrapper_args)
+        test_args.append(f"--mount-spec={_serialize_mount_spec(mount_spec)}")
+        test_args.append(f"--link-spec={_serialize_link_spec(link_spec)}")
+        test_args.append(self.id().removeprefix("__main__."))
+        args.append(" ".join(shlex.quote(str(test_arg))
+                             for test_arg in test_args))
+
+        Exec.check_call(args)
+
 
 # NOTE: It requires a branch with ABI monitoring enabled.
 #   Include these using the flag --include-abi-tests
@@ -337,6 +549,41 @@ class KleafIntegrationTestShard1(KleafIntegrationTestBase):
                     ["--lto=thin"] + _LOCAL)
         self._build([f"//{self._common()}:kernel_dist"] + _LTO_NONE + _LOCAL)
 
+    def test_config_sync(self):
+        """Test that, with --config=local, .config is reflected in vmlinux.
+
+        See b/312268956.
+        """
+
+        gki_defconfig_path = (
+            f"{self._common()}/arch/arm64/configs/gki_defconfig")
+        restore_defconfig = self.restore_file_after_test(gki_defconfig_path)
+        extract_ikconfig = f"{self._common()}/scripts/extract-ikconfig"
+
+        with open(gki_defconfig_path, encoding="utf-8") as f:
+            self.assertIn("CONFIG_UAPI_HEADER_TEST=y\n", f)
+
+        self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
+        vmlinux = pathlib.Path(
+            f"bazel-bin/{self._common()}/kernel_aarch64/vmlinux")
+
+        output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
+        self.assertIn("CONFIG_UAPI_HEADER_TEST=y", output.splitlines())
+
+        self.filter_lines(gki_defconfig_path,
+                          lambda x: "CONFIG_UAPI_HEADER_TEST" not in x)
+        self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
+
+        output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
+        self.assertIn("# CONFIG_UAPI_HEADER_TEST is not set",
+                      output.splitlines())
+
+        restore_defconfig()
+        self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
+
+        output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
+        self.assertIn("CONFIG_UAPI_HEADER_TEST=y", output.splitlines())
+
 
 class KleafIntegrationTestShard2(KleafIntegrationTestBase):
 
@@ -360,6 +607,182 @@ class KleafIntegrationTestShard2(KleafIntegrationTestBase):
             f"//{self._common()}:kernel",
         ] + _LTO_NONE
         self._build(args)
+
+
+class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
+    """Tests setting up a DDK workspace with @kleaf as dependency."""
+
+    def setUp(self):
+        super().setUp()
+
+        self.real_kleaf_repo = pathlib.Path(".").resolve()
+        self.ddk_workspace = (pathlib.Path(__file__).resolve().parent /
+                              "ddk_workspace_test")
+
+    def test_ddk_workspace_below_kleaf_module(self):
+        """Tests that DDK workspace is below @kleaf"""
+        self._run_ddk_workspace_setup_test(
+            self.real_kleaf_repo, self.ddk_workspace)
+
+    def test_kleaf_module_below_ddk_workspace(self):
+        """Tests that @kelaf is below DDK workspace"""
+        kleaf_repo = self.ddk_workspace / "external/kleaf"
+        if not arguments.mount_spec:
+            mount_spec = {
+                self.real_kleaf_repo: kleaf_repo
+            }
+            self._unshare_mount_run(mount_spec=mount_spec, link_spec=LinkSpec())
+            return
+        self._run_ddk_workspace_setup_test(kleaf_repo, self.ddk_workspace)
+
+    def test_setup_with_local_prebuilts(self):
+        """Tests that init_ddk --prebuilts_dir & --local works."""
+        if not arguments.mount_spec:
+            with tempfile.TemporaryDirectory() as ddk_workspace_tmp:
+                ddk_workspace = pathlib.Path(ddk_workspace_tmp)
+                kleaf_repo = ddk_workspace / "external/kleaf"
+                prebuilts_dir = ddk_workspace / "gki_prebuilts"
+                mount_spec, link_spec = self._get_project_mount_link_spec(
+                    kleaf_repo, groups=[],
+                )
+                mount_spec = MountSpec({
+                    self.ddk_workspace: ddk_workspace,
+                    self.real_kleaf_repo / "out/kernel_aarch64/dist":
+                        prebuilts_dir,
+                }) | mount_spec
+
+                self._unshare_mount_run(mount_spec=mount_spec,
+                                        link_spec=link_spec)
+                return
+
+        self._check_call("run", [f"//{self._common()}:kernel_aarch64_dist"])
+
+        # Restore value of ddk_workspace in child process, which is a tmp dir
+        ddk_workspace = arguments.mount_spec[self.ddk_workspace]
+        kleaf_repo = ddk_workspace / "external/kleaf"
+        prebuilts_dir = ddk_workspace / "gki_prebuilts"
+
+        self._run_ddk_workspace_setup_test(
+            kleaf_repo,
+            ddk_workspace=ddk_workspace,
+            prebuilts_dir=prebuilts_dir,
+            local=True)
+
+    def test_setup_with_downloaded_prebuilts(self):
+        """Tests that init_ddk --prebuilts_dir & --local=false works."""
+        if not arguments.mount_spec:
+            with tempfile.TemporaryDirectory() as ddk_workspace_tmp:
+                ddk_workspace = pathlib.Path(ddk_workspace_tmp)
+                kleaf_repo = ddk_workspace / "external/kleaf"
+
+                # Mount the projects ourselves to simulate --sync.
+                mount_spec_ddk, link_spec_ddk = (
+                    self._get_project_mount_link_spec(kleaf_repo, ["ddk"]))
+                mount_spec_external, link_spec_external = (
+                    self._get_project_mount_link_spec(ddk_workspace,
+                                                      ["ddk-external"]))
+                mount_spec = MountSpec({
+                    self.ddk_workspace: ddk_workspace
+                }) | mount_spec_ddk | mount_spec_external
+                link_spec = link_spec_ddk + link_spec_external
+
+                self._unshare_mount_run(mount_spec=mount_spec,
+                                        link_spec=link_spec)
+                return
+
+        self._check_call("run", [f"//{self._common()}:kernel_aarch64_dist"])
+        real_prebuilts_dir = self.real_kleaf_repo / "out/kernel_aarch64/dist"
+        build_id = "123456"
+
+        with open(real_prebuilts_dir / f"manifest_{build_id}.xml", "w") as f:
+            self._get_repo_manifest(revision=True).writexml(f)
+
+        # Restore value of ddk_workspace in child process, which is a tmp dir
+        ddk_workspace = arguments.mount_spec[self.ddk_workspace]
+        kleaf_repo = ddk_workspace / "external/kleaf"
+        prebuilts_dir = ddk_workspace / "gki_prebuilts"
+
+        self._run_ddk_workspace_setup_test(
+            kleaf_repo,
+            ddk_workspace=ddk_workspace,
+            prebuilts_dir=prebuilts_dir,
+            local=False,
+            url_fmt=f"file://{real_prebuilts_dir}/{{filename}}",
+            build_id=build_id,
+            # build bots have no repo, so we cannot check if `repo sync`
+            # actually works. Skip sync and rely on the mount point.
+            sync=False)
+
+    def _run_ddk_workspace_setup_test(self,
+                                      kleaf_repo: pathlib.Path,
+                                      ddk_workspace: pathlib.Path,
+                                      prebuilts_dir: pathlib.Path | None = None,
+                                      local: bool = True,
+                                      url_fmt: str | None = None,
+                                      build_id: str | None = None,
+                                      sync: bool | None = None):
+        # kleaf_repo relative to ddk_workspace
+        kleaf_repo_rel = self._force_relative_to(
+            kleaf_repo, ddk_workspace)
+
+        git_clean_args = [shutil.which("git"), "clean", "-fdx"]
+        if kleaf_repo.is_relative_to(ddk_workspace):
+            git_clean_args.extend([
+                "-e",
+                str(kleaf_repo.relative_to(ddk_workspace)),
+            ])
+
+        # git clean is executed in the self.ddk_workspace, not the mounted
+        # ddk_workspace, because the latter may be out of Git's version control.
+        Exec.check_call(git_clean_args, cwd=self.ddk_workspace)
+
+        # Delete generated files at the end
+        self.addCleanup(Exec.check_call, git_clean_args,
+                        cwd=self.ddk_workspace)
+
+        self._mount(kleaf_repo)
+
+        # Fake `repo init` executed by user
+        default_manifest = ddk_workspace / ".repo/manifests/default.xml"
+        default_manifest.parent.mkdir(parents=True, exist_ok=True)
+        default_manifest.write_text("""<?xml version="1.0" ?><manifest />""")
+
+        args = [
+            "//build/kernel:init_ddk",
+            "--",
+            f"--kleaf_repo={kleaf_repo}",
+            f"--ddk_workspace={ddk_workspace}",
+        ]
+        if local:
+            args.append("--local")
+        if prebuilts_dir:
+            args.append(f"--prebuilts_dir={prebuilts_dir}")
+        if url_fmt:
+            args.append(f"--url_fmt={url_fmt}")
+        if build_id:
+            args.append(f"--build_id={build_id}")
+        if sync is not None:
+            args.append("--sync" if sync else "--nosync")
+        self._check_call("run", args)
+        Exec.check_call([
+            sys.executable,
+            str(ddk_workspace / "extra_setup.py"),
+            f"--kleaf_repo_rel={kleaf_repo_rel}",
+            f"--ddk_workspace={ddk_workspace}",
+        ])
+
+        self._check_call("clean", ["--expunge"], cwd=ddk_workspace)
+
+        args = []
+        # Switch base kernel when using prebuilts
+        if prebuilts_dir:
+            args.append("--//tests:kernel=@gki_prebuilts//kernel_aarch64")
+        args.append("//tests")
+        self._check_call("test", args, cwd=ddk_workspace)
+
+        # Delete generated files
+        self._check_call("clean", ["--expunge"], cwd=ddk_workspace)
+
 
 # Quick integration tests. Each test case should finish within 1 minute.
 # The whole test suite should finish within 5 minutes. If the whole test suite
@@ -570,26 +993,103 @@ class QuickIntegrationTest(KleafIntegrationTestBase):
         self.assertNotIn("DECLARED_SET", stderr)
         self.assertNotIn("DECLARED_UNSET", stderr)
 
-    @unittest.skip("b/293357796")
     def test_dash_dash_help(self):
         """Test that `bazel --help` works."""
-        self._check_output("--help", [], use_bazelrc=False)
+        self._check_output("--help", use_bazelrc=False, use_wrapper_args=False)
 
     def test_help(self):
         """Test that `bazel help` works."""
-        self._check_output("help", [])
+        self._check_output("help")
 
     def test_help_kleaf(self):
         """Test that `bazel help kleaf` works."""
         self._check_output("help", ["kleaf"])
 
+    def test_strip_execroot(self):
+        """Test that --strip_execroot works."""
+        self._check_output("build", ["--nobuild", "--strip_execroot",
+                                     "//build/kernel:hermetic-tools"])
+
+    def test_strip_execroot_error(self):
+        """Tests that if cmd with --strip_execroot fails, exit code is set."""
+        popen = self._popen("what",
+                            ["--strip_execroot"],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+        popen.communicate()
+        self.assertNotEqual(popen.returncode, 0)
+
+    def test_no_unexpected_output_error_with_proper_flags(self):
+        """With --config=silent, no errors emitted on unexpected lines."""
+
+        # Do a build with `--config=local` to force analysis cache to be invalid
+        # in the next run, which triggers
+        # WARNING: Build options [...] have changed, discarding analysis cache
+        self._build(
+            ["//build/kernel:hermetic-tools", "--config=local"],
+        )
+
+        allowlist = pathlib.Path("build/kernel/kleaf/spotless_log_regex.txt")
+
+        startup_options = [
+            f"--stdout_stderr_regex_allowlist={allowlist.resolve()}",
+        ]
+        self._build(["--config=silent", "//build/kernel:hermetic-tools"],
+                    startup_options=startup_options)
+
+    def test_detect_unexpected_output_error(self):
+        """Without --config=silent, there are errors on unexpected lines."""
+        allowlist = pathlib.Path("build/kernel/kleaf/spotless_log_regex.txt")
+
+        startup_options = [
+            f"--stdout_stderr_regex_allowlist={allowlist.resolve()}",
+        ]
+        stderr = self._check_errors(
+            "build",
+            ["//build/kernel:hermetic-tools"],
+            startup_options=startup_options,
+        )
+        self.assertIn("unexpected lines", stderr)
+
+    def test_no_unexpected_output_error_if_process_exits_abnormally(self):
+        """If the bazel command fails, no errors emitted on unexpected lines."""
+        allowlist = pathlib.Path("build/kernel/kleaf/spotless_log_regex.txt")
+
+        startup_options = [
+            f"--stdout_stderr_regex_allowlist={allowlist.resolve()}",
+        ]
+        stderr = self._check_errors(
+            "build",
+            ["//does_not_exist"],
+            startup_options=startup_options,
+        )
+        self.assertNotIn("unexpected lines", stderr)
+
+    def test_hermetic_tools_double_compilation(self):
+        """Test that hermetic tools always has exec transition."""
+
+        target = "//build/kernel/kleaf/tests/integration_test/hermetic_tools_test:mytest"
+        output = self._check_output(
+            "cquery",
+            [
+                "--gzip_is_pigz",
+                # Use @.*pigz because under bzlmod, the repo name for extensions
+                # are mangled.
+                f'filter("@.*pigz//:pigz$", deps({target}))',
+                # Suppress INFO level logs. We are only interested in error logs
+                # and the cquery output.
+                "--ui_event_filters=,+error,+fail,+stderr,+stdout",
+                "--noshow_progress",
+            ]
+        )
+        self.assertEqual(1, output.count("@pigz//:pigz"))
 
 class ScmversionIntegrationTest(KleafIntegrationTestBase):
 
     def setUp(self) -> None:
         super().setUp()
 
-        self.strings = "bazel-bin/build/kernel/hermetic-tools/llvm-strings"
+        self.strings = shutil.which("llvm-strings")
         self.uname_pattern_prefix = re.compile(
             r"^Linux version [0-9]+[.][0-9]+[.][0-9]+(\S*)")
 
@@ -635,9 +1135,13 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
                            lambda x: re.search(extraversion_pattern, x),
                            ["EXTRAVERSION ="])
 
-    def _get_vmlinux_scmversion(self):
+    def _get_vmlinux_scmversion(self, workspace_root=pathlib.Path("."),
+                                package : str | pathlib.Path | None = None):
+        if not package:
+            package = self._common()
         strings_output = Exec.check_output([
-            self.strings, f"bazel-bin/{self._common()}/kernel_aarch64/vmlinux"
+            self.strings,
+            str(workspace_root / f"bazel-bin/{package}/kernel_aarch64/vmlinux")
         ])
         ret = []
         for line in strings_output.splitlines():
@@ -676,7 +1180,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             ],
             env=ScmversionIntegrationTest._env_without_build_number())
         for scmversion in self._get_vmlinux_scmversion():
-            self.assertEqual("-rc999-mainline-maybe-dirty", scmversion)
+            self.assertEqual("-rc999-mainline-maybe-dirty-4k", scmversion)
 
     def test_mainline_stamp(self):
         self._setup_mainline()
@@ -689,7 +1193,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             ],
             env=ScmversionIntegrationTest._env_without_build_number())
         scmversion_pat = re.compile(
-            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?$")
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?(-4k)?$")
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
@@ -704,7 +1208,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
             ],
             env=ScmversionIntegrationTest._env_with_build_number("123456"))
         scmversion_pat = re.compile(
-            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456$"
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456(-4k)?$"
         )
         for scmversion in self._get_vmlinux_scmversion():
             self.assertRegexpMatches(scmversion, scmversion_pat)
@@ -749,6 +1253,85 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         scmversion_pat = re.compile(
             r"^-android99-56(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?-ab123456$")
         for scmversion in self._get_vmlinux_scmversion():
+            self.assertRegexpMatches(scmversion, scmversion_pat)
+
+    def test_stamp_repo_root_is_not_workspace_root(self):
+        """Tests that --config=stamp works when repo root is not Bazel workspace root."""
+
+        self._setup_mainline()
+
+        real_workspace_root = pathlib.Path(".").resolve()
+        repo_root = (pathlib.Path(__file__).resolve().parent /
+                              "fake_repo_root")
+        workspace_root = repo_root / "fake_workspace_root"
+
+        if not arguments.mount_spec:
+            mount_spec = {
+                real_workspace_root : workspace_root
+            }
+
+            self._unshare_mount_run(mount_spec=mount_spec, link_spec=LinkSpec())
+            return
+
+        self._mount(workspace_root)
+
+        manifest = self._get_repo_manifest()
+        for project in manifest.documentElement.getElementsByTagName("project"):
+            path = project.getAttribute("path") or project.getAttribute("name")
+            project.setAttribute(
+                "path", str(pathlib.Path("fake_workspace_root") / path))
+
+        new_manifest_temp_file = tempfile.NamedTemporaryFile(
+            mode="w+", delete=False)
+        new_manifest = pathlib.Path(new_manifest_temp_file.name)
+        self.addCleanup(new_manifest.unlink)
+
+        with new_manifest_temp_file as file_handle:
+            manifest.writexml(file_handle)
+
+        # KI: For this build, git commands on certain projects (e.g.
+        # prebuilts/ndk-r26, prebuilts/clang) are slow because it needs to
+        # refresh index.
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                f"--repo_manifest={repo_root}:{new_manifest}",
+                f"//{self._common()}:kernel_aarch64",
+            ],
+            cwd=workspace_root,
+            env=ScmversionIntegrationTest._env_without_build_number(),
+        )
+
+        scmversion_pat = re.compile(
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?(-4k)?$")
+        for scmversion in self._get_vmlinux_scmversion(workspace_root):
+            self.assertRegexpMatches(scmversion, scmversion_pat)
+
+    def test_stamp_if_kernel_dir_is_symlink(self):
+        """Tests that --stamp works if KERNEL_DIR is a symlink."""
+        self._setup_mainline()
+
+        new_kernel_dir = pathlib.Path("test_symlink")
+        with open(self.build_config_gki_aarch64_path, "a") as f:
+            f.write(f"KERNEL_DIR={new_kernel_dir}\n")
+
+        if not new_kernel_dir.is_symlink():
+            new_kernel_dir.symlink_to(self._common(), True)
+        self.addCleanup(new_kernel_dir.unlink)
+
+        self._check_call(
+            "build",
+            _FASTEST + [
+                "--config=stamp",
+                "--config=local",
+                f"//{new_kernel_dir}:kernel_aarch64",
+                f"--extra_git_project={new_kernel_dir}"
+            ],
+            env=ScmversionIntegrationTest._env_without_build_number())
+        scmversion_pat = re.compile(
+            r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?(-4k)?$")
+        for scmversion in self._get_vmlinux_scmversion(package=new_kernel_dir):
             self.assertRegexpMatches(scmversion, scmversion_pat)
 
 

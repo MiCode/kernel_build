@@ -318,8 +318,20 @@ Reason: Incremental builds are supported by default.
 
 Specify in the build config.
 
-Or, remove from the build config, and use `kernel_build_config` and `genrule`.
-This is recommended.
+Or, remove from the build config, and use `kernel_build_config` and
+`hermetic_genrule`.
+
+In some cases, you may want to use `kernel_build.defconfig_fragments`. However,
+keep in mind that `kernel_build.defconfig_fragments` are applied **after**
+`make defconfig`, unlike `PRE_DEFCONFIG_CMDS`. Double check the resulting
+`.config` file if you are migrating from `PRE_DEFCONFIG_CMDS` to
+`kernel_build.defconfig_fragments` by building the `_config` target, for
+example:
+
+```
+$ tools/bazel build //common:kernel_aarch64_config
+$ find $(realpath bazel-bin) -name .config
+```
 
 To support `--config=local` builds, `PRE_DEFCONFIG_CMDS` must not write to the
 source tree, including `$ROOT_DIR/$KERNEL_DIR`. See
@@ -327,18 +339,18 @@ source tree, including `$ROOT_DIR/$KERNEL_DIR`. See
 
 See [documentation for all rules].
 
-See [documentation for `genrule`].
-
 ## POST\_DEFCONFIG\_CMDS
 
 Specify in the build config.
 
-Or, remove from the build config, and use `kernel_build_config` and `genrule`.
-This is recommended.
+If the command only contains a single `merge_config.sh` invocation, you may
+also use `kernel_build.defconfig_fragments`. They are applied **after**
+`make defconfig`, just like `POST_DEFCONFIG_CMDS`.
+
+Or, remove from the build config, and use `kernel_build_config` and
+`hermetic_genrule`.
 
 See [documentation for all rules].
-
-See [documentation for `genrule`].
 
 ## POST\_KERNEL\_BUILD\_CMDS
 
@@ -348,8 +360,6 @@ Reason: commands are disallowed in general because of unclear dependency.
 
 You may define a `genrule` target with appropriate inputs (possibly from a
 `kernel_build` macro), then add the target to your `copy_to_dist_dir` macro.
-
-See [documentation for `genrule`].
 
 ## LTO
 
@@ -830,8 +840,6 @@ See [documentation for all rules].
 See [documentation for ABI monitoring].
 
 [documentation for all rules]: api_reference.md
-
-[documentation for `genrule`]: https://bazel.build/reference/be/general#genrule
 
 [documentation for ABI monitoring]: abi.md
 

@@ -16,27 +16,31 @@
 
 import argparse
 import json
-from typing import TextIO, Optional
+import pathlib
 
 
-def main(base: Optional[TextIO], mappings: list[str]):
-    result = []
-    if base:
-        result = json.load(base)
+def main(file_mappings: list[pathlib.Path], mappings: list[str]):
+    mappings_dict = {}
+    for file_mapping in file_mappings:
+        with file_mapping.open() as file_mapping_content:
+            for mapping in json.load(file_mapping_content):
+                mappings_dict[mapping["from"]] = mapping["to"]
 
     for mapping in mappings:
         from_val, to_val = mapping.split(":")
+        mappings_dict[from_val] = to_val
 
-        result.append({
-            "from": from_val,
-            "to": to_val,
-        })
+    result = [
+        {"from": from_val, "to": to_val}
+        for from_val, to_val in sorted(mappings_dict.items())
+    ]
 
     print(json.dumps(result, sort_keys=True, indent=2))
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base", type=argparse.FileType())
-    parser.add_argument("mappings", nargs="*", metavar="FROM:TO")
+    parser.add_argument("--file_mappings", type=pathlib.Path,
+                        nargs="*", default=[])
+    parser.add_argument("--mappings", nargs="*", metavar="FROM:TO", default=[])
     main(**vars(parser.parse_args()))
-

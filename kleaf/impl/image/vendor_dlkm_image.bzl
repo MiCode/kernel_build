@@ -63,6 +63,14 @@ def _vendor_dlkm_image_impl(ctx):
     command += exclude_system_dlkm_step.cmd
     additional_inputs += exclude_system_dlkm_step.inputs
 
+    outputs = []
+    vendor_dlkm_flatten_img = None
+    vendor_dlkm_flatten_img_name = None
+    if ctx.attr.build_vendor_dlkm_flatten_image:
+        vendor_dlkm_flatten_img = ctx.actions.declare_file("{}/vendor_dlkm.flatten.img".format(ctx.label.name))
+        outputs.append(vendor_dlkm_flatten_img)
+        vendor_dlkm_flatten_img_name = "vendor_dlkm.flatten.img"
+
     command += """
             # Use `strip_modules` intead of relying on this.
                unset DO_NOT_STRIP_MODULES
@@ -73,10 +81,14 @@ def _vendor_dlkm_image_impl(ctx):
                 VENDOR_DLKM_ETC_FILES={quoted_vendor_dlkm_etc_files}
                 VENDOR_DLKM_FS_TYPE={vendor_dlkm_fs_type}
                 VENDOR_DLKM_STAGING_DIR={vendor_dlkm_staging_dir}
+                VENDOR_DLKM_GEN_FLATTEN_IMAGE={build_flatten_image}
                 build_vendor_dlkm {vendor_dlkm_archive}
               )
             # Move output files into place
               mv "${{DIST_DIR}}/vendor_dlkm.img" {vendor_dlkm_img}
+               if [[ {build_flatten_image} == "1" ]]; then
+                mv "${{DIST_DIR}}/{vendor_dlkm_flatten_img_name}" {vendor_dlkm_flatten_img}
+               fi
               mv "${{DIST_DIR}}/vendor_dlkm.modules.load" {vendor_dlkm_modules_load}
               if [[ -f "${{DIST_DIR}}/vendor_dlkm_staging_archive.tar.gz" ]]; then
                 mv "${{DIST_DIR}}/vendor_dlkm_staging_archive.tar.gz" {vendor_dlkm_staging_archive}
@@ -89,10 +101,13 @@ def _vendor_dlkm_image_impl(ctx):
             # Remove staging directories
               rm -rf {vendor_dlkm_staging_dir}
     """.format(
+        build_flatten_image = int(ctx.attr.build_vendor_dlkm_flatten_image),
         modules_staging_dir = modules_staging_dir,
         quoted_vendor_dlkm_etc_files = shell.quote(vendor_dlkm_etc_files),
         vendor_dlkm_fs_type = vendor_dlkm_fs_type,
         vendor_dlkm_staging_dir = vendor_dlkm_staging_dir,
+        vendor_dlkm_flatten_img = vendor_dlkm_flatten_img.path if vendor_dlkm_flatten_img else "/dev/null",
+        vendor_dlkm_flatten_img_name = vendor_dlkm_flatten_img_name,
         vendor_dlkm_img = vendor_dlkm_img.path,
         vendor_dlkm_modules_load = vendor_dlkm_modules_load.path,
         vendor_dlkm_modules_blocklist = vendor_dlkm_modules_blocklist.path,
@@ -101,7 +116,13 @@ def _vendor_dlkm_image_impl(ctx):
     )
 
     additional_inputs += ctx.files.vendor_dlkm_etc_files
-    outputs = [vendor_dlkm_img, vendor_dlkm_modules_load, vendor_dlkm_modules_blocklist]
+
+    outputs += [
+        vendor_dlkm_img,
+        vendor_dlkm_modules_load,
+        vendor_dlkm_modules_blocklist,
+    ]
+
     if ctx.attr.vendor_dlkm_archive:
         outputs.append(vendor_dlkm_staging_archive)
 
@@ -176,9 +197,15 @@ vendor_dlkm_image = rule(
 
 Execute `build_vendor_dlkm` in `build_utils.sh`.
 
-When included in a `copy_to_dist_dir` rule, this rule copies a `vendor_dlkm.img` to `DIST_DIR`.
+When included in a `copy_to_dist_dir` rule, this rule copies the following to `DIST_DIR`:
+- `vendor_dlkm.img`
+- `vendor_dlkm_flatten.img` if build_vendor_dlkm_flatten is True
 """,
     attrs = image_utils.build_modules_image_attrs_common({
+        "build_vendor_dlkm_flatten_image": attr.bool(
+            default = False,
+            doc = "When True it builds vendor_dlkm image with no `uname -r` in the path",
+        ),
         "vendor_boot_modules_load": attr.label(
             allow_single_file = True,
             doc = """File to `vendor_boot.modules.load`.

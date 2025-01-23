@@ -39,13 +39,14 @@ def _kernel_headers_impl(ctx):
               (
                 real_out_file=$(realpath {out_file})
                 cd ${{ROOT_DIR}}/${{KERNEL_DIR}}
-                find arch include ${{OUT_DIR}} -name *.h -print0         \
-                    | tar czf ${{real_out_file}}                         \
-                        --absolute-names                                 \
-                        --dereference                                    \
-                        --transform "s,.*$OUT_DIR,,"                     \
-                        --transform "s,^/,,"                             \
-                        --transform "s,^,kernel-headers/,"               \
+                find arch include ${{OUT_DIR}} -name "*.h" -not -type d -print0 \
+                    | tar czf ${{real_out_file}}                                \
+                        --mode=u=rw,go=r                                        \
+                        --absolute-names                                        \
+                        --dereference                                           \
+                        --transform "s,.*$OUT_DIR,,"                            \
+                        --transform "s,^/,,"                                    \
+                        --transform "s,^,kernel-headers/,"                      \
                         --null -T -
               )
     """.format(

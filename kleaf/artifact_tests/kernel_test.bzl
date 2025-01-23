@@ -15,8 +15,7 @@
 Tests for artifacts produced by kernel_module.
 """
 
-load("//build/kernel/kleaf/impl:hermetic_exec.bzl", "hermetic_exec_test")
-load(":py_test_hack.bzl", "run_py_binary_cmd")
+load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -24,29 +23,28 @@ def kernel_module_test(
         name,
         modules = None,
         **kwargs):
-    """A test on artifacts produced by [kernel_module](#kernel_module).
+    """A test on artifacts produced by [kernel_module](kernel.md#kernel_module).
 
     Args:
         name: name of test
         modules: The list of `*.ko` kernel modules, or targets that produces
-            `*.ko` kernel modules (e.g. [kernel_module](#kernel_module)).
+            `*.ko` kernel modules (e.g. [kernel_module](kernel.md#kernel_module)).
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = Label("//build/kernel/kleaf/artifact_tests:kernel_module_test")
     args = []
-    data = [test_binary]
+    data = []
     if modules:
         args.append("--modules")
         args += ["$(rootpaths {})".format(module) for module in modules]
         data += modules
 
-    hermetic_exec_test(
+    hermetic_test(
         name = name,
+        actual = Label("//build/kernel/kleaf/artifact_tests:kernel_module_test"),
         data = data,
-        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
         **kwargs
@@ -56,27 +54,27 @@ def kernel_build_test(
         name,
         target = None,
         **kwargs):
-    """A test on artifacts produced by [kernel_build](#kernel_build).
+    """A test on artifacts produced by [kernel_build](kernel.md#kernel_build).
 
     Args:
         name: name of test
-        target: The [`kernel_build()`](#kernel_build).
+        target: The [`kernel_build()`](kernel.md#kernel_build).
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = Label("//build/kernel/kleaf/artifact_tests:kernel_build_test")
     args = []
-    data = [test_binary]
+    data = []
     if target:
         args += ["--artifacts", "$(rootpaths {})".format(target)]
         data.append(target)
 
-    hermetic_exec_test(
+    hermetic_test(
         name = name,
+        actual = Label("//build/kernel/kleaf/artifact_tests:kernel_build_test"),
+        use_cc_toolchain = True,
         data = data,
-        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
         **kwargs
@@ -98,21 +96,19 @@ def initramfs_modules_options_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = Label("//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test")
     args = [
         "--expected",
         "$(rootpath {})".format(expected_modules_options),
         "$(rootpaths {})".format(kernel_images),
     ]
 
-    hermetic_exec_test(
+    hermetic_test(
         name = name,
+        actual = Label("//build/kernel/kleaf/artifact_tests:initramfs_modules_options_test"),
         data = [
             expected_modules_options,
             kernel_images,
-            test_binary,
         ],
-        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
         **kwargs
@@ -142,7 +138,6 @@ def initramfs_modules_lists_test(
           See complete list
           [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).
     """
-    test_binary = Label("//build/kernel/kleaf/artifact_tests:initramfs_modules_lists_test")
     args = []
 
     if expected_modules_list:
@@ -170,16 +165,15 @@ def initramfs_modules_lists_test(
 
     args.append("$(rootpaths {})".format(kernel_images))
 
-    hermetic_exec_test(
+    hermetic_test(
         name = name,
+        actual = Label("//build/kernel/kleaf/artifact_tests:initramfs_modules_lists_test"),
         data = [
             expected_modules_list,
             expected_modules_recovery_list,
             expected_modules_charger_list,
             kernel_images,
-            test_binary,
         ],
-        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
         **kwargs

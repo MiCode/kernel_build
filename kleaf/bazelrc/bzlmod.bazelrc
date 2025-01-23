@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Experimental bzlmod support
+# bzlmod support. Enabled by default.
+# To disable, build with --noenable_bzlmod.
+# See build/kernel/kleaf/docs/bzlmod.md for instructions.
 
-# TODO(b/276493276): Enable Blzmod after migrating.
-common --noenable_bzlmod
+common --config=bzlmod
 
 common:bzlmod --enable_bzlmod
 common:bzlmod --registry=file://%workspace%/external/bazelbuild-bazel-central-registry
@@ -26,4 +27,3 @@ common:bzlmod --registry=file://%workspace%/external/bazelbuild-bazel-central-re
 # Note: If the registry files are modified, one needs to run `bazel shutdown`
 #   as well as setting this flag. Usually, files are only added to the registry.
 common:bzlmod --lockfile_mode=off
-

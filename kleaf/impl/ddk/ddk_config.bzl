@@ -16,11 +16,11 @@
 
 load(
     ":common_providers.bzl",
-    "DdkConfigInfo",
     "KernelBuildExtModuleInfo",
     "KernelSerializedEnvInfo",
 )
 load(":config_utils.bzl", "config_utils")
+load(":ddk/ddk_config_subrule.bzl", "ddk_config_subrule")
 load(":debug.bzl", "debug")
 load(":utils.bzl", "kernel_utils", "utils")
 
@@ -238,28 +238,11 @@ def _create_serialized_env_info(ctx, out_dir):
     )
 
 def _create_ddk_config_info(ctx):
-    module_label = Label(str(ctx.label).removesuffix("_config"))
-    split_deps = kernel_utils.split_kernel_module_deps(ctx.attr.module_deps, module_label)
-    ddk_config_deps = split_deps.ddk_configs
-
-    transitive_defconfigs = [
-        dep[DdkConfigInfo].defconfig
-        for dep in ddk_config_deps
-    ] + [
-        ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
-    ]
-
-    return DdkConfigInfo(
-        kconfig = depset(
-            ctx.files.kconfig,
-            transitive = [dep[DdkConfigInfo].kconfig for dep in ddk_config_deps],
-            order = "postorder",
-        ),
-        defconfig = depset(
-            ctx.files.defconfig,  # this is at most one item
-            transitive = transitive_defconfigs,
-            order = "postorder",
-        ),
+    return ddk_config_subrule(
+        kconfig_targets = [ctx.attr.kconfig] if ctx.attr.kconfig else [],
+        defconfig_targets = [ctx.attr.defconfig] if ctx.attr.defconfig else [],
+        deps = ctx.attr.module_deps + ctx.attr.module_hdrs + ctx.attr.module_textual_hdrs,
+        extra_defconfigs = ctx.attr.kernel_build[KernelBuildExtModuleInfo].ddk_module_defconfig_fragments,
     )
 
 ddk_config = rule(
@@ -291,11 +274,15 @@ for its format.
             executable = True,
             cfg = "exec",
         ),
+        # Needed to compose DdkConfigInfo
         "module_deps": attr.label_list(),
+        "module_hdrs": attr.label_list(allow_files = [".h"]),
+        "module_textual_hdrs": attr.label_list(allow_files = True),
         "generate_btf": attr.bool(
             default = False,
             doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
         ),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
     },
+    subrules = [ddk_config_subrule],
 )

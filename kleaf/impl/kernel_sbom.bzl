@@ -14,6 +14,7 @@
 
 """Generate an SPDX SBOM."""
 
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load(":common_providers.bzl", "KernelBuildUnameInfo")
 
 visibility("//build/kernel/kleaf/...")
@@ -28,10 +29,11 @@ def _kernel_sbom_impl(ctx):
     args.add("--output_file", output_file)
     args.add_all("--files", srcs_depset)
     args.add("--version_file", kernel_release)
+    args.add("--readelf", ctx.executable._readelf)
 
     ctx.actions.run(
         mnemonic = "KernelSbom",
-        inputs = depset([kernel_release], transitive = [srcs_depset]),
+        inputs = depset([kernel_release, ctx.executable._readelf], transitive = [srcs_depset]),
         outputs = [output_file],
         executable = ctx.executable._kernel_sbom,
         arguments = [args],
@@ -55,6 +57,13 @@ kernel_sbom = rule(
             default = "//build/kernel/kleaf:kernel_sbom",
             cfg = "exec",
             executable = True,
+        ),
+        "_readelf": attr.label(
+            default =
+                "//prebuilts/clang/host/linux-x86/clang-{}:bin/llvm-readelf".format(VARS["CLANG_VERSION"]),
+            cfg = "exec",
+            executable = True,
+            allow_files = True,
         ),
     },
 )

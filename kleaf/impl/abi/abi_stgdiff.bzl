@@ -50,6 +50,7 @@ def _stgdiff_impl(ctx):
         ext = ext,
     ) for ext in STGDIFF_FORMATS])
 
+    log_level = "ERROR" if ctx.attr.kmi_enforced else "WARNING"
     command = hermetic_tools.setup + """
         set +e
         {stgdiff}  --stg {baseline} {new} {outputs} > {error_msg_file} 2>&1
@@ -73,13 +74,17 @@ EOF
         fi
 
         if [[ $rc == 0 ]]; then
-            echo "INFO: $(cat {error_msg_file})"
+            if [[ -s {error_msg_file} ]]; then
+                echo "INFO: $(cat {error_msg_file})"
+            fi
         elif [[ $rc == {change_code} ]]; then
-            echo "INFO: ABI DIFFERENCES HAVE BEEN DETECTED!" >&2
-            echo "INFO: $(cat {short_report})" >&2
+            echo "{log_level}: ABI DIFFERENCES HAVE BEEN DETECTED!" >&2
+            echo "{log_level}: Report summary:" >&2
+            echo >&2
+            cat {short_report} >&2
         else
             echo "ERROR: $(cat {error_msg_file})" >&2
-            echo "INFO: exit code is not checked. 'tools/bazel run {label}' to check the exit code." >&2
+            echo "WARNING: exit code is not checked. 'tools/bazel run {label}' to check the exit code." >&2
         fi
     """.format(
         stgdiff = ctx.file._stgdiff.path,
@@ -93,6 +98,7 @@ EOF
         label = ctx.label,
         git_msg_file = git_msg_file.path,
         change_code = STGDIFF_CHANGE_CODE,
+        log_level = log_level,
     )
 
     debug.print_scripts(ctx, command)
@@ -112,10 +118,14 @@ EOF
     script_content = """#!/bin/bash -e
         rc=$(cat {exit_code_file})
         if [[ $rc == 0 ]]; then
-            echo "INFO: $(cat {error_msg_file})"
+            if [[ -s {error_msg_file} ]]; then
+                echo "INFO: $(cat {error_msg_file})"
+            fi
         elif [[ $rc == 4 ]]; then
-            echo "INFO: ABI DIFFERENCES HAVE BEEN DETECTED!"
-            echo "INFO: $(cat {short_report})"
+            echo "{log_level}: ABI DIFFERENCES HAVE BEEN DETECTED!" >&2
+            echo "{log_level}: Report summary:" >&2
+            echo >&2
+            cat {short_report} >&2
         else
             echo "ERROR: $(cat {error_msg_file})" >&2
         fi
@@ -123,6 +133,7 @@ EOF
         exit_code_file = exit_code_file.short_path,
         error_msg_file = error_msg_file.short_path,
         short_report = short_report,
+        log_level = log_level,
     )
     if ctx.attr.kmi_enforced:
         script_content += """
@@ -131,7 +142,7 @@ EOF
     else:
         script_content += """
             if [[ $rc != 0 ]]; then
-                echo "WARN: KMI is not enforced, return code of stgdiff is not checked" >&2
+                echo "WARNING: KMI is not enforced, return code of stgdiff is not checked" >&2
             fi
         """
     ctx.actions.write(script, script_content, is_executable = True)

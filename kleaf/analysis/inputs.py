@@ -107,7 +107,7 @@ def load_inputs(action: dict[str, Any],
         the set of input paths to the given action
     """
     all_inputs_artifact_ids = dep_set_to_artifact_ids(
-        dep_set_ids=action["inputDepSetIds"],
+        dep_set_ids=action.get("inputDepSetIds", []),
         dep_set_of_files=dep_set_of_files,
     )
 

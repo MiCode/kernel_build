@@ -37,11 +37,12 @@ import argparse
 from collections.abc import Iterable
 import dataclasses
 import datetime
-import glob
 import hashlib
 import json
 import os
 import pathlib
+import re
+import subprocess
 from typing import Any
 
 
@@ -60,28 +61,40 @@ _VARIANT_OF_RELATIONSHIP = "VARIANT_OF"
 _SPDX_REF = "SPDXRef"
 
 
+def _spdx_id(identifier: str):
+  # the id string is a "unique string containing letters, numbers, . and/or -."
+  # https://spdx.github.io/spdx-spec/v2.3/file-information/#82-file-spdx-identifier-field
+  sanitized_identifier = re.sub(r"[^0-9a-zA-Z-\.]+", "-", identifier)
+  return f"{_SPDX_REF}-{sanitized_identifier}"
+
+
 @dataclasses.dataclass(order=True)
 class File:
   id: str
   name: str
   path: pathlib.Path
   checksum: str
+  build_id: str | None
 
 
 class KernelSbom:
 
   def __init__(
-      self, android_kernel_version: str, file_list: Iterable[pathlib.Path]
+      self,
+      android_kernel_version: str,
+      file_list: Iterable[pathlib.Path],
+      readelf: pathlib.Path,
   ):
     self._android_kernel_version = android_kernel_version
     self._upstream_kernel_version = android_kernel_version.split("-")[0]
     self._files = sorted(
         [
             File(
-                id=f"{_SPDX_REF}-{file.name}",
+                id=_spdx_id(file.name),
                 name=file.name,
                 path=file,
                 checksum=self._checksum(file),
+                build_id=self._build_id(file, readelf)
             )
             for file in file_list
         ]
@@ -112,10 +125,10 @@ class KernelSbom:
       return str(digest.hexdigest())
 
   def _generate_package_verification_code(self, files: list[File]) -> str:
-    hash = hashlib.sha1()
+    combined_checksum = hashlib.sha1()
     for checksum in sorted(f.checksum.encode() for f in files):
-      hash.update(checksum)
-    return hash.hexdigest()
+      combined_checksum.update(checksum)
+    return combined_checksum.hexdigest()
 
   def _generate_doc_headers(self) -> dict[str, Any]:
     timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
@@ -125,7 +138,7 @@ class KernelSbom:
     headers = {
         "spdxVersion": _SPDX_VERSION,
         "dataLicense": _DATA_LICENSE,
-        "SPDXID": f"{_SPDX_REF}-DOCUMENT",
+        "SPDXID": _spdx_id("DOCUMENT"),
         "name": self._android_kernel_version,
         "documentNamespace": namespace,
         "creationInfo": {
@@ -135,6 +148,20 @@ class KernelSbom:
         "documentDescribes": [f"SPDXRef-{_MAIN_PACKAGE_NAME}"],
     }
     return headers
+
+  def _build_id(
+      self, file_path: pathlib.Path, readelf: pathlib.Path
+  ) -> str | None:
+    if file_path.name != "vmlinux" and file_path.suffix != ".ko":
+      return None
+
+    out = subprocess.check_output([readelf, "--notes", file_path]).decode()
+    build_id = None
+    for line in out.splitlines():
+      if "Build ID:" in line:
+        assert(build_id is None)
+        build_id = line.strip()
+    return build_id
 
   def _generate_package_dict(
       self,
@@ -146,14 +173,14 @@ class KernelSbom:
   ) -> dict[str, Any]:
     package_dict: dict[str, Any] = {
         "name": package_name,
-        "SPDXID": f"{_SPDX_REF}-{package_name}",
+        "SPDXID": _spdx_id(package_name),
         "downloadLocation": download_location,
         "filesAnalyzed": False,
         "versionInfo": version,
         "supplier": f"Organization: {organization}",
     }
     if file_list:
-      package_dict["hasFiles"] = [file.name for file in file_list]
+      package_dict["hasFiles"] = [file.id for file in file_list]
       verification_hash = self._generate_package_verification_code(file_list)
       package_dict["packageVerificationCode"] = {
           "packageVerificationCodeValue": verification_hash
@@ -162,7 +189,7 @@ class KernelSbom:
     return package_dict
 
   def _generate_file_dict(self, file: File) -> dict[str, Any]:
-    return {
+    result = {
         "fileName": file.name,
         "SPDXID": file.id,
         "checksums": [
@@ -172,6 +199,10 @@ class KernelSbom:
             },
         ],
     }
+    if file.build_id is not None:
+      result.update(comment=file.build_id)
+
+    return result
 
   def _generate_relationship_dict(
       self, element: str, related_element: str, relationship_type: str
@@ -211,19 +242,19 @@ class KernelSbom:
 
     sbom["relationships"] = [
         self._generate_relationship_dict(
-            f"{_SPDX_REF}-{_MAIN_PACKAGE_NAME}",
-            f"{_SPDX_REF}-{_SOURCE_CODE_PACKAGE_NAME}",
+            _spdx_id(_MAIN_PACKAGE_NAME),
+            _spdx_id(_SOURCE_CODE_PACKAGE_NAME),
             _GENERATED_FROM_RELATIONSHIP,
         ),
         self._generate_relationship_dict(
-            f"{_SPDX_REF}-{_SOURCE_CODE_PACKAGE_NAME}",
-            f"{_SPDX_REF}-{_LINUX_UPSTREAM_PACKAGE_NAME}",
+            _spdx_id(_SOURCE_CODE_PACKAGE_NAME),
+            _spdx_id(_LINUX_UPSTREAM_PACKAGE_NAME),
             _VARIANT_OF_RELATIONSHIP,
         ),
     ] + [
         self._generate_relationship_dict(
             f.id,
-            f"{_SPDX_REF}-{_SOURCE_CODE_PACKAGE_NAME}",
+            _spdx_id(_SOURCE_CODE_PACKAGE_NAME),
             _GENERATED_FROM_RELATIONSHIP,
         )
         for f in self._files
@@ -264,6 +295,11 @@ def get_args():
       type=pathlib.Path,
       help="path to the kernel.release file",
   )
+  parser.add_argument(
+      "--readelf",
+      required=True,
+      type=pathlib.Path, help="The readelf binary to process binaries.",
+  )
   return parser.parse_args()
 
 
@@ -285,7 +321,7 @@ def main():
   args = get_args()
   files = args.files or get_file_list(args.dist_dir)
   version = args.version or read_version_from_file(args.version_file)
-  sbom = KernelSbom(version, files)
+  sbom = KernelSbom(version, files, args.readelf)
   sbom.write_sbom_file(args.output_file)
 
 

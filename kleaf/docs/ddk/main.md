@@ -28,6 +28,8 @@ The virtual device serves as a reference implementation for DDK modules. See
 
 ## Read more
 
+[Setting up workspace](workspace.md)
+
 [Rules and macros](rules.md)
 
 [Using headers from the common kernel](common_headers.md)

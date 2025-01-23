@@ -31,19 +31,16 @@ def _kmi_symbol_list_impl(ctx):
 
     outputs = []
     out_file = ctx.actions.declare_file("{}/abi_symbollist".format(ctx.attr.name))
-    report_file = ctx.actions.declare_file("{}/abi_symbollist.report".format(ctx.attr.name))
-    outputs = [out_file, report_file]
+    outputs = [out_file]
 
     command = ctx.attr.env[KernelEnvInfo].setup + """
         mkdir -p {out_dir}
         {process_symbols} --out-dir={out_dir} --out-file={out_file_base} \
-            --report-file={report_file_base} --in-dir="${{ROOT_DIR}}" \
-            {srcs}
+            --in-dir="${{ROOT_DIR}}" {srcs}
     """.format(
         process_symbols = ctx.executable._process_symbols.path,
         out_dir = out_file.dirname,
         out_file_base = out_file.basename,
-        report_file_base = report_file.basename,
         srcs = " ".join([f.path for f in ctx.files.srcs]),
     )
 

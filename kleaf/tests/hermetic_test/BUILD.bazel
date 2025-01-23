@@ -39,9 +39,18 @@ hermetic_genrule(
     """,
 )
 
+hermetic_genrule(
+    name = "simple_genrule_with_cc_toolchain",
+    outs = ["version.txt"],
+    # llvm-readelf comes from the resolved CC toolchain.
+    cmd = "llvm-readelf --version > $@",
+    use_cc_toolchain = True,
+)
+
 build_test(
     name = "build_tests",
     targets = [
         ":simple_genrule",
+        ":simple_genrule_with_cc_toolchain",
     ],
 )

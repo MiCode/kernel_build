@@ -232,8 +232,14 @@ function create_modules_staging() {
       -exec ${OBJCOPY:-${CROSS_COMPILE}objcopy} --strip-debug {} \;
   fi
 
-  # create_modules_order_lists() will overwrite modules.order if MODULES_LIST is
-  # set.
+  # create_modules_order_lists() will overwrite modules.order if MODULES_LIST
+  # is set. If we are not trimming unused modules, then backup the original
+  # modules.order file first so we can restore it later once the modules.load
+  # file is generated. This allows us to account for all the modules that were
+  # compiled for later use of the staging archive.
+  if [ -z "${TRIM_UNUSED_MODULES}" ]; then
+    cp -f ${dest_dir}/modules.order ${dest_dir}/modules.order.orig
+  fi
   create_modules_order_lists "${modules_list_file:-""}" "${modules_recovery_list_file:-""}" \
 	                     "${modules_charger_list_file:-""}" ${dest_dir}/modules.order
 
@@ -299,6 +305,52 @@ function create_modules_staging() {
       cp ${mod_order_filepath} ${mod_load_filepath}
     fi
   done
+
+  if [ -z "${TRIM_UNUSED_MODULES}" ]; then
+    # Restore the original modules.order file if we didn't trim the unused
+    # modules. This allows us to account for all the modules that were compiled
+    # for later use of the staging archive.
+    mv -f ${dest_dir}/modules.order.orig ${dest_dir}/modules.order
+  fi
+}
+
+function build_flattened_dlkm_image() {
+  # $1 - image name - either vendor_dlkm.flattened.img or system_dlkm.flattened.img
+  # $2 - staging dir
+  # $3 - props file
+  # $4 - dist_dir
+
+  local image_name=$1
+  local staging_dir=$2
+  local props_file=$3
+  local dist_dir=$4
+  local image_type
+
+  if [[ "${image_name}" =~ "vendor" ]]; then
+    image_type="vendor"
+  elif [[ "${image_name}" =~ "system" ]]; then
+    image_type="system"
+  else
+    echo "ERROR: Unknown flattened image type: $1"
+    exit 1
+  fi
+
+  mkdir -p ${staging_dir}/flatten/lib/modules
+  cp $(find ${staging_dir} -type f -name "*.ko") ${staging_dir}/flatten/lib/modules
+  # Copy required depmod artifacts and scrub required files to correct paths
+  cp $(find ${staging_dir} -name "modules.dep") ${staging_dir}/flatten/lib/modules
+  # Copy modules aliases definitions
+  cp $(find ${staging_dir} -name "modules.alias") ${staging_dir}/flatten/lib/modules
+  # Remove existing paths leaving just basenames
+  sed -i 's/kernel[^:[:space:]]*\/\([^:[:space:]]*\.ko\)/\1/g' ${staging_dir}/flatten/lib/modules/modules.dep
+  # Prefix /system/lib/modules/ for every module
+  sed -i "s#\([^:[:space:]]*\.ko\)#/${image_type}/lib/modules/\1#g" ${staging_dir}/flatten/lib/modules/modules.dep
+  cp $(find ${staging_dir} -name "modules.load") ${staging_dir}/flatten/lib/modules
+  sed -i 's#.*/##' ${staging_dir}/flatten/lib/modules/modules.load
+
+  build_image "${staging_dir}/flatten" "${props_file}" \
+  "${dist_dir}/${image_name}" /dev/null
+
 }
 
 function build_system_dlkm() {
@@ -377,19 +429,10 @@ function build_system_dlkm() {
   # Build flatten image as /lib/modules/*.ko; if unset or null: default false
   if [[ ${SYSTEM_DLKM_GEN_FLATTEN_IMAGE:-0} == "1" ]]; then
     local system_dlkm_flatten_image_name="system_dlkm.flatten.${SYSTEM_DLKM_FS_TYPE}.img"
-    mkdir -p ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules
-    cp $(find ${SYSTEM_DLKM_STAGING_DIR} -type f -name "*.ko") ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules
-    # Copy required depmod artifacts and scrub required files to correct paths
-    cp $(find ${SYSTEM_DLKM_STAGING_DIR} -name "modules.dep") ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules
-    # Remove existing paths leaving just basenames
-    sed -i 's/kernel[^:[:space:]]*\/\([^:[:space:]]*\.ko\)/\1/g' ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules/modules.dep
-    # Prefix /system/lib/modules/ for every module
-    sed -i 's#\([^:[:space:]]*\.ko\)#/system/lib/modules/\1#g' ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules/modules.dep
-    cp $(find ${SYSTEM_DLKM_STAGING_DIR} -name "modules.load") ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules
-    sed -i 's#.*/##' ${SYSTEM_DLKM_STAGING_DIR}/flatten/lib/modules/modules.load
 
-    build_image "${SYSTEM_DLKM_STAGING_DIR}/flatten" "${system_dlkm_props_file}" \
-    "${DIST_DIR}/${system_dlkm_flatten_image_name}" /dev/null
+    build_flattened_dlkm_image "${system_dlkm_flatten_image_name}" "${SYSTEM_DLKM_STAGING_DIR}" \
+      "${system_dlkm_props_file}" "${DIST_DIR}"
+
     generated_images+=(${system_dlkm_flatten_image_name})
    fi
 
@@ -434,6 +477,12 @@ function build_vendor_dlkm() {
   fi
 
   cp ${vendor_dlkm_modules_load} ${DIST_DIR}/vendor_dlkm.modules.load
+
+  if [ -e ${vendor_dlkm_modules_root_dir}/modules.blocklist ]; then
+    cp ${vendor_dlkm_modules_root_dir}/modules.blocklist \
+      ${DIST_DIR}/vendor_dlkm.modules.blocklist
+  fi
+
   local vendor_dlkm_props_file
 
   local vendor_dlkm_default_fs_type="ext4"
@@ -475,10 +524,33 @@ function build_vendor_dlkm() {
   build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" \
     "${DIST_DIR}/vendor_dlkm.img" /dev/null
 
-  avbtool add_hashtree_footer \
-    --partition_name vendor_dlkm \
-    --hash_algorithm sha256 \
-    --image "${DIST_DIR}/vendor_dlkm.img"
+  if [ -z "${VENDOR_DLKM_IMAGE_NAME}" ]; then
+    VENDOR_DLKM_IMAGE_NAME="vendor_dlkm.img"
+  fi
+  local generated_images=(${VENDOR_DLKM_IMAGE_NAME})
+
+ # Build vendor_dlkm flatten image as /lib/modules/*.ko; if unset or null: default false
+  if [[ ${VENDOR_DLKM_GEN_FLATTEN_IMAGE:-0} == "1" ]]; then
+    local vendor_dlkm_flatten_image_name="vendor_dlkm.flatten.img"
+
+    if [ -z "${VENDOR_DLKM_PROPS}" ]; then
+      echo -e "fs_type=${VENDOR_DLKM_FS_TYPE}" >> ${vendor_dlkm_props_file}
+      echo -e "mount_point=vendor_dlkm\n" >> ${vendor_dlkm_props_file}
+    fi
+
+  build_flattened_dlkm_image "${vendor_dlkm_flatten_image_name}" "${VENDOR_DLKM_STAGING_DIR}" \
+    "${vendor_dlkm_props_file}" "${DIST_DIR}"
+
+  generated_images+=(${vendor_dlkm_flatten_image_name})
+  fi
+
+  for image in "${generated_images[@]}"
+  do
+    avbtool add_hashtree_footer \
+      --partition_name vendor_dlkm \
+      --hash_algorithm sha256 \
+      --image "${DIST_DIR}/${image}"
+  done
 
   if [ -n "${vendor_dlkm_archive}" ]; then
     # Archive vendor_dlkm_staging_dir
@@ -637,11 +709,18 @@ function build_boot_images() {
     exit 1
   fi
 
+  MKBOOTFS_ARGS=()
+  if [ -n "${VENDOR_RAMDISK_DEV_NODES}" ]; then
+    for vendor_ramdisk_dev_nodes in ${VENDOR_RAMDISK_DEV_NODES}; do
+      MKBOOTFS_ARGS+=("-n" "${vendor_ramdisk_dev_nodes}")
+    done
+  fi
+
   if [ -n "${SKIP_UNPACKING_RAMDISK}" ] && [ -e "${VENDOR_RAMDISK_BINARY}" ]; then
     cp "${VENDOR_RAMDISK_BINARY}" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
-  elif [ "${#MKBOOTIMG_RAMDISK_DIRS[@]}" -gt 0 ]; then
+  elif [ "${#MKBOOTIMG_RAMDISK_DIRS[@]}" -gt 0 ] || [ "${#MKBOOTFS_ARGS[@]}" -gt 0 ]; then
     MKBOOTIMG_RAMDISK_CPIO="${MKBOOTIMG_STAGING_DIR}/ramdisk.cpio"
-    mkbootfs "${MKBOOTIMG_RAMDISK_DIRS[@]}" >"${MKBOOTIMG_RAMDISK_CPIO}"
+    mkbootfs "${MKBOOTIMG_RAMDISK_DIRS[@]}" "${MKBOOTFS_ARGS[@]}" >"${MKBOOTIMG_RAMDISK_CPIO}"
     ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" >"${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
   fi
 
@@ -651,6 +730,12 @@ function build_boot_images() {
       exit 1
     fi
     MKBOOTIMG_ARGS+=("--kernel" "${DIST_DIR}/${KERNEL_BINARY}")
+  fi
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ] \
+     && [ -n "${BUILD_INIT_BOOT_IMG}" ]; then
+    INIT_BOOT_IMAGE_FILENAME="init_boot.img"
+    MKINITBOOTIMG_ARGS+=("--output" "${DIST_DIR}/${INIT_BOOT_IMAGE_FILENAME}")
   fi
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ]; then
@@ -665,7 +750,13 @@ function build_boot_images() {
 
   if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "3" ]; then
     if [ -f "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
-      MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+      if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ] \
+         && [ -n "${BUILD_INIT_BOOT_IMG}" ]; then
+        MKINITBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+        MKINITBOOTIMG_ARGS+=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
+      else
+        MKBOOTIMG_ARGS+=("--ramdisk" "${GKI_RAMDISK_PREBUILT_BINARY}")
+      fi
     fi
 
     if [ "${BUILD_VENDOR_KERNEL_BOOT}" = "1" ]; then
@@ -709,6 +800,16 @@ function build_boot_images() {
   done
 
   "${MKBOOTIMG_PATH}" "${MKBOOTIMG_ARGS[@]}"
+
+  if [ "${BOOT_IMAGE_HEADER_VERSION}" -ge "4" ] \
+     && [ -n "${BUILD_INIT_BOOT_IMG}" ]; then
+    "${MKBOOTIMG_PATH}" "${MKINITBOOTIMG_ARGS[@]}"
+  fi
+
+  if [ -n "${BUILD_INIT_BOOT_IMG}" ] \
+      && [ -f "${DIST_DIR}/${INIT_BOOT_IMAGE_FILENAME}" ]; then
+    echo "init_boot image created at ${DIST_DIR}/${INIT_BOOT_IMAGE_FILENAME}"
+  fi
 
   if [ -n "${BUILD_BOOT_IMG}" -a -f "${DIST_DIR}/${BOOT_IMAGE_FILENAME}" ]; then
     if [ -n "${AVB_SIGN_BOOT_IMG}" ]; then
@@ -866,13 +967,13 @@ function build_gki_boot_images() {
       # overwritten by the Android platform build to include an accurate SPL.
       # Note, the certified GKI release builds will not include the SPL
       # property.
-      local spl_month=$((($(date +'%m') + 3) % 12))
+      local spl_month=$((($(date +'%-m') + 3) % 12))
       local spl_year="$(date +'%Y')"
       if [ $((${spl_month} % 3)) -gt 0 ]; then
         # Round up to the next quarterly platform release (QPR) month
         spl_month=$((${spl_month} + 3 - (${spl_month} % 3)))
       fi
-      if [ "${spl_month}" -lt "$(date +'%m')" ]; then
+      if [ "${spl_month}" -lt "$(date +'%-m')" ]; then
         # rollover to the next year
         spl_year="$((${spl_year} + 1))"
       fi

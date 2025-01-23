@@ -75,26 +75,21 @@ def _get_scripts_config_args(ctx):
     Args:
         ctx: ctx
     Returns:
-        A struct, where `configs` is a list of arguments to `scripts/config`,
-        and `deps` is a list of input files.
+        a list of arguments to `scripts/config`
     """
-    configs = []
-    if ctx.attr._kgdb[BuildSettingInfo].value:
-        configs = [
-            _config.enable("GDB_SCRIPTS"),
-            _config.enable("KGDB"),
-            _config.enable("KGDB_KDB"),
-            _config.disable("RANDOMIZE_BASE"),
-            _config.disable("STRICT_KERNEL_RWX"),
-            _config.enable("VT"),
-            _config.disable("VT_CONSOLE"),
-            _config.disable("WATCHDOG"),
-            _config.enable_if("KGDB_LOW_LEVEL_TRAP", condition = "X86"),
-        ]
-    return struct(
-        configs = configs,
-        deps = [],
-    )
+    if not ctx.attr._kgdb[BuildSettingInfo].value:
+        return []
+    return [
+        _config.enable("GDB_SCRIPTS"),
+        _config.enable("KGDB"),
+        _config.enable("KGDB_KDB"),
+        _config.disable("RANDOMIZE_BASE"),
+        _config.disable("STRICT_KERNEL_RWX"),
+        _config.enable("VT"),
+        _config.disable("VT_CONSOLE"),
+        _config.disable("WATCHDOG"),
+        _config.enable_if("KGDB_LOW_LEVEL_TRAP", condition = "X86"),
+    ]
 
 kgdb = struct(
     get_grab_gdb_scripts_step = _get_grab_gdb_scripts_step,

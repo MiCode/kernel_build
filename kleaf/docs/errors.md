@@ -285,7 +285,7 @@ To restore the workspace to a build-able state, manually delete the generated
 `$DEFCONFIG` file in the source tree.
 
 **HINT**: You may execute the Bazel command with
-`--experimental_strip_sandbox_path` to get a cleaner path of the file that needs
+`--strip_execroot` to get a cleaner path of the file that needs
 to be deleted.
 
 To prevent `--config=local` builds from writing `$DEFCONFIG` into

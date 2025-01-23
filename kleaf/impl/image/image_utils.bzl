@@ -23,7 +23,7 @@ load(
     "KernelModuleInfo",
 )
 load(":debug.bzl", "debug")
-load(":utils.bzl", "utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -68,8 +68,8 @@ def _build_modules_image_impl_common(
     kernel_build_outs = depset(
         transitive = [
             # Prefer device kernel_build, then base kernel_build
-            kernel_build_infos.kernel_build_info.outs,
-            kernel_build_infos.kernel_build_info.base_kernel_files,
+            kernel_build_infos.images_info.outs,
+            kernel_build_infos.images_info.base_kernel_files,
         ],
         order = "preorder",
     )
@@ -101,16 +101,16 @@ def _build_modules_image_impl_common(
     if restore_modules_install:
         inputs += dws.files(modules_install_staging_dws)
     inputs += ctx.files.deps
-    transitive_inputs = [kernel_build_infos.env_and_outputs_info.inputs]
-    tools = kernel_build_infos.env_and_outputs_info.tools
+    transitive_inputs = [kernel_build_infos.serialized_env_info.inputs]
+    tools = kernel_build_infos.serialized_env_info.tools
 
     command_outputs = []
     command_outputs += outputs
     if implicit_outputs != None:
         command_outputs += implicit_outputs
 
-    command = kernel_build_infos.env_and_outputs_info.get_setup_script(
-        data = kernel_build_infos.env_and_outputs_info.data,
+    command = kernel_utils.setup_serialized_env_cmd(
+        serialized_env_info = kernel_build_infos.serialized_env_info,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd(),
     )
 

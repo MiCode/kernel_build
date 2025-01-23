@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test_binary")
 load("//build/kernel/kleaf/tests/utils:write_flag.bzl", "write_flag")
 
 # tools/bazel run //build/kernel/kleaf/tests/integration_test
@@ -25,9 +26,20 @@ load("//build/kernel/kleaf/tests/utils:write_flag.bzl", "write_flag")
 # - The test involves running `tools/bazel clean` in between. If this were executed
 #   with `tools/bazel test`, the directory structure in output_base would be broken
 #   before results are reported back to bazel.
-py_binary(
+hermetic_test_binary(
     name = "integration_test",
+    actual = ":integration_test_internal",
+    # Preserve host PATH so:
+    # - The test can use `git`
+    # - The bazel wrapper can use `repo` when not running on CI
+    append_host_path = True,
+    use_cc_toolchain = True,
+)
+
+py_binary(
+    name = "integration_test_internal",
     srcs = ["integration_test.py"],
+    main = "integration_test.py",
     deps = [
         "//build/kernel/kleaf:wrapper",
         "//build/kernel/kleaf/analysis:inputs",

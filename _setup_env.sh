@@ -112,12 +112,37 @@ BUILDTOOLS_PREBUILT_BIN
 KLEAF_INTERNAL_BUILDTOOLS_PREBUILT_BIN
 )
 
+# Have host compiler use LLD and compiler-rt.
+LLD_COMPILER_RT="-fuse-ld=lld --rtlib=compiler-rt"
+if [[ -n "${NDK_TRIPLE}" ]]; then
+  NDK_DIR=${ROOT_DIR}/prebuilts/ndk-r26
+  USERCFLAGS="--target=${NDK_TRIPLE} "
+  USERCFLAGS+="--sysroot=${NDK_DIR}/toolchains/llvm/prebuilt/linux-x86_64/sysroot "
+  # Some kernel headers trigger -Wunused-function for unused static functions
+  # with clang; GCC does not warn about unused static inline functions. The
+  # kernel sets __attribute__((maybe_unused)) on such functions when W=1 is
+  # not set.
+  USERCFLAGS+="-Wno-unused-function "
+  # To help debug these flags, consider commenting back in the following, and
+  # add `echo $@ > /tmp/log.txt` and `2>>/tmp/log.txt` to the invocation of $@
+  # in scripts/cc-can-link.sh.
+  #USERCFLAGS+=" -Wl,--verbose -v"
+  # We need to set -fuse-ld=lld for Android's build env since AOSP LLVM's
+  # clang is not configured to use LLD by default, and BFD has been
+  # intentionally removed. This way CC_CAN_LINK can properly link the test in
+  # scripts/cc-can-link.sh.
+  USERLDFLAGS="${LLD_COMPILER_RT} "
+  USERLDFLAGS+="--target=${NDK_TRIPLE} "
+else
+  USERCFLAGS="--sysroot=/dev/null"
+fi
+export USERCFLAGS USERLDFLAGS
+
 unset LD_LIBRARY_PATH
 
 if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   HOST_TOOLS=${OUT_DIR}/host_tools
-  rm -rf ${HOST_TOOLS}
-  mkdir -p ${HOST_TOOLS}
+  [ ! -e "${HOST_TOOLS}" ] && mkdir -p ${HOST_TOOLS}
   for tool in \
       bash \
       git \
@@ -130,9 +155,20 @@ if [ "${HERMETIC_TOOLCHAIN:-0}" -eq 1 ]; then
   done
   PATH=${HOST_TOOLS}
 
-  # use relative paths for file name references in the binaries
-  # (e.g. debug info)
-  export KCPPFLAGS="-ffile-prefix-map=${ROOT_DIR}/${KERNEL_DIR}/= -ffile-prefix-map=${ROOT_DIR}/="
+  # set the common sysroot
+  sysroot_flags+="--sysroot=${ROOT_DIR}/build/kernel/build-tools/sysroot "
+
+  # add openssl (via boringssl) and other prebuilts into the lookup path
+  cflags+="-I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include "
+
+  # add openssl and further prebuilt libraries into the lookup path
+  ldflags+="-L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64 "
+  ldflags+=${LLD_COMPILER_RT}
+  export LD_LIBRARY_PATH="${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64"
+
+  export HOSTCFLAGS="$sysroot_flags $cflags"
+  export HOSTLDFLAGS="$sysroot_flags $ldflags"
+
 fi
 
 for prebuilt_bin in "${prebuilts_paths[@]}"; do
@@ -144,7 +180,11 @@ for prebuilt_bin in "${prebuilts_paths[@]}"; do
         PATH=${ROOT_DIR}/${prebuilt_bin}:${PATH}
     fi
 done
+PATH=${COMMON_OUT_DIR}/host/bin:${PATH}
+LD_LIBRARY_PATH=${COMMON_OUT_DIR}/host/lib:${LD_LIBRARY_PATH}
+
 export PATH
+export LD_LIBRARY_PATH
 
 unset PYTHONPATH
 unset PYTHONHOME
@@ -227,10 +267,6 @@ else
   RAMDISK_DECOMPRESS="${DECOMPRESS_LZ4}"
   RAMDISK_EXT="lz4"
 fi
-
-# Set libclang.so location for use by bindgen for Rust
-LIBCLANG_PATH=${ROOT_DIR}/${CLANG_PREBUILT_BIN}/../lib/
-export LIBCLANG_PATH
 
 # verifies that defconfig matches the DEFCONFIG
 function check_defconfig() {

@@ -32,7 +32,7 @@ class PathCollectible(object):
     path: pathlib.Path
 
     def collect(self) -> str:
-        return NotImplementedError
+        raise NotImplementedError
 
 
 @dataclasses.dataclass
@@ -96,8 +96,8 @@ def get_localversion_from_script(bin: pathlib.Path | None, project: pathlib.Path
                                  env=env)
 
         suffix = None
-        if os.environ.get("BUILD_NUMBER"):
-            suffix = "-ab" + os.environ["BUILD_NUMBER"]
+        # if os.environ.get("BUILD_NUMBER"):
+        #     suffix = "-ab" + os.environ["BUILD_NUMBER"]
         return LocalversionResult(
             path=project,
             popen=popen,
@@ -139,8 +139,8 @@ def get_localversion_from_git(project: pathlib.Path) -> PathCollectible | None:
     popen = subprocess.Popen(script, shell=True, text=True,
                              stdout=subprocess.PIPE, cwd=project)
     suffix = None
-    if os.environ.get("BUILD_NUMBER"):
-        suffix = "-ab" + os.environ["BUILD_NUMBER"]
+    #if os.environ.get("BUILD_NUMBER"):
+    #    suffix = "-ab" + os.environ["BUILD_NUMBER"]
     return LocalversionResult(
         path=project,
         popen=popen,
@@ -149,63 +149,70 @@ def get_localversion_from_git(project: pathlib.Path) -> PathCollectible | None:
     )
 
 
+def _find_repo(curdir: pathlib.Path) -> pathlib.Path | None:
+    """Find repo installation."""
+    while curdir.parent != curdir:  # is not root
+        maybe_dot_repo = curdir / ".repo"
+        if maybe_dot_repo.is_dir():
+            return curdir
+        curdir = curdir.parent
+    return None
+
+
 def list_projects() -> list[pathlib.Path]:
     """Lists projects in the repository.
 
     Returns:
-        a list of projects in the repository.
+        a list of Git projects relative to CWD.
     """
-    if "KLEAF_REPO_MANIFEST" in os.environ:
-        with open(os.environ["KLEAF_REPO_MANIFEST"]) as repo_prop_file:
-            return parse_repo_manifest(repo_prop_file.read())
+    repo_root_s, repo_manifest = os.environ.get("KLEAF_REPO_MANIFEST", ":").split(":")
+    if repo_root_s:
+        repo_root = pathlib.Path(repo_root_s)
+    else:
+        repo_root = _find_repo(pathlib.Path(".").resolve())
+
+    if not repo_root:
+        logging.warning("Unable to determine repo root. Please specify --repo_manifest.")
+        return []
+
+    if repo_manifest:
+        with open(repo_manifest) as repo_manifest_file:
+            return parse_repo_manifest(repo_root, repo_manifest_file.read())
 
     try:
-        output = subprocess.check_output(["repo", "list", "-f"], text=True)
-        return parse_repo_list(output)
+        output = subprocess.check_output(["repo", "manifest", "-r"], text=True)
+        return parse_repo_manifest(repo_root, output)
     except (subprocess.SubprocessError, FileNotFoundError) as e:
-        logging.warning("Unable to execute repo list -f: %s", e)
+        logging.warning("Unable to execute repo manifest -r: %s", e)
         return []
 
 
-def parse_repo_manifest(manifest: str) -> list[pathlib.Path]:
+def parse_repo_manifest(repo_root: pathlib.Path, manifest: str) \
+        -> list[pathlib.Path]:
     """Parses a repo manifest file.
 
     Returns:
         a list of paths to all projects in the repository.
     """
+    kleaf_repo_dir = pathlib.Path(".").resolve()
     try:
         dom = xml.dom.minidom.parseString(manifest)
     except xml.parsers.expat.ExpatError as e:
         logging.error("Unable to parse repo manifest: %s", e)
         return []
     projects = dom.documentElement.getElementsByTagName("project")
-    # https://gerrit.googlesource.com/git-repo/+/master/docs/manifest-format.md#element-project
-    return [
-        pathlib.Path(proj.getAttribute("path") or proj.getAttribute("name"))
-        for proj in projects
-    ]
-
-
-def parse_repo_list(repo_list: str) -> list[pathlib.Path]:
-    """Parses the result of `repo list -f`.
-
-    Returns:
-        a list of paths to all projects in the repository.
-    """
-    workspace = pathlib.Path(".").absolute()
-    paths = []
-    for line in repo_list.splitlines():
-        line = line.strip()
-        if not line or ":" not in line:
-            continue
-        proj = pathlib.Path(line.split(":", 2)[0].strip())
-        if proj.is_relative_to(workspace):
-            paths.append(proj.relative_to(workspace))
+    ret = list[pathlib.Path]()
+    for project in projects:
+        # https://gerrit.googlesource.com/git-repo/+/master/docs/manifest-format.md#element-project
+        path_below_repo = pathlib.Path(project.getAttribute("path") or
+                                       project.getAttribute("name"))
+        realpath = repo_root / path_below_repo
+        if realpath.is_relative_to(kleaf_repo_dir):
+            ret.append(realpath.relative_to(kleaf_repo_dir))
         else:
-            logging.info(
-                "Ignoring project %s because it is not under the Bazel workspace",
-                proj)
-    return paths
+            logging.warning("Skipping project %s because it is not below %s",
+                            realpath, kleaf_repo_dir)
+    return ret
 
 
 def collect(popen_obj: subprocess.Popen) -> str:
@@ -230,7 +237,13 @@ class Stamp(object):
             "KLEAF_IGNORE_MISSING_PROJECTS") == "true"
         self.use_kleaf_localversion = os.environ.get(
             "KLEAF_USE_KLEAF_LOCALVERSION") == "true"
+
         self.projects = list_projects()
+        extra_git_project_env_var = os.environ.get("KLEAF_EXTRA_GIT_PROJECTS")
+        if extra_git_project_env_var:
+            self.projects.extend(pathlib.Path(value) for value in
+                                 extra_git_project_env_var.split(":"))
+
         self.init_for_dot_source_date_epoch_dir()
 
     def init_for_dot_source_date_epoch_dir(self) -> None:
@@ -350,7 +363,7 @@ class Stamp(object):
 
         return {
             proj: self.async_get_source_date_epoch(proj)
-            for proj in all_projects
+            for proj in filter(os.path.exists, all_projects)
         }
 
     def async_get_source_date_epoch(self, rel_path: pathlib.Path) -> PathCollectible:
@@ -380,6 +393,24 @@ class Stamp(object):
         scmversion_result_map: dict[pathlib.Path, str],
         source_date_epoch_result_map: dict[pathlib.Path, str],
     ) -> None:
+        # Added for fixing OGKI Build can not find the right build params
+        real_common_dir_name = os.environ.get("REAL_KERNEL_DIR_NAME")
+        # real_common_dir_name will be None if building ko or the oki is unsupported
+        if real_common_dir_name != None and len(real_common_dir_name) != 0:
+            for key, value in scmversion_result_map.items():
+                if str(key) == real_common_dir_name:
+                    # Add ogki flag if we're building on ogki repo.
+                    if real_common_dir_name == "common-ogki":
+                        scmversion_result_map["common"] = "{}-{}".format(value, "mi")
+                    else:
+                        scmversion_result_map["common"] = value
+                    break
+
+            for key, value in source_date_epoch_result_map.items():
+                if str(key) == real_common_dir_name:
+                    source_date_epoch_result_map["common"] = value
+                    break
+        # END
         stable_source_date_epochs = json.dumps({
             str(key): value for key, value in source_date_epoch_result_map.items()
         }, sort_keys=True)

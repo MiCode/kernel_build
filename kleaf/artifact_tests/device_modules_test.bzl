@@ -16,12 +16,11 @@
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelModuleInfo")
-load("//build/kernel/kleaf/impl:hermetic_exec.bzl", "hermetic_exec_test")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
 load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
-load(":py_test_hack.bzl", "run_py_binary_cmd")
+load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test")
 
 visibility("//build/kernel/kleaf/...")
 
@@ -48,13 +47,12 @@ def _check_signature(
         base_kernel_module,
         expect_signature,
         directory):
-    test_binary = Label("//build/kernel/kleaf/artifact_tests:check_module_signature")
     args = [
         "--module",
         base_kernel_module,
         "--expect_signature" if expect_signature else "--noexpect_signature",
     ]
-    data = [test_binary]
+    data = []
     if directory:
         args += [
             "--dir",
@@ -62,10 +60,10 @@ def _check_signature(
         ]
         data.append(directory)
 
-    hermetic_exec_test(
+    hermetic_test(
         name = name,
+        actual = Label("//build/kernel/kleaf/artifact_tests:check_module_signature"),
         data = data,
-        script = run_py_binary_cmd(test_binary),
         args = args,
         timeout = "short",
     )

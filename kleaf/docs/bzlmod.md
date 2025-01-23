@@ -2,41 +2,55 @@
 
 ## Migrate to bzlmod
 
-### Use @kleaf as root module
+### Use @kleaf as dependent module (recommended)
+
+If you are setting up a new workspace, it is recommended
+to use `@kleaf` as a dependent module. See [Setting up DDK workspace](ddk/workspace.md).
+
+### Use @kleaf as root module (legacy)
+
+If you are migrating from non-Bzlmod, `WORKSPACE`-style
+setup, this may be the easier option because it resembles the directory
+structure of `WORKSPACE`-style setup.
 
 Set up your repo manifest to conform with the following filesystem layout.
 
 ```text
 <workspace_root>/
     |- WORKSPACE               -> build/kernel/kleaf/bazel.WORKSPACE # Note 1
-    |- WORKSPACE.bzlmod        -> build/kernel/kleaf/bzlmod/bazel.WORKSPACE.bzlmod
+    |- WORKSPACE.bzlmod        -> build/kernel/kleaf/bzlmod/bazel.WORKSPACE.bzlmod # Note 1
     |- MODULE.bazel            -> build/kernel/kleaf/bzlmod/bazel.MODULE.bazel
     |- build/
-    |    |- BUILD.bazel              -> kernel/kleaf/bzlmod/empty_BUILD.bazel
-    |    |- kernel_toolchain_ext.bzl -> kernel/kleaf/bzlmod/default_kernel_toolchain_ext.bzl # Note 2
     |    `- kernel/
-    |- common/                 # Note 2
-    |    `- build.config.constants
+    |- common/
+    |    `- build.config.constants              # Note 2
     `- external/
          |- bazelbuild-bazel-central-registry
          `- <other external repositories>       # Note 3
 ```
 
-**Note 1**: The root `WORKSPACE` file is present to support pre-bzlmod builds.
-After bzlmod migration, this file may be removed.
+**Note 1**: The root `WORKSPACE` and `WORKSPACE.bzlmod` files are present to
+support switching between bzlmod and non-bzlmod builds. During migration to
+bzlmod, you may have an non-empty `WORKSPACE.bzlmod` file for dependencies
+that has not been migrated to bzlmod. After all dependencies and the
+root module migrated to Bzlmod, both files may be removed.
 
-**Note 2**: If `build.config.constants` exists elsewhere other than `common/`,
-the `build/kernel_toolchain_ext.bzl` should link to a file that
-contains different content. See comments in
-[default_kernel_toolchain_ext.bzl](../bzlmod/default_kernel_toolchain_ext.bzl)
+See
+[hybrid mode for gradual migration](https://bazel.build/external/migration#hybrid-mode)
 for details.
 
+**Note 2**: If `build.config.constants` exists elsewhere other than `common/`,
+create the symlink `common/build.config.constants` to the file. This may be
+done with `<linkfile>` in your repo manifest.
+
 **Note 3**: A list of external repositories are required for bzlmod to work.
-For the up-to-date list, refer to the repo manifest of the ACK branch.
+For the up-to-date list, refer to the repo manifest of the correspoding ACK
+branch.
 
-### Use @kleaf as dependency
-
-This will be supported in the near future. Stay tuned!
+See example manifests for
+[Pixel 6 and Pixel 6 Pro](https://android.googlesource.com/kernel/manifest/+/refs/heads/gs-android-gs-raviole-mainline/default.xml)
+and for
+[Android Common Kernel and Cloud Android Kernel](https://android.googlesource.com/kernel/manifest/+/refs/heads/common-android-mainline/default.xml).
 
 ## Versions of dependent modules
 

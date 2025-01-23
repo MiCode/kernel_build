@@ -20,6 +20,3 @@ build:fast --//build/kernel/kleaf:config_fast
 
 # Inherit from local: reduce sandboxes.
 build:fast --config=local
-
-# Use pigz inplace of gzip for faster compression
-build:fast --experimental_gzip_is_pigz

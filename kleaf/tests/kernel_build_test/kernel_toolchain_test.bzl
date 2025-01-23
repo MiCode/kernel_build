@@ -14,42 +14,25 @@
 
 """Tests kernel_build.toolchain_version."""
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
     "//build/kernel/kleaf/impl:constants.bzl",
     "MODULES_STAGING_ARCHIVE",
+    "UNSTRIPPED_MODULES_ARCHIVE",
 )
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
 load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
-load("//build/kernel/kleaf/tests:test_utils.bzl", "test_utils")
 load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 
-def _kernel_toolchain_pass_analysis_test_impl(ctx):
+def _pass_analysis_test_impl(ctx):
     env = analysistest.begin(ctx)
-
-    if ctx.files.toolchain_version_file:
-        check_action = test_utils.find_action(env, "KernelBuildCheckToolchain")
-        asserts.true(
-            env,
-            ctx.files.toolchain_version_file[0] in check_action.inputs.to_list(),
-            "{}: {} not in inputs of KernelBuildCheckToolchain".format(
-                analysistest.target_under_test(env).label,
-                ctx.files.toolchain_version_file[0],
-            ),
-        )
-
     return analysistest.end(env)
 
-_kernel_toolchain_pass_analysis_test = analysistest.make(
-    impl = _kernel_toolchain_pass_analysis_test_impl,
-    attrs = {
-        "toolchain_version_file": attr.label(
-            doc = """If set, also check that there is a `KernelBuildCheckToolchain` action
-                     that checks against the given label.""",
-        ),
-    },
+_pass_analysis_test = analysistest.make(
+    impl = _pass_analysis_test_impl,
+    doc = "Test that `target_under_test` passes analysis phase.",
 )
 
 def kernel_toolchain_test(name):
@@ -76,12 +59,7 @@ def kernel_toolchain_test(name):
         )
         write_file(
             name = filegroup_name + "_unstripped_modules",
-            out = filegroup_name + "_unstripped_modules/unstripped_modules.tar.gz",
-        )
-
-        write_file(
-            name = filegroup_name + "_module_outs_file",
-            out = filegroup_name + "_module_outs_file/my_modules",
+            out = filegroup_name + "_unstripped_modules/" + UNSTRIPPED_MODULES_ARCHIVE,
         )
 
         write_file(
@@ -93,21 +71,33 @@ def kernel_toolchain_test(name):
             ],
         )
 
-        write_file(
-            name = filegroup_name + "_toolchain_version",
-            out = filegroup_name + "/toolchain_version",
-            content = [clang_version],
+        native.platform(
+            name = filegroup_name + "_target_platform",
+            constraint_values = [
+                "@platforms//os:android",
+                "@platforms//cpu:arm64",
+                Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(clang_version)),
+            ],
+        )
+
+        native.platform(
+            name = filegroup_name + "_exec_platform",
+            constraint_values = [
+                "@platforms//os:linux",
+                "@platforms//cpu:x86_64",
+                Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(clang_version)),
+            ],
         )
 
         kernel_filegroup(
             name = filegroup_name,
             deps = [
-                filegroup_name + "_toolchain_version",
                 filegroup_name + "_unstripped_modules",
                 filegroup_name + "_staging_archive",
             ],
-            module_outs_file = filegroup_name + "_module_outs_file",
             gki_artifacts = filegroup_name + "_gki_info",
+            target_platform = filegroup_name + "_target_platform",
+            exec_platform = filegroup_name + "_exec_platform",
             tags = ["manual"],
         )
 
@@ -137,18 +127,8 @@ def kernel_toolchain_test(name):
                     tags = ["manual"],
                 )
 
-                if base_kernel_type == "filegroup":
-                    # When base_kernel is a kernel_filegroup, the check is deferred to
-                    # execution phase, so analysis phase always passes.
-                    # Check that there's an action in the execution phase to check toolchain
-                    # version.
-                    _kernel_toolchain_pass_analysis_test(
-                        name = test_name,
-                        target_under_test = test_name + "_device_kernel",
-                        toolchain_version_file = base_kernel + "_toolchain_version",
-                    )
-                elif base_toolchain == device_toolchain:
-                    _kernel_toolchain_pass_analysis_test(
+                if base_toolchain == device_toolchain:
+                    _pass_analysis_test(
                         name = test_name,
                         target_under_test = test_name + "_device_kernel",
                     )

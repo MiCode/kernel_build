@@ -14,6 +14,7 @@
 
 """When `bazel run`, updates an ABI definition."""
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
 visibility("//build/kernel/kleaf/...")
@@ -22,37 +23,31 @@ def _abi_update_impl(ctx):
     hermetic_tools = hermetic_toolchain.get(ctx)
 
     script = """
-        # run_additional_setup keeps the original PATH to host tools at the
-        # end of PATH. This is intentionally not hermetic and uses git
-        # from the host machine.
-        {semi_hermetic_setup}
-
-        # nodiff_update is self-contained and hermetic.
+        {hermetic_setup}
         {nodiff_update}
 
-        # Use the semi-hermetic environment to execute git commands
-        # Create git commit if requested
         if [[ $1 == "--commit" ]]; then
-            real_abi_def="$(realpath {abi_definition})"
-            git -C $(dirname ${{real_abi_def}}) add $(basename ${{real_abi_def}})
-            git -C $(dirname ${{real_abi_def}}) commit -F $(realpath {git_message})
+            echo "WARNING: --commit is deprecated. Please add {abi_definition} and commit manually." >&2
+            echo "  You may use --print_git_commands to print sample git commands to run." >&2
         fi
 
-        # Re-instate a hermetic environment
-        {hermetic_setup}
-        {diff}
-        if [[ $1 == "--commit" ]]; then
-            echo
-            echo "INFO: git commit created. Execute the following to edit the commit message:"
-            echo "        git -C $(dirname $(rootpath {abi_definition})) commit --amend"
+        if [[ $1 == "--commit" ]] || [[ $1 == "--print_git_commands" ]]; then
+            echo "  git -C ${{BUILD_WORKSPACE_DIRECTORY}}/{abi_definition_dir} commit \\\\"
+            echo "    -F ${{BUILD_WORKSPACE_DIRECTORY}}/{git_message} \\\\"
+            echo "    --signoff --edit -- {abi_definition_name}"
         fi
+
+        {diff}
     """.format(
         hermetic_setup = hermetic_tools.run_setup,
-        semi_hermetic_setup = hermetic_tools.run_additional_setup,
         nodiff_update = ctx.executable.nodiff_update.short_path,
         abi_definition = ctx.file.abi_definition_stg.short_path,
-        git_message = ctx.file.git_message.short_path,
         diff = ctx.executable.diff.short_path,
+        # Use .path because these are displayed to the user relative
+        # to BUILD_WORKSPACE_DIRECTORY
+        abi_definition_dir = paths.dirname(ctx.file.abi_definition_stg.path),
+        abi_definition_name = paths.basename(ctx.file.abi_definition_stg.path),
+        git_message = ctx.file.git_message.path,
     )
 
     executable = ctx.actions.declare_file("{}.sh".format(ctx.attr.name))

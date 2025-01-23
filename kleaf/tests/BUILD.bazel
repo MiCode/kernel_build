@@ -40,3 +40,15 @@ bzl_library(
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
 )
+
+bzl_library(
+    name = "hermetic_test",
+    srcs = [
+        "hermetic_test.bzl",
+    ],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [
+        "//build/kernel/kleaf:hermetic_tools_def",
+        "@bazel_skylib//lib:shell",
+    ],
+)

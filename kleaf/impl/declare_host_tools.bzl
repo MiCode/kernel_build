@@ -19,6 +19,18 @@ visibility([
     "//",  # for root MODULE.bazel
 ])
 
+# Superset of all tools we need from host.
+# For the subset of host tools we typically use for a kernel build,
+# see //build/kernel:hermetic-tools.
+_DEFAULT_HOST_TOOLS = [
+    "bash",
+    "perl",
+    "rsync",
+    "sh",
+    # For BTRFS (b/292212788)
+    "find",
+]
+
 def _kleaf_host_tools_repo_impl(repository_ctx):
     repository_ctx.file("WORKSPACE", """\
 workspace(name = "{}")
@@ -46,26 +58,34 @@ kleaf_host_tools_repo = repository_rule(
     },
 )
 
-def _kleaf_host_tools_ext_impl(module_ctx):
+def _declare_repos(module_ctx, tag_name):
     host_tools = []
     for module in module_ctx.modules:
-        for declared in module.tags.declare:
+        for declared in getattr(module.tags, tag_name):
             host_tools += declared.host_tools
+
+    if not host_tools:
+        host_tools = _DEFAULT_HOST_TOOLS
 
     kleaf_host_tools_repo(
         name = "kleaf_host_tools",
         host_tools = host_tools,
     )
 
-kleaf_host_tools_ext = module_extension(
-    doc = "Declares an extension named `kleaf_host_tools` that contains symlinks to host tools.",
-    implementation = _kleaf_host_tools_ext_impl,
-    tag_classes = {
-        "declare": tag_class(
-            doc = "Declares a list of host tools to be symlinked in the extension `kleaf_host_tools.",
-            attrs = {
-                "host_tools": attr.string_list(doc = "List of host tools"),
-            },
+_tag_class = tag_class(
+    doc = "Declares a list of host tools to be symlinked in the extension `kleaf_host_tools.",
+    attrs = {
+        "host_tools": attr.string_list(
+            doc = """List of host tools.
+
+                If `declare_host_tools` is not called anywhere, or only called
+                with empty `host_tools`, the default is `{}`.
+            """.format(repr(_DEFAULT_HOST_TOOLS)),
         ),
     },
+)
+
+declare_host_tools = struct(
+    declare_repos = _declare_repos,
+    tag_class = _tag_class,
 )
