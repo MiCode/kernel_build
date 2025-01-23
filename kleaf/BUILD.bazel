@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("//build/kernel/kleaf/impl:common_settings.bzl", "bool_flag", "string_flag")
 load("//build/kernel/kleaf/impl:ddk/gen_ddk_headers.bzl", "gen_ddk_headers")
 load("//build/kernel/kleaf/impl:phony_defconfig.bzl", "phony_defconfig")

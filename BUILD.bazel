@@ -14,6 +14,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
 load("//build/kernel/kleaf/impl:bison_wrapper.bzl", "bison_wrapper")
 load("//build/kernel/kleaf/impl:native_binary_with_arg.bzl", "native_binary_with_arg")

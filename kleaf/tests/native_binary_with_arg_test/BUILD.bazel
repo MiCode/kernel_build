@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load(":native_binary_with_arg_test.bzl", "native_binary_with_arg_test")
 
 cc_binary(

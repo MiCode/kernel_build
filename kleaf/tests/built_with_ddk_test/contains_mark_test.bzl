@@ -14,6 +14,8 @@
 
 """Test that a given kernel module has the built with DDK modinfo tag."""
 
+load("@rules_python//python:defs.bzl", "py_test")
+
 def contains_mark_test(name, kernel_module, depmod = None):
     """Check that a kernel module is marked as built with DDK.
 
@@ -36,7 +38,7 @@ def contains_mark_test(name, kernel_module, depmod = None):
         "$(rootpath {})".format(depmod),
     ]
 
-    native.py_test(
+    py_test(
         name = name,
         python_version = "PY3",
         main = "contains_mark_test.py",

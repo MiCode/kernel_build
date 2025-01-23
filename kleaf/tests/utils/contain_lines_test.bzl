@@ -14,6 +14,8 @@
 
 """Tests for contents of a given file."""
 
+load("@rules_python//python:defs.bzl", "py_test")
+
 def contain_lines_test(name, expected, actual, order = None, **kwargs):
     """See `contain_lines_test.py` for explanation.
 
@@ -34,7 +36,7 @@ def contain_lines_test(name, expected, actual, order = None, **kwargs):
     if order:
         args.append("--order")
 
-    native.py_test(
+    py_test(
         name = name,
         python_version = "PY3",
         main = "contain_lines_test.py",

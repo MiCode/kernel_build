@@ -1,5 +1,6 @@
 """Rules for defining a native cc_library based on a kernel's UAPI headers."""
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 
@@ -96,7 +97,7 @@ def kernel_uapi_headers_cc_library(name, kernel_build):
     )
 
     # Header-only library build will not invoke any toolchain
-    native.cc_library(
+    cc_library(
         name = name,
         hdrs = [":" + unarchived_headers_rule],
         includes = [unarchived_headers_rule],
