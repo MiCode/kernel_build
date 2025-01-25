@@ -809,7 +809,7 @@ the list have higher priority:
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "modinfo_summary_report")
 
-modinfo_summary_report(<a href="#modinfo_summary_report-name">name</a>, <a href="#modinfo_summary_report-arch">arch</a>, <a href="#modinfo_summary_report-branch">branch</a>, <a href="#modinfo_summary_report-kernel_build">kernel_build</a>)
+modinfo_summary_report(<a href="#modinfo_summary_report-name">name</a>, <a href="#modinfo_summary_report-deps">deps</a>)
 </pre>
 
 Generate a report from kernel modules of the given kernel build.
@@ -820,9 +820,7 @@ Generate a report from kernel modules of the given kernel build.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="modinfo_summary_report-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="modinfo_summary_report-arch"></a>arch |  -   | String | required |  |
-| <a id="modinfo_summary_report-branch"></a>branch |  -   | String | required |  |
-| <a id="modinfo_summary_report-kernel_build"></a>kernel_build |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+| <a id="modinfo_summary_report-deps"></a>deps |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
 <a id="super_image"></a>
@@ -1005,7 +1003,7 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
 
 ddk_module(<a href="#ddk_module-name">name</a>, <a href="#ddk_module-kernel_build">kernel_build</a>, <a href="#ddk_module-srcs">srcs</a>, <a href="#ddk_module-deps">deps</a>, <a href="#ddk_module-hdrs">hdrs</a>, <a href="#ddk_module-textual_hdrs">textual_hdrs</a>, <a href="#ddk_module-includes">includes</a>, <a href="#ddk_module-conditional_srcs">conditional_srcs</a>,
            <a href="#ddk_module-linux_includes">linux_includes</a>, <a href="#ddk_module-out">out</a>, <a href="#ddk_module-local_defines">local_defines</a>, <a href="#ddk_module-copts">copts</a>, <a href="#ddk_module-kconfig">kconfig</a>, <a href="#ddk_module-defconfig">defconfig</a>, <a href="#ddk_module-generate_btf">generate_btf</a>,
-           <a href="#ddk_module-autofdo_profile">autofdo_profile</a>, <a href="#ddk_module-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_module-kwargs">kwargs</a>)
+           <a href="#ddk_module-autofdo_profile">autofdo_profile</a>, <a href="#ddk_module-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_module-kwargs">**kwargs</a>)
 </pre>
 
 Defines a DDK (Driver Development Kit) module.
@@ -1313,7 +1311,7 @@ $(LINUXINCLUDE)
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_submodule")
 
 ddk_submodule(<a href="#ddk_submodule-name">name</a>, <a href="#ddk_submodule-out">out</a>, <a href="#ddk_submodule-srcs">srcs</a>, <a href="#ddk_submodule-deps">deps</a>, <a href="#ddk_submodule-hdrs">hdrs</a>, <a href="#ddk_submodule-includes">includes</a>, <a href="#ddk_submodule-local_defines">local_defines</a>, <a href="#ddk_submodule-copts">copts</a>, <a href="#ddk_submodule-conditional_srcs">conditional_srcs</a>,
-              <a href="#ddk_submodule-autofdo_profile">autofdo_profile</a>, <a href="#ddk_submodule-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_submodule-kwargs">kwargs</a>)
+              <a href="#ddk_submodule-autofdo_profile">autofdo_profile</a>, <a href="#ddk_submodule-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_submodule-kwargs">**kwargs</a>)
 </pre>
 
 Declares a DDK (Driver Development Kit) submodule.
@@ -1408,7 +1406,8 @@ dependencies are stable, it is recommended to:
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "dependency_graph")
 
-dependency_graph(<a href="#dependency_graph-name">name</a>, <a href="#dependency_graph-kernel_build">kernel_build</a>, <a href="#dependency_graph-kernel_modules">kernel_modules</a>, <a href="#dependency_graph-colorful">colorful</a>, <a href="#dependency_graph-exclude_base_kernel_modules">exclude_base_kernel_modules</a>, <a href="#dependency_graph-kwargs">kwargs</a>)
+dependency_graph(<a href="#dependency_graph-name">name</a>, <a href="#dependency_graph-kernel_build">kernel_build</a>, <a href="#dependency_graph-kernel_modules">kernel_modules</a>, <a href="#dependency_graph-colorful">colorful</a>, <a href="#dependency_graph-exclude_base_kernel_modules">exclude_base_kernel_modules</a>,
+                 <a href="#dependency_graph-kwargs">**kwargs</a>)
 </pre>
 
 Declare targets for dependency graph visualization.
@@ -1439,7 +1438,7 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "initramfs_modules_lists_test")
 
 initramfs_modules_lists_test(<a href="#initramfs_modules_lists_test-name">name</a>, <a href="#initramfs_modules_lists_test-kernel_images">kernel_images</a>, <a href="#initramfs_modules_lists_test-expected_modules_list">expected_modules_list</a>,
                              <a href="#initramfs_modules_lists_test-expected_modules_recovery_list">expected_modules_recovery_list</a>, <a href="#initramfs_modules_lists_test-expected_modules_charger_list">expected_modules_charger_list</a>,
-                             <a href="#initramfs_modules_lists_test-build_vendor_boot">build_vendor_boot</a>, <a href="#initramfs_modules_lists_test-build_vendor_kernel_boot">build_vendor_kernel_boot</a>, <a href="#initramfs_modules_lists_test-kwargs">kwargs</a>)
+                             <a href="#initramfs_modules_lists_test-build_vendor_boot">build_vendor_boot</a>, <a href="#initramfs_modules_lists_test-build_vendor_kernel_boot">build_vendor_kernel_boot</a>, <a href="#initramfs_modules_lists_test-kwargs">**kwargs</a>)
 </pre>
 
 Tests that the initramfs has modules.load* files with the given content.
@@ -1468,7 +1467,7 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_abi")
 
 kernel_abi(<a href="#kernel_abi-name">name</a>, <a href="#kernel_abi-kernel_build">kernel_build</a>, <a href="#kernel_abi-define_abi_targets">define_abi_targets</a>, <a href="#kernel_abi-kernel_modules">kernel_modules</a>, <a href="#kernel_abi-module_grouping">module_grouping</a>,
            <a href="#kernel_abi-abi_definition_stg">abi_definition_stg</a>, <a href="#kernel_abi-kmi_enforced">kmi_enforced</a>, <a href="#kernel_abi-unstripped_modules_archive">unstripped_modules_archive</a>, <a href="#kernel_abi-kmi_symbol_list_add_only">kmi_symbol_list_add_only</a>,
-           <a href="#kernel_abi-kernel_modules_exclude_list">kernel_modules_exclude_list</a>, <a href="#kernel_abi-enable_add_vmlinux">enable_add_vmlinux</a>, <a href="#kernel_abi-kwargs">kwargs</a>)
+           <a href="#kernel_abi-kernel_modules_exclude_list">kernel_modules_exclude_list</a>, <a href="#kernel_abi-enable_add_vmlinux">enable_add_vmlinux</a>, <a href="#kernel_abi-kwargs">**kwargs</a>)
 </pre>
 
 Declare multiple targets to support ABI monitoring.
@@ -1544,7 +1543,7 @@ commands to Bazel commands.
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_abi_dist")
 
 kernel_abi_dist(<a href="#kernel_abi_dist-name">name</a>, <a href="#kernel_abi_dist-kernel_abi">kernel_abi</a>, <a href="#kernel_abi_dist-kernel_build_add_vmlinux">kernel_build_add_vmlinux</a>, <a href="#kernel_abi_dist-ignore_diff">ignore_diff</a>, <a href="#kernel_abi_dist-no_ignore_diff_target">no_ignore_diff_target</a>,
-                <a href="#kernel_abi_dist-kwargs">kwargs</a>)
+                <a href="#kernel_abi_dist-kwargs">**kwargs</a>)
 </pre>
 
 This macro is no longer supported. Invoking this macro triggers an error.
@@ -1573,7 +1572,7 @@ Use [`kernel_abi_wrapped_dist`](#kernel_abi_wrapped_dist) instead.
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_abi_wrapped_dist")
 
-kernel_abi_wrapped_dist(<a href="#kernel_abi_wrapped_dist-name">name</a>, <a href="#kernel_abi_wrapped_dist-dist">dist</a>, <a href="#kernel_abi_wrapped_dist-kernel_abi">kernel_abi</a>, <a href="#kernel_abi_wrapped_dist-ignore_diff">ignore_diff</a>, <a href="#kernel_abi_wrapped_dist-no_ignore_diff_target">no_ignore_diff_target</a>, <a href="#kernel_abi_wrapped_dist-kwargs">kwargs</a>)
+kernel_abi_wrapped_dist(<a href="#kernel_abi_wrapped_dist-name">name</a>, <a href="#kernel_abi_wrapped_dist-dist">dist</a>, <a href="#kernel_abi_wrapped_dist-kernel_abi">kernel_abi</a>, <a href="#kernel_abi_wrapped_dist-ignore_diff">ignore_diff</a>, <a href="#kernel_abi_wrapped_dist-no_ignore_diff_target">no_ignore_diff_target</a>, <a href="#kernel_abi_wrapped_dist-kwargs">**kwargs</a>)
 </pre>
 
 A wrapper over `dist` for [`kernel_abi`](#kernel_abi).
@@ -1647,7 +1646,7 @@ kernel_build(<a href="#kernel_build-name">name</a>, <a href="#kernel_build-outs"
              <a href="#kernel_build-modules_prepare_force_generate_headers">modules_prepare_force_generate_headers</a>, <a href="#kernel_build-defconfig">defconfig</a>, <a href="#kernel_build-pre_defconfig_fragments">pre_defconfig_fragments</a>,
              <a href="#kernel_build-post_defconfig_fragments">post_defconfig_fragments</a>, <a href="#kernel_build-defconfig_fragments">defconfig_fragments</a>, <a href="#kernel_build-check_defconfig">check_defconfig</a>, <a href="#kernel_build-page_size">page_size</a>,
              <a href="#kernel_build-pack_module_env">pack_module_env</a>, <a href="#kernel_build-sanitizers">sanitizers</a>, <a href="#kernel_build-ddk_module_defconfig_fragments">ddk_module_defconfig_fragments</a>, <a href="#kernel_build-ddk_module_headers">ddk_module_headers</a>, <a href="#kernel_build-kcflags">kcflags</a>,
-             <a href="#kernel_build-clang_autofdo_profile">clang_autofdo_profile</a>, <a href="#kernel_build-kwargs">kwargs</a>)
+             <a href="#kernel_build-clang_autofdo_profile">clang_autofdo_profile</a>, <a href="#kernel_build-kwargs">**kwargs</a>)
 </pre>
 
 Defines a kernel build target with all dependent targets.
@@ -1722,7 +1721,7 @@ For example, if name is `"kernel_aarch64"`:
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_dtstree")
 
-kernel_dtstree(<a href="#kernel_dtstree-name">name</a>, <a href="#kernel_dtstree-srcs">srcs</a>, <a href="#kernel_dtstree-makefile">makefile</a>, <a href="#kernel_dtstree-kwargs">kwargs</a>)
+kernel_dtstree(<a href="#kernel_dtstree-name">name</a>, <a href="#kernel_dtstree-srcs">srcs</a>, <a href="#kernel_dtstree-makefile">makefile</a>, <a href="#kernel_dtstree-kwargs">**kwargs</a>)
 </pre>
 
 Specify a kernel DTS tree.
@@ -1756,7 +1755,7 @@ kernel_images(<a href="#kernel_images-name">name</a>, <a href="#kernel_images-ke
               <a href="#kernel_images-vendor_dlkm_modules_list">vendor_dlkm_modules_list</a>, <a href="#kernel_images-vendor_dlkm_modules_blocklist">vendor_dlkm_modules_blocklist</a>, <a href="#kernel_images-vendor_dlkm_props">vendor_dlkm_props</a>,
               <a href="#kernel_images-ramdisk_compression">ramdisk_compression</a>, <a href="#kernel_images-ramdisk_compression_args">ramdisk_compression_args</a>, <a href="#kernel_images-unpack_ramdisk">unpack_ramdisk</a>, <a href="#kernel_images-avb_sign_boot_img">avb_sign_boot_img</a>,
               <a href="#kernel_images-avb_boot_partition_size">avb_boot_partition_size</a>, <a href="#kernel_images-avb_boot_key">avb_boot_key</a>, <a href="#kernel_images-avb_boot_algorithm">avb_boot_algorithm</a>, <a href="#kernel_images-avb_boot_partition_name">avb_boot_partition_name</a>,
-              <a href="#kernel_images-dedup_dlkm_modules">dedup_dlkm_modules</a>, <a href="#kernel_images-create_modules_order">create_modules_order</a>, <a href="#kernel_images-kwargs">kwargs</a>)
+              <a href="#kernel_images-dedup_dlkm_modules">dedup_dlkm_modules</a>, <a href="#kernel_images-create_modules_order">create_modules_order</a>, <a href="#kernel_images-kwargs">**kwargs</a>)
 </pre>
 
 Build multiple kernel images.
@@ -1853,7 +1852,7 @@ For details, see
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_module")
 
-kernel_module(<a href="#kernel_module-name">name</a>, <a href="#kernel_module-kernel_build">kernel_build</a>, <a href="#kernel_module-outs">outs</a>, <a href="#kernel_module-srcs">srcs</a>, <a href="#kernel_module-deps">deps</a>, <a href="#kernel_module-makefile">makefile</a>, <a href="#kernel_module-generate_btf">generate_btf</a>, <a href="#kernel_module-kwargs">kwargs</a>)
+kernel_module(<a href="#kernel_module-name">name</a>, <a href="#kernel_module-kernel_build">kernel_build</a>, <a href="#kernel_module-outs">outs</a>, <a href="#kernel_module-srcs">srcs</a>, <a href="#kernel_module-deps">deps</a>, <a href="#kernel_module-makefile">makefile</a>, <a href="#kernel_module-generate_btf">generate_btf</a>, <a href="#kernel_module-kwargs">**kwargs</a>)
 </pre>
 
 Generates a rule that builds an external kernel module.
@@ -1899,7 +1898,7 @@ kernel_module(
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "kernel_module_test")
 
-kernel_module_test(<a href="#kernel_module_test-name">name</a>, <a href="#kernel_module_test-modules">modules</a>, <a href="#kernel_module_test-kwargs">kwargs</a>)
+kernel_module_test(<a href="#kernel_module_test-name">name</a>, <a href="#kernel_module_test-modules">modules</a>, <a href="#kernel_module_test-kwargs">**kwargs</a>)
 </pre>
 
 A test on artifacts produced by [kernel_module](kernel.md#kernel_module).

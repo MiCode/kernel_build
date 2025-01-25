@@ -9,7 +9,7 @@ Provide tools for a hermetic build.
 <pre>
 load("@kleaf//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_exec")
 
-hermetic_exec(<a href="#hermetic_exec-name">name</a>, <a href="#hermetic_exec-script">script</a>, <a href="#hermetic_exec-data">data</a>, <a href="#hermetic_exec-kwargs">kwargs</a>)
+hermetic_exec(<a href="#hermetic_exec-name">name</a>, <a href="#hermetic_exec-script">script</a>, <a href="#hermetic_exec-data">data</a>, <a href="#hermetic_exec-kwargs">**kwargs</a>)
 </pre>
 
 A exec that uses hermetic tools.
@@ -36,7 +36,7 @@ register a different hermetic toolchain.
 <pre>
 load("@kleaf//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_exec_test")
 
-hermetic_exec_test(<a href="#hermetic_exec_test-name">name</a>, <a href="#hermetic_exec_test-script">script</a>, <a href="#hermetic_exec_test-data">data</a>, <a href="#hermetic_exec_test-kwargs">kwargs</a>)
+hermetic_exec_test(<a href="#hermetic_exec_test-name">name</a>, <a href="#hermetic_exec_test-script">script</a>, <a href="#hermetic_exec_test-data">data</a>, <a href="#hermetic_exec_test-kwargs">**kwargs</a>)
 </pre>
 
 A exec_test that uses hermetic tools.
@@ -63,7 +63,7 @@ register a different hermetic toolchain.
 <pre>
 load("@kleaf//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
 
-hermetic_genrule(<a href="#hermetic_genrule-name">name</a>, <a href="#hermetic_genrule-cmd">cmd</a>, <a href="#hermetic_genrule-tools">tools</a>, <a href="#hermetic_genrule-use_cc_toolchain">use_cc_toolchain</a>, <a href="#hermetic_genrule-kwargs">kwargs</a>)
+hermetic_genrule(<a href="#hermetic_genrule-name">name</a>, <a href="#hermetic_genrule-cmd">cmd</a>, <a href="#hermetic_genrule-tools">tools</a>, <a href="#hermetic_genrule-use_cc_toolchain">use_cc_toolchain</a>, <a href="#hermetic_genrule-kwargs">**kwargs</a>)
 </pre>
 
 A genrule that uses hermetic tools.
@@ -118,7 +118,7 @@ _HermeticToolchainInfo (see hermetic_tools.bzl).
 <pre>
 load("@kleaf//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
 
-hermetic_tools(<a href="#hermetic_tools-name">name</a>, <a href="#hermetic_tools-deps">deps</a>, <a href="#hermetic_tools-symlinks">symlinks</a>, <a href="#hermetic_tools-kwargs">kwargs</a>)
+hermetic_tools(<a href="#hermetic_tools-name">name</a>, <a href="#hermetic_tools-deps">deps</a>, <a href="#hermetic_tools-symlinks">symlinks</a>, <a href="#hermetic_tools-kwargs">**kwargs</a>)
 </pre>
 
 Provide tools for a hermetic build.

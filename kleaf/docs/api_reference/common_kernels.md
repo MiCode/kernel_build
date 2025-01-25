@@ -100,7 +100,7 @@ Usually, for ABI monitoring to be fully turned on, you should set:
 <pre>
 load("@kleaf//build/kernel/kleaf:common_kernels.bzl", "define_prebuilts")
 
-define_prebuilts(<a href="#define_prebuilts-kwargs">kwargs</a>)
+define_prebuilts(<a href="#define_prebuilts-kwargs">**kwargs</a>)
 </pre>
 
 Define --use_prebuilt_gki and relevant targets.
