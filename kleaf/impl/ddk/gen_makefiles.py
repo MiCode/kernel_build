@@ -238,6 +238,7 @@ def _gen_ddk_makefile_for_module(
         local_defines: list[str],
         copts_file: TextIO | None,
         asopts_file: TextIO | None,
+        linkopts_file: TextIO | None,
         kbuild_has_linux_include: bool,
         **unused_kwargs
 ):
@@ -279,10 +280,12 @@ def _gen_ddk_makefile_for_module(
     # rel to this package
     out_cflags_subpath = kernel_module_out.with_suffix(".cflags")
     out_asflags_subpath = kernel_module_out.with_suffix(".asflags")
+    out_ldflags_subpath = kernel_module_out.with_suffix(".ldflags")
 
     # Output flags file path
     out_cflags_path = output_makefiles / out_cflags_subpath
     out_asflags_path = output_makefiles / out_asflags_subpath
+    out_ldflags_path = output_makefiles / out_ldflags_subpath
 
     # For modinfo tagging
     _handle_ddk_marker(rel_srcs, kernel_module_out,
@@ -290,10 +293,12 @@ def _gen_ddk_makefile_for_module(
 
     copts = json.load(copts_file) if copts_file else None
     asopts = json.load(asopts_file) if asopts_file else None
+    linkopts = json.load(linkopts_file) if linkopts_file else None
 
     with open(kbuild, "w") as out_file, \
          open(out_cflags_path, "a") as out_cflags, \
-         open(out_asflags_path, "a") as out_asflags:
+         open(out_asflags_path, "a") as out_asflags, \
+         open(out_ldflags_path, "a") as out_ldflags:
         out_file.write(_get_license_str())
         out_file.write(textwrap.dedent(f"""\
             # Build {package / kernel_module_out}
@@ -338,6 +343,7 @@ def _gen_ddk_makefile_for_module(
         _handle_defines(out_asflags, local_defines)
         _handle_includes(out_asflags, include_dirs)
         _handle_opts(out_asflags, asopts, "asopts")
+        _handle_opts(out_ldflags, linkopts, "linkopts")
 
         out_files_with_cflags = set()
         out_files_with_asflags = set()
@@ -372,6 +378,11 @@ def _gen_ddk_makefile_for_module(
 
             if config is not None and value != True: # pylint: disable=singleton-comparison
                 out_file.write(f"endif # {conditional}\n\n")
+
+        if linkopts:
+            out_file.write(textwrap.dedent(f"""\
+                LDFLAGS_{kernel_module_out.with_suffix('.o').name} += @$(ROOT_DIR)/{package / out_ldflags_subpath}
+            """))
 
     top_kbuild = output_makefiles / "Kbuild"
     if top_kbuild != kbuild:
@@ -594,6 +605,7 @@ if __name__ == "__main__":
     parser.add_argument("--local-defines", nargs="*", default=[])
     parser.add_argument("--copts-file", type=argparse.FileType("r"))
     parser.add_argument("--asopts-file", type=argparse.FileType("r"))
+    parser.add_argument("--linkopts-file", type=argparse.FileType("r"))
     parser.add_argument("--produce-top-level-makefile", action="store_true")
     parser.add_argument("--kbuild-has-linux-include", action="store_true")
     parser.add_argument("--kbuild-add-submodule-linux-include",

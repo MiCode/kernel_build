@@ -396,6 +396,9 @@ def _makefiles_impl(ctx):
     asopts_file = _handle_opts(ctx, "asopts.json", ctx.attr.module_asopts)
     args.add("--asopts-file", asopts_file)
 
+    linkopts_file = _handle_opts(ctx, "linkopts.json", ctx.attr.module_linkopts)
+    args.add("--linkopts-file", linkopts_file)
+
     submodule_makefiles = depset(transitive = [dep.files for dep in submodule_deps])
     args.add_all("--submodule-makefiles", submodule_makefiles, expand_directories = False)
 
@@ -410,6 +413,7 @@ def _makefiles_impl(ctx):
         inputs = depset([
             copts_file,
             asopts_file,
+            linkopts_file,
             module_srcs_ret.srcs_json,
         ], transitive = [submodule_makefiles, module_srcs_ret.gen_srcs_depset]),
         outputs = [output_makefiles],
@@ -517,6 +521,7 @@ makefiles = rule(
         "module_local_defines": attr.string_list(),
         "module_copts": attr.string_list(),
         "module_asopts": attr.string_list(),
+        "module_linkopts": attr.string_list(),
         "module_autofdo_profile": attr.label(allow_single_file = True),
         "module_debug_info_for_profiling": attr.bool(),
         "top_level_makefile": attr.bool(),

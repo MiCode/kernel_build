@@ -35,6 +35,7 @@ def ddk_module(
         local_defines = None,
         copts = None,
         asopts = None,
+        linkopts = None,
         config = None,
         kconfig = None,
         defconfig = None,
@@ -494,6 +495,22 @@ def ddk_module(
             ```
             AFLAGS_my_module.o += -ansi
             ```
+        linkopts: Similar to `copts` but for linking the module.
+
+            For example:
+            ```
+            ddk_module(
+                name = "my_module",
+                linkopts = ["-lc"],
+                out = "my_module.ko",
+                # ...
+            )
+            ```
+            Then the content of generated Makefile is semantically equivalent to:
+
+            ```
+            LDFLAGS_my_module.ko += -lc
+            ```
         config: **EXPERIMENTAL**. The parent [ddk_config](#ddk_config) that encapsulates
             Kconfig/defconfig.
 
@@ -586,6 +603,7 @@ def ddk_module(
         module_local_defines = local_defines,
         module_copts = copts,
         module_asopts = asopts,
+        module_linkopts = linkopts,
         module_autofdo_profile = autofdo_profile,
         module_debug_info_for_profiling = debug_info_for_profiling,
         top_level_makefile = True,
