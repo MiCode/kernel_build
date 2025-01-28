@@ -21,6 +21,7 @@ test_suite(
         "//build/kernel/kleaf/tests/built_with_ddk_test",
         "//build/kernel/kleaf/tests/cc_testing",
         "//build/kernel/kleaf/tests/ddk_config_analysis_test",
+        "//build/kernel/kleaf/tests/ddk_config_test",
         "//build/kernel/kleaf/tests/ddk_menuconfig_test",
         "//build/kernel/kleaf/tests/ddk_test",
         "//build/kernel/kleaf/tests/debug_test",
