@@ -73,7 +73,7 @@ def _gather_prefixed_linux_includes(ddk_include_info):
     return _gather_prefixed_includes_common(ddk_include_info, "linux_includes")
 
 def _handle_opts(ctx, file_name, opts, pre_opts_json = None):
-    """Common function for handling copts, and asopts.
+    """Common function for handling copts, removed_copts, and asopts.
 
     Args:
         ctx: ctx
@@ -393,6 +393,9 @@ def _makefiles_impl(ctx):
     )
     args.add("--copts-file", copts_file)
 
+    removed_copts_file = _handle_opts(ctx, "removed_copts.json", ctx.attr.module_removed_copts)
+    args.add("--removed-copts-file", removed_copts_file)
+
     asopts_file = _handle_opts(ctx, "asopts.json", ctx.attr.module_asopts)
     args.add("--asopts-file", asopts_file)
 
@@ -412,6 +415,7 @@ def _makefiles_impl(ctx):
         mnemonic = "DdkMakefiles",
         inputs = depset([
             copts_file,
+            removed_copts_file,
             asopts_file,
             linkopts_file,
             module_srcs_ret.srcs_json,
@@ -520,6 +524,7 @@ makefiles = rule(
         "module_out": attr.string(),
         "module_local_defines": attr.string_list(),
         "module_copts": attr.string_list(),
+        "module_removed_copts": attr.string_list(),
         "module_asopts": attr.string_list(),
         "module_linkopts": attr.string_list(),
         "module_autofdo_profile": attr.label(allow_single_file = True),

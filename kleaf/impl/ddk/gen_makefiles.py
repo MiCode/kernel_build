@@ -237,6 +237,7 @@ def _gen_ddk_makefile_for_module(
         linux_include_dirs: list[pathlib.Path],
         local_defines: list[str],
         copts_file: TextIO | None,
+        removed_copts_file: TextIO | None,
         asopts_file: TextIO | None,
         linkopts_file: TextIO | None,
         kbuild_has_linux_include: bool,
@@ -292,6 +293,7 @@ def _gen_ddk_makefile_for_module(
         out_cflags_path, package / out_cflags_subpath.parent)
 
     copts = json.load(copts_file) if copts_file else None
+    removed_copts = json.load(removed_copts_file) if removed_copts_file else None
     asopts = json.load(asopts_file) if asopts_file else None
     linkopts = json.load(linkopts_file) if linkopts_file else None
 
@@ -369,6 +371,8 @@ def _gen_ddk_makefile_for_module(
                     out_file.write(textwrap.dedent(f"""\
                         CFLAGS_{out} += @$(ROOT_DIR)/{package / out_cflags_subpath}
                         """))
+                    _handle_opts_kbuild(out_file, "CFLAGS_REMOVE", out,
+                                        removed_copts, "removed_copts")
 
                 if asopts and src.suffix == ".S" and out not in out_files_with_asflags:
                     out_files_with_asflags.add(out)
@@ -545,6 +549,32 @@ def _handle_opts(out_flags: TextIO,
             """))
 
 
+def _handle_opts_kbuild(out_file: TextIO, flag_type: str, out: str,
+                        removed_opts: None | list[dict[str, str | bool]],
+                        attr_name: str):
+    """Writes removed opts into Kbuild out_file.
+
+    Args:
+        out_file: The Kbuild file
+        flag_type: CFLAGS_REMOVE
+        out: output .o file stem
+        removed_opts: the JSON dictionary provided by gen_makefiles.bzl
+    """
+
+    # CFLAGS_REMOVE_ etc. needs to be written to Kbuild directly because
+    # it is implemented with $(filter-out).
+    if not removed_opts:
+        return
+
+    for d in removed_opts:
+        expanded: str = d["expanded"]
+        orig: str = d["orig"]
+
+        out_file.write(textwrap.dedent(f"""\
+            {flag_type}_{out} += {_quote_transform_opt(orig, expanded, attr_name)}
+        """))
+
+
 def _quote_transform_opt(orig: str, expanded: str, attr_name: str):
     """Quote and transform a given flag.
 
@@ -604,6 +634,7 @@ if __name__ == "__main__":
                         type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
     parser.add_argument("--copts-file", type=argparse.FileType("r"))
+    parser.add_argument("--removed-copts-file", type=argparse.FileType("r"))
     parser.add_argument("--asopts-file", type=argparse.FileType("r"))
     parser.add_argument("--linkopts-file", type=argparse.FileType("r"))
     parser.add_argument("--produce-top-level-makefile", action="store_true")

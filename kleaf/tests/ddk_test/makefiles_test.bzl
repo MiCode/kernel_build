@@ -186,6 +186,7 @@ def _create_makefiles_artifact_test(
         srcs = None,
         local_defines = None,
         copts = None,
+        removed_copts = None,
         asopts = None,
         linkopts = None,
         linux_includes = None,
@@ -208,6 +209,7 @@ def _create_makefiles_artifact_test(
         module_srcs = srcs,
         module_local_defines = local_defines,
         module_copts = copts,
+        module_removed_copts = removed_copts,
         module_asopts = asopts,
         module_linkopts = linkopts,
         module_linux_includes = linux_includes,
@@ -877,6 +879,17 @@ def makefiles_test_suite(name):
         ],
     )
     tests.append(name + "_bad_copt_location_tests")
+
+    _create_makefiles_artifact_test(
+        name = name + "_removed_copts",
+        srcs = ["dep.c"],
+        out = "dep.ko",
+        removed_copts = ["-mgeneral-regs-only"],
+        expected_lines = [
+            "CFLAGS_REMOVE_dep.o += -mgeneral-regs-only",
+        ],
+    )
+    tests.append(name + "_removed_copts")
 
     _create_makefiles_artifact_test(
         name = name + "_asopts",
