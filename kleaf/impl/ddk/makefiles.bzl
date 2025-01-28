@@ -72,8 +72,15 @@ def _gather_prefixed_linux_includes(ddk_include_info):
     """Returns a list of ddk_include_info.linux_includes prefixed with ddk_include_info.prefix"""
     return _gather_prefixed_includes_common(ddk_include_info, "linux_includes")
 
-def _handle_copt(ctx):
-    # copt values contains prefixing "-", so we must use --copt=-x --copt=-y to avoid confusion.
+def _handle_opts(ctx, file_name, opts, pre_opts_json = None):
+    """Common function for handling copts, and asopts.
+
+    Args:
+        ctx: ctx
+        file_name: The declared JSON file name
+        opts: list of flags
+        pre_opts_json: Additional list prepended to the JSON list.
+    """
     # We treat $(location) differently because paths must be relative to the Makefile
     # under {package}, e.g. for -include option.
 
@@ -82,18 +89,17 @@ def _handle_copt(ctx):
     expand_targets += ctx.attr.module_hdrs
     expand_targets += ctx.attr.module_deps
 
-    copt_content = []
-    copt_content += _get_autofdo_copts(ctx)
-    for copt in ctx.attr.module_copts:
+    json_content = list(pre_opts_json) if pre_opts_json else []
+    for copt in opts:
         expanded = ctx.expand_location(copt, targets = expand_targets)
-        copt_content.append({
+        json_content.append({
             "expanded": expanded,
             "orig": copt,
         })
-    out = ctx.actions.declare_file("{}/copts.json".format(ctx.attr.name))
+    out = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, file_name))
     ctx.actions.write(
         output = out,
-        content = json.encode_indent(copt_content, indent = "  "),
+        content = json.encode_indent(json_content, indent = "  "),
     )
     return out
 
@@ -379,8 +385,16 @@ def _makefiles_impl(ctx):
 
     args.add_all("--local-defines", ctx.attr.module_local_defines)
 
-    copt_file = _handle_copt(ctx)
-    args.add("--copt-file", copt_file)
+    copts_file = _handle_opts(
+        ctx = ctx,
+        file_name = "copts.json",
+        opts = ctx.attr.module_copts,
+        pre_opts_json = _get_autofdo_copts(ctx),
+    )
+    args.add("--copts-file", copts_file)
+
+    asopts_file = _handle_opts(ctx, "asopts.json", ctx.attr.module_asopts)
+    args.add("--asopts-file", asopts_file)
 
     submodule_makefiles = depset(transitive = [dep.files for dep in submodule_deps])
     args.add_all("--submodule-makefiles", submodule_makefiles, expand_directories = False)
@@ -394,7 +408,8 @@ def _makefiles_impl(ctx):
     ctx.actions.run(
         mnemonic = "DdkMakefiles",
         inputs = depset([
-            copt_file,
+            copts_file,
+            asopts_file,
             module_srcs_ret.srcs_json,
         ], transitive = [submodule_makefiles, module_srcs_ret.gen_srcs_depset]),
         outputs = [output_makefiles],
@@ -501,6 +516,7 @@ makefiles = rule(
         "module_out": attr.string(),
         "module_local_defines": attr.string_list(),
         "module_copts": attr.string_list(),
+        "module_asopts": attr.string_list(),
         "module_autofdo_profile": attr.label(allow_single_file = True),
         "module_debug_info_for_profiling": attr.bool(),
         "top_level_makefile": attr.bool(),

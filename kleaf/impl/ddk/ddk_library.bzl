@@ -30,6 +30,7 @@ def ddk_library(
         linux_includes = None,
         local_defines = None,
         copts = None,
+        asopts = None,
         config = None,
         kconfig = None,
         defconfig = None,
@@ -56,6 +57,7 @@ def ddk_library(
         linux_includes: see [`ddk_module.linux_includes`](#ddk_module-linux_includes)
         local_defines: see [`ddk_module.local_defines`](#ddk_module-local_defines)
         copts: see [`ddk_module.copts`](#ddk_module-copts)
+        asopts: see [`ddk_module.asopts`](#ddk_module-asopts)
         config: see [`ddk_module.config`](#ddk_module-config)
         kconfig: see [`ddk_module.kconfig`](#ddk_module-kconfig)
         defconfig: see [`ddk_module.defconfig`](#ddk_module-defconfig)
@@ -80,6 +82,7 @@ def ddk_library(
         module_deps = deps,
         module_local_defines = local_defines,
         module_copts = copts,
+        module_asopts = asopts,
         module_autofdo_profile = autofdo_profile,
         module_debug_info_for_profiling = debug_info_for_profiling,
         top_level_makefile = True,

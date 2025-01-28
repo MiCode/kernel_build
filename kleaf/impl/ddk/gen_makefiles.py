@@ -40,9 +40,9 @@ _SOURCE_SUFFIXES = (
 
 # Example:
 # -key=$(execpath thing)
-_KEY_VALUE_COPT_RE = re.compile(r"^(?P<key>[^$]+)(?P<sep>=)(?P<value>\$\([^)]+\))$")
+_KEY_VALUE_OPT_RE = re.compile(r"^(?P<key>[^$]+)(?P<sep>=)(?P<value>\$\([^)]+\))$")
 # $(execpath thing)
-_VALUE_COPT_RE = re.compile(r"^\$\([^)]+\)$")
+_VALUE_OPT_RE = re.compile(r"^\$\([^)]+\)$")
 
 class DieException(SystemExit):
     def __init__(self, *args, **kwargs):
@@ -236,7 +236,8 @@ def _gen_ddk_makefile_for_module(
         include_dirs: list[pathlib.Path],
         linux_include_dirs: list[pathlib.Path],
         local_defines: list[str],
-        copt_file: Optional[TextIO],
+        copts_file: TextIO | None,
+        asopts_file: TextIO | None,
         kbuild_has_linux_include: bool,
         **unused_kwargs
 ):
@@ -277,17 +278,22 @@ def _gen_ddk_makefile_for_module(
 
     # rel to this package
     out_cflags_subpath = kernel_module_out.with_suffix(".cflags")
+    out_asflags_subpath = kernel_module_out.with_suffix(".asflags")
 
-    # Output cflags file path
+    # Output flags file path
     out_cflags_path = output_makefiles / out_cflags_subpath
+    out_asflags_path = output_makefiles / out_asflags_subpath
 
     # For modinfo tagging
     _handle_ddk_marker(rel_srcs, kernel_module_out,
         out_cflags_path, package / out_cflags_subpath.parent)
 
-    copts = json.load(copt_file) if copt_file else None
+    copts = json.load(copts_file) if copts_file else None
+    asopts = json.load(asopts_file) if asopts_file else None
 
-    with open(kbuild, "w") as out_file, open(out_cflags_path, "a") as out_cflags:
+    with open(kbuild, "w") as out_file, \
+         open(out_cflags_path, "a") as out_cflags, \
+         open(out_asflags_path, "a") as out_asflags:
         out_file.write(_get_license_str())
         out_file.write(textwrap.dedent(f"""\
             # Build {package / kernel_module_out}
@@ -328,9 +334,11 @@ def _gen_ddk_makefile_for_module(
         # constructs arguments to the compiler.
         _handle_defines(out_cflags, local_defines)
         _handle_includes(out_cflags, include_dirs)
-        _handle_copts(out_cflags, copts)
+        _handle_opts(out_cflags, copts, "copts")
+        _handle_opts(out_asflags, asopts, "asopts")
 
         out_files_with_cflags = set()
+        out_files_with_asflags = set()
         for src_item in rel_srcs:
             config = src_item.get("config")
             value = src_item.get("value")
@@ -343,15 +351,22 @@ def _gen_ddk_makefile_for_module(
 
                 out = src.with_suffix(".o").relative_to(
                     kernel_module_out.parent)
-                if out in out_files_with_cflags:
-                    continue
-                out_files_with_cflags.add(out)
-                # kernel_module() copies makefiles and .cflags files to
-                # $(ROOT_DIR)/<package> (aka $ROOT_DIR/<ext_mod>) and fix up
-                # .cflags files there before building.
-                out_file.write(textwrap.dedent(f"""\
-                    CFLAGS_{out} += @$(ROOT_DIR)/{package / out_cflags_subpath}
-                    """))
+
+                # TODO: b/389976463 - CFLAGS should only be applied to .c files.
+                if out not in out_files_with_cflags:
+                    out_files_with_cflags.add(out)
+                    # kernel_module() copies makefiles and .cflags files to
+                    # $(ROOT_DIR)/<package> (aka $ROOT_DIR/<ext_mod>) and fix up
+                    # .cflags files there before building.
+                    out_file.write(textwrap.dedent(f"""\
+                        CFLAGS_{out} += @$(ROOT_DIR)/{package / out_cflags_subpath}
+                        """))
+
+                if asopts and src.suffix == ".S" and out not in out_files_with_asflags:
+                    out_files_with_asflags.add(out)
+                    out_file.write(textwrap.dedent(f"""\
+                        AFLAGS_{out} += @$(ROOT_DIR)/{package / out_asflags_subpath}
+                        """))
 
             if config is not None and value != True: # pylint: disable=singleton-comparison
                 out_file.write(f"endif # {conditional}\n\n")
@@ -501,38 +516,50 @@ def _handle_includes(out_cflags: TextIO,
             """))
 
 
-def _handle_copts(out_cflags: TextIO,
-                  copts: Optional[list[dict[str, str | bool]]]):
-    if not copts:
+def _handle_opts(out_flags: TextIO,
+                 opts: Optional[list[dict[str, str | bool]]],
+                 attr_name: str):
+    """Writes opts into out_flags."""
+    if not opts:
         return
 
-    for d in copts:
+    for d in opts:
         expanded: str = d["expanded"]
         orig: str = d["orig"]
 
-        out_cflags.write(textwrap.dedent(f"""\
-            {_quote_transform_copt(orig, expanded)}
+        out_flags.write(textwrap.dedent(f"""\
+            {_quote_transform_opt(orig, expanded, attr_name)}
             """))
 
 
-def _quote_transform_copt(orig: str, expanded: str):
+def _quote_transform_opt(orig: str, expanded: str, attr_name: str):
+    """Quote and transform a given flag.
+
+    Paths are properly fixed.
+
+    Args:
+        orig: original text in the Bazel target attribute
+        expanded: expanded paths after ctx.expand_location()
+        attr_name: The relevant Bazel target attribute name.
+    """
     if expanded == orig:
         return shlex.quote(expanded)
 
-    mo = _VALUE_COPT_RE.match(orig)
+    mo = _VALUE_OPT_RE.match(orig)
     if mo:
         return f"$(ROOT_DIR)/{shlex.quote(expanded)}"
 
-    mo = _KEY_VALUE_COPT_RE.match(orig)
+    mo = _KEY_VALUE_OPT_RE.match(orig)
     if mo:
         prefix = f"{mo.group('key')}{mo.group('sep')}"
         if not expanded.startswith(prefix):
-            die("Invalid copt: %s. Expected %s to start with %s", orig, expanded, prefix)
+            die("Invalid %s: %s. Expected %s to start with %s",
+                attr_name, orig, expanded, prefix)
         expanded_value = expanded.removeprefix(prefix)
         return f"{prefix}$(ROOT_DIR)/{shlex.quote(expanded_value)}"
 
-    die("Invalid copt: %s. $(location) expressions must be its own token, or "
-        "part of -key=$(location target)", orig)
+    die("Invalid %s: %s. $(location) expressions must be its own token, or "
+        "part of -key=$(location target)", attr_name, orig)
 
 
 class SubmoduleLinuxIncludeDirAction(argparse.Action):
@@ -563,7 +590,8 @@ if __name__ == "__main__":
     parser.add_argument("--module-symvers-list",
                         type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
-    parser.add_argument("--copt-file", type=argparse.FileType("r"))
+    parser.add_argument("--copts-file", type=argparse.FileType("r"))
+    parser.add_argument("--asopts-file", type=argparse.FileType("r"))
     parser.add_argument("--produce-top-level-makefile", action="store_true")
     parser.add_argument("--kbuild-has-linux-include", action="store_true")
     parser.add_argument("--kbuild-add-submodule-linux-include",

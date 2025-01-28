@@ -34,6 +34,7 @@ def ddk_module(
         out = None,
         local_defines = None,
         copts = None,
+        asopts = None,
         config = None,
         kconfig = None,
         defconfig = None,
@@ -468,16 +469,31 @@ def ddk_module(
             srcs = ["//other:header.h", "my_module.c"],
           )
           ```
-          Then the generated Makefile contains:
+          Then the content of generated Makefile is semantically equivalent to:
 
           ```
-          ccflags-y += -include ../other/header.h
+          CFLAGS_my_module.o += -include ../other/header.h
           ```
 
           The behavior is such because the generated `Makefile` is located in
           `package/Makefile`, and `make` is executed under `package/`. In order
           to find `other/header.h`, its path relative to `package/` is given.
 
+        asopts: Similar to `copts` but for assembly.
+
+            For example:
+            ```
+            ddk_module(
+                name = "my_module",
+                asopts = ["-ansi"],
+                srcs = ["my_module.S"],
+            )
+            ```
+            Then the content of generated Makefile is semantically equivalent to:
+
+            ```
+            AFLAGS_my_module.o += -ansi
+            ```
         config: **EXPERIMENTAL**. The parent [ddk_config](#ddk_config) that encapsulates
             Kconfig/defconfig.
 
@@ -569,6 +585,7 @@ def ddk_module(
         module_deps = deps,
         module_local_defines = local_defines,
         module_copts = copts,
+        module_asopts = asopts,
         module_autofdo_profile = autofdo_profile,
         module_debug_info_for_profiling = debug_info_for_profiling,
         top_level_makefile = True,
