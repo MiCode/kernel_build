@@ -878,8 +878,12 @@ def makefiles_test_suite(name):
         name = name + "_asopts",
         srcs = ["source.S"],
         out = "dep.ko",
+        local_defines = ["ASOPTS_DEFINE"],
+        includes = ["asopts_include"],
         asopts = ["-test-flag"],
         expected_asflags_lines = [
+            "-DASOPTS_DEFINE",
+            "-I$(ROOT_DIR)/{}/asopts_include".format(native.package_name()),
             "-test-flag",
         ],
         expected_lines = [

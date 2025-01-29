@@ -450,8 +450,14 @@ def _kernel_module_impl(ctx):
         command += """
              # Restore Makefile and Kbuild
                cp -r {ddk_makefiles}/* {ext_mod}/
-             # Replace env var in cflags files
-               find {ext_mod} -name '*.cflags' -exec sed -i'' -e 's:$(ROOT_DIR):'"${{ROOT_DIR}}"':g' {{}} \\+
+
+             # Replace env var in cflags/asflags files
+             # find -exec sed is error-prone due to readdir() issues, so save it to a
+             # variable first.
+            (
+                files=$(find {ext_mod} -name '*.cflags' -o -name '*.asflags')
+                sed -i'' -e 's:$(ROOT_DIR):'"${{ROOT_DIR}}"':g' ${{files}}
+            )
         """.format(
             ddk_makefiles = ctx.file.internal_ddk_makefiles_dir.path,
             ext_mod = ext_mod,

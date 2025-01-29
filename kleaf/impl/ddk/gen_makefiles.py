@@ -335,6 +335,8 @@ def _gen_ddk_makefile_for_module(
         _handle_defines(out_cflags, local_defines)
         _handle_includes(out_cflags, include_dirs)
         _handle_opts(out_cflags, copts, "copts")
+        _handle_defines(out_asflags, local_defines)
+        _handle_includes(out_asflags, include_dirs)
         _handle_opts(out_asflags, asopts, "asopts")
 
         out_files_with_cflags = set()

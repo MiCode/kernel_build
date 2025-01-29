@@ -377,12 +377,12 @@ def ddk_module(
         out: The output module file. This should usually be `"{name}.ko"`.
 
           This is required if this target does not contain submodules.
-        local_defines: List of defines to add to the compile line.
+        local_defines: List of defines to add to the compile and assemble command line.
 
           **Order matters**. To prevent buildifier from sorting the list, use the
           `# do not sort` magic line.
 
-          Each string is prepended with `-D` and added to the compile command
+          Each string is prepended with `-D` and added to the compile/assemble command
           line for this target, but not to its dependents.
 
           Unlike
