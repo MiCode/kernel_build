@@ -435,13 +435,7 @@ def _makefiles_impl(ctx):
                 # Use short_path here because we don't care about bin_dir for generated sources.
                 # path/to/foo.c -> [path/to/foo.o_shipped, path/to/.foo.o.cmd_shipped]
                 src_rel_pkg = paths.relativize(src.short_path, my_pkg_path)
-                object = paths.replace_extension(src_rel_pkg, ".o_shipped")
-                cmd_file_basename = "." + paths.replace_extension(paths.basename(src_rel_pkg), ".o.cmd_shipped")
-                cmd_file = paths.join(paths.dirname(src_rel_pkg), cmd_file_basename)
-                outs_depset_direct += [
-                    struct(out = object, src = ctx.label),
-                    struct(out = cmd_file, src = ctx.label),
-                ]
+                outs_depset_direct += _get_ddk_library_out_list(src_rel_pkg)
         outs_depset = depset(outs_depset_direct)
     else:
         outs_depset_direct = []
@@ -504,6 +498,24 @@ def _makefiles_impl(ctx):
         ddk_headers_info,
     ]
 
+def _get_ddk_library_out_list_impl(subrule_ctx, src_rel_pkg):
+    """Returns a list of outputs for ddk_library.
+
+    Args:
+        subrule_ctx: subrule_ctx
+        src_rel_pkg: path to the source file, relative to the package.
+            The suffix doesn't matter. <stem>.o_shipped and .<stem>.o.cmd_shipped is returned.
+    """
+    object = paths.replace_extension(src_rel_pkg, ".o_shipped")
+    cmd_file_basename = "." + paths.replace_extension(paths.basename(src_rel_pkg), ".o.cmd_shipped")
+    cmd_file = paths.join(paths.dirname(src_rel_pkg), cmd_file_basename)
+    return [
+        struct(out = object, src = subrule_ctx.label),
+        struct(out = cmd_file, src = subrule_ctx.label),
+    ]
+
+_get_ddk_library_out_list = subrule(implementation = _get_ddk_library_out_list_impl)
+
 makefiles = rule(
     implementation = _makefiles_impl,
     doc = "Generate `Makefile` and `Kbuild` files for `ddk_module`",
@@ -544,4 +556,7 @@ makefiles = rule(
             cfg = "exec",
         ),
     },
+    subrules = [
+        _get_ddk_library_out_list,
+    ],
 )
