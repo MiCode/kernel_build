@@ -196,6 +196,7 @@ def gen_ddk_makefile(
             package=package,
             kernel_module_out=kernel_module_out,
             linux_include_dirs=linux_include_dirs,
+            is_library=is_library,
             **kwargs
         )
 
@@ -241,6 +242,7 @@ def _gen_ddk_makefile_for_module(
         asopts_file: TextIO | None,
         linkopts_file: TextIO | None,
         kbuild_has_linux_include: bool,
+        is_library: bool,
         **unused_kwargs
 ):
     kernel_module_srcs_json_content = json.load(kernel_module_srcs_json)
@@ -302,11 +304,13 @@ def _gen_ddk_makefile_for_module(
          open(out_asflags_path, "a") as out_asflags, \
          open(out_ldflags_path, "a") as out_ldflags:
         out_file.write(_get_license_str())
-        out_file.write(textwrap.dedent(f"""\
-            # Build {package / kernel_module_out}
-            obj-m += {kernel_module_out.with_suffix('.o').name}
-            """))
-        out_file.write("\n")
+
+        if not is_library:
+            out_file.write(textwrap.dedent(f"""\
+                # Build {package / kernel_module_out}
+                obj-m += {kernel_module_out.with_suffix('.o').name}
+                """))
+            out_file.write("\n")
 
         for src_item in rel_srcs:
             config = src_item.get("config")
