@@ -13,3 +13,5 @@ This document lists some common patterns when using DDK.
 [Adding prebuilt .o files](ddk_prebuilt_object/README.md)
 
 [Experimental: ddk_library: Build certain files with specific flags](ddk_library/README.md)
+
+[Experimental: Building a pKVM module with DDK](pkvm/README.md)

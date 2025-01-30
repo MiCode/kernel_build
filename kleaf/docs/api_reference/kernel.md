@@ -1003,7 +1003,7 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_library")
 
 ddk_library(<a href="#ddk_library-name">name</a>, <a href="#ddk_library-kernel_build">kernel_build</a>, <a href="#ddk_library-srcs">srcs</a>, <a href="#ddk_library-deps">deps</a>, <a href="#ddk_library-hdrs">hdrs</a>, <a href="#ddk_library-includes">includes</a>, <a href="#ddk_library-linux_includes">linux_includes</a>, <a href="#ddk_library-local_defines">local_defines</a>, <a href="#ddk_library-copts">copts</a>,
             <a href="#ddk_library-removed_copts">removed_copts</a>, <a href="#ddk_library-asopts">asopts</a>, <a href="#ddk_library-config">config</a>, <a href="#ddk_library-kconfig">kconfig</a>, <a href="#ddk_library-defconfig">defconfig</a>, <a href="#ddk_library-autofdo_profile">autofdo_profile</a>,
-            <a href="#ddk_library-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_library-kwargs">**kwargs</a>)
+            <a href="#ddk_library-debug_info_for_profiling">debug_info_for_profiling</a>, <a href="#ddk_library-pkvm_el2">pkvm_el2</a>, <a href="#ddk_library-kwargs">**kwargs</a>)
 </pre>
 
 **EXPERIMENTAL**. A library that may be used by a DDK module.
@@ -1037,6 +1037,7 @@ Known issues:
 | <a id="ddk_library-defconfig"></a>defconfig |  see [`ddk_module.defconfig`](#ddk_module-defconfig)   |  `None` |
 | <a id="ddk_library-autofdo_profile"></a>autofdo_profile |  see [`ddk_module.autofdo_profile`](#ddk_module-autofdo_profile)   |  `None` |
 | <a id="ddk_library-debug_info_for_profiling"></a>debug_info_for_profiling |  see [`ddk_module.debug_info_for_profiling`](#ddk_module-debug_info_for_profiling)   |  `None` |
+| <a id="ddk_library-pkvm_el2"></a>pkvm_el2 |  **EXPERIMENTAL**. If True, builds EL2 hypervisor code.<br><br>If True: - The output list is the fixed `["kvm_nvhe.o"]`, plus relevant .o.cmd files - The generated Makefile is modified to build EL2 hypervisor code.<br><br>Note: This is only supported in selected branches.   |  `None` |
 | <a id="ddk_library-kwargs"></a>kwargs |  Additional attributes to the internal rule. See complete list [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).   |  none |
 
 

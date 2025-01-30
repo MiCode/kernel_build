@@ -1,4 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test")
 
 # Make sure our examples may be built.
 build_test(
@@ -11,5 +13,30 @@ build_test(
         "//build/kernel/kleaf/tests/ddk_examples/ddk_prebuilt_object:mymod",
         "//build/kernel/kleaf/tests/ddk_examples/exported_includes/child",
         "//build/kernel/kleaf/tests/ddk_examples/local_includes:foo",
+        # Exclude pkvm because it is not supported on all branches yet.
     ],
+)
+
+# The test is placed here, not in pkvm/BUILD.bazel, to avoid polluting the example.
+py_test(
+    name = "pkvm_module_test_bin",
+    srcs = ["pkvm_module_test.py"],
+    main = "pkvm_module_test.py",
+    tags = ["manual"],
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
+hermetic_test(
+    name = "pkvm_module_test",
+    actual = ":pkvm_module_test_bin",
+    args = [
+        "$(rootpaths //build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module)",
+    ],
+    data = [
+        "//build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module",
+    ],
+    tags = ["manual"],
+    use_cc_toolchain = True,
 )

@@ -46,6 +46,8 @@ _DEBUG_INFO_FOR_PROFILING_COPTS = [
     "-improved-fs-discriminator=true",
 ]
 
+_PKVM_EL2_OUT = "kvm_nvhe.o"
+
 def _gather_prefixed_includes_common(ddk_include_info, info_attr_name):
     ret = []
 
@@ -293,6 +295,24 @@ def _handle_target_files_as_srcs(target, target_files, is_crate_root):
         gen_srcs_depset = depset(generated_sources),
     )
 
+def _get_ddk_library_out_list_impl(subrule_ctx, src_rel_pkg):
+    """Returns a list of outputs for ddk_library.
+
+    Args:
+        subrule_ctx: subrule_ctx
+        src_rel_pkg: path to the source file, relative to the package.
+            The suffix doesn't matter. <stem>.o_shipped and .<stem>.o.cmd_shipped is returned.
+    """
+    object = paths.replace_extension(src_rel_pkg, ".o_shipped")
+    cmd_file_basename = "." + paths.replace_extension(paths.basename(src_rel_pkg), ".o.cmd_shipped")
+    cmd_file = paths.join(paths.dirname(src_rel_pkg), cmd_file_basename)
+    return [
+        struct(out = object, src = subrule_ctx.label),
+        struct(out = cmd_file, src = subrule_ctx.label),
+    ]
+
+_get_ddk_library_out_list = subrule(implementation = _get_ddk_library_out_list_impl)
+
 def _makefiles_impl(ctx):
     module_label = Label(str(ctx.label).removesuffix("_makefiles"))
 
@@ -431,6 +451,9 @@ def _makefiles_impl(ctx):
     if ctx.attr.is_library:
         args.add("--is-library")
 
+    if ctx.attr.module_pkvm_el2:
+        args.add("--pkvm-el2-out", _PKVM_EL2_OUT)
+
     ctx.actions.run(
         mnemonic = "DdkMakefiles",
         inputs = depset([
@@ -446,7 +469,9 @@ def _makefiles_impl(ctx):
         progress_message = "Generating Makefile %{label}",
     )
 
-    if ctx.attr.is_library:
+    if ctx.attr.module_pkvm_el2:
+        outs_depset = depset(_get_ddk_library_out_list(_PKVM_EL2_OUT))
+    elif ctx.attr.is_library:
         my_pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
         outs_depset_direct = []
         for srcs_list in module_srcs_ret.src_matrix:
@@ -519,24 +544,6 @@ def _makefiles_impl(ctx):
         ddk_headers_info,
     ]
 
-def _get_ddk_library_out_list_impl(subrule_ctx, src_rel_pkg):
-    """Returns a list of outputs for ddk_library.
-
-    Args:
-        subrule_ctx: subrule_ctx
-        src_rel_pkg: path to the source file, relative to the package.
-            The suffix doesn't matter. <stem>.o_shipped and .<stem>.o.cmd_shipped is returned.
-    """
-    object = paths.replace_extension(src_rel_pkg, ".o_shipped")
-    cmd_file_basename = "." + paths.replace_extension(paths.basename(src_rel_pkg), ".o.cmd_shipped")
-    cmd_file = paths.join(paths.dirname(src_rel_pkg), cmd_file_basename)
-    return [
-        struct(out = object, src = subrule_ctx.label),
-        struct(out = cmd_file, src = subrule_ctx.label),
-    ]
-
-_get_ddk_library_out_list = subrule(implementation = _get_ddk_library_out_list_impl)
-
 makefiles = rule(
     implementation = _makefiles_impl,
     doc = "Generate `Makefile` and `Kbuild` files for `ddk_module`",
@@ -563,6 +570,7 @@ makefiles = rule(
         "module_linkopts": attr.string_list(),
         "module_autofdo_profile": attr.label(allow_single_file = True),
         "module_debug_info_for_profiling": attr.bool(),
+        "module_pkvm_el2": attr.bool(),
         "top_level_makefile": attr.bool(),
         "kbuild_has_linux_include": attr.bool(
             doc = "Whether to add LINUXINCLUDE to Kbuild",

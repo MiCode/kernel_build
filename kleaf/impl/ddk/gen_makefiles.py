@@ -44,6 +44,9 @@ _KEY_VALUE_OPT_RE = re.compile(r"^(?P<key>[^$]+)(?P<sep>=)(?P<value>\$\([^)]+\))
 # $(execpath thing)
 _VALUE_OPT_RE = re.compile(r"^\$\([^)]+\)$")
 
+# hyp-obj-y builds hypervisor code
+_PKVM_EL2_OBJ = "hyp-obj"
+
 class DieException(SystemExit):
     def __init__(self, *args, **kwargs):
         super().__init__(1)
@@ -88,7 +91,17 @@ def _gen_makefile(
         output_makefile: pathlib.Path,
         is_library: bool,
         rel_srcs: list[dict[str, Any]],
+        pkvm_el2_out: pathlib.Path | None,
 ):
+    """Generates top-level Makefile.
+
+    Args:
+        module_symvers_list: list of Module.symvers from dependencies
+        output_makefile: the top level Makefile to write into
+        is_library: whether the module is ddk_library
+        rel_srcs: list of relative path to source files
+        pkvm_el2_out: If set, relative path to output .o for pKVM EL2
+    """
     content = _get_license_str()
 
     for module_symvers in module_symvers_list:
@@ -100,7 +113,11 @@ def _gen_makefile(
     if is_library:
         # ddk_library does not support conditional_srcs for now, because we can't get
         # the list of configs in Makefile.
-        objects = " ".join(str(path.with_suffix(".o")) for src_item in rel_srcs for path in src_item["files"])
+        if pkvm_el2_out:
+            objects = str(pkvm_el2_out)
+        else:
+            objects = " ".join(str(path.with_suffix(".o"))
+                for src_item in rel_srcs for path in src_item["files"])
         content += textwrap.dedent(f"""\
             .PHONY: kleaf-objects
 
@@ -187,6 +204,7 @@ def gen_ddk_makefile(
         linux_include_dirs: list[pathlib.Path],
         submodule_linux_include_dirs: dict[pathlib.Path, list[pathlib.Path]],
         is_library: bool,
+        pkvm_el2_out: pathlib.Path | None,
         **kwargs
 ):
     rel_srcs = []
@@ -197,6 +215,7 @@ def gen_ddk_makefile(
             kernel_module_out=kernel_module_out,
             linux_include_dirs=linux_include_dirs,
             is_library=is_library,
+            is_pkvm_el2=bool(pkvm_el2_out),
             **kwargs
         )
 
@@ -206,6 +225,7 @@ def gen_ddk_makefile(
             output_makefile=output_makefiles / "Makefile",
             is_library=is_library,
             rel_srcs = rel_srcs,
+            pkvm_el2_out=pkvm_el2_out,
         )
 
     ddk_markers: set[pathlib.Path] = set()
@@ -243,8 +263,28 @@ def _gen_ddk_makefile_for_module(
         linkopts_file: TextIO | None,
         kbuild_has_linux_include: bool,
         is_library: bool,
+        is_pkvm_el2: bool,
         **unused_kwargs
 ):
+    """Generates all relevant Kbuild files for a certain .ko file.
+
+    Args:
+        output_makefiles: top-level Makefile, used as an anchor to write
+            the Kbuild files
+        package: workspace root / package
+        kernel_module_out: The output *.ko to build
+        kernel_module_srcs_json: JSON containing info of sources
+        include_dirs: list of -I
+        linux_include_dirs: list of LINUXINCLUDE
+        local_defines: list of -D
+        copts_file: JSON containing cflags
+        removed_copts_file: JSON containing removed cflags
+        asopts_file: JSON containing asflags
+        linkopts_file: JSON containing ldflags
+        kbuild_has_linux_include: Whether to write LINUXINCLUDE to Kbuild files
+        is_pkvm_el2: If set, building pKVM EL2
+        **unused_kwargs: unused
+    """
     kernel_module_srcs_json_content = json.load(kernel_module_srcs_json)
     # List of JSON objects (dictionaries) with keys like "file", "config",
     #  "value", etc.
@@ -330,6 +370,7 @@ def _gen_ddk_makefile_for_module(
                     src=src,
                     out_file=out_file,
                     kernel_module_out=kernel_module_out,
+                    is_pkvm_el2=is_pkvm_el2,
                     obj_suffix=obj_suffix,
                     is_crate_root = src_item.get("is_crate_root", False)
                 )
@@ -402,6 +443,9 @@ def _gen_ddk_makefile_for_module(
                 # Build {package / kernel_module_out}
                 obj-y += {kernel_module_out.parent}/
                 """))
+    if is_pkvm_el2:
+        with open(top_kbuild, "a") as out_file:
+            out_file.write("include $(srctree)/arch/$(SRCARCH)/kvm/hyp/nvhe/Makefile.module")
 
     return rel_srcs
 
@@ -468,6 +512,7 @@ def _handle_src(
         src: pathlib.Path,
         out_file: TextIO,
         kernel_module_out: pathlib.Path,
+        is_pkvm_el2: bool,
         obj_suffix: str,
         is_crate_root: bool,
 ):
@@ -498,6 +543,8 @@ def _handle_src(
     else:
         if src.suffix == ".cmd_shipped":
             object_to_build = "always"
+        elif is_pkvm_el2:
+            object_to_build = _PKVM_EL2_OBJ
         else:
             object_to_build = kernel_module_out.with_suffix('').name
 
@@ -658,6 +705,7 @@ if __name__ == "__main__":
                         type=pathlib.Path, nargs="+", default={},
                         action=SubmoduleLinuxIncludeDirAction)
     parser.add_argument("--is-library", action="store_true")
+    parser.add_argument("--pkvm-el2-out", type=pathlib.Path)
     args = parser.parse_args()
 
     die_exception = None
