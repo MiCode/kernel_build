@@ -88,6 +88,8 @@ def _handle_opts(ctx, file_name, opts, pre_opts_json = None):
     expand_targets += ctx.attr.module_srcs
     expand_targets += ctx.attr.module_hdrs
     expand_targets += ctx.attr.module_deps
+    if ctx.attr.module_crate_root:
+        expand_targets.append(ctx.attr.module_crate_root)
 
     json_content = list(pre_opts_json) if pre_opts_json else []
     for copt in opts:
@@ -138,7 +140,7 @@ def _check_empty_with_submodules(ctx, module_label, kernel_module_deps):
 
     That is, the top level `ddk_module` should not declare any
 
-    - inputs (including srcs and hdrs),
+    - inputs (including srcs, hdrs, and crate_root),
     - outputs (including out, hdrs, includes), or
     - copts (including includes and local_defines).
 
@@ -157,6 +159,7 @@ def _check_empty_with_submodules(ctx, module_label, kernel_module_deps):
 
     for attr_name in (
         "srcs",
+        "crate_root",
         "out",
         "hdrs",
         "includes",
@@ -204,10 +207,10 @@ def _check_submodule_same_package(module_label, submodule_deps):
         fail("{}: submodules must be in the same package: {}".format(module_label, bad))
 
 def _handle_module_srcs(ctx, ddk_library_deps):
-    """Parses module_srcs.
+    """Parses module_srcs and module_crate_root, and ddk_library module_deps.
 
-    For each item in ddk_module.srcs:
-    -   If source file (not .h):
+    For each item in ddk_module.srcs and ddk_module.crate_root:
+    -   If source file (.c .S .o_shipped .o.cmd_shipped, and .rs):
         -   If generated file, add it to srcs_json gen. Put it in gen_srcs_depset.
             This makes it available to gen_makefiles.py so it can be copied into output_makefiles
             directory.
@@ -220,19 +223,29 @@ def _handle_module_srcs(ctx, ddk_library_deps):
 
     Returns:
         struct of
-        -    srcs_json: a file containing the JSON content about sources
-        -    gen_srcs_depset: depset of generated, non .h files
-        -    src_matrix: list of list of files. The sum of values is equivalent of ctx.files.module_srcs
+        -   srcs_json: a file containing the JSON content about sources
+        -   gen_srcs_depset: depset of generated, non .h files
+        -   src_matrix: list of list of files. The sum of values is the list of files from:
+            - srcs
+            - ddk_library deps
+            - crate_root
     """
     src_matrix = []
     srcs_json_list = []
     gen_srcs_depsets = []
-    for targets, info in ((ctx.attr.module_srcs, DefaultInfo), (ddk_library_deps, DdkLibraryInfo)):
+
+    crate_root_targets = [ctx.attr.module_crate_root] if ctx.attr.module_crate_root else []
+
+    for targets, info, is_crate_root in (
+        (ctx.attr.module_srcs, DefaultInfo, False),
+        (crate_root_targets, DefaultInfo, True),
+        (ddk_library_deps, DdkLibraryInfo, False),
+    ):
         for target in targets:
             # TODO(b/353811700): avoid depset expansion
             target_files = target[info].files.to_list()
             src_matrix.append(target_files)
-            ret = _handle_target_files_as_srcs(target, target_files)
+            ret = _handle_target_files_as_srcs(target, target_files, is_crate_root)
             srcs_json_list.append(ret.srcs_json_dict)
             gen_srcs_depsets.append(ret.gen_srcs_depset)
 
@@ -248,7 +261,7 @@ def _handle_module_srcs(ctx, ddk_library_deps):
         src_matrix = src_matrix,
     )
 
-def _handle_target_files_as_srcs(target, target_files):
+def _handle_target_files_as_srcs(target, target_files, is_crate_root):
     srcs_json_dict = {}
 
     source_files = []
@@ -271,6 +284,9 @@ def _handle_target_files_as_srcs(target, target_files):
     if DdkConditionalFilegroupInfo in target:
         srcs_json_dict["config"] = target[DdkConditionalFilegroupInfo].config
         srcs_json_dict["value"] = target[DdkConditionalFilegroupInfo].value
+
+    if is_crate_root:
+        srcs_json_dict["is_crate_root"] = True
 
     return struct(
         srcs_json_dict = srcs_json_dict,
@@ -298,11 +314,15 @@ def _makefiles_impl(ctx):
 
     _check_submodule_same_package(module_label, submodule_deps)
 
+    # Depset of files from module_srcs
+    srcs_files = depset(transitive = [target.files for target in ctx.attr.module_srcs])
+    crate_root_files = ctx.attr.module_crate_root.files if ctx.attr.module_crate_root else depset()
+
     direct_include_infos = [DdkIncludeInfo(
         prefix = paths.join(module_label.workspace_root, module_label.package),
         # Applies to headers of this target only but not headers/include_dirs
         # inherited from dependencies.
-        direct_files = depset(transitive = [target.files for target in ctx.attr.module_srcs]),
+        direct_files = depset(transitive = [srcs_files, crate_root_files]),
         includes = ctx.attr.module_includes,
         linux_includes = ctx.attr.module_linux_includes,
     )]
@@ -444,7 +464,8 @@ def _makefiles_impl(ctx):
         outs_depset_transitive = [dep[DdkSubmoduleInfo].outs for dep in submodule_deps]
         outs_depset = depset(outs_depset_direct, transitive = outs_depset_transitive)
 
-    srcs_depset_transitive = [target.files for target in ctx.attr.module_srcs]
+    # All files needed to build this .ko file
+    srcs_depset_transitive = [srcs_files, crate_root_files]
     srcs_depset_transitive += [dep[DdkSubmoduleInfo].srcs for dep in submodule_deps]
 
     # Add targets with DdkHeadersInfo in deps
@@ -529,6 +550,7 @@ makefiles = rule(
         # because they aren't real srcs / hdrs / deps to the makefiles rule.
         "module_srcs": attr.label_list(allow_files = DDK_MODULE_SRCS_ALLOWED_EXTENSIONS),
         # allow_files = True because https://github.com/bazelbuild/bazel/issues/7516
+        "module_crate_root": attr.label(allow_single_file = True),
         "module_hdrs": attr.label_list(allow_files = True),
         "module_includes": attr.string_list(),
         "module_linux_includes": attr.string_list(),

@@ -30,6 +30,7 @@ def ddk_module(
         textual_hdrs = None,
         includes = None,
         conditional_srcs = None,
+        crate_root = None,
         linux_includes = None,
         out = None,
         local_defines = None,
@@ -376,6 +377,14 @@ def ddk_module(
           In the above example, if `CONFIG_FOO` is `y` or `m`, `foo.c` is compiled.
           Otherwise, `notfoo.c` is compiled instead.
 
+        crate_root: For Rust modules, the file that will be passed to rustc to
+            be used for building this module.
+
+            Currently, each `.ko` may only contain a single Rust crate. Modules with multiple crates
+            are not yet supported. Hence, only a single file may be passed into crate_root.
+
+            Unlike `rust_binary`, this must always be set for Rust modules. No defaults are assumed.
+
         out: The output module file. This should usually be `"{name}.ko"`.
 
           This is required if this target does not contain submodules.
@@ -618,6 +627,7 @@ def ddk_module(
         name = name + "_makefiles",
         kernel_build = kernel_build,
         module_srcs = (srcs or []) + flattened_conditional_srcs,
+        module_crate_root = crate_root,
         module_hdrs = module_hdrs,
         module_includes = includes,
         module_linux_includes = linux_includes,

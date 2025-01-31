@@ -32,6 +32,7 @@ def ddk_submodule(
         asopts = None,
         linkopts = None,
         conditional_srcs = None,
+        crate_root = None,
         autofdo_profile = None,
         debug_info_for_profiling = None,
         **kwargs):
@@ -104,6 +105,7 @@ def ddk_submodule(
         name: See [`ddk_module.name`](#ddk_module-name).
         srcs: See [`ddk_module.srcs`](#ddk_module-srcs).
         conditional_srcs: See [`ddk_module.conditional_srcs`](#ddk_module-conditional_srcs).
+        crate_root: See [`ddk_module.crate_root`](#ddk_module-crate_root).
         out: See [`ddk_module.out`](#ddk_module-out).
         hdrs: See [`ddk_module.hdrs`](#ddk_module-hdrs).
 
@@ -207,6 +209,7 @@ def ddk_submodule(
     makefiles(
         name = name,
         module_srcs = (srcs or []) + flattened_conditional_srcs,
+        module_crate_root = crate_root,
         module_hdrs = hdrs,
         module_includes = includes,
         module_out = out,
