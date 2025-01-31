@@ -108,7 +108,6 @@ def kernel_toolchain_test(name):
         kernel_build(
             name = test_name + "_device_kernel",
             base_kernel = base_kernel,
-            build_config = "build.config.fake",
             outs = [],
             tags = ["manual"],
         )

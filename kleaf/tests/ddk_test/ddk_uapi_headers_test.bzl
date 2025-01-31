@@ -58,7 +58,6 @@ def _ddk_uapi_headers_good_headers_test(
         srcs = None):
     kernel_build(
         name = name + "_kernel_build",
-        build_config = "build.config.fake",
         outs = ["vmlinux"],
         tags = ["manual"],
     )
@@ -78,7 +77,6 @@ def _ddk_uapi_headers_good_headers_test(
 def _ddk_uapi_headers_bad_headers_test(name, srcs):
     kernel_build(
         name = name + "_kernel_build",
-        build_config = "build.config.fake",
         outs = ["vmlinux"],
         tags = ["manual"],
     )

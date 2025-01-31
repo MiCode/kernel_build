@@ -40,7 +40,6 @@ makefiles_test_suite(name = "makefiles_test_suite")
 kernel_build(
     name = "ddk_test_submodule_cross_package_test_kernel_build",
     outs = [],
-    build_config = "build.config.fake",
     tags = ["manual"],
 )
 

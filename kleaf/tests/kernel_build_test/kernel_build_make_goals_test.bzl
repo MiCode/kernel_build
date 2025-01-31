@@ -84,7 +84,6 @@ def kernel_build_make_goals_test(name):
     # Test the fallback (MAKE_GOALS) from config file.
     kernel_build(
         name = name + "_build_from_config",
-        build_config = "build.config.fake",
         outs = [],
         tags = ["manual"],
     )
@@ -92,7 +91,6 @@ def kernel_build_make_goals_test(name):
     # Test by setting the goals from kernel build rule.
     kernel_build(
         name = name + "_build_from_rule",
-        build_config = "build.config.fake",
         make_goals = [
             "GOAL_FROM_RULE_1",
             "GOAL_FROM_RULE_2",

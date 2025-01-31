@@ -48,7 +48,6 @@ def ddk_submodule_test(name):
         name: name of the test suite."""
     kernel_build(
         name = name + "_kernel_build",
-        build_config = "build.config.fake",
         outs = [],
         tags = ["manual"],
     )

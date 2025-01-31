@@ -133,14 +133,12 @@ def kernel_module_group_test(name):
     # Test setup
     kernel_build(
         name = name + "_build_a",
-        build_config = "build.config.fake",
         outs = [],
         tags = ["manual"],
     )
 
     kernel_build(
         name = name + "_build_b",
-        build_config = "build.config.fake",
         outs = [],
         tags = ["manual"],
     )

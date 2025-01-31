@@ -170,7 +170,6 @@ def ddk_module_test_suite(name):
 
     kernel_build(
         name = name + "_kernel_build",
-        build_config = "build.config.fake",
         outs = ["vmlinux"],
         tags = ["manual"],
     )

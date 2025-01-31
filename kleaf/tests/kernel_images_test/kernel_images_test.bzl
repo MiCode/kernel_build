@@ -106,7 +106,6 @@ def initramfs_test(name):
     # Test setup
     kernel_build(
         name = name + "build",
-        build_config = "build.config.fake",
         outs = [
             # This is a requirement (for more, see initramfs.bzl).
             "System.map",

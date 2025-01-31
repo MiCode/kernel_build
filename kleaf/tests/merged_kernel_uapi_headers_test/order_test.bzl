@@ -101,7 +101,6 @@ def order_test(name):
 
     kernel_build(
         name = name + "_base",
-        build_config = "build.config.fake",
         outs = [],
         tags = ["manual"],
     )
@@ -142,7 +141,6 @@ def order_test(name):
         kernel_build(
             name = base_kernel + "_device",
             base_kernel = base_kernel,
-            build_config = "build.config.fake",
             outs = [],
             tags = ["manual"],
         )
