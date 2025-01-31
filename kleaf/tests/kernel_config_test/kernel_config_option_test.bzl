@@ -34,7 +34,10 @@ _KASAN_FLAG = "//build/kernel/kleaf:kasan"
 _KCSAN_FLAG = "//build/kernel/kleaf:kcsan"
 _KGDB_FLAG = "//build/kernel/kleaf:kgdb"
 _LTO_FLAG = "//build/kernel/kleaf:lto"
-_ARCHS = ("aarch64", "x86_64")
+_ARCHS = (
+    struct(arch = "aarch64", kernel_build_arch = "arm64", srcarch = "arm64"),
+    struct(arch = "x86_64", kernel_build_arch = "x86_64", srcarch = "x86"),
+)
 
 def _get_config_file(ctx, kernel_build, filename):
     """Gets the `.config` file of the `kernel_build` to a file with file name `{filename}`.
@@ -503,25 +506,23 @@ def kernel_config_option_test_suite(name):
         name: name of the test.
     """
     for arch in _ARCHS:
-        kernel_build_arch = arch
-        if kernel_build_arch == "aarch64":
-            kernel_build_arch = "arm64"
-
         kernel_build(
-            name = name + "_kernel_{}".format(arch),
-            srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = kernel_build_arch,
-            build_config = "//common:build.config.gki.{}".format(arch),
+            name = "{}_kernel_{}".format(name, arch.arch),
+            srcs = [Label("//common:kernel_{}_sources".format(arch.arch))],
+            arch = arch.kernel_build_arch,
+            makefile = Label("//common:Makefile"),
+            defconfig = Label("//common:arch/{}/configs/gki_defconfig".format(arch.srcarch)),
             make_goals = ["FAKE_MAKE_GOALS"],
             outs = [],
             tags = ["manual"],
         )
 
         kernel_build(
-            name = name + "_kernel_{}_trim".format(arch),
-            srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = kernel_build_arch,
-            build_config = "//common:build.config.gki.{}".format(arch),
+            name = "{}_kernel_{}_trim".format(name, arch.arch),
+            srcs = [Label("//common:kernel_{}_sources".format(arch.arch))],
+            arch = arch.kernel_build_arch,
+            makefile = Label("//common:Makefile"),
+            defconfig = Label("//common:arch/{}/configs/gki_defconfig".format(arch.srcarch)),
             trim_nonlisted_kmi = True,
             kmi_symbol_list = "data/fake_kmi_symbol_list",
             make_goals = ["FAKE_MAKE_GOALS"],
@@ -530,10 +531,11 @@ def kernel_config_option_test_suite(name):
         )
 
         kernel_build(
-            name = name + "_kernel_{}_notrim".format(arch),
-            srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = kernel_build_arch,
-            build_config = "//common:build.config.gki.{}".format(arch),
+            name = "{}_kernel_{}_notrim".format(name, arch.arch),
+            srcs = [Label("//common:kernel_{}_sources".format(arch.arch))],
+            arch = arch.kernel_build_arch,
+            makefile = Label("//common:Makefile"),
+            defconfig = Label("//common:arch/{}/configs/gki_defconfig".format(arch.srcarch)),
             trim_nonlisted_kmi = False,
             kmi_symbol_list = "data/fake_kmi_symbol_list",
             make_goals = ["FAKE_MAKE_GOALS"],
@@ -544,35 +546,35 @@ def kernel_config_option_test_suite(name):
     trim_kernels = {}
     for arch in _ARCHS:
         for trim in (True, False):
-            trim_kernels[struct(trim = trim, arch = arch)] = \
-                name + "_kernel_{}_{}".format(arch, _trim_str(trim))
+            trim_kernels[struct(trim = trim, arch = arch.arch)] = \
+                "{}_kernel_{}_{}".format(name, arch.arch, _trim_str(trim))
 
     tests = []
 
     for arch in _ARCHS:
         _lto_test(
-            name = name + "_lto_{}_test".format(arch),
-            kernel_build = name + "_kernel_{}".format(arch),
+            name = "{}_lto_{}_test".format(name, arch.arch),
+            kernel_build = ":{}_kernel_{}".format(name, arch.arch),
         )
-        tests.append(name + "_lto_{}_test".format(arch))
+        tests.append(":{}_lto_{}_test".format(name, arch.arch))
 
         _kasan_test(
-            name = name + "_kasan_{}_test".format(arch),
-            kernel_build = name + "_kernel_{}".format(arch),
+            name = "{}_kasan_{}_test".format(name, arch.arch),
+            kernel_build = ":{}_kernel_{}".format(name, arch.arch),
         )
-        tests.append(name + "_kasan_{}_test".format(arch))
+        tests.append(":{}_kasan_{}_test".format(name, arch.arch))
         _kcsan_test(
-            name = name + "_kcsan_{}_test".format(arch),
-            kernel_build = name + "_kernel_{}".format(arch),
+            name = "{}_kcsan_{}_test".format(name, arch.arch),
+            kernel_build = ":{}_kernel_{}".format(name, arch.arch),
         )
-        tests.append(name + "_kcsan_{}_test".format(arch))
+        tests.append(":{}_kcsan_{}_test".format(name, arch.arch))
 
         _kgdb_test(
-            name = name + "_kgdb_{}_test".format(arch),
-            kernel_build = name + "_kernel_{}".format(arch),
-            arch = arch,
+            name = "{}_kgdb_{}_test".format(name, arch.arch),
+            kernel_build = ":{}_kernel_{}".format(name, arch.arch),
+            arch = arch.arch,
         )
-        tests.append(name + "_kgdb_{}_test".format(arch))
+        tests.append(":{}_kgdb_{}_test".format(name, arch.arch))
 
     _trim_test(
         name = name + "_trim_test",

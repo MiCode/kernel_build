@@ -44,7 +44,8 @@ def _lto_test_for_flag_common(
     kernel_build(
         name = name + "_subject",
         tags = ["manual"],
-        build_config = Label("//common:build.config.gki.aarch64"),
+        makefile = Label("//common:Makefile"),
+        defconfig = Label("//common:arch/arm64/configs/gki_defconfig"),
         outs = [],
         make_goals = ["FAKE_MAKE_GOALS"],
     )

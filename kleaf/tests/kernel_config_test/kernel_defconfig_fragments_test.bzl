@@ -25,10 +25,9 @@ load("//build/kernel/kleaf/tests/utils:contain_lines_test.bzl", "contain_lines_t
 load(":kernel_config_aspect.bzl", "KernelConfigAspectInfo", "kernel_config_aspect")
 
 _ARCHS = (
-    "aarch64",
-    "x86_64",
+    struct(arch = "aarch64", kernel_build_arch = "arm64", srcarch = "arm64"),
+    struct(arch = "x86_64", kernel_build_arch = "x86_64", srcarch = "x86"),
     # b/264407394: gcov does not work with riscv64 because of conflict in CONFIG_CFI_CLANG
-    # "riscv64",
 )
 
 _INTERESTING_FLAGS = (
@@ -201,10 +200,8 @@ def kernel_defconfig_fragments_test(name):
     tests = []
 
     for arch in _ARCHS:
-        kernel_build_arch = arch
         kasan_sw_tags_flag_values_configs_list = []
-        if kernel_build_arch == "aarch64":
-            kernel_build_arch = "arm64"
+        if arch.arch == "aarch64":
             kasan_sw_tags_flag_values_configs_list = [
                 _FlagValuesConfigs(
                     flag_values = [
@@ -217,12 +214,13 @@ def kernel_defconfig_fragments_test(name):
                 ),
             ]
 
-        name_arch = "{}_{}".format(name, arch)
+        name_arch = "{}_{}".format(name, arch.arch)
         kernel_build(
             name = name_arch + "_kernel_build",
-            srcs = ["//common:kernel_{}_sources".format(arch)],
-            arch = kernel_build_arch,
-            build_config = "//common:build.config.gki.{}".format(arch),
+            srcs = [Label("//common:kernel_{}_sources".format(arch.arch))],
+            arch = arch.kernel_build_arch,
+            makefile = Label("//common:Makefile"),
+            defconfig = Label("//common:arch/{}/configs/gki_defconfig".format(arch.srcarch)),
             outs = [],
             make_goals = ["Image"],
             tags = ["manual"],
