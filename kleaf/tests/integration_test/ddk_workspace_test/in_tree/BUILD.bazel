@@ -1,40 +1,9 @@
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(
     "@kleaf//build/kernel/kleaf:kernel.bzl",
     "ddk_module",
     "kernel_build",
-    "kernel_build_config",
     "kernel_images",
     "kernel_modules_install",
-)
-
-# Workaround to set KERNEL_DIR correctly and
-#  avoid using the fallback (directory of the config).
-# TODO(b/338438451): Clean this up with kernel_build.kernel_dir attr.
-_set_kernel_dir_cmd = "KERNEL_DIR=\"{kernel_dir}\"".format(
-    kernel_dir = paths.join(
-        package_relative_label("@kleaf//:x").workspace_root,
-        "common",
-    ),
-)
-
-write_file(
-    name = "set_kernel_dir_build_config",
-    out = "set_kernel_dir_build_config/build.config",
-    content = [
-        _set_kernel_dir_cmd,
-        "",
-    ],
-)
-
-kernel_build_config(
-    name = "in_tree_build_config",
-    srcs = [
-        # do not sort
-        ":set_kernel_dir_build_config",
-        "build.config.in_tree",
-    ],
 )
 
 # Test building in-tree module against kernel from sources
@@ -43,13 +12,14 @@ kernel_build(
     srcs = ["@kleaf//common:kernel_aarch64_sources"],
     outs = [],
     base_kernel = "@kleaf//common:kernel_aarch64",
-    build_config = ":in_tree_build_config",
+    defconfig = "@kleaf//common:arch/arm64/configs/gki_defconfig",
     defconfig_fragments = [
         "in_tree_defconfig",
     ],
     make_goals = [
         "modules",
     ],
+    makefile = "@kleaf//common:Makefile",
     module_outs = [
         "psmouse.ko",
     ],

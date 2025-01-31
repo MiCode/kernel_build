@@ -22,7 +22,6 @@ kernel_build(
     srcs = [":common_kernel_sources"],
     # Force the target to be built by Bazel.
     outs = [".config"],
-    build_config = "build.config.common",
     defconfig = ":arch/arm64/configs/gki_defconfig",
     make_goals = ["olddefconfig"],
     makefile = ":Makefile",
