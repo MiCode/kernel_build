@@ -411,7 +411,7 @@ def _get_rel_srcs_flat(rel_srcs: list[dict[str, Any]]) -> list[pathlib.Path] :
         files = rel_item["files"]
         rel_srcs_flat.extend(
             file for file in files if file.suffix in _SOURCE_SUFFIXES)
-    return rel_srcs_flat
+    return list(set(rel_srcs_flat))
 
 def _check_srcs_valid(rel_srcs: list[dict[str, Any]],
                       kernel_module_out: pathlib.Path):
