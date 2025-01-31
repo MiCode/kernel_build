@@ -715,22 +715,8 @@ See [documentation for implementing Kleaf].
 
 ## GKI\_PREBUILTS\_DIR
 
-```python
-kernel_filegroup()
-```
-
-Mixed builds are supported by
-
-```python
-kernel_build(base_build=...)
-```
-
-You may specify the `kernel_filegroup` target in the `base_build`
-attribute of the `kernel_build` macro invocation.
-
-See [documentation for all rules].
-
-See [documentation for implementing Kleaf].
+See [Setting up DDK workspace](ddk/workspace.md#declare-prebuilts-repository)
+for details on setting up the repository for prebuilts.
 
 ## BUILD\_DTBO\_IMG
 
