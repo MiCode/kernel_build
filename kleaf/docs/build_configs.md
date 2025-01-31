@@ -453,33 +453,25 @@ You may skip building headers by leaving them out in the
 
 ## BUILD\_BOOT\_IMG
 
-```python
-kernel_images(build_boot=...)
-```
+Building a device-specific boot image is not supported.
 
-See [documentation for all rules].
+**NOTE**: As an implementation detail, GKI targets invoke `gki_artifacts()`
+to build the boot images.
 
 ## BUILD\_VENDOR\_BOOT\_IMG
 
 ```python
-kernel_images(build_vendor_boot=...)
+vendor_boot_image(...)
 ```
-
-The flags are rather straightforward. `build_boot` controls the `boot` image.
-`build_vendor_boot` controls the `vendor_boot` image. Setting
-`build_vendor_boot = True` requires `build_boot = True`.
 
 See [documentation for all rules].
 
 ## SKIP\_VENDOR\_BOOT
 
-```python
-kernel_images(build_vendor_boot=...)
-```
+Simply remove the `vendor_boot_image()` from your dependency graph.
 
-See [`BUILD_VENDOR_BOOT_IMG`](#build_vendor_boot_img).
-
-See [documentation for all rules].
+See [Default outputs](https://bazel.build/extending/rules#default_outputs)
+for details.
 
 ## VENDOR\_RAMDISK\_CMDS
 
@@ -493,63 +485,49 @@ inputs, then add the target to your `pkg_files` macro.
 ## SKIP\_UNPACKING\_RAMDISK
 
 ```python
-kernel_images(unpack_ramdisk=...)
+vendor_boot_image(unpack_ramdisk=...)
 ```
 
 See [documentation for all rules].
 
 ## AVB\_SIGN\_BOOT\_IMG
 
-```python
-kernel_images(avb_sign_boot_img=...)
-```
+Building a device-specific boot image is not supported.
 
-See [documentation for all rules].
+**NOTE**: As an implementation detail, GKI targets invoke `gki_artifacts()`
+to build the boot images.
 
 ## AVB\_BOOT\_PARTITION\_SIZE
 
-```python
-kernel_images(avb_boot_partition_size=...)
-```
+Building a device-specific boot image is not supported.
 
-Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
-
-See [documentation for all rules].
+**NOTE**: As an implementation detail, GKI targets invoke `gki_artifacts()`
+to build the boot images.
 
 ## AVB\_BOOT\_KEY
+Building a device-specific boot image is not supported.
 
-```python
-kernel_images(avb_boot_key=...)
-```
-
-Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
-
-See [documentation for all rules].
+**NOTE**: As an implementation detail, GKI targets invoke `gki_artifacts()`
+to build the boot images.
 
 ## AVB\_BOOT\_ALGORITHM
 
-```python
-kernel_images(avb_boot_algorithm=...)
-```
+Building a device-specific boot image is not supported.
 
-Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
-
-See [documentation for all rules].
+**NOTE**: As an implementation detail, GKI targets invoke `gki_artifacts()`
+to build the boot images.
 
 ## AVB\_BOOT\_PARTITION\_NAME
 
-```python
-kernel_images(avb_boot_partition_name=...)
-```
+Building a device-specific boot image is not supported.
 
-Note: It only has effect when [`AVB_SIGN_BOOT_IMG`](#avb_sign_boot_img) is set.
-
-See [documentation for all rules].
+**NOTE**: As an implementation detail, GKI targets invoke `gki_artifacts()`
+to build the boot images.
 
 ## BUILD\_INITRAMFS
 
 ```python
-kernel_images(build_initramfs=...)
+initramfs(...)
 ```
 
 See [documentation for all rules].
@@ -557,7 +535,7 @@ See [documentation for all rules].
 ## MODULES\_OPTIONS
 
 ```python
-kernel_images(modules_options=...)
+initramfs(modules_options=...)
 ```
 
 See [documentation for all rules].
@@ -584,7 +562,7 @@ See [documentation for all rules].
 ## VENDOR\_DLKM\_FS\_TYPE
 
 ```python
-kernel_images(vendor_dlkm_fs_type=[ext4, erofs])
+vendor_dlkm_image(fs_type=[ext4, erofs])
 ```
 
 See [documentation for all rules].
@@ -592,7 +570,7 @@ See [documentation for all rules].
 ## VENDOR\_DLKM\_ETC\_FILES
 
 ```python
-kernel_images(vendor_dlkm_etc_files=[...])
+vendor_dlkm_image(etc_files=[...])
 ```
 
 See [documentation for all rules].
@@ -600,7 +578,7 @@ See [documentation for all rules].
 ## VENDOR\_DLKM\_MODULES\_LIST
 
 ```python
-kernel_images(vendor_dlkm_modules_list=...)
+vendor_dlkm_image(modules_list=...)
 ```
 
 See [documentation for all rules].
@@ -608,7 +586,7 @@ See [documentation for all rules].
 ## VENDOR\_DLKM\_MODULES\_BLOCKLIST
 
 ```python
-kernel_images(vendor_dlkm_modules_blocklist=...)
+vendor_dlkm_image(modules_blocklist=...)
 ```
 
 See [documentation for all rules].
@@ -616,7 +594,7 @@ See [documentation for all rules].
 ## VENDOR\_DLKM\_PROPS
 
 ```python
-kernel_images(vendor_dlkm_props=...)
+vendor_dlkm_image(props=...)
 ```
 
 See [documentation for all rules].
@@ -624,7 +602,7 @@ See [documentation for all rules].
 ## SYSTEM\_DLKM\_FS\_TYPE
 
 ```python
-kernel_images(system_dlkm_fs_types=["ext4", "erofs"])
+system_dlkm_image(fs_types=["ext4", "erofs"])
 ```
 
 See [documentation for all rules].
@@ -632,7 +610,7 @@ See [documentation for all rules].
 ## SYSTEM\_DLKM\_MODULES\_LIST
 
 ```python
-kernel_images(system_dlkm_modules_list=...)
+system_dlkm_image(modules_list=...)
 ```
 
 See [documentation for all rules].
@@ -640,7 +618,7 @@ See [documentation for all rules].
 ## SYSTEM\_DLKM\_MODULES\_BLOCKLIST
 
 ```python
-kernel_images(system_dlkm_modules_blocklist=...)
+system_dlkm_image(modules_blocklist=...)
 ```
 
 See [documentation for all rules].
@@ -648,7 +626,7 @@ See [documentation for all rules].
 ## SYSTEM\_DLKM\_PROPS
 
 ```python
-kernel_images(system_dlkm_props=...)
+system_dlkm_image(props=...)
 ```
 
 See [documentation for all rules].
@@ -664,7 +642,7 @@ See [documentation for all rules].
  will be respected.
 
 ```python
-kernel_image(ramdisk_compression="lz4",...)
+initramfs(ramdisk_compression="lz4",...)
 ```
 
 See [documentation for all rules].
@@ -674,7 +652,7 @@ See [documentation for all rules].
 **NOTE**: Use in combination with [`LZ4_RAMDISK`](#lz4_ramdisk).
 
 ```python
-kernel_image(ramdisk_compression_args=...)
+initramfs(ramdisk_compression_args=...)
 ```
 
 See [documentation for all rules].
@@ -757,7 +735,7 @@ See [documentation for implementing Kleaf].
 ## BUILD\_DTBO\_IMG
 
 ```python
-kernel_images(build_dtbo=...)
+dtbo(...)
 ```
 
 See [documentation for all rules].
@@ -784,7 +762,7 @@ See [build/kernel/BUILD.bazel](../../BUILD.bazel).
 ## BUILD\_VENDOR\_KERNEL\_BOOT
 
 ```python
-kernel_images(build_vendor_kernel_boot=...)
+vendor_boot_image(vendor_boot_name = "vendor_kernel_boot")
 ```
 
 See [documentation for all rules].
@@ -792,11 +770,11 @@ See [documentation for all rules].
 ## MKBOOTIMG\_PATH
 
 ```python
-kernel_images(mkbootimg=...)
+vendor_boot_image(mkbootimg=...)
 gki_artifacts(mkbootimg=...)
 ```
 
-See [documentation for all rules] for `kernel_images`.
+See [documentation for all rules] for `vendor_boot_image`.
 
 **NOTE**: `gki_artifacts` is an implementation detail, and it should only be
 invoked by GKI targets.
