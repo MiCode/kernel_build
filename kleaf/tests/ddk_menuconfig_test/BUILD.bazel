@@ -38,7 +38,6 @@ kernel_build(
     srcs = ["//common:kernel_aarch64_sources"],
     outs = [".config"],
     arch = "arm64",
-    build_config = "//common:build.config.common",
     ddk_module_headers = ["//common:all_headers_aarch64"],
     defconfig = "//common:arch/arm64/configs/gki_defconfig",
     make_goals = [

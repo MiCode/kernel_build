@@ -41,7 +41,8 @@ def ddk_module_config_test_suite(name):
         name = name + "_aarch64_kernel_build",
         srcs = ["//common:kernel_aarch64_sources"],
         arch = "arm64",
-        build_config = "//common:build.config.gki.aarch64",
+        makefile = Label("//common:Makefile"),
+        defconfig = Label("//common:arch/arm64/configs/gki_defconfig"),
         outs = [],
         make_goals = ["vmlinux"],
         ddk_module_defconfig_fragments = [

@@ -84,7 +84,7 @@ def kernel_build_symtypes_test(name):
         kernel_build(
             name = name + "_" + kbuild_symtypes + "_subject",
             tags = ["manual"],
-            build_config = "//common:build.config.gki.aarch64",
+            makefile = Label("//common:Makefile"),
             outs = [],
             kbuild_symtypes = kbuild_symtypes,
         )

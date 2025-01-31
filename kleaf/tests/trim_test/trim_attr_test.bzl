@@ -71,7 +71,6 @@ def trim_attr_test(name):
         base_trim_str = "trim" if base_trim else "notrim"
         kernel_build(
             name = name + "_{}_base_build".format(base_trim_str),
-            build_config = "build.config.kernel",
             outs = [],
             trim_nonlisted_kmi = base_trim,
             kmi_symbol_list = "symbol_list_base",
@@ -92,7 +91,6 @@ def trim_attr_test(name):
 
             kernel_build(
                 name = name + "_{}_{}_device_build".format(base_trim_str, device_trim_str),
-                build_config = "build.config.device",
                 base_kernel = name + "_{}_base_build".format(base_trim_str),
                 outs = [],
                 trim_nonlisted_kmi = device_trim,
