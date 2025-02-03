@@ -34,15 +34,16 @@ def kunit_test(
         deps: dependencies for kunit test runner
         **kwargs: additional arguments for py_test
     """
+    filtered_modules = [m for m in modules if m.endswith(".ko")]
     test_args = ["--name", test_name, "--modules"] + [
         "$(rootpaths {})".format(m)
-        for m in modules
+        for m in filtered_modules
     ]
     py_test(
         name = name,
         main = Label("kunit_test.py"),
         srcs = [Label("kunit_test.py")],
-        data = modules,
+        data = filtered_modules,
         args = test_args,
         size = "small",
         deps = deps,
