@@ -146,6 +146,7 @@ bzl_library(
         ":hermetic_tools_deps",
         "//build/kernel/kleaf:directory_with_structure_def",
         "//build/kernel/kleaf:update_source_file_def",
+        "//build/kernel/kleaf/impl/testing:bzl_definitions",
         "@bazel_skylib//lib:collections",
         "@bazel_skylib//lib:paths",
         "@bazel_skylib//lib:sets",

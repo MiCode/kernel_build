@@ -2014,3 +2014,27 @@ from the tarball, a source file would `#include <linux/time.h>`.
 | <a id="kernel_uapi_headers_cc_library-kernel_build"></a>kernel_build |  [`kernel_build`](#kernel_build)   |  none |
 
 
+<a id="kunit_test"></a>
+
+## kunit_test
+
+<pre>
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "kunit_test")
+
+kunit_test(<a href="#kunit_test-name">name</a>, <a href="#kunit_test-test_name">test_name</a>, <a href="#kunit_test-modules">modules</a>, <a href="#kunit_test-deps">deps</a>, <a href="#kunit_test-kwargs">**kwargs</a>)
+</pre>
+
+A kunit test.
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="kunit_test-name"></a>name |  name of the test   |  none |
+| <a id="kunit_test-test_name"></a>test_name |  name of the kunit test suite   |  none |
+| <a id="kunit_test-modules"></a>modules |  list of modules to be installed for kunit test   |  none |
+| <a id="kunit_test-deps"></a>deps |  dependencies for kunit test runner   |  none |
+| <a id="kunit_test-kwargs"></a>kwargs |  additional arguments for py_test   |  none |
+
+

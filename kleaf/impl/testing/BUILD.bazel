@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 exports_files([
     "kunit_test.py",
 ])
+
+bzl_library(
+    name = "bzl_definitions",
+    srcs = [
+        "kernel_unit_test.bzl",
+    ],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+)
