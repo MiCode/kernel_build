@@ -130,6 +130,10 @@ bazel_dep(
     name = "rules_python",
     version = "0.37.0",
 )
+bazel_dep(
+    name = "rules_shell",
+    version = "0.3.0",
+)
 
 local_path_override(
     module_name = "abseil-py",

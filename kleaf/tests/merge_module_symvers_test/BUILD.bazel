@@ -15,6 +15,7 @@
 """Test merging of generated *Module.symvers files."""
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(
     "//build/kernel/kleaf:kernel.bzl",
     "ddk_module",
