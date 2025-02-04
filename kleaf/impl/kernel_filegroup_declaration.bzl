@@ -141,6 +141,7 @@ kernel_filegroup(
     kernel_release = {kernel_release_repr},
     protected_modules_list = {protected_modules_repr},
     ddk_module_defconfig_fragments = {ddk_module_defconfig_fragments_repr},
+    ddk_module_headers = {ddk_module_headers_repr},
     config_out_dir_files = glob([{config_out_dir_repr} + "/**"]),
     config_out_dir = {config_out_dir_repr},
     env_setup_script = {env_setup_script_repr},
@@ -296,6 +297,13 @@ def _write_filegroup_decl_file(
         **join
     )
 
+    # This relies on the fact that common_kernels.ddk_headers_archive wraps the ddk_module_headers
+    # so that it has the exact same label inside @kleaf in the DDKv2 workspace.
+    sub.add("{ddk_module_headers_repr}", repr([
+        str(target.label).replace("@@//", "@kleaf//")
+        for target in ctx.attr.ddk_module_headers
+    ]))
+
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
         ctx.attr.kernel_build.label.name,
         FILEGROUP_DEF_BUILD_FRAGMENT_NAME,
@@ -377,6 +385,11 @@ kernel_filegroup_declaration = rule(
         "images": attr.label(
             doc = "Labels to look up system_dlkm_staging_archive.tar.gz",
             allow_files = True,
+        ),
+        "ddk_module_headers": attr.label_list(
+            doc = """
+            Label to kernel_build.ddk_module_headers.
+            Used as-is in the final kernel_filegroup invocation.""",
         ),
     },
     toolchains = [hermetic_toolchain.type],

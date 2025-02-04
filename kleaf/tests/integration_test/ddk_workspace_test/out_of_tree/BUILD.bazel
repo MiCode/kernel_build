@@ -11,7 +11,6 @@ ddk_module(
     srcs = ["mydriver.c"],
     out = "out_of_tree.ko",
     kernel_build = "//tests:kernel",
-    deps = ["@kleaf//common:all_headers_aarch64"],
 )
 
 kernel_modules_install(

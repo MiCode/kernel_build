@@ -380,6 +380,7 @@ def common_kernel(
         kernel_build = name,
         extra_deps = filegroup_extra_deps,
         images = name + "_system_dlkm_image",
+        ddk_module_headers = ddk_module_headers,
         visibility = ["//visibility:private"],
     )
     target_mapping = CI_TARGET_MAPPING.get(name, {})
