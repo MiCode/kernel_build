@@ -83,7 +83,7 @@ CONFIG_SOFTLOCKUP_DETECTOR=y
 #
 # Lock Debugging (spinlocks, mutexes, etc...)
 #
-# CONFIG_PROVE_RAW_LOCK_NESTING is not set
+CONFIG_PROVE_RAW_LOCK_NESTING=y
 CONFIG_PROVE_LOCKING=y
 #
 # Debug kernel data structures
