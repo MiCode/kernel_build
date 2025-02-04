@@ -14,7 +14,6 @@
 
 """This test checks that device targets contains proper modules."""
 
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelModuleInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
@@ -94,41 +93,18 @@ def _create_one_device_modules_test(
         base_kernel_module,
         expect_signature,
         module_outs = None):
-    # Cross compiler name is not always the same as the linux arch
-    cross_compiler_name = arch
-    if cross_compiler_name == "arm64":
-        cross_compiler_name = "aarch64"
-
-    # A minimal device's kernel_build build_config.
-    build_config_content = """
-                KERNEL_DIR="{common_package}"
-
-                . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.common
-                . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.gki
-                . ${{ROOT_DIR}}/${{KERNEL_DIR}}/build.config.{cross_compiler_name}
-
-                {set_src_arch_cmd}
-                DEFCONFIG="device_modules_test_gki_defconfig"
-                PRE_DEFCONFIG_CMDS="mkdir -p \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/ && ( cat ${{ROOT_DIR}}/${{KERNEL_DIR}}/arch/${{SRCARCH}}/configs/gki_defconfig && echo '# CONFIG_MODULE_SIG_ALL is not set' ) > \\${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}};"
-                POST_DEFCONFIG_CMDS=""
-                """.format(
-        cross_compiler_name = cross_compiler_name,
-        common_package = base_kernel_label.package,
-        set_src_arch_cmd = kernel_utils.set_src_arch_cmd(),
-    )
-
-    write_file(
-        name = name + "_build_config",
-        content = build_config_content.split("\n"),
-        out = name + "_build_config/build.config",
-    )
+    srcarch = kernel_utils.get_src_arch(arch)
 
     kernel_build(
         name = name + "_kernel_build",
         tags = ["manual"],
         srcs = srcs,
         arch = arch,
-        build_config = name + "_build_config",
+        makefile = base_kernel_label.same_package_label("Makefile"),
+        defconfig = base_kernel_label.same_package_label("arch/{}/configs/gki_defconfig".format(srcarch)),
+        pre_defconfig_fragments = [
+            Label("//build/kernel/kleaf/impl/defconfig:signing_modules_disabled"),
+        ],
         outs = [],
         base_kernel = base_kernel_label,
         module_outs = module_outs,

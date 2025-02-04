@@ -696,7 +696,6 @@ def _define_common_kernels_additional_tests(
         defconfig = defconfig,
         pre_defconfig_fragments = [Label("//build/kernel/kleaf/tests/defconfig_test:pre_defconfig_fragment")],
         base_kernel = native.package_relative_label(kernel_build_name),
-        build_config = Label("//build/kernel/kleaf/tests/defconfig_test:build.config.{}".format(arch)),
         make_goals = ["modules"],
         # We don't actually build the kernel_build target, so we don't care about outputs
         outs = [],

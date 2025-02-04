@@ -499,6 +499,16 @@ def _set_src_arch_cmd():
         fi
     """
 
+def _get_src_arch(arch):
+    """Get SRCARCH from kernel_build.arch."""
+    if arch in ("i386", "x86_64"):
+        return "x86"
+    if arch in ("sparc32", "sparc64"):
+        return "sparc"
+    if arch == "parisc64":
+        return "parisc"
+    return arch
+
 def _eval_restore_out_dir_cmd():
     """Returns a command that evaluates `KLEAF_RESTORE_OUT_DIR_CMD`.
 
@@ -551,6 +561,7 @@ kernel_utils = struct(
     local_exec_requirements = _local_exec_requirements,
     split_kernel_module_deps = _split_kernel_module_deps,
     set_src_arch_cmd = _set_src_arch_cmd,
+    get_src_arch = _get_src_arch,
     create_kernel_module_kernel_build_info = _create_kernel_module_kernel_build_info,
     create_kernel_module_dep_info = _create_kernel_module_dep_info,
     eval_restore_out_dir_cmd = _eval_restore_out_dir_cmd,
