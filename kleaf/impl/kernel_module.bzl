@@ -522,9 +522,16 @@ def _kernel_module_impl(ctx):
     if ctx.attr.internal_is_ddk_library:
         # For ddk_library, directly copy output files in the main action.
         for short_name, out in zip(original_outs, output_files):
-            command += """
-                cp -aL ${{OUT_DIR}}/${{ext_mod_rel}}/{short_name_trimmed} {out}
-            """.format(
+            if out.extension == "cmd_shipped":
+                # Remove absolute paths in *.cmd files.
+                fmt = """
+                    sed -e "s:${{ROOT_DIR}}/${{KERNEL_DIR}}/:"'$(srctree)/:g' \\
+                        -e "s:${{ROOT_DIR}}/:"'$(srctree)/'"$(realpath ${{ROOT_DIR}} --relative-to ${{KERNEL_DIR}})/:g" \\
+                        < ${{OUT_DIR}}/${{ext_mod_rel}}/{short_name_trimmed} > {out}
+                """
+            else:
+                fmt = "\ncp -aL ${{OUT_DIR}}/${{ext_mod_rel}}/{short_name_trimmed} {out}\n"
+            command += fmt.format(
                 short_name_trimmed = short_name.removesuffix("_shipped"),
                 out = out.path,
             )
