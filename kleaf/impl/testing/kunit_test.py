@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 import kunit_parser
 
@@ -54,11 +53,6 @@ class AdbDeviceHandle:
     def push(self, local: str, remote: str) -> None:
         subprocess.check_call(
             [self.adb_path, '-s', self.device, 'push', local, remote]
-        )
-
-    def pull(self, remote: str, local: str) -> None:
-        subprocess.check_call(
-            [self.adb_path, '-s', self.device, 'pull', remote, local]
         )
 
 
@@ -133,12 +127,10 @@ class TestRunner:
             self._device_handle.check_call('insmod', remote_path)
 
         # Extract and parse test results
-        with tempfile.TemporaryDirectory() as tmpdir:
-            self._device_handle.pull(
-                f'/sys/kernel/debug/kunit/{self._name}/results', tmpdir
-            )
-            with open(f'{tmpdir}/results') as results:
-                return kunit_parser.parse_run_tests(results.readlines())
+        results = self._device_handle.check_output(
+            'cat', f'/sys/kernel/debug/kunit/{self._name}/results'
+        )
+        return kunit_parser.parse_run_tests(results.splitlines())
 
     def _find_device(self) -> str:
         devices_output = subprocess.check_output(
