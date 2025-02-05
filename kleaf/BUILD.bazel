@@ -267,6 +267,19 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# If true, kcov is enabled.
+bool_flag(
+    name = "kcov",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "kcov_is_true",
+    flag_values = {":kcov": "1"},
+    visibility = ["//visibility:public"],
+)
+
 # If set, Kconfig treats warnings as errors.
 bool_flag(
     name = "kconfig_werror",

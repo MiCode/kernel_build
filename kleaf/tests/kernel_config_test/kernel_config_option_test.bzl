@@ -395,6 +395,7 @@ _combined_test_expected = rule(
         "trim": attr.bool(),
         "lto": attr.string(values = LTO_VALUES),
         "kasan": attr.bool(),
+        "kcov": attr.bool(),
         "kcsan": attr.bool(),
         "kgdb": attr.bool(),
         "arch": attr.string(),

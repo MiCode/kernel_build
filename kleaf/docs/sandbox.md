@@ -118,6 +118,7 @@ Sample output snippet:
   "@//build/kernel/kleaf/impl:preserve_cmd": false,
   "@//build/kernel/kleaf/impl:force_disable_trim": false,
   "@//build/kernel/kleaf:gcov": false,
+  "@//build/kernel/kleaf:kcov": false,
   "@//build/kernel/kleaf:kasan": true,
   "@//build/kernel/kleaf:kbuild_symtypes": false,
   "@//build/kernel/kleaf:kmi_symbol_list_strict_mode": true,

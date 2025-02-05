@@ -52,6 +52,7 @@ build --flag_alias=kasan=//build/kernel/kleaf:kasan
 build --flag_alias=kasan_sw_tags=//build/kernel/kleaf:kasan_sw_tags
 build --flag_alias=kasan_generic=//build/kernel/kleaf:kasan_generic
 build --flag_alias=kcsan=//build/kernel/kleaf:kcsan
+build --flag_alias=kcov=//build/kernel/kleaf:kcov
 build --flag_alias=lto=//build/kernel/kleaf:lto
 build --flag_alias=notrim=//build/kernel/kleaf/impl:force_disable_trim
 build --flag_alias=debug=//build/kernel/kleaf:debug

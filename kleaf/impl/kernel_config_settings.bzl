@@ -32,8 +32,10 @@ mentioned here. In particular:
   kernel_env.bzl, _handle_config_tags:
   - btf_debug_info
   - gcov
+  - kcov
   - lto (b/257288175)
   - trim_nonlisted_kmi
+
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
@@ -59,6 +61,7 @@ def _kernel_build_config_settings_raw():
             "_kasan": "//build/kernel/kleaf:kasan",
             "_kasan_sw_tags": "//build/kernel/kleaf:kasan_sw_tags",
             "_kasan_generic": "//build/kernel/kleaf:kasan_generic",
+            "_kcov": "//build/kernel/kleaf:kcov",
             "_kcsan": "//build/kernel/kleaf:kcsan",
             "_preserve_kbuild_output": "//build/kernel/kleaf:preserve_kbuild_output",
         },

@@ -205,3 +205,12 @@ filegroup(
     }),
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "kcov",
+    srcs = select({
+        "//build/kernel/kleaf:kcov_is_true": ["kcov_defconfig"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)

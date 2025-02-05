@@ -180,6 +180,7 @@ def _check_trimming_disabled_impl(subrule_ctx, trim_attr_value, **kwargs):
         "_kasan",
         "_kasan_sw_tags",
         "_kasan_generic",
+        "_kcov",
         "_kcsan",
     ):
         if kwargs[attr_name][BuildSettingInfo].value:
@@ -191,6 +192,7 @@ _check_trimming_disabled = subrule(
         "_kasan": attr.label(default = "//build/kernel/kleaf:kasan"),
         "_kasan_sw_tags": attr.label(default = "//build/kernel/kleaf:kasan_sw_tags"),
         "_kasan_generic": attr.label(default = "//build/kernel/kleaf:kasan_generic"),
+        "_kcov": attr.label(default = "//build/kernel/kleaf:kcov"),
         "_kcsan": attr.label(default = "//build/kernel/kleaf:kcsan"),
     },
 )
