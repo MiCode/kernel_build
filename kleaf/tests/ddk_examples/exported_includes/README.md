@@ -44,7 +44,7 @@ recommended, but it may be suitable to your project.
 
 ## Full sources
 
-Full sources of this example is in [this directory](.).
+Full sources of this example are in [this directory](.).
 
 ## Re-exporting headers
 

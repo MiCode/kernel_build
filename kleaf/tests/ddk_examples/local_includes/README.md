@@ -17,7 +17,7 @@ from using these headers.
 
 ## Full sources
 
-Full sources of this example is in [this directory](.).
+Full sources of this example are in [this directory](.).
 
 ## Why not copts?
 

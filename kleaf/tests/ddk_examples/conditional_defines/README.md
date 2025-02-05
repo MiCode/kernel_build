@@ -23,4 +23,4 @@ To achieve the above result, do the following:
 
 ## Full sources
 
-Full sources of this example is in [this directory](.).
+Full sources of this example are in [this directory](.).

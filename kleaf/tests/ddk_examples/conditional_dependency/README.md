@@ -42,7 +42,7 @@ tools/bazel build --noenable_parent \
 
 ## Full sources
 
-Full sources of this example is in [this directory](.).
+Full sources of this example are in [this directory](.).
 
 ## See also
 
