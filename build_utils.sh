@@ -919,7 +919,7 @@ function build_gki_boot_images() {
       # overwritten by the Android platform build to include an accurate SPL.
       # Note, the certified GKI release builds will not include the SPL
       # property.
-      local spl_month=$((($(date +'%m') + 3) % 12))
+      local spl_month=$(((10#$(date +'%m') + 3) % 12))
       local spl_year="$(date +'%Y')"
       if [ $((${spl_month} % 3)) -gt 0 ]; then
         # Round up to the next quarterly platform release (QPR) month

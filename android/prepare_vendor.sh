@@ -97,6 +97,16 @@ function rel_path() {
   python -c "import os.path; import sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$1" "$2"
 }
 
+function clean_all_Android_mk {
+  echo
+  echo "  cleaning up kernel_platform tree for Android"
+  set -x
+  find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
+    -a -not -path ${ROOT_DIR}/common/Android.bp -a -not -path ${ROOT_DIR}/msm-kernel/Android.bp \
+    -delete
+  set +x
+}
+
 ROOT_DIR=$($(dirname $(readlink -f $0))/../gettop.sh)
 echo "  kernel platform root: $ROOT_DIR"
 
@@ -127,6 +137,22 @@ if [ "$1" == "dtb-only" ]; then
   exit 0
 fi
 
+DEVICE_NAME=$(echo ${TARGET_PRODUCT}|sed 's/_/ /g'|awk '{print $2}')
+DEVICE_COMPONENT=$(echo ${TARGET_PRODUCT}|sed 's/_/ /g'|awk '{print $1}')
+
+BSP_BUILD_PROFILE=$(echo ${TARGET_PRODUCT} | awk -F '_' '{print $3}')
+if [ "$BSP_BUILD_PROFILE" = "factory" ] || [ ! -z "${FACTORY_BUILD}" ]; then
+  echo "=========================export FACTORY_BUILD=1==============================="
+  export FACTORY_BUILD=1
+else
+  export FACTORY_BUILD=0
+fi
+
+if [ "${SKIP_COMPILE_KERNEL}" ==  "1" ]; then
+    clean_all_Android_mk
+    exit 0
+fi
+
 ################################################################################
 # Discover where to put Android output
 if [ -z "${ANDROID_KERNEL_OUT}" ]; then
@@ -140,21 +166,59 @@ if [ -z "${ANDROID_KERNEL_OUT}" ]; then
     exit 1
   fi
 
-  ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/device/qcom/${TARGET_BOARD_PLATFORM}-kernel
+  if [ "${DEVICE_COMPONENT}" == "miodm" ];then
+    ANDROID_KERNEL_OUT=${ANDROID_BUILD_TOP}/out/target/product/${DEVICE_NAME}/prebuilt_kernel
+  else
+    echo "Error: Kernel and ko can only build when build odm target." 1>&2
+    exit 1
+  fi
+
 fi
 if [ ! -e ${ANDROID_KERNEL_OUT} ]; then
   mkdir -p ${ANDROID_KERNEL_OUT}
 fi
 
+# for anti-rollback
+GET_ANTIVERSION=${ROOT_DIR}/../vendor/xiaomi/securebootsigner/Qualcomm/common/get_antiversion.py
+ANTI_VERSION=0
+# echo "====anti debug==== GET_ANTIVERSION: $GET_ANTIVERSION"
+
+if [ "${DEVICE_COMPONENT}" == "miodm" ] && [ -f "$GET_ANTIVERSION" ]; then
+    ANTI_VERSION_RESULT=$(python2 "$GET_ANTIVERSION" -p "$DEVICE_NAME" | grep get_antiversion)
+    if [ -z "$ANTI_VERSION_RESULT" ]; then
+        echo "abl get antiversion failed!"
+    else
+        ANTI_VERSION=$(echo "$ANTI_VERSION_RESULT" | awk -F'=' '{print $2}')
+    fi
+else
+    echo "$GET_ANTIVERSION is not exist, DEFAULT antiversion!!"
+fi
+CURRENT_ANTI_ROLLBACK="$ANTI_VERSION"
+export CURRENT_ANTI_ROLLBACK
+# echo "$ANTI_VERSION" > "$ANDROID_KERNEL_OUT/anti_version.txt"
+
+# echo "====anti debug==== ANTI_VERSION: $ANTI_VERSION"
+# echo "====anti debug==== ANTI_VERSION_RESULT: $ANTI_VERSION_RESULT"
+echo "====anti debug==== CURRENT_ANTI_ROLLBACK: $CURRENT_ANTI_ROLLBACK"
+
 ################################################################################
 # Determine requested kernel target and variant
 
+case "${TARGET_BUILD_VARIANT}" in
+  user)
+      TARGET_BUILD_KERNEL_VARIANT=gki
+  ;;
+  *)
+      TARGET_BUILD_KERNEL_VARIANT=consolidate
+  ;;
+esac
+
 if [ -z "${KERNEL_TARGET}" ]; then
-  KERNEL_TARGET=${1:-${TARGET_BOARD_PLATFORM}}
+  KERNEL_TARGET=${1:-${DEVICE_NAME}}
 fi
 
 if [ -z "${KERNEL_VARIANT}" ]; then
-  KERNEL_VARIANT=${2}
+  KERNEL_VARIANT=${2:-${TARGET_BUILD_KERNEL_VARIANT}}
 fi
 
 case "${KERNEL_TARGET}" in
@@ -252,7 +316,7 @@ if [ "${RECOMPILE_KERNEL}" == "1" ]; then
 
   # shellcheck disable=SC2086
   "${ROOT_DIR}/build_with_bazel.py" \
-    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $LTO_KBUILD_ARG $EXTRA_KBUILD_ARGS \
+    -t "$KERNEL_TARGET" "$KERNEL_VARIANT" $LTO_KBUILD_ARG $EXTRA_KBUILD_ARGS --define=FACTORY_BUILD=${FACTORY_BUILD} \
     --out_dir "${ANDROID_KP_OUT_DIR}"
 
   COPY_NEEDED=1
@@ -295,6 +359,8 @@ if [ "${RECOMPILE_ABL}" == "1" ] && [ -n "${TARGET_BUILD_VARIANT}" ] && \
       cd "${ROOT_DIR}"
 
       ./tools/bazel run \
+        --define=FACTORY_BUILD=${FACTORY_BUILD} \
+        --define=CURRENT_ANTI_ROLLBACK=${CURRENT_ANTI_ROLLBACK} \
         --"//bootable/bootloader/edk2:target_build_variant=${TARGET_BUILD_VARIANT}" \
         "//msm-kernel:${KERNEL_TARGET}_${KERNEL_VARIANT}_abl_dist" \
         -- --dist_dir "${ANDROID_KP_OUT_DIR}/dist"
@@ -479,14 +545,7 @@ if [ -n "${ANDROID_PRODUCT_OUT}" ] && [ -n "${ANDROID_BUILD_TOP}" ]; then
   fi
 
   ################################################################################
-  echo
-  echo "  cleaning up kernel_platform tree for Android"
-
-  set -x
-  find ${ROOT_DIR} \( -name Android.mk -o -name Android.bp \) \
-      -a -not -path ${ROOT_DIR}/common/Android.bp -a -not -path ${ROOT_DIR}/msm-kernel/Android.bp \
-      -delete
-  set +x
+  clean_all_Android_mk
 
   ################################################################################
   echo
