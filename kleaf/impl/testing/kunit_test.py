@@ -167,10 +167,15 @@ if __name__ == '__main__':
             ' option'
         )
 
+    # Filter out non-module files
+    # TODO(b/381406396): Remove this once we have a mechanism to filter out
+    # non-module files in the build system.
+    filtered_modules = [m for m in args.modules if m.suffix == '.ko']
+
     with TestRunner(
         name=args.name,
         adb_path=args.adb_path,
-        modules=args.modules,
+        modules=filtered_modules,
         device=args.device,
     ) as tr:
         test_result = tr.run_test()
