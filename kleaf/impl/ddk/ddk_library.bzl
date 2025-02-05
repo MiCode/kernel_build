@@ -46,6 +46,7 @@ def ddk_library(
 
     Known issues:
         - (b/392186874) The generated .o.cmd files contain absolute paths and are not reproducible.
+        - (b/394411899) kernel_compile_commands() doesn't work on ddk_library yet.
 
     Args:
         name: name of module

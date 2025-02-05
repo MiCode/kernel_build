@@ -24,12 +24,13 @@ def _compile_commands_config_settings_raw():
         "_build_compile_commands": "//build/kernel/kleaf/impl:build_compile_commands",
     }
 
-def _get_step(ctx, compile_commands_parent):
+def _get_step(ctx, compile_commands_parent, skip = None):
     """Returns a step for grabbing required files for `compile_commands.json`
 
     Args:
         ctx: ctx
         compile_commands_parent: where to find compile_commands.json built by Kbuild
+        skip: If True, skip unconditionally.
 
     Returns:
         A struct with these fields:
@@ -43,7 +44,7 @@ def _get_step(ctx, compile_commands_parent):
     compile_commands_with_vars = None
     common_out_dir = None
     outputs = []
-    if ctx.attr._build_compile_commands[BuildSettingInfo].value:
+    if ctx.attr._build_compile_commands[BuildSettingInfo].value and not skip:
         common_out_dir = ctx.actions.declare_directory("{name}/compile_commands_common_out_dir".format(name = ctx.label.name))
         compile_commands_with_vars = ctx.actions.declare_file(
             "{name}/compile_commands_with_vars.json".format(name = ctx.label.name),

@@ -383,7 +383,11 @@ def _kernel_module_impl(ctx):
     )
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
     grab_gcno_step = get_grab_gcno_step(ctx, "${COMMON_OUT_DIR}", is_kernel_build = False)
-    compile_commands_step = compile_commands_utils.get_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
+    compile_commands_step = compile_commands_utils.get_step(
+        ctx,
+        "${OUT_DIR}/${ext_mod_rel}",
+        skip = ctx.attr.internal_is_ddk_library,
+    )
 
     for step in (
         cache_dir_step,
@@ -509,15 +513,16 @@ def _kernel_module_impl(ctx):
     )
 
     # TODO(b/291955924): make the `make` invocations parallel
-    for goal in compile_commands_utils.additional_make_goals(ctx):
-        command += """
+    if not ctx.attr.internal_is_ddk_library:
+        for goal in compile_commands_utils.additional_make_goals(ctx):
+            command += """
                 make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {goal} {make_filter} {make_redirect}
-        """.format(
-            ext_mod = ext_mod,
-            goal = goal,
-            make_filter = make_filter,
-            make_redirect = modpost_warn.make_redirect,
-        )
+            """.format(
+                ext_mod = ext_mod,
+                goal = goal,
+                make_filter = make_filter,
+                make_redirect = modpost_warn.make_redirect,
+            )
 
     if ctx.attr.internal_is_ddk_library:
         # For ddk_library, directly copy output files in the main action.
