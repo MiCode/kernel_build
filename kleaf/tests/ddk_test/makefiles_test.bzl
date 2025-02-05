@@ -298,7 +298,7 @@ def _create_makefiles_artifact_test(
             continue
 
         # Assume no submodules. For submodules, out == None
-        flags_file_name = out.removesuffix(".ko") + "." + suffix
+        flags_file_name = out.removesuffix(".ko") + "." + suffix + "_shipped"
         write_file(
             name = "{}_expected_{}".format(name, suffix),
             out = "{}_expected_{}/{}".format(name, suffix, flags_file_name),
@@ -643,7 +643,8 @@ def _makefiles_include_ordering_artifacts_test(name):
             # kernel_build at the end, even though dep_module also depend on it
             "-I{}/linux_include/kernel_build \\".format(prefix),
             "$(LINUXINCLUDE)",
-            "CFLAGS_base.o += @{}/{}_base.cflags".format(prefix, name),
+            "CFLAGS_base.o += @$(obj)/{}_base.cflags".format(name),
+            "$(obj)/base.o: $(obj)/{}_base.cflags".format(name),
         ],
         expected_cflags_lines = [
             # local "includes"
@@ -903,7 +904,8 @@ def makefiles_test_suite(name):
             "-test-flag",
         ],
         expected_lines = [
-            "AFLAGS_source.o += @$(ROOT_DIR)/{}/dep.asflags".format(native.package_name()),
+            "AFLAGS_source.o += @$(obj)/dep.asflags",
+            "$(obj)/source.o: $(obj)/dep.asflags",
         ],
     )
     tests.append(name + "_asopts")
@@ -917,7 +919,8 @@ def makefiles_test_suite(name):
             "-test-flag",
         ],
         expected_lines = [
-            "LDFLAGS_dep.o += @$(ROOT_DIR)/{}/dep.ldflags".format(native.package_name()),
+            "LDFLAGS_dep.o += @$(obj)/dep.ldflags",
+            "$(obj)/dep.o: $(obj)/dep.ldflags",
         ],
     )
     tests.append(name + "_linkopts")

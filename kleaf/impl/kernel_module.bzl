@@ -459,8 +459,10 @@ def _kernel_module_impl(ctx):
              # Replace env var in cflags/asflags files
              # find -exec sed is error-prone due to readdir() issues, so save it to a
              # variable first.
+             # No need to parse .ldflags because we don't write $(ROOT_DIR) to .ldflags;
+             # see gen_makefiles.py
             (
-                files=$(find {ext_mod} -name '*.cflags' -o -name '*.asflags')
+                files=$(find {ext_mod} -name '*.cflags_shipped' -o -name '*.asflags_shipped')
                 sed -i'' -e 's:$(ROOT_DIR):'"${{ROOT_DIR}}"':g' ${{files}}
             )
         """.format(

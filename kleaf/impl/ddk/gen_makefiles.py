@@ -321,18 +321,18 @@ def _gen_ddk_makefile_for_module(
     os.makedirs(kbuild.parent, exist_ok=True)
 
     # rel to this package
-    out_cflags_subpath = kernel_module_out.with_suffix(".cflags")
-    out_asflags_subpath = kernel_module_out.with_suffix(".asflags")
-    out_ldflags_subpath = kernel_module_out.with_suffix(".ldflags")
+    gen_cflags_subpath = kernel_module_out.with_suffix(".cflags_shipped")
+    gen_asflags_subpath = kernel_module_out.with_suffix(".asflags_shipped")
+    gen_ldflags_subpath = kernel_module_out.with_suffix(".ldflags_shipped")
 
     # Output flags file path
-    out_cflags_path = output_makefiles / out_cflags_subpath
-    out_asflags_path = output_makefiles / out_asflags_subpath
-    out_ldflags_path = output_makefiles / out_ldflags_subpath
+    out_cflags_path = output_makefiles / gen_cflags_subpath
+    out_asflags_path = output_makefiles / gen_asflags_subpath
+    out_ldflags_path = output_makefiles / gen_ldflags_subpath
 
     # For modinfo tagging
     _handle_ddk_marker(rel_srcs, kernel_module_out,
-        out_cflags_path, package / out_cflags_subpath.parent)
+        out_cflags_path, package / gen_cflags_subpath.parent)
 
     copts = json.load(copts_file) if copts_file else None
     removed_copts = json.load(removed_copts_file) if removed_copts_file else None
@@ -415,7 +415,8 @@ def _gen_ddk_makefile_for_module(
                     # $(ROOT_DIR)/<package> (aka $ROOT_DIR/<ext_mod>) and fix up
                     # .cflags files there before building.
                     out_file.write(textwrap.dedent(f"""\
-                        CFLAGS_{out} += @$(ROOT_DIR)/{package / out_cflags_subpath}
+                        CFLAGS_{out} += @$(obj)/{gen_cflags_subpath.with_suffix(".cflags").name}
+                        $(obj)/{out}: $(obj)/{gen_cflags_subpath.with_suffix(".cflags").name}
                         """))
                     _handle_opts_kbuild(out_file, "CFLAGS_REMOVE", out,
                                         removed_copts, "removed_copts")
@@ -425,7 +426,8 @@ def _gen_ddk_makefile_for_module(
                         out not in out_files_with_asflags):
                     out_files_with_asflags.add(out)
                     out_file.write(textwrap.dedent(f"""\
-                        AFLAGS_{out} += @$(ROOT_DIR)/{package / out_asflags_subpath}
+                        AFLAGS_{out} += @$(obj)/{gen_asflags_subpath.with_suffix(".asflags").name}
+                        $(obj)/{out}: $(obj)/{gen_asflags_subpath.with_suffix(".asflags").name}
                         """))
 
             if config is not None and value != True: # pylint: disable=singleton-comparison
@@ -433,7 +435,8 @@ def _gen_ddk_makefile_for_module(
 
         if linkopts:
             out_file.write(textwrap.dedent(f"""\
-                LDFLAGS_{kernel_module_out.with_suffix('.o').name} += @$(ROOT_DIR)/{package / out_ldflags_subpath}
+                LDFLAGS_{kernel_module_out.with_suffix('.o').name} += @$(obj)/{gen_ldflags_subpath.with_suffix(".ldflags").name}
+                $(obj)/{kernel_module_out.with_suffix('.o').name}: $(obj)/{gen_ldflags_subpath.with_suffix(".ldflags").name}
             """))
 
     top_kbuild = output_makefiles / "Kbuild"
