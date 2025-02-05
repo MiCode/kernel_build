@@ -497,6 +497,10 @@ def _set_src_arch_cmd():
         if [[ ${ARCH} == "parisc64" ]]; then
                SRCARCH=parisc
         fi
+        # Additional ARCH settings for riscv
+        if [[ ${ARCH} == "riscv64" ]]; then
+               SRCARCH=riscv
+        fi
     """
 
 def _get_src_arch(arch):
@@ -507,6 +511,8 @@ def _get_src_arch(arch):
         return "sparc"
     if arch == "parisc64":
         return "parisc"
+    if arch == "riscv64":
+        return "riscv"
     return arch
 
 def _eval_restore_out_dir_cmd():
