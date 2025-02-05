@@ -38,6 +38,8 @@ def _ddk_config_restore_out_dir_step_impl(
             kleaf_out_dir_include_candidate="{out_dir}/include/"
         else
             rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
+            # Restore real value of $ROOT_DIR in auto.conf.cmd
+            sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
         fi
     """.format(
         out_dir = out_dir.path,

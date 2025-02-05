@@ -260,6 +260,7 @@ def _create_oldconfig_step_impl(
 
             # Tell oldconfig_step to capture $OUT_DIR/include instead.
             kleaf_out_dir_include_candidate="${{OUT_DIR}}/include/"
+            kleaf_auto_conf_cmd_replace_variables=1
 
         elif [[ "{override_parent}" == "expect_override" ]]; then
             echo "ERROR: Expecting target to override parent values, but not overriding anything!" >&2
@@ -412,6 +413,12 @@ def _ddk_config_main_action_subrule_impl(
             exit 1
         fi
         rsync -aL "${{kleaf_out_dir_include_candidate}}" {out_dir}/include/
+
+        if [[ ${{kleaf_auto_conf_cmd_replace_variables}} == "1" ]]; then
+            # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
+            sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
+        fi
+        unset kleaf_auto_conf_cmd_replace_variables
     """.format(
         override_parent_log = override_parent_log.path,
         merge_config_cmd = merge_dot_config_step.cmd,
