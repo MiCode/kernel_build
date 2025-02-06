@@ -420,7 +420,9 @@ def _gen_ddk_makefile_for_module(
                     _handle_opts_kbuild(out_file, "CFLAGS_REMOVE", out,
                                         removed_copts, "removed_copts")
 
-                if asopts and src.suffix == ".S" and out not in out_files_with_asflags:
+                if ((local_defines or include_dirs or asopts) and
+                        src.suffix == ".S" and
+                        out not in out_files_with_asflags):
                     out_files_with_asflags.add(out)
                     out_file.write(textwrap.dedent(f"""\
                         AFLAGS_{out} += @$(ROOT_DIR)/{package / out_asflags_subpath}
