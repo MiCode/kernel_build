@@ -196,7 +196,7 @@ def _append_submodule_linux_include_dirs(
             _handle_linux_includes(out_file, True, combined_linux_includes)
 
 
-def gen_ddk_makefile(
+def generate_all_files(
         output_makefiles: pathlib.Path,
         module_symvers_list: list[pathlib.Path],
         package: pathlib.Path,
@@ -209,9 +209,23 @@ def gen_ddk_makefile(
         pkvm_el2_out: pathlib.Path | None,
         **kwargs
 ):
+    """Main entry point: generate all relevant files.
+
+    Args:
+        output_makefiles: Directory to put all generated files.
+            Content of this directory will be copied to the source package when
+            the outer target is built.
+        module_symvers_list: List of Module.symvers from dependencies
+        package: workspace_root / package
+        produce_top_level_makefile: If true, generates output_makefiles / "Makefile"
+        submodule_makefiles: List of directories from ddk_submodules()
+        kernel_module_out: output .ko file
+        is_library: Whether the outer target is a `ddk_library`
+        pkvm_el2_out: If set, relative path to output .o for pKVM EL2
+    """
     rel_srcs = []
     if kernel_module_out:
-        rel_srcs = _gen_ddk_makefile_for_module(
+        rel_srcs = _generate_kbuild_and_extra(
             output_makefiles=output_makefiles,
             package=package,
             kernel_module_out=kernel_module_out,
@@ -251,7 +265,7 @@ def _get_ddk_marker(
     return ddk_marker
 
 
-def _gen_ddk_makefile_for_module(
+def _generate_kbuild_and_extra(
         output_makefiles: pathlib.Path,
         package: pathlib.Path,
         kernel_module_out: pathlib.Path,
@@ -268,7 +282,7 @@ def _gen_ddk_makefile_for_module(
         is_pkvm_el2: bool,
         **unused_kwargs
 ):
-    """Generates all relevant Kbuild files for a certain .ko file.
+    """Generates all relevant Kbuild files and extra flag files.
 
     Args:
         output_makefiles: top-level Makefile, used as an anchor to write
@@ -284,6 +298,7 @@ def _gen_ddk_makefile_for_module(
         asopts: JSON containing asflags
         linkopts: JSON containing ldflags
         kbuild_has_linux_include: Whether to write LINUXINCLUDE to Kbuild files
+        is_library: If set, outer target is a ddk_library
         is_pkvm_el2: If set, building pKVM EL2
         **unused_kwargs: unused
     """
@@ -489,6 +504,7 @@ def _handle_ddk_marker(
         out_cflags_path: pathlib.Path,
         package: pathlib.Path
 ):
+    """Adds ddk_marker.c or implicitly include it."""
     rel_srcs_flat = _get_rel_srcs_flat(rel_srcs)
     # Avoid possible collisions if there is an existing ddk_marker.c file.
     #  or if the output .ko is named ddk_marker.ko
@@ -518,6 +534,16 @@ def _handle_src(
         obj_suffix: str,
         is_crate_root: bool,
 ):
+    """Writes rules to build a single source file.
+
+    Args:
+        src: the source file to build
+        out_file: The output Kbuild file
+        kernel_module_out: The final .ko file, used as an anchor for checks
+        is_pkvm_el2: If true, builds pKVM EL2 code
+        obj_suffix: Suffix to `obj-`
+        is_crate_root: If true, this source file is from the `crate_root` attribute.
+    """
     # Ignore non-exported headers specified in srcs
     if src.suffix in (".h",):
         return
@@ -557,6 +583,13 @@ def _handle_src(
 
 def _handle_linux_includes(out_file: TextIO, kbuild_has_linux_include: bool,
                            linux_include_dirs: list[pathlib.Path]):
+    """Writes LINUXINCLUDE to Kbuild.
+
+    Args:
+        out_file: Kbuild
+        kbuild_has_linux_include: whether to add LINUXINCLUDE to Kbuild at all
+        linux_include_dirs: List of paths to write
+    """
     if not linux_include_dirs:
         return
     if not kbuild_has_linux_include:
@@ -576,6 +609,12 @@ def _handle_linux_includes(out_file: TextIO, kbuild_has_linux_include: bool,
 
 def _handle_defines(out_cflags: TextIO,
                     local_defines: list[str]):
+    """Writes -D... to .cflags.
+
+    Args:
+        out_cflags: the .cflags file
+        local_defines: The list of defines
+    """
     if not local_defines:
         return
     for local_define in local_defines:
@@ -586,6 +625,13 @@ def _handle_defines(out_cflags: TextIO,
 
 def _handle_includes(out_cflags: TextIO,
                      include_dirs: list[pathlib.Path]):
+    """Writes -I... to .cflags.
+
+    Args:
+        out_cflags: the .cflags file
+        include_dirs: The list of include search paths
+    """
+
     for include_dir in include_dirs:
         out_cflags.write(textwrap.dedent(f"""\
             -I$(ROOT_DIR)/{shlex.quote(str(include_dir))}
@@ -595,7 +641,13 @@ def _handle_includes(out_cflags: TextIO,
 def _handle_opts(out_flags: TextIO,
                  opts: Opts | None,
                  attr_name: str):
-    """Writes opts into out_flags."""
+    """Writes opts into out_flags.
+
+    Args:
+        out_flags: The .?flags file to write to
+        opts: list of flags
+        attr_name: The relevant Bazel attribute name
+    """
     if not opts:
         return
 
@@ -718,7 +770,7 @@ if __name__ == "__main__":
 
     die_exception = None
     try:
-        gen_ddk_makefile(**vars(args))
+        generate_all_files(**vars(args))
     except DieException as exc:
         die_exception = exc
     finally:
