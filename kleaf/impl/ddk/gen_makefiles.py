@@ -47,6 +47,8 @@ _VALUE_OPT_RE = re.compile(r"^\$\([^)]+\)$")
 # hyp-obj-y builds hypervisor code
 _PKVM_EL2_OBJ = "hyp-obj"
 
+Opts = list[dict[str, str | bool]]
+
 class DieException(SystemExit):
     def __init__(self, *args, **kwargs):
         super().__init__(1)
@@ -257,10 +259,10 @@ def _gen_ddk_makefile_for_module(
         include_dirs: list[pathlib.Path],
         linux_include_dirs: list[pathlib.Path],
         local_defines: list[str],
-        copts_file: TextIO | None,
-        removed_copts_file: TextIO | None,
-        asopts_file: TextIO | None,
-        linkopts_file: TextIO | None,
+        copts: Opts | None,
+        removed_copts: Opts | None,
+        asopts: Opts | None,
+        linkopts: Opts | None,
         kbuild_has_linux_include: bool,
         is_library: bool,
         is_pkvm_el2: bool,
@@ -277,10 +279,10 @@ def _gen_ddk_makefile_for_module(
         include_dirs: list of -I
         linux_include_dirs: list of LINUXINCLUDE
         local_defines: list of -D
-        copts_file: JSON containing cflags
-        removed_copts_file: JSON containing removed cflags
-        asopts_file: JSON containing asflags
-        linkopts_file: JSON containing ldflags
+        copts: JSON containing cflags
+        removed_copts: JSON containing removed cflags
+        asopts: JSON containing asflags
+        linkopts: JSON containing ldflags
         kbuild_has_linux_include: Whether to write LINUXINCLUDE to Kbuild files
         is_pkvm_el2: If set, building pKVM EL2
         **unused_kwargs: unused
@@ -333,11 +335,6 @@ def _gen_ddk_makefile_for_module(
     # For modinfo tagging
     _handle_ddk_marker(rel_srcs, kernel_module_out,
         out_cflags_path, package / gen_cflags_subpath.parent)
-
-    copts = json.load(copts_file) if copts_file else None
-    removed_copts = json.load(removed_copts_file) if removed_copts_file else None
-    asopts = json.load(asopts_file) if asopts_file else None
-    linkopts = json.load(linkopts_file) if linkopts_file else None
 
     with open(kbuild, "w") as out_file, \
          open(out_cflags_path, "a") as out_cflags, \
@@ -596,7 +593,7 @@ def _handle_includes(out_cflags: TextIO,
 
 
 def _handle_opts(out_flags: TextIO,
-                 opts: Optional[list[dict[str, str | bool]]],
+                 opts: Opts | None,
                  attr_name: str):
     """Writes opts into out_flags."""
     if not opts:
@@ -612,7 +609,7 @@ def _handle_opts(out_flags: TextIO,
 
 
 def _handle_opts_kbuild(out_file: TextIO, flag_type: str, out: str,
-                        removed_opts: None | list[dict[str, str | bool]],
+                        removed_opts: Opts | None,
                         attr_name: str):
     """Writes removed opts into Kbuild out_file.
 
@@ -678,6 +675,12 @@ class SubmoduleLinuxIncludeDirAction(argparse.Action):
         getattr(namespace, self.dest)[dirname] = values[1:]
 
 
+def _load_opts(path: str) -> Opts:
+    """Loads JSON opts from a given Path."""
+    with pathlib.Path(path).open() as fp:
+        return json.load(fp)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s: %(message)s")
@@ -695,10 +698,10 @@ if __name__ == "__main__":
     parser.add_argument("--module-symvers-list",
                         type=pathlib.Path, nargs="*", default=[])
     parser.add_argument("--local-defines", nargs="*", default=[])
-    parser.add_argument("--copts-file", type=argparse.FileType("r"))
-    parser.add_argument("--removed-copts-file", type=argparse.FileType("r"))
-    parser.add_argument("--asopts-file", type=argparse.FileType("r"))
-    parser.add_argument("--linkopts-file", type=argparse.FileType("r"))
+    parser.add_argument("--copts-file", type=_load_opts, dest="copts")
+    parser.add_argument("--removed-copts-file", type=_load_opts, dest="removed_copts")
+    parser.add_argument("--asopts-file", type=_load_opts, dest="asopts")
+    parser.add_argument("--linkopts-file", type=_load_opts, dest="linkopts")
     parser.add_argument("--produce-top-level-makefile", action="store_true")
     parser.add_argument("--kbuild-has-linux-include", action="store_true")
     parser.add_argument("--kbuild-add-submodule-linux-include",
