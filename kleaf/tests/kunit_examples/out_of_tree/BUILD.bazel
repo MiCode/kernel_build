@@ -12,11 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+load(
+    "@kleaf//build/kernel/kleaf:kernel.bzl",
+    "ddk_module",
+    "kunit_test",
+)
 
 ddk_module(
     name = "x86_64_kunit_example_module",
     srcs = ["mod.c"],
     out = "mod.ko",
     kernel_build = "@kleaf//common:kernel_x86_64",
+)
+
+kunit_test(
+    name = "x86_64_kunit_example_test",
+    modules = [":x86_64_kunit_example_module"],
+    tags = ["external"],
+    test_name = "ddk-example",
+    deps = ["@kleaf//common:kunit_parser"],
 )
