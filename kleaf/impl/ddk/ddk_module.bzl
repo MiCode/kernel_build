@@ -641,6 +641,7 @@ def ddk_module(
         module_linkopts = linkopts,
         module_autofdo_profile = autofdo_profile,
         module_debug_info_for_profiling = debug_info_for_profiling,
+        target_type = "module",
         top_level_makefile = True,
         kbuild_has_linux_include = True,
         **private_kwargs

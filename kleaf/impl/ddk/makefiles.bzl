@@ -475,7 +475,7 @@ def _makefiles_impl(ctx):
     if ctx.attr.internal_target_fail_message:
         args.add("--internal-target-fail-message", ctx.attr.internal_target_fail_message)
 
-    if ctx.attr.is_library:
+    if ctx.attr.target_type == "library":
         args.add("--is-library")
 
     if ctx.attr.module_pkvm_el2:
@@ -501,7 +501,7 @@ def _makefiles_impl(ctx):
 
     if ctx.attr.module_pkvm_el2:
         outs_depset = depset(_get_ddk_library_out_list(_PKVM_EL2_OUT))
-    elif ctx.attr.is_library:
+    elif ctx.attr.target_type == "library":
         my_pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
         outs_depset_direct = []
         for srcs_list in module_srcs_ret.src_matrix:
@@ -554,7 +554,7 @@ def _makefiles_impl(ctx):
         DefaultInfo(files = depset([output_makefiles])),
         DdkSubmoduleInfo(
             outs = outs_depset,
-            out = None if ctx.attr.is_library else ctx.attr.module_out,
+            out = None if ctx.attr.target_type == "library" else ctx.attr.module_out,
             srcs = depset(transitive = srcs_depset_transitive),
             kernel_module_deps = depset(
                 [kernel_utils.create_kernel_module_dep_info(target) for target in kernel_module_deps],
@@ -609,7 +609,14 @@ makefiles = rule(
         "internal_target_fail_message": attr.string(
             doc = "For testing only. Assert that this target to fail to build with the given message.",
         ),
-        "is_library": attr.bool(doc = "True for `ddk_library`, False otherwise."),
+        "target_type": attr.string(
+            default = "module",
+            values = [
+                "module",
+                "submodule",
+                "library",
+            ],
+        ),
         "_gen_makefile": attr.label(
             default = "//build/kernel/kleaf/impl:ddk/gen_makefiles",
             executable = True,

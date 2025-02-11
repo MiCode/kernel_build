@@ -102,7 +102,7 @@ def ddk_library(
         module_pkvm_el2 = pkvm_el2,
         top_level_makefile = True,
         kbuild_has_linux_include = True,
-        is_library = True,
+        target_type = "library",
         **private_kwargs
     )
 
