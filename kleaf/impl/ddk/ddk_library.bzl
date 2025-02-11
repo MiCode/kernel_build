@@ -123,10 +123,12 @@ def ddk_library(
         # _kernel_module_impl infers the list of outs from internal_ddk_makefiles_dir.
         outs = [],
         internal_ddk_makefiles_dir = ":{name}_makefiles".format(name = name),
-        # This is used in build_cleaner.
-        internal_module_symvers_name = "{name}_Module.symvers".format(name = name),
         internal_exclude_kernel_build_module_srcs = True,
         internal_ddk_config = name + "_config",
         internal_is_ddk_library = True,
+        internal_extra_make_goals = ["kleaf-objects"],
+        internal_compdb = "skip",
+        internal_modules_install = False,
+        internal_mnemonic = "DDK library",
         **kwargs
     )

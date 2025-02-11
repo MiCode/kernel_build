@@ -319,7 +319,7 @@ def _kernel_module_impl(ctx):
 
     modules_staging_dws = None
     kernel_uapi_headers_dws = None
-    if not ctx.attr.internal_is_ddk_library:
+    if ctx.attr.internal_modules_install:
         modules_staging_dws = dws.make(ctx, "{}/staging".format(ctx.attr.name))
         kernel_uapi_headers_dws = dws.make(ctx, "{}/kernel-uapi-headers.tar.gz_staging".format(ctx.attr.name))
 
@@ -363,7 +363,7 @@ def _kernel_module_impl(ctx):
     command_outputs = []
     module_symvers = None
     check_no_remaining = None
-    if not ctx.attr.internal_is_ddk_library:
+    if ctx.attr.internal_modules_install:
         module_symvers = ctx.actions.declare_file("{}/{}".format(ctx.attr.name, ctx.attr.internal_module_symvers_name))
         check_no_remaining = ctx.actions.declare_file("{name}/{name}.check_no_remaining".format(name = ctx.attr.name))
         command_outputs += [
@@ -383,11 +383,7 @@ def _kernel_module_impl(ctx):
     )
     grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
     grab_gcno_step = get_grab_gcno_step(ctx, "${COMMON_OUT_DIR}", is_kernel_build = False)
-    compile_commands_step = compile_commands_utils.get_step(
-        ctx,
-        "${OUT_DIR}/${ext_mod_rel}",
-        skip = ctx.attr.internal_is_ddk_library,
-    )
+    compile_commands_step = compile_commands_utils.get_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
 
     for step in (
         cache_dir_step,
@@ -505,29 +501,36 @@ def _kernel_module_impl(ctx):
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} \\
                     KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} \\
-                    {library_goal} \\
+                    {extra_make_goals} \\
                     {make_filter} {make_redirect}
     """.format(
         ext_mod = ext_mod,
-        library_goal = "kleaf-objects" if ctx.attr.internal_is_ddk_library else "",
+        extra_make_goals = " ".join(ctx.attr.internal_extra_make_goals),
         make_filter = make_filter,
         make_redirect = modpost_warn.make_redirect,
     )
 
     # TODO(b/291955924): make the `make` invocations parallel
-    if not ctx.attr.internal_is_ddk_library:
-        for goal in compile_commands_utils.additional_make_goals(ctx):
-            command += """
-                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {goal} {make_filter} {make_redirect}
-            """.format(
-                ext_mod = ext_mod,
-                goal = goal,
-                make_filter = make_filter,
-                make_redirect = modpost_warn.make_redirect,
-            )
+    command += """
+        # Build compdb
+    """
+    for goal in compile_commands_utils.additional_make_goals(ctx):
+        command += """
+            make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {goal} {make_filter} {make_redirect}
+        """.format(
+            ext_mod = ext_mod,
+            goal = goal,
+            make_filter = make_filter,
+            make_redirect = modpost_warn.make_redirect,
+        )
+    command += """
+        {get_compdb_outputs}
+    """.format(
+        get_compdb_outputs = compile_commands_step.cmd,
+    )
 
-    if ctx.attr.internal_is_ddk_library:
-        # For ddk_library, directly copy output files in the main action.
+    # For ddk_library etc., directly copy output files in the main action.
+    if not ctx.attr.internal_modules_install:
         for short_name, out in zip(original_outs, output_files):
             if out.extension == "cmd_shipped":
                 # Remove absolute paths in *.cmd files.
@@ -544,9 +547,9 @@ def _kernel_module_impl(ctx):
             )
         command_outputs += output_files
 
-    if not ctx.attr.internal_is_ddk_library:
-        # For kernel_module/ddk_module, install to staging directory, and use
-        # a separate action to copy output files.
+    # For kernel_module/ddk_module, install to staging directory, and use
+    # a separate action to copy output files.
+    if ctx.attr.internal_modules_install:
         command += """
              # Install into staging directory
                make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} \
@@ -579,8 +582,6 @@ def _kernel_module_impl(ctx):
                {grab_gcno_step_cmd}
              # Grab *.cmd
                {grab_cmd_cmd}
-             # Grab compile_commands.json
-               {compile_commands_cmd}
              # Move Module.symvers
                rsync -aL ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
              # Grab and then drop modules.order
@@ -603,7 +604,6 @@ def _kernel_module_impl(ctx):
             drop_modules_order_cmd = drop_modules_order_cmd,
             grab_gcno_step_cmd = grab_gcno_step.cmd,
             grab_cmd_cmd = grab_cmd_step.cmd,
-            compile_commands_cmd = compile_commands_step.cmd,
         )
 
         command += dws.record(modules_staging_dws)
@@ -622,13 +622,6 @@ def _kernel_module_impl(ctx):
         else:
             execution_requirements = kernel_utils.local_exec_requirements(ctx)
 
-    if ctx.attr.internal_is_ddk_library:
-        what = "DDK library"
-    elif ctx.attr.internal_ddk_makefiles_dir:
-        what = "DDK module"
-    else:
-        what = "external kernel module"
-
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelModule" + strategy,
@@ -637,14 +630,14 @@ def _kernel_module_impl(ctx):
         outputs = command_outputs,
         command = command,
         progress_message = "Building {}{} %{{label}}".format(
-            what,
+            ctx.attr.internal_mnemonic,
             ctx.attr.kernel_build[KernelEnvAttrInfo].progress_message_note,
         ),
         execution_requirements = execution_requirements,
     )
 
     cp_cmd_outputs = []
-    if not ctx.attr.internal_is_ddk_library:
+    if ctx.attr.internal_modules_install:
         # For kernel_module/ddk_module, modules are installed to module_staging_dir.
         # We need a separate action to copy them out. For ddk_library this is done in the main
         # action already.
@@ -804,8 +797,7 @@ def _kernel_module_additional_attrs():
 
 _kernel_module = rule(
     implementation = _kernel_module_impl,
-    doc = """
-""",
+    doc = """`make` out of tree.""",
     attrs = {
         "srcs": attr.label_list(
             mandatory = True,
@@ -827,7 +819,32 @@ _kernel_module = rule(
             DdkConfigInfo,
         ]),
         "internal_collect_unstripped_modules": attr.bool(),
-        "internal_is_ddk_library": attr.bool(),
+        "internal_extra_make_goals": attr.string_list(
+            doc = "List of extra make goals to build",
+        ),
+        "internal_is_ddk_library": attr.bool(
+            doc = "If true, outputs are placed in DdkLibraryInfo",
+        ),
+        "internal_compdb": attr.string(
+            doc = """
+                If `respect_build_setting`, respects build_compile_commands setting.
+                If `skip`, always skip compdb step regardless of build_compile_commands setting.
+            """,
+            default = "respect_build_setting",
+            values = ["respect_build_setting", "skip"],
+        ),
+        "internal_modules_install": attr.bool(
+            doc = """
+                If true, install modules, copy installed modules as outputs, and do other steps.
+
+                If false, copy outputs from $OUT_DIR directly, and skip `make modules_install` and other steps.
+            """,
+            default = True,
+        ),
+        "internal_mnemonic": attr.string(
+            default = "external kernel module",
+            doc = "Descriptive string for the mnemonic",
+        ),
         "generate_btf": attr.bool(
             default = False,
             doc = "See [kernel_module.generate_btf](#kernel_module-generate_btf)",
