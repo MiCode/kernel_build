@@ -351,6 +351,55 @@ def _get_ddk_library_out_list_impl(subrule_ctx, src_rel_pkg):
 
 _get_ddk_library_out_list = subrule(implementation = _get_ddk_library_out_list_impl)
 
+def _get_outs_list_impl(
+        subrule_ctx,
+        *,
+        module_pkvm_el2,
+        target_type,
+        src_matrix,
+        module_out,
+        submodule_deps):
+    """Figures out the list of outputs from the action.
+
+    Args:
+        subrule_ctx: subrule_ctx
+        module_pkvm_el2: building pKVM EL2 ddk_library
+        target_type: type of outer target
+        src_matrix: list of list of sources
+        module_out: out of outer target
+        submodule_deps: list of ddk_submodule deps.
+    """
+    if module_pkvm_el2:
+        return depset(_get_ddk_library_out_list(_PKVM_EL2_OUT))
+
+    if target_type == "library":
+        my_pkg_path = paths.join(subrule_ctx.label.workspace_root, subrule_ctx.label.package)
+        outs_depset_direct = []
+        for srcs_list in src_matrix:
+            for src in srcs_list:
+                # All sources must be below this package.
+                # Use short_path here because we don't care about bin_dir for generated sources.
+                # path/to/foo.c -> [path/to/foo.o_shipped, path/to/.foo.o.cmd_shipped]
+                src_rel_pkg = paths.relativize(src.short_path, my_pkg_path)
+                outs_depset_direct += _get_ddk_library_out_list(src_rel_pkg)
+        return depset(outs_depset_direct)
+
+    if target_type in ("module", "submodule"):
+        outs_depset_direct = []
+        if module_out:
+            outs_depset_direct.append(struct(out = module_out, src = subrule_ctx.label))
+        outs_depset_transitive = [dep[DdkSubmoduleInfo].outs for dep in submodule_deps]
+        return depset(outs_depset_direct, transitive = outs_depset_transitive)
+
+    fail("Unrecognized type {}".format(target_type))
+
+_get_outs_list = subrule(
+    implementation = _get_outs_list_impl,
+    subrules = [
+        _get_ddk_library_out_list,
+    ],
+)
+
 def _makefiles_impl(ctx):
     module_label = Label(str(ctx.label).removesuffix("_makefiles"))
 
@@ -510,25 +559,13 @@ def _makefiles_impl(ctx):
         progress_message = "Generating Makefile %{label}",
     )
 
-    if ctx.attr.module_pkvm_el2:
-        outs_depset = depset(_get_ddk_library_out_list(_PKVM_EL2_OUT))
-    elif ctx.attr.target_type == "library":
-        my_pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
-        outs_depset_direct = []
-        for srcs_list in module_srcs_ret.src_matrix:
-            for src in srcs_list:
-                # All sources must be below this package.
-                # Use short_path here because we don't care about bin_dir for generated sources.
-                # path/to/foo.c -> [path/to/foo.o_shipped, path/to/.foo.o.cmd_shipped]
-                src_rel_pkg = paths.relativize(src.short_path, my_pkg_path)
-                outs_depset_direct += _get_ddk_library_out_list(src_rel_pkg)
-        outs_depset = depset(outs_depset_direct)
-    else:
-        outs_depset_direct = []
-        if ctx.attr.module_out:
-            outs_depset_direct.append(struct(out = ctx.attr.module_out, src = ctx.label))
-        outs_depset_transitive = [dep[DdkSubmoduleInfo].outs for dep in submodule_deps]
-        outs_depset = depset(outs_depset_direct, transitive = outs_depset_transitive)
+    outs_depset = _get_outs_list(
+        module_pkvm_el2 = ctx.attr.module_pkvm_el2,
+        target_type = ctx.attr.target_type,
+        src_matrix = module_srcs_ret.src_matrix,
+        module_out = ctx.attr.module_out,
+        submodule_deps = submodule_deps,
+    )
 
     # All files needed to build this .ko file
     srcs_depset_transitive = [srcs_files, crate_root_files]
@@ -635,6 +672,6 @@ makefiles = rule(
         ),
     },
     subrules = [
-        _get_ddk_library_out_list,
+        _get_outs_list,
     ],
 )
