@@ -49,6 +49,19 @@ _DEBUG_INFO_FOR_PROFILING_COPTS = [
 _PKVM_EL2_OUT = "kvm_nvhe.o"
 
 def _gather_prefixed_includes_common(ddk_include_info, info_attr_name):
+    """Calculates -I flags.
+
+    If there are any generated headers in ddk_include_info, the list
+    of -I's are duplicated, with each token prepended with the root of the
+    generated header.
+
+    This is sometimes an overestimate, but the fs sandbox should ensure that only
+    the correct files are visible.
+
+    This can also be problematic if multiple generated headers have conflicting name / include
+    paths and they are under different transitions (therefore File.root is different). In that
+    unlikely edge case, it is advised that users use individual ddk_headers() to separate them.
+    """
     ret = []
 
     generated_roots = sets.make()
@@ -264,6 +277,19 @@ def _handle_module_srcs(ctx, ddk_library_deps):
     )
 
 def _handle_target_files_as_srcs(target, target_files, is_crate_root):
+    """Processes `target` as a source.
+
+    Args:
+        target: the dependency
+        target_files: the list of files from the dependency
+        is_crate_root: Whether this target is from crate_root of the outer target.
+
+    Returns:
+        A struct with these fields:
+            * srcs_json_dict: Dictionary of metadata for the list of files for this target,
+                provided to gen_makefiles.py
+            * gen_srcs_depset: depset of generated files
+    """
     srcs_json_dict = {}
 
     source_files = []
