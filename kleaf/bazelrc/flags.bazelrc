@@ -67,7 +67,6 @@ build --flag_alias=norust_ashmem=no//build/kernel/kleaf:rust_ashmem
 build --flag_alias=nozstd_dwarf_compression=no//build/kernel/kleaf:zstd_dwarf_compression
 build --flag_alias=kconfig_werror=//build/kernel/kleaf:kconfig_werror
 build --flag_alias=nokconfig_werror=no//build/kernel/kleaf:kconfig_werror
-build --flag_alias=real_clang_path=//build/kernel/kleaf:force_full_clang_path
 
 # flags that control the distribution
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes

@@ -14,7 +14,6 @@
 
 """Support `compile_commands.json`."""
 
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":abi/abi_transitions.bzl",
     "FORCE_IGNORE_BASE_KERNEL_SETTING",
@@ -53,13 +52,40 @@ def _kernel_compile_commands_impl(ctx):
         ))
 
     script = ctx.actions.declare_file(ctx.attr.name + ".sh")
-    script_content = hermetic_tools.setup
 
-    if ctx.attr._force_full_clang_path[BuildSettingInfo].value:
-        script_content += ctx.attr._toolchains[KernelEnvToolchainsInfo].setup_env_var_cmd
+    script_content = hermetic_tools.setup
+    script_content += ctx.attr._toolchains[KernelEnvToolchainsInfo].setup_env_var_cmd
+
+    # Handle rewritting clang path under user request
+    #  using the option --real_clang_path
+    script_content += """
+        # Default values
+        full_clang_path=0
+        destination=
+
+        # Parse command-line options
+        while [[ ${#} -gt 0 ]]; do
+          opt=${1}
+          case "${opt}" in
+            --real_clang_path)
+              full_clang_path=1
+              shift
+              ;;
+            *) # Positional argument
+              if [[ -z "${destination}" ]]; then
+                destination="${1}"
+                shift
+              else
+                echo "ERROR: Too many positional arguments." >&2
+                exit 1
+              fi
+              ;;
+          esac
+        done
+    """
 
     script_content += """
-        OUTPUT=${1:-${BUILD_WORKSPACE_DIRECTORY}/compile_commands.json}
+        OUTPUT=${destination:-${BUILD_WORKSPACE_DIRECTORY}/compile_commands.json}
         : > ${OUTPUT}.tmp
     """
 
@@ -90,13 +116,13 @@ def _kernel_compile_commands_impl(ctx):
             )
             direct_runfiles.append(info.compile_commands_with_vars)
 
-    transitive_deps = [hermetic_tools.deps]
-    if ctx.attr._force_full_clang_path[BuildSettingInfo].value:
-        transitive_deps.append(ctx.attr._toolchains[KernelEnvToolchainsInfo].all_files)
-        script_content += """
+    # Handle full clang path rewrite if requested.
+    script_content += """
+        if [[ "${full_clang_path}" == "1" ]]; then
             real_clang_path=$(realpath $(which clang))
             sed -i "s:\\"command\\"\\: \\"clang:\\"command\\"\\: \\"${real_clang_path}:g" ${OUTPUT}.tmp
-        """
+        fi
+    """
 
     script_content += """
         echo '[' > ${OUTPUT}
@@ -112,7 +138,10 @@ def _kernel_compile_commands_impl(ctx):
         runfiles = ctx.runfiles(
             files = direct_runfiles,
             transitive_files = depset(
-                transitive = transitive_deps,
+                transitive = [
+                    hermetic_tools.deps,
+                    ctx.attr._toolchains[KernelEnvToolchainsInfo].all_files,
+                ],
             ),
         ),
     )
@@ -143,9 +172,6 @@ kernel_compile_commands = rule(
         # The ACK source tree may be checked out anywhere; it is not necessarily //common
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
-        "_force_full_clang_path": attr.label(
-            default = "//build/kernel/kleaf:force_full_clang_path",
         ),
         "_toolchains": attr.label(
             default = "//build/kernel/kleaf/impl:kernel_toolchains",

@@ -20,6 +20,14 @@ to the destination as an argument to the script after `--`:
 $ tools/bazel run //common:kernel_aarch64_compile_commands -- /tmp/compile_commands.json
 ```
 
+Use the option `--real_clang_path` to update `clang`'s value of the
+`"command"`'s in the generated `.json` with its absolute path.
+
+```shell
+$ tools/bazel run //common:kernel_aarch64_compile_commands -- --real_clang_path
+```
+
+
 ## Device kernel
 
 If you want to build `compile_commands.json` for in-tree modules, create a
