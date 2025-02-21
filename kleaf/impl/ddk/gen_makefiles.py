@@ -141,6 +141,12 @@ def _gen_makefile(
         out_file.write(content)
 
 
+def _should_apply_cflags(src: pathlib.Path) -> bool:
+    # TODO: b/389976463 - CFLAGS should only be applied to .c files. Change
+    #   the list below to ".c" only.
+    return src.suffix in (".c", ".rs", ".S")
+
+
 def _merge_directories(
         output_makefiles: pathlib.Path,
         submodule_makefile_dir: pathlib.Path,
@@ -420,8 +426,8 @@ def _generate_kbuild_and_extra(
                 out = src.with_suffix(".o").relative_to(
                     kernel_module_out.parent)
 
-                # TODO: b/389976463 - CFLAGS should only be applied to .c files.
-                if out not in out_files_with_cflags:
+                if (out not in out_files_with_cflags and
+                        _should_apply_cflags(src)):
                     out_files_with_cflags.add(out)
                     # kernel_module() copies makefiles and .cflags files to
                     # $(ROOT_DIR)/<package> (aka $ROOT_DIR/<ext_mod>) and fix up
