@@ -252,16 +252,16 @@ def _handle_module_srcs(ctx, ddk_library_deps):
 
     crate_root_targets = [ctx.attr.module_crate_root] if ctx.attr.module_crate_root else []
 
-    for targets, info, is_crate_root in (
-        (ctx.attr.module_srcs, DefaultInfo, False),
-        (crate_root_targets, DefaultInfo, True),
-        (ddk_library_deps, DdkLibraryInfo, False),
+    for targets, info, dep_type in (
+        (ctx.attr.module_srcs, DefaultInfo, "srcs"),
+        (crate_root_targets, DefaultInfo, "crate_root"),
+        (ddk_library_deps, DdkLibraryInfo, "library"),
     ):
         for target in targets:
             # TODO(b/353811700): avoid depset expansion
             target_files = target[info].files.to_list()
             src_matrix.append(target_files)
-            ret = _handle_target_files_as_srcs(target, target_files, is_crate_root)
+            ret = _handle_target_files_as_srcs(target, target_files, dep_type)
             srcs_json_list.append(ret.srcs_json_dict)
             gen_srcs_depsets.append(ret.gen_srcs_depset)
 
@@ -277,13 +277,16 @@ def _handle_module_srcs(ctx, ddk_library_deps):
         src_matrix = src_matrix,
     )
 
-def _handle_target_files_as_srcs(target, target_files, is_crate_root):
+def _handle_target_files_as_srcs(target, target_files, dep_type):
     """Processes `target` as a source.
 
     Args:
         target: the dependency
         target_files: the list of files from the dependency
-        is_crate_root: Whether this target is from crate_root of the outer target.
+        dep_type: Type of the dependency:
+            * srcs
+            * crate_root
+            * library, for deps with DdkLibraryInfo
 
     Returns:
         A struct with these fields:
@@ -297,12 +300,15 @@ def _handle_target_files_as_srcs(target, target_files, is_crate_root):
     generated_sources = []
 
     for file in target_files:
+        # Generated headers in srcs are handled by _gather_prefixed_includes_common.
+        # They are not appended to the source list, but additional -I are added.
+        if file.extension == "h" and not file.is_source:
+            continue
+
         if file.is_source:
             source_files.append(file)
-        elif file.extension != "h":
+        else:
             generated_sources.append(file)
-
-        # Generated headers in srcs are handled by _gather_prefixed_includes_common
 
     if source_files:
         srcs_json_dict["files"] = [file.path for file in source_files]
@@ -314,8 +320,8 @@ def _handle_target_files_as_srcs(target, target_files, is_crate_root):
         srcs_json_dict["config"] = target[DdkConditionalFilegroupInfo].config
         srcs_json_dict["value"] = target[DdkConditionalFilegroupInfo].value
 
-    if is_crate_root:
-        srcs_json_dict["is_crate_root"] = True
+    if dep_type != "srcs":
+        srcs_json_dict["type"] = dep_type
 
     return struct(
         srcs_json_dict = srcs_json_dict,

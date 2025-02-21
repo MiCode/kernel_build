@@ -404,7 +404,7 @@ def _generate_kbuild_and_extra(
                     kernel_module_out=kernel_module_out,
                     is_pkvm_el2=is_pkvm_el2,
                     obj_suffix=obj_suffix,
-                    is_crate_root = src_item.get("is_crate_root", False),
+                    dep_type = src_item.get("type", "srcs"),
                     copy_rule_hack=copy_rule_hack
                 )
 
@@ -553,7 +553,7 @@ def _handle_src(
         kernel_module_out: pathlib.Path,
         is_pkvm_el2: bool,
         obj_suffix: str,
-        is_crate_root: bool,
+        dep_type: str,
         copy_rule_hack: bool,
 ):
     """Writes rules to build a single source file.
@@ -564,7 +564,10 @@ def _handle_src(
         kernel_module_out: The final .ko file, used as an anchor for checks
         is_pkvm_el2: If true, builds pKVM EL2 code
         obj_suffix: Suffix to `obj-`
-        is_crate_root: If true, this source file is from the `crate_root` attribute.
+        dep_type: Type of the dependency:
+            * srcs
+            * crate_root
+            * library, for deps with DdkLibraryInfo
         copy_rule_hack: Employ hack for COPY rule
     """
     # Ignore non-exported headers specified in srcs
@@ -577,7 +580,7 @@ def _handle_src(
             src, kernel_module_out.parent)
 
     # Ignore non-crate-root .rs. Only crate-root .rs is added.
-    if src.suffix == ".rs" and not is_crate_root:
+    if src.suffix == ".rs" and dep_type != "crate_root":
         return
 
     if src.suffix == ".cmd_shipped":
