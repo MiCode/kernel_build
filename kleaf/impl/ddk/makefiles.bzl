@@ -300,11 +300,16 @@ def _handle_target_files_as_srcs(target, target_files, dep_type):
     generated_sources = []
 
     for file in target_files:
-        # Generated headers in srcs are handled by _gather_prefixed_includes_common.
-        # They are not appended to the source list, but additional -I are added.
-        if file.extension == "h" and not file.is_source:
+        # Headers in srcs are not passed to gen_makefiles.py.
+        # Generated headers handled by _gather_prefixed_includes_common.
+        #   They are not appended to the source list, but additional -I are added.
+        # Non-generated headers don't need any special handling.
+        if file.extension == "h" and dep_type == "srcs":
             continue
 
+        # For the remaining files in srcs / crate_root / ddk_library deps etc.,
+        # pass them to gen_makefiles.py to generate proper rules. Generated
+        # files needs special handling so put them in a different list.
         if file.is_source:
             source_files.append(file)
         else:

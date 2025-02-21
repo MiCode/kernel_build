@@ -570,9 +570,6 @@ def _handle_src(
             * library, for deps with DdkLibraryInfo
         copy_rule_hack: Employ hack for COPY rule
     """
-    # Ignore non-exported headers specified in srcs
-    if src.suffix in (".h",):
-        return
     if src.suffix not in _SOURCE_SUFFIXES:
         die("Invalid source %s", src)
     if not src.is_relative_to(kernel_module_out.parent):
