@@ -236,7 +236,7 @@ def _create_oldconfig_step_impl(
         override_parent_log):
     cmd = """
         if ! diff -q ${{OUT_DIR}}/.config.old ${{OUT_DIR}}/.config > /dev/null || \\
-            ! $( cd ${{KERNEL_DIR}}; diff -q ${{OLD_KCONFIG_EXT_PREFIX}}Kconfig.ext ${{KCONFIG_EXT_PREFIX}}Kconfig.ext ) > /dev/null
+            ! ( cd ${{KERNEL_DIR}}; diff -q ${{OLD_KCONFIG_EXT_PREFIX}}Kconfig.ext ${{KCONFIG_EXT_PREFIX}}Kconfig.ext ) > /dev/null
         then
             (
                 echo "ERROR: detected defconfig/Kconfig changes, triggering olddefconfig."
