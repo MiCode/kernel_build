@@ -187,7 +187,7 @@ def _append_submodule_linux_include_dirs(
         kbuild_file = output_makefiles / dirname / "Kbuild"
         with open(kbuild_file, "a") as out_file:
             out_file.write(textwrap.dedent("""\
-                # Common LINUXINLUDE for all submodules in this directory
+                # Common LINUXINCLUDE for all submodules in this directory
             """))
 
             combined_linux_includes = linux_includes_of_dir + linux_include_dirs
