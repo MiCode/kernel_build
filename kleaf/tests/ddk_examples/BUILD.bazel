@@ -28,15 +28,27 @@ py_test(
     ],
 )
 
+# TODO: b/399579881 -- Enable the test for all targets once the symbol is available
+#  for all builds (including trimmed ones).
+#  Using an alias is not an option due to https://github.com/bazelbuild/bazel/issues/10893
 hermetic_test(
     name = "pkvm_module_test",
-    actual = ":pkvm_module_test_bin",
-    args = [
-        "$(rootpaths //build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module)",
-    ],
-    data = [
-        "//build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module",
-    ],
+    actual = select({
+        "//build/kernel/kleaf:debug_is_true": ":pkvm_module_test_bin",
+        "//conditions:default": "//build/kernel/kleaf:empty_test",
+    }),
+    args = select({
+        "//build/kernel/kleaf:debug_is_true": [
+            "$(rootpaths //build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module)",
+        ],
+        "//conditions:default": [],
+    }),
+    data = select({
+        "//build/kernel/kleaf:debug_is_true": [
+            "//build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module",
+        ],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     use_cc_toolchain = True,
 )
