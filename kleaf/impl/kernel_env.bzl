@@ -323,6 +323,15 @@ def _kernel_env_impl(ctx):
           {kconfig_werror_setup}
         # Identify the build user as 'kleaf' to recognize a kleaf-built kernel
           export KBUILD_BUILD_USER=kleaf
+
+        # Make it so that Rust symbol names do not change when the version
+        # string of rustc changes. Note that since the version string includes
+        # the date and commit hash from the build environment, even a respin of
+        # rustc could cause symbol names to change without this option.
+        #
+        # https://github.com/rust-lang/rust/blob/617aad8c2e8783f6df8e5d1f8bb1e4bcdc70aa7b/compiler/rustc_span/src/def_id.rs#L179-L189
+          export RUSTC_FORCE_RUSTC_VERSION=rustc-android
+
         # Add a comment with config_tags for debugging
           cp -p {config_tags_comment_file} {out}
           chmod +w {out}
@@ -573,14 +582,6 @@ def _get_env_setup_cmds(ctx):
         # machine.
         export KCPPFLAGS="-ffile-prefix-map=${{ROOT_DIR}}=/proc/self/cwd"
         export KRUSTFLAGS="--remap-path-prefix=${{ROOT_DIR}}=/proc/self/cwd"
-
-        # Make it so that Rust symbol names do not change when the version
-        # string of rustc changes. Note that since the version string includes
-        # the date and commit hash from the build environment, even a respin of
-        # rustc could cause symbol names to change without this option.
-        #
-        # https://github.com/rust-lang/rust/blob/617aad8c2e8783f6df8e5d1f8bb1e4bcdc70aa7b/compiler/rustc_span/src/def_id.rs#L179-L189
-        export RUSTC_FORCE_RUSTC_VERSION=rustc-android
 
         # For Kleaf local (non-sandbox) builds, $ROOT_DIR is under execroot but
         # $ROOT_DIR/$KERNEL_DIR is a symlink to the real source tree under
