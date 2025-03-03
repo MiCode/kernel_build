@@ -59,9 +59,9 @@ merge_module_symvers = rule(
             providers = [ModuleSymversFileInfo],
             doc = """
             It accepts targets from any of the following rules:
-              * [kernel_module](#kernel_module)
-              * [kernel_module_group](#kernel_module_group)
-              * [kernel_build](#kernel_build) (it requires `keep_module_symvers = True` to be set).
+              - [ddk_module](#ddk_module)
+              - [kernel_module_group](#kernel_module_group)
+              - [kernel_build](#kernel_build) (it requires `keep_module_symvers = True` to be set).
             """,
         ),
     },

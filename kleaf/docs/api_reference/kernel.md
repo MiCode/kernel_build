@@ -768,7 +768,7 @@ Merge Module.symvers files
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="merge_module_symvers-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="merge_module_symvers-srcs"></a>srcs |  It accepts targets from any of the following rules:   * [kernel_module](#kernel_module)   * [kernel_module_group](#kernel_module_group)   * [kernel_build](#kernel_build) (it requires `keep_module_symvers = True` to be set).   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="merge_module_symvers-srcs"></a>srcs |  It accepts targets from any of the following rules:   - [ddk_module](#ddk_module)   - [kernel_module_group](#kernel_module_group)   - [kernel_build](#kernel_build) (it requires `keep_module_symvers = True` to be set).   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
 <a id="merged_kernel_uapi_headers"></a>
@@ -1014,6 +1014,7 @@ kconfig and defconfig are exported.
 
 Known issues:
     - (b/392186874) The generated .o.cmd files contain absolute paths and are not reproducible.
+    - (b/394411899) kernel_compile_commands() doesn't work on ddk_library yet.
 
 
 **PARAMETERS**
