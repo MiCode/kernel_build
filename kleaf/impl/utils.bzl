@@ -241,6 +241,7 @@ def _write_depset_impl(subrule_ctx, d, out, *, _write_depset):
         depset_file = out_file,
         depset_short_file = short_file,
         depset = depset([out_file, short_file], transitive = [d]),
+        original_depset = d,
     )
 
 _write_depset = subrule(

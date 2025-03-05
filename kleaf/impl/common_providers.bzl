@@ -22,6 +22,7 @@ WrittenDepsetInfo = provider(
         "depset_file": "The text file, where each line is a path to an item in the depset",
         "depset_short_file": "Same as depset_file, but each line is the short_path to an item in the depset.",
         "depset": "A depset containing both text files and the original depset",
+        "original_depset": "The original depset",
     },
 )
 
