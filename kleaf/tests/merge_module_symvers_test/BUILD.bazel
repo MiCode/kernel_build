@@ -14,10 +14,12 @@
 
 """Test merging of generated *Module.symvers files."""
 
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(
     "//build/kernel/kleaf:kernel.bzl",
+    "ddk_library",
     "ddk_module",
     "kernel_module_group",
     "merge_module_symvers",
@@ -97,7 +99,39 @@ hermetic_test(
     data = [":abc_module_symvers"],
 )
 
+# DDK Library as dependency test.
+ddk_module(
+    name = "example_library_dependency",
+    srcs = ["a.c"],
+    out = "example_library_dependency.ko",
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+    # Test that having mixed dependencies (library, modules) work.
+    deps = [
+        ":ddk_library",
+        ":module_a",
+    ],
+)
+
+ddk_library(
+    name = "ddk_library",
+    srcs = ["lib.c"],
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+)
+
+build_test(
+    name = "ddk_examples_build_tests",
+    tags = ["manual"],
+    targets = [
+        ":example_library_dependency",
+    ],
+)
+
 test_suite(
     name = "merge_module_symvers_test",
-    tests = [":all_module_symvers_merged_test"],
+    tests = [
+        ":all_module_symvers_merged_test",
+        ":ddk_examples_build_tests",
+    ],
 )

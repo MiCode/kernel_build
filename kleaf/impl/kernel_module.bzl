@@ -782,7 +782,7 @@ def _kernel_module_impl(ctx):
             )]),
         ),
         ModuleSymversFileInfo(
-            module_symvers = depset([module_symvers]),
+            module_symvers = depset([module_symvers]) if module_symvers else depset(),
         ),
         DdkLibraryInfo(
             files = depset(default_info_files if ctx.attr.internal_is_ddk_library else []),
