@@ -123,7 +123,7 @@ ddk_config_info_subrule = subrule(
 
 def _empty_ddk_config_info_impl(_subrule_ctx, *, kernel_build_ddk_config_env):
     """Create an empty DdkConfigInfo."""
-    empty = depset()
+    empty = depset(order = "postorder")
     written = utils.write_depset(empty, "empty_depset.txt")
     return DdkConfigInfo(
         kconfig = empty,
