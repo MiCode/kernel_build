@@ -755,6 +755,14 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# EXPERIMENTAL: Optimize the size of the sandbox for ddk_config() and
+# ddk_module()'s config with the best effort.
+bool_flag(
+    name = "optimize_ddk_config_actions",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
 # The values of --config, as passed by command line and bazelrc files.
 _config_values = (
     "local",
