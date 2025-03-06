@@ -399,7 +399,6 @@ def _ddk_config_main_action_subrule_impl(
             kleaf_do_not_rsync_out_dir_include=1
         """,
     )
-    command += kernel_utils.set_src_arch_cmd()
     command += """
         : > {override_parent_log}
         {kconfig_ext_cmd}
