@@ -37,6 +37,7 @@ test_suite(
         "//build/kernel/kleaf/tests/merged_kernel_uapi_headers_test",
         "//build/kernel/kleaf/tests/native_binary_with_arg_test",
         "//build/kernel/kleaf/tests/trim_test",
+        "//build/kernel/kleaf/tests/utils_test",
         "//build/kernel/kleaf/tests/zip_test",
     ],
 )
