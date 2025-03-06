@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(":combine_depset_test.bzl", "combine_depset_test")
 load(":depset_equal_test.bzl", "depset_equal_test")
 
 depset_equal_test(name = "depset_equal_test")
+
+combine_depset_test(name = "combine_depset_test")
 
 test_suite(
     name = "utils_test",
