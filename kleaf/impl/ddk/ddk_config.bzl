@@ -50,12 +50,15 @@ def _ddk_config_impl(ctx):
         src_defconfig = ctx.file.defconfig,
     )
 
+    default_info_files = [
+        main_action_ret.out_dir,
+    ]
+    if main_action_ret.kconfig_ext:
+        default_info_files.append(main_action_ret.kconfig_ext)
+
     return [
         DefaultInfo(
-            files = depset([
-                main_action_ret.out_dir,
-                main_action_ret.kconfig_ext,
-            ]),
+            files = depset(default_info_files),
             executable = menuconfig_ret.executable,
             runfiles = ctx.runfiles(transitive_files = menuconfig_ret.runfiles_depset),
         ),

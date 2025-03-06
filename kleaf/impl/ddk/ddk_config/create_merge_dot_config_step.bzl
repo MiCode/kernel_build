@@ -14,6 +14,7 @@
 
 """Creates a step that merges .config."""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "StepInfo",
@@ -26,15 +27,23 @@ visibility("private")
 def _create_merge_dot_config_step_in_shell_impl(
         _subrule_ctx,
         *,
+        kconfig_ext_step,
         combined,
         parent_ddk_config_info,
         parent_outputs_info,
-        override_parent_log):
+        override_parent_log,
+        _optimize_ddk_config_actions):
     restore_parent_out_dir = ddk_config_restore_out_dir_step(
         out_dir = parent_outputs_info.out_dir,
     )
 
-    cmd = """
+    cmd = ""
+    if _optimize_ddk_config_actions[BuildSettingInfo].value:
+        cmd += """
+            ddk_config_using_parent_kconfig_ext={value}
+        """.format(value = "1" if kconfig_ext_step.kconfig_ext_source == "parent" else "0")
+
+    cmd += """
         # Backup existing .config for comparison later. The .config.old is a snapshot of the
         # existing $kleaf_out_dir_include_candidate.
         cp ${{OUT_DIR}}/.config ${{OUT_DIR}}/.config.old
@@ -97,6 +106,11 @@ def _create_merge_dot_config_step_in_shell_impl(
 
 _create_merge_dot_config_step_in_shell = subrule(
     implementation = _create_merge_dot_config_step_in_shell_impl,
+    attrs = {
+        "_optimize_ddk_config_actions": attr.label(
+            default = "//build/kernel/kleaf:optimize_ddk_config_actions",
+        ),
+    },
     subrules = [
         ddk_config_restore_out_dir_step,
     ],
@@ -105,6 +119,7 @@ _create_merge_dot_config_step_in_shell = subrule(
 def _create_merge_dot_config_step_impl(
         _subrule_ctx,
         *,
+        kconfig_ext_step,
         combined,
         parent_ddk_config_info,
         parent_outputs_info,
@@ -113,6 +128,7 @@ def _create_merge_dot_config_step_impl(
 
     Args:
         _subrule_ctx: subrule_ctx
+        kconfig_ext_step: KconfigExtStepInfo from create_kconfig_ext_step
         combined: Combined DdkConfigInfo (parent + this target)
         parent_ddk_config_info: The parent DdkConfigInfo
         parent_outputs_info: The parent DdkConfigOutputsInfo
@@ -126,6 +142,7 @@ def _create_merge_dot_config_step_impl(
         StepInfo
     """
     return _create_merge_dot_config_step_in_shell(
+        kconfig_ext_step = kconfig_ext_step,
         combined = combined,
         parent_ddk_config_info = parent_ddk_config_info,
         parent_outputs_info = parent_outputs_info,

@@ -111,7 +111,7 @@ def _ddk_config_script_subrule_impl(
             ${{KERNEL_DIR}}/scripts/diffconfig -m ${{orig_config}} ${{OUT_DIR}}/.config > ${{changed_config}}
     """.format(
         out_dir = out_dir.short_path,
-        kconfig_ext_cmd = main_action_ret.kconfig_ext_step.cmd,
+        kconfig_ext_cmd = main_action_ret.kconfig_ext_step.step_info.cmd,
         label = subrule_ctx.label,
     )
     if src_defconfig:
@@ -160,8 +160,8 @@ def _ddk_config_script_subrule_impl(
         transitive = [
             kernel_build_ddk_config_env.inputs,
             kernel_build_ddk_config_env.tools,
-            main_action_ret.kconfig_ext_step.inputs,
-            depset(main_action_ret.kconfig_ext_step.tools),
+            main_action_ret.kconfig_ext_step.step_info.inputs,
+            depset(main_action_ret.kconfig_ext_step.step_info.tools),
         ],
     )
 

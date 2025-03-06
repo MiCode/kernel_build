@@ -522,7 +522,7 @@ DdkConfigOutputsInfo = provider(
     doc = "Describes output of a `ddk_config` target.",
     fields = {
         "out_dir": "Output directory",
-        "kconfig_ext": "The directory for KCONFIG_EXT",
+        "kconfig_ext": "The directory for KCONFIG_EXT. None if using KCONFIG_EXT_PREFIX from kernel_build directly.",
     },
 )
 

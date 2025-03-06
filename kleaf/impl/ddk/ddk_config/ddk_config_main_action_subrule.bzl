@@ -40,7 +40,7 @@ DdkConfigMainActionInfo = provider(
     fields = {
         "out_dir": "Output directory",
         "kconfig_ext_step": "StepInfo to set up Kconfig.ext",
-        "kconfig_ext": "The directory for KCONFIG_EXT",
+        "kconfig_ext": "The directory for KCONFIG_EXT. None if using KCONFIG_EXT_PREFIX",
         "override_parent_log": """override_parent.log file that explains why this target overrides
             .config/Kconfig from parent, triggering olddefconfig""",
     },
@@ -95,13 +95,14 @@ def _ddk_config_main_action_subrule_impl(
         child = ddk_config_info,
     )
 
-    merge_dot_config_step = create_merge_dot_config_step(
+    kconfig_ext_step = create_kconfig_ext_step(
         combined = combined,
         parent_ddk_config_info = parent_ddk_config_info,
         parent_outputs_info = parent_outputs_info,
         override_parent_log = override_parent_log,
     )
-    kconfig_ext_step = create_kconfig_ext_step(
+    merge_dot_config_step = create_merge_dot_config_step(
+        kconfig_ext_step = kconfig_ext_step,
         combined = combined,
         parent_ddk_config_info = parent_ddk_config_info,
         parent_outputs_info = parent_outputs_info,
@@ -116,7 +117,7 @@ def _ddk_config_main_action_subrule_impl(
 
     steps = [
         merge_dot_config_step,
-        kconfig_ext_step,
+        kconfig_ext_step.step_info,
         oldconfig_step,
     ]
 
@@ -153,7 +154,7 @@ def _ddk_config_main_action_subrule_impl(
     """.format(
         override_parent_log = override_parent_log.path,
         merge_config_cmd = merge_dot_config_step.cmd,
-        kconfig_ext_cmd = kconfig_ext_step.cmd,
+        kconfig_ext_cmd = kconfig_ext_step.step_info.cmd,
         oldconfig_cmd = oldconfig_step.cmd,
         out_dir = out_dir.path,
     )
@@ -170,7 +171,7 @@ def _ddk_config_main_action_subrule_impl(
     return DdkConfigMainActionInfo(
         out_dir = out_dir,
         kconfig_ext_step = kconfig_ext_step,
-        kconfig_ext = utils.single_file(kconfig_ext_step.outputs),
+        kconfig_ext = kconfig_ext_step.kconfig_ext,
         override_parent_log = override_parent_log,
     )
 
