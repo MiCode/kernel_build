@@ -34,7 +34,9 @@ load(":ddk/ddk_config/ddk_config_restore_out_dir_step.bzl", "ddk_config_restore_
 load(":debug.bzl", "debug")
 load(":utils.bzl", "kernel_utils", "utils")
 
-visibility("//build/kernel/kleaf/impl/...")
+visibility("//build/kernel/kleaf/...")
+
+DDK_CONFIG_MAIN_ACTION_MNEMONIC = "DdkConfig"
 
 DdkConfigMainActionInfo = provider(
     "Return value of ddk_config_main_action_subrule",
@@ -194,7 +196,7 @@ def _ddk_config_main_action_subrule_impl(
         tools = tools,
         outputs = outputs,
         command = command,
-        mnemonic = "DdkConfig",
+        mnemonic = DDK_CONFIG_MAIN_ACTION_MNEMONIC,
         progress_message = "Creating DDK module configuration %{label}",
     )
 

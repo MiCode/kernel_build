@@ -39,8 +39,6 @@ label_flag(
     build_setting_default = ":test_kernel",
 )
 
-# Test inheritance.
-
 ddk_config(
     name = "common_ddk_config",
     testonly = True,
@@ -49,6 +47,8 @@ ddk_config(
     kernel_build = ":kernel_build",
     tags = ["manual"],
 )
+
+# Test inheritance.
 
 ddk_config_inheritance_test(
     name = "inherit_values_from_parent_config",
@@ -84,10 +84,50 @@ ddk_config_inheritance_test(
     tags = ["manual"],
 )
 
+# Test inheritance with optimize_ddk_config_actions flag
+
+ddk_config_inheritance_test(
+    name = "inherit_values_from_parent_config_optimized",
+    testonly = True,
+    expects = {
+        "CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N": "",
+        "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "y",
+    },
+    kernel_build = ":kernel_build",
+    optimize_ddk_config_actions = True,
+    parent = ":common_ddk_config",
+    tags = ["manual"],
+)
+
+ddk_config_inheritance_test(
+    name = "override_values_from_parent_config_optimized",
+    testonly = True,
+    defconfig = "override_defconfig",
+    expects = {
+        "CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N": "y",
+        "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "",
+    },
+    kernel_build = ":kernel_build",
+    optimize_ddk_config_actions = True,
+    override_parent = "expect_override",
+    override_parent_log_expected_lines = [
+        "WARNING: Adding extra defconfig files:",
+        "+build/kernel/kleaf/tests/ddk_config_test/override_defconfig",
+        "ERROR: detected defconfig/Kconfig changes, triggering olddefconfig.",
+        "Changes in .config:",
+        "+CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N=y",
+        "+# CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y is not set",
+    ],
+    parent = ":common_ddk_config",
+    tags = ["manual"],
+)
+
 test_suite(
     name = "ddk_config_test",
     tests = [
         ":inherit_values_from_parent_config",
+        ":inherit_values_from_parent_config_optimized",
         ":override_values_from_parent_config",
+        ":override_values_from_parent_config_optimized",
     ],
 )
