@@ -116,7 +116,7 @@ def _ddk_config_main_action_subrule_impl(
     )
 
     steps = [
-        merge_dot_config_step,
+        merge_dot_config_step.step_info,
         kconfig_ext_step.step_info,
         oldconfig_step,
     ]
@@ -153,7 +153,7 @@ def _ddk_config_main_action_subrule_impl(
         unset kleaf_auto_conf_cmd_replace_variables
     """.format(
         override_parent_log = override_parent_log.path,
-        merge_config_cmd = merge_dot_config_step.cmd,
+        merge_config_cmd = merge_dot_config_step.step_info.cmd,
         kconfig_ext_cmd = kconfig_ext_step.step_info.cmd,
         oldconfig_cmd = oldconfig_step.cmd,
         out_dir = out_dir.path,
