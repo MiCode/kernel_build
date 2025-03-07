@@ -109,6 +109,8 @@ def _ddk_config_main_action_subrule_impl(
         override_parent_log = override_parent_log,
     )
     oldconfig_step = create_oldconfig_step(
+        kconfig_ext_step = kconfig_ext_step,
+        merge_dot_config_step = merge_dot_config_step,
         defconfig_files = defconfig_files,
         has_parent = bool(parent),
         override_parent = override_parent,

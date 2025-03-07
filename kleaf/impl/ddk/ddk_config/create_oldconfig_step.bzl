@@ -14,6 +14,7 @@
 
 """Creates a step that runs make olddefconfig"""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "StepInfo",
@@ -108,16 +109,64 @@ _create_oldconfig_step_in_shell = subrule(
     ],
 )
 
-def _create_oldconfig_step_impl(
-        _subrule_ctx,
+def _create_oldconfig_step_in_analysis_phase_impl(
+        subrule_ctx,
+        kconfig_ext_step,
+        merge_dot_config_step,
         defconfig_files,
         has_parent,
         override_parent,
         override_parent_log):
+    if kconfig_ext_step.kconfig_ext_source != "this" and not merge_dot_config_step.maybe_dot_config_modified:
+        # Inherting Kconfig and defconfig, so there is definitely nothing changed. Take the
+        # easy way out.
+
+        if override_parent == "expect_override":
+            fail("{}: Expecting target to override parent values, but not overriding anything!".format(subrule_ctx.label))
+
+        if defconfig_files:
+            # Should not reach here because if there are any defconfig fragments in this target,
+            # then maybe_dot_config_modified is always True.
+            fail("{}: Should not reach here. defconfig_files = {}".format(subrule_ctx.label, defconfig_files))
+
+        return StepInfo(
+            inputs = depset(),
+            cmd = "",
+            tools = [],
+            outputs = [],
+        )
+
+    # .config might need to change. Evaluate this in the execution phase.
+    return _create_oldconfig_step_in_shell(
+        defconfig_files = defconfig_files,
+        has_parent = has_parent,
+        override_parent = override_parent,
+        override_parent_log = override_parent_log,
+    )
+
+_create_oldconfig_step_in_analysis_phase = subrule(
+    implementation = _create_oldconfig_step_in_analysis_phase_impl,
+    subrules = [
+        config_utils.create_check_defconfig_step,
+        _create_oldconfig_step_in_shell,
+    ],
+)
+
+def _create_oldconfig_step_impl(
+        _subrule_ctx,
+        kconfig_ext_step,
+        merge_dot_config_step,
+        defconfig_files,
+        has_parent,
+        override_parent,
+        override_parent_log,
+        _optimize_ddk_config_actions):
     """Creates a step that calls `make olddefconfig` if necessary.
 
     Args:
         _subrule_ctx: _subrule_ctx
+        kconfig_ext_step: KconfigExtStepInfo from create_kconfig_ext_step
+        merge_dot_config_step: MergeDotConfigStepInfo from create_merge_dot_config_step
         defconfig_files: List of defconfig fragments to check the final .config against
         has_parent: whether the outer ddk_module_config target has parent set.
         override_parent: whether it is allowed to override kconfig/.config from parent.
@@ -126,9 +175,19 @@ def _create_oldconfig_step_impl(
 
             This is not added to outputs list of the step, even though the step appends to this log.
             The caller should put this in the output list of the action.
+        _optimize_ddk_config_actions: See flag
     Returns:
         StepInfo
     """
+    if _optimize_ddk_config_actions[BuildSettingInfo].value:
+        return _create_oldconfig_step_in_analysis_phase(
+            kconfig_ext_step = kconfig_ext_step,
+            merge_dot_config_step = merge_dot_config_step,
+            defconfig_files = defconfig_files,
+            has_parent = has_parent,
+            override_parent = override_parent,
+            override_parent_log = override_parent_log,
+        )
     return _create_oldconfig_step_in_shell(
         defconfig_files = defconfig_files,
         has_parent = has_parent,
@@ -138,7 +197,13 @@ def _create_oldconfig_step_impl(
 
 create_oldconfig_step = subrule(
     implementation = _create_oldconfig_step_impl,
+    attrs = {
+        "_optimize_ddk_config_actions": attr.label(
+            default = "//build/kernel/kleaf:optimize_ddk_config_actions",
+        ),
+    },
     subrules = [
         _create_oldconfig_step_in_shell,
+        _create_oldconfig_step_in_analysis_phase,
     ],
 )
