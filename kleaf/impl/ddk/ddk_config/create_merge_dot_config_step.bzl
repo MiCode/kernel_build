@@ -29,6 +29,14 @@ MergeDotConfigStepInfo = provider(
     """Return value of create_merge_dot_config_step""",
     fields = {
         "step_info": "StepInfo",
+        "maybe_dot_config_modified": """
+            If optimize_ddk_config_actions:
+
+            -   True if .config might have been modified
+            -   False if .config definitely haven't been modified.
+
+            Otherwise, this field is not set (hasattr is False).
+        """,
     },
 )
 
@@ -115,6 +123,7 @@ def _create_merge_dot_config_step_in_shell_impl(
     )
 
     return MergeDotConfigStepInfo(
+        # Intentionally not set maybe_dot_config_modified if optimize_ddk_config_actions is not set
         step_info = StepInfo(
             inputs = depset(transitive = [
                 combined.defconfig_written.depset,
@@ -162,6 +171,7 @@ def _create_merge_dot_config_step_in_analysis_phase_impl(
         # If .config changes, it differs from .config.old and will trigger olddefconfig later.
 
         return MergeDotConfigStepInfo(
+            maybe_dot_config_modified = True,
             step_info = StepInfo(
                 inputs = depset(transitive = [
                     combined.defconfig_written.depset,
@@ -189,6 +199,7 @@ def _create_merge_dot_config_step_in_analysis_phase_impl(
             cp ${OUT_DIR}/.config ${OUT_DIR}/.config.old
         """
         return MergeDotConfigStepInfo(
+            maybe_dot_config_modified = False,
             step_info = StepInfo(
                 inputs = restore_parent_out_dir.inputs,
                 cmd = cmd,
@@ -199,6 +210,7 @@ def _create_merge_dot_config_step_in_analysis_phase_impl(
 
     # Otherwise nothing to do. Use kernel_build's .config directly
     return MergeDotConfigStepInfo(
+        maybe_dot_config_modified = False,
         step_info = StepInfo(
             inputs = depset(),
             # TODO: b/400799412 - delete this CMD once all users of .config.old
