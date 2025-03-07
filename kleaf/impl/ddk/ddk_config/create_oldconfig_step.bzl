@@ -25,6 +25,7 @@ visibility("private")
 
 def _create_oldconfig_step_in_shell_impl(
         _subrule_ctx,
+        combined,
         defconfig_files,
         has_parent,
         override_parent,
@@ -70,7 +71,10 @@ def _create_oldconfig_step_in_shell_impl(
         override_parent_log = override_parent_log.path,
     )
 
-    transitive_inputs = []
+    transitive_inputs = [
+        # We use KCONFIG_EXT_PREFIX in this step, which requires this and parent Kconfigs.
+        combined.kconfig_written.original_depset,
+    ]
     tools = []
     outputs = []
 
@@ -113,6 +117,7 @@ def _create_oldconfig_step_in_analysis_phase_impl(
         subrule_ctx,
         kconfig_ext_step,
         merge_dot_config_step,
+        combined,
         defconfig_files,
         has_parent,
         override_parent,
@@ -138,6 +143,7 @@ def _create_oldconfig_step_in_analysis_phase_impl(
 
     # .config might need to change. Evaluate this in the execution phase.
     return _create_oldconfig_step_in_shell(
+        combined = combined,
         defconfig_files = defconfig_files,
         has_parent = has_parent,
         override_parent = override_parent,
@@ -156,6 +162,7 @@ def _create_oldconfig_step_impl(
         _subrule_ctx,
         kconfig_ext_step,
         merge_dot_config_step,
+        combined,
         defconfig_files,
         has_parent,
         override_parent,
@@ -167,6 +174,7 @@ def _create_oldconfig_step_impl(
         _subrule_ctx: _subrule_ctx
         kconfig_ext_step: KconfigExtStepInfo from create_kconfig_ext_step
         merge_dot_config_step: MergeDotConfigStepInfo from create_merge_dot_config_step
+        combined: The combined DdkConfigInfo (parent + this target)
         defconfig_files: List of defconfig fragments to check the final .config against
         has_parent: whether the outer ddk_module_config target has parent set.
         override_parent: whether it is allowed to override kconfig/.config from parent.
@@ -183,12 +191,14 @@ def _create_oldconfig_step_impl(
         return _create_oldconfig_step_in_analysis_phase(
             kconfig_ext_step = kconfig_ext_step,
             merge_dot_config_step = merge_dot_config_step,
+            combined = combined,
             defconfig_files = defconfig_files,
             has_parent = has_parent,
             override_parent = override_parent,
             override_parent_log = override_parent_log,
         )
     return _create_oldconfig_step_in_shell(
+        combined = combined,
         defconfig_files = defconfig_files,
         has_parent = has_parent,
         override_parent = override_parent,

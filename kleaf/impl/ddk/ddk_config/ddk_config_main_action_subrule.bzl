@@ -16,6 +16,7 @@
 
 One notable output for the action is .config for the DDK module."""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
     "DdkConfigInfo",
@@ -53,7 +54,8 @@ def _ddk_config_main_action_subrule_impl(
         parent,
         kernel_build_ddk_config_env,
         defconfig_files,
-        override_parent):
+        override_parent,
+        _optimize_ddk_config_actions):
     """Impl for ddk_config_main_action_subrule
 
     Args:
@@ -63,6 +65,7 @@ def _ddk_config_main_action_subrule_impl(
         kernel_build_ddk_config_env: environment for building DDK config from kernel_build
         defconfig_files: defconfig files of the ddk_module to check against at the end
         override_parent: See ddk_module_config.override_parent.
+        _optimize_ddk_config_actions: See flag
 
     Returns:
         DdkConfigMainActionInfo
@@ -80,14 +83,9 @@ def _ddk_config_main_action_subrule_impl(
         parent_outputs_info = parent[DdkConfigOutputsInfo]
         parent_ddk_config_info = parent[DdkConfigInfo]
 
-    out_dir = subrule_ctx.actions.declare_directory(subrule_ctx.label.name + "/out_dir")
-
-    transitive_inputs = [
-        kernel_build_ddk_config_env.inputs,
-    ]
-
-    tools = [kernel_build_ddk_config_env.tools]
-    outputs = [out_dir, override_parent_log]
+    transitive_inputs = []
+    tools = []
+    outputs = [override_parent_log]
 
     combined = combine_ddk_config_info(
         parent_label = parent.label if parent else None,
@@ -111,6 +109,7 @@ def _ddk_config_main_action_subrule_impl(
     oldconfig_step = create_oldconfig_step(
         kconfig_ext_step = kconfig_ext_step,
         merge_dot_config_step = merge_dot_config_step,
+        combined = combined,
         defconfig_files = defconfig_files,
         has_parent = bool(parent),
         override_parent = override_parent,
@@ -128,12 +127,41 @@ def _ddk_config_main_action_subrule_impl(
         tools += step.tools
         outputs += step.outputs
 
+    # If true, we don't need to do anything real in the execution phase.
+    skip_execution_phase_checks = (
+        # feature flag
+        _optimize_ddk_config_actions[BuildSettingInfo].value and
+
+        # Inheriting kconfig_ext from parent or from kernel_build; no change to Kconfig fragments.
+        kconfig_ext_step.kconfig_ext_source != "this" and
+
+        # Definitely not adding extra defconfig fragments (false positives okay)
+        not merge_dot_config_step.maybe_dot_config_modified
+    )
+    if skip_execution_phase_checks:
+        subrule_ctx.actions.write(override_parent_log, "")
+        out_dir = None
+        if parent:
+            out_dir = parent_outputs_info.out_dir
+        return DdkConfigMainActionInfo(
+            out_dir = out_dir,
+            kconfig_ext_step = kconfig_ext_step,
+            kconfig_ext = kconfig_ext_step.kconfig_ext,
+            override_parent_log = override_parent_log,
+        )
+
+    out_dir = subrule_ctx.actions.declare_directory(subrule_ctx.label.name + "/out_dir")
+    outputs.append(out_dir)
+
     command = kernel_utils.setup_serialized_env_cmd(
         serialized_env_info = kernel_build_ddk_config_env,
         restore_out_dir_cmd = utils.get_check_sandbox_cmd() + """
             kleaf_do_not_rsync_out_dir_include=1
         """,
     )
+    transitive_inputs.append(kernel_build_ddk_config_env.inputs)
+    tools.append(kernel_build_ddk_config_env.tools)
+
     command += """
         : > {override_parent_log}
         {kconfig_ext_cmd}
@@ -179,6 +207,11 @@ def _ddk_config_main_action_subrule_impl(
 
 ddk_config_main_action_subrule = subrule(
     implementation = _ddk_config_main_action_subrule_impl,
+    attrs = {
+        "_optimize_ddk_config_actions": attr.label(
+            default = "//build/kernel/kleaf:optimize_ddk_config_actions",
+        ),
+    },
     subrules = [
         debug.print_scripts_subrule,
         ddk_config_restore_out_dir_step,

@@ -50,9 +50,9 @@ def _ddk_config_impl(ctx):
         src_defconfig = ctx.file.defconfig,
     )
 
-    default_info_files = [
-        main_action_ret.out_dir,
-    ]
+    default_info_files = []
+    if main_action_ret.out_dir:
+        default_info_files.append(main_action_ret.out_dir)
     if main_action_ret.kconfig_ext:
         default_info_files.append(main_action_ret.kconfig_ext)
 

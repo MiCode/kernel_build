@@ -14,7 +14,7 @@
 
 """Subrule to generate menuconfig script for DDK configuration."""
 
-load(":utils.bzl", "kernel_utils")
+load(":utils.bzl", "kernel_utils", "utils")
 
 visibility("//build/kernel/kleaf/impl/...")
 
@@ -37,7 +37,7 @@ def _ddk_config_script_subrule_impl(
     Args:
         subrule_ctx: subrule_ctx
         kernel_build_ddk_config_env: environment to set up
-        out_dir: output directory of this target
+        out_dir: output directory of this target (may be None if inheriting from kernel_build)
         main_action_ret: from _create_main_action
         src_defconfig: the file pointing to ctx.attr.defconfig; may be none.
     """
@@ -92,8 +92,11 @@ def _ddk_config_script_subrule_impl(
             exit 1
         fi
         mkdir -p ${{OUT_DIR}}
-        rsync -aL --chmod=F+w,F-x {out_dir}/.config ${{OUT_DIR}}/.config
-        rsync -aL --chmod=D+w,F+w,F-x {out_dir}/include/ ${{OUT_DIR}}/include/
+
+        if [[ -n "{out_dir}" ]]; then
+            rsync -aL --chmod=F+w,F-x {out_dir}/.config ${{OUT_DIR}}/.config
+            rsync -aL --chmod=D+w,F+w,F-x {out_dir}/include/ ${{OUT_DIR}}/include/
+        fi
 
         (
             orig_config=$(mktemp)
@@ -110,7 +113,7 @@ def _ddk_config_script_subrule_impl(
 
             ${{KERNEL_DIR}}/scripts/diffconfig -m ${{orig_config}} ${{OUT_DIR}}/.config > ${{changed_config}}
     """.format(
-        out_dir = out_dir.short_path,
+        out_dir = utils.optional_short_path(out_dir),
         kconfig_ext_cmd = main_action_ret.kconfig_ext_step.step_info.cmd,
         label = subrule_ctx.label,
     )
@@ -151,8 +154,9 @@ def _ddk_config_script_subrule_impl(
 
     direct_runfiles = [
         kernel_build_ddk_config_env.setup_script,
-        out_dir,
     ]
+    if out_dir:
+        direct_runfiles.append(out_dir)
     if src_defconfig:
         direct_runfiles.append(src_defconfig)
     runfiles_depset = depset(
