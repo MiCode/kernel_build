@@ -1364,7 +1364,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         scmversion_pat = re.compile(
             r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?(-4k)?$")
         for scmversion in self._get_vmlinux_scmversion(workspace_root):
-            self.assertRegexpMatches(scmversion, scmversion_pat)
+            self.assertRegex(scmversion, scmversion_pat)
 
     def test_stamp_if_kernel_dir_is_symlink(self):
         """Tests that --stamp works if KERNEL_DIR is a symlink."""
@@ -1387,7 +1387,7 @@ class ScmversionIntegrationTest(KleafIntegrationTestBase):
         scmversion_pat = re.compile(
             r"^-rc999-mainline(-[0-9]{5,})?-g[0-9a-f]{12,40}(-dirty)?(-4k)?$")
         for scmversion in self._get_vmlinux_scmversion(package=new_kernel_dir):
-            self.assertRegexpMatches(scmversion, scmversion_pat)
+            self.assertRegex(scmversion, scmversion_pat)
 
 
 # Class that mimics tee(1)
