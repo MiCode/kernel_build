@@ -167,17 +167,17 @@ def _kernel_abi_wrapped_dist_internal_impl(ctx):
         no_ignore_diff_target_script = ""
         if ctx.attr.no_ignore_diff_target != None:
             no_ignore_diff_target_script = """
-                echo "WARNING: Use 'tools/bazel run {label}' to fail on ABI difference." >&2
+                echo "WARNING: Use 'tools/bazel run {label}' to see and fail on ABI difference." >&2
             """.format(
                 label = ctx.attr.no_ignore_diff_target.label,
             )
         script += """
           # Store return code of diff_abi and ignore if diff was found
             rc=0
-            {diff_stg} || rc=$?
+            {diff_stg} > /dev/null 2>&1 || rc=$?
 
             if [[ $rc -eq {change_code} ]]; then
-                echo "WARNING: difference above is ignored." >&2
+                echo "WARNING: ABI DIFFERENCES HAVE BEEN DETECTED!" >&2
                 {no_ignore_diff_target_script}
             else
                 exit $rc

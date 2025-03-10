@@ -36,5 +36,9 @@
 ^Starting local Bazel server and connecting to it...$
 ^Extracting Bazel installation...$
 
+# Allow ignored ABI difference warning
+^WARNING: ABI DIFFERENCES HAVE BEEN DETECTED!$
+^WARNING: Use '.*' to see and fail on ABI difference.$
+
 # Allow empty lines
 ^$
