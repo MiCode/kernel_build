@@ -19,3 +19,5 @@
 
 # Set KCONFIG_WERROR=1 to treat kconfig warnings as errors.
 build:canary --kconfig_werror
+
+build:canary --experimental_optimize_ddk_config_actions
