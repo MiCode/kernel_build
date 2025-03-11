@@ -19,6 +19,7 @@ Makefile and Kbuild files are required.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load("//build/kernel/kleaf:directory_with_structure.bzl", dws = "directory_with_structure")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
@@ -54,6 +55,18 @@ load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
 visibility("//build/kernel/kleaf/...")
+
+def _module_output_cmd():
+    """If the branch supports MO, return a command that uses it. Otherwise uses VPATH.
+
+    6.13 supports MO, which allows building external modules to be built
+    in a separate output directory. Between 6.10 and 6.13, VPATH needs to be
+    set to workaround the issue.
+    """
+
+    if VARS.get("KLEAF_INTERNAL_EXT_MODULE_SEPARATE_BUILD_DIR") != "1":
+        return "VPATH=${ROOT_DIR}/${KERNEL_DIR}"
+    return "MO=${OUT_DIR}/${ext_mod_rel}"
 
 def kernel_module(
         name,
@@ -499,12 +512,13 @@ def _kernel_module_impl(ctx):
                ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
 
              # Actual kernel module build
-               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} \\
-                    KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} \\
+               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} {mo_cmd} \\
+                    KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} \\
                     {extra_make_goals} \\
                     {make_filter} {make_redirect}
     """.format(
         ext_mod = ext_mod,
+        mo_cmd = _module_output_cmd(),
         extra_make_goals = " ".join(ctx.attr.internal_extra_make_goals),
         make_filter = make_filter,
         make_redirect = modpost_warn.make_redirect,
@@ -516,9 +530,10 @@ def _kernel_module_impl(ctx):
     """
     for goal in compile_commands_utils.additional_make_goals(ctx):
         command += """
-            make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {goal} {make_filter} {make_redirect}
+            make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} {mo_cmd} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {goal} {make_filter} {make_redirect}
         """.format(
             ext_mod = ext_mod,
+            mo_cmd = _module_output_cmd(),
             goal = goal,
             make_filter = make_filter,
             make_redirect = modpost_warn.make_redirect,
@@ -553,7 +568,8 @@ def _kernel_module_impl(ctx):
         command += """
              # Install into staging directory
                make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} \
-                   O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}     \
+                   O=${{OUT_DIR}} {mo_cmd}                                     \
+                   KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}                    \
                    INSTALL_MOD_PATH=$(realpath {modules_staging_dir})          \
                    INSTALL_MOD_DIR=extra/{ext_mod}                             \
                    KERNEL_UAPI_HEADERS_DIR=$(realpath {kernel_uapi_headers_dir}) \
@@ -590,6 +606,7 @@ def _kernel_module_impl(ctx):
                """.format(
             label = ctx.label,
             ext_mod = ext_mod,
+            mo_cmd = _module_output_cmd(),
             generate_btf = int(ctx.attr.generate_btf),
             module_symvers = module_symvers.path,
             modules_staging_dir = modules_staging_dws.directory.path,
