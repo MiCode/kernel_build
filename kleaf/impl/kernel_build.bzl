@@ -19,6 +19,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load(
     "//build/kernel/kleaf/artifact_tests:kernel_test.bzl",
     "kernel_build_test",
@@ -1071,6 +1072,38 @@ def _create_kbuild_mixed_tree(ctx):
             arg = "",
         )
 
+    if VARS.get("KLEAF_INTERNAL_KBUILD_MIXED_TREE_IS_OBJTREE") != "1":
+        return _create_kbuild_mixed_tree_legacy(ctx)
+
+    # Return a command line that copies KBUILD_MIXED_TREE files to $OUT_DIR
+    # (which is $objtree when building in-tree modules)
+    base_kernel_files = base_kernel_utils.get_base_kernel(ctx)[KernelBuildMixedTreeInfo].files
+    cmd = """
+        # Restore GKI artifacts for mixed build
+        export KBUILD_MIXED_TREE=${OUT_DIR}
+        mkdir -p ${KBUILD_MIXED_TREE}
+    """
+
+    # This to_list() is acceptable because GKI's outs/module_outs is a small list
+    for base_kernel_file in base_kernel_files.to_list():
+        # Flatten the directory structure of the files that base_kernel_utils.get_base_kernel(ctx)
+        # provides because KBUILD_MIXED_TREE accepts a flattened directory.
+        cmd += """
+            cp -a -t ${{KBUILD_MIXED_TREE}} $(readlink -m {base_kernel_file})
+        """.format(
+            base_kernel_file = base_kernel_file.path,
+        )
+
+    arg = "--srcdir ${KBUILD_MIXED_TREE}"
+    return struct(
+        inputs = base_kernel_files,
+        cmd = cmd,
+        base_kernel_files = base_kernel_files,
+        arg = arg,
+    )
+
+def _create_kbuild_mixed_tree_legacy(ctx):
+    """Legacy way of handling KBUILD_MIXED_TREE before 6.13"""
     hermetic_tools = hermetic_toolchain.get(ctx)
 
     # Create a directory for KBUILD_MIXED_TREE.
