@@ -1062,50 +1062,57 @@ def _progress_message_suffix(ctx):
 
 def _create_kbuild_mixed_tree(ctx):
     """Adds actions that creates the `KBUILD_MIXED_TREE`."""
+
+    if not base_kernel_utils.get_base_kernel(ctx):
+        return struct(
+            inputs = depset(),
+            cmd = "",
+            base_kernel_files = depset(),
+            arg = "",
+        )
+
     hermetic_tools = hermetic_toolchain.get(ctx)
-    base_kernel_files = depset()
-    outputs = []
-    kbuild_mixed_tree = None
-    cmd = ""
-    arg = ""
-    if base_kernel_utils.get_base_kernel(ctx):
-        # Create a directory for KBUILD_MIXED_TREE. Flatten the directory structure of the files
-        # that base_kernel_utils.get_base_kernel(ctx) provides. declare_directory is sufficient because the directory should
-        # only change when the dependent base_kernel_utils.get_base_kernel(ctx) changes.
-        kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
-        outputs = [kbuild_mixed_tree]
-        base_kernel_files = base_kernel_utils.get_base_kernel(ctx)[KernelBuildMixedTreeInfo].files
-        kbuild_mixed_tree_command = hermetic_tools.setup + """
-          # Restore GKI artifacts for mixed build
-            export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
-            rm -rf ${{KBUILD_MIXED_TREE}}
-            mkdir -p ${{KBUILD_MIXED_TREE}}
-            for base_kernel_file in {base_kernel_files}; do
-              cp -a -t ${{KBUILD_MIXED_TREE}} $(readlink -m ${{base_kernel_file}})
-            done
-        """.format(
-            base_kernel_files = " ".join([file.path for file in base_kernel_files.to_list()]),
-            kbuild_mixed_tree = kbuild_mixed_tree.path,
-        )
-        debug.print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
-        ctx.actions.run_shell(
-            mnemonic = "KernelBuildKbuildMixedTree",
-            inputs = depset(transitive = [base_kernel_files]),
-            outputs = [kbuild_mixed_tree],
-            tools = hermetic_tools.deps,
-            progress_message = "Creating KBUILD_MIXED_TREE{}".format(_progress_message_suffix(ctx)),
-            command = kbuild_mixed_tree_command,
-        )
 
-        cmd = """
-            export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
-        """.format(
-            kbuild_mixed_tree = kbuild_mixed_tree.path,
-        )
+    # Create a directory for KBUILD_MIXED_TREE.
+    # Flatten the directory structure of the files that base_kernel_utils.get_base_kernel(ctx)
+    # provides because KBUILD_MIXED_TREE accepts a flattened directory.
+    # declare_directory is sufficient because the directory should
+    # only change when the dependent base_kernel_utils.get_base_kernel(ctx) changes.
+    kbuild_mixed_tree = ctx.actions.declare_directory("{}_kbuild_mixed_tree".format(ctx.label.name))
+    returned_inputs = depset([kbuild_mixed_tree])
+    base_kernel_files = base_kernel_utils.get_base_kernel(ctx)[KernelBuildMixedTreeInfo].files
+    kbuild_mixed_tree_command = hermetic_tools.setup + """
+        # Restore GKI artifacts for mixed build
+        export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
+        rm -rf ${{KBUILD_MIXED_TREE}}
+        mkdir -p ${{KBUILD_MIXED_TREE}}
+        for base_kernel_file in {base_kernel_files}; do
+            cp -a -t ${{KBUILD_MIXED_TREE}} $(readlink -m ${{base_kernel_file}})
+        done
+    """.format(
+        # This to_list() is acceptable because GKI's outs/module_outs is a small list
+        base_kernel_files = " ".join([file.path for file in base_kernel_files.to_list()]),
+        kbuild_mixed_tree = kbuild_mixed_tree.path,
+    )
+    debug.print_scripts(ctx, kbuild_mixed_tree_command, what = "kbuild_mixed_tree")
+    ctx.actions.run_shell(
+        mnemonic = "KernelBuildKbuildMixedTree",
+        inputs = depset(transitive = [base_kernel_files]),
+        outputs = [kbuild_mixed_tree],
+        tools = hermetic_tools.deps,
+        progress_message = "Creating KBUILD_MIXED_TREE{}".format(_progress_message_suffix(ctx)),
+        command = kbuild_mixed_tree_command,
+    )
 
-        arg = "--srcdir ${KBUILD_MIXED_TREE}"
+    cmd = """
+        export KBUILD_MIXED_TREE=$(realpath {kbuild_mixed_tree})
+    """.format(
+        kbuild_mixed_tree = kbuild_mixed_tree.path,
+    )
+
+    arg = "--srcdir ${KBUILD_MIXED_TREE}"
     return struct(
-        outputs = outputs,
+        inputs = returned_inputs,
         cmd = cmd,
         base_kernel_files = base_kernel_files,
         arg = arg,
@@ -1784,8 +1791,8 @@ def _build_main_action(
     transitive_inputs.append(
         ctx.attr.config[KernelSerializedEnvInfo].inputs,
     )
+    transitive_inputs.append(kbuild_mixed_tree_ret.inputs)
     inputs = []
-    inputs += kbuild_mixed_tree_ret.outputs
     for step in steps:
         inputs += step.inputs
 
@@ -1979,7 +1986,7 @@ def _create_infos(
         },
         fake_system_map = False,
         extra_restore_outputs_cmd = kbuild_mixed_tree_ret.cmd,
-        extra_inputs = depset(kbuild_mixed_tree_ret.outputs),
+        extra_inputs = kbuild_mixed_tree_ret.inputs,
     )
 
     orig_env_info = ctx.attr.config[KernelBuildOriginalEnvInfo]
@@ -2024,7 +2031,10 @@ def _create_infos(
         """.format(
             kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
         ),
-        extra_inputs = depset(kbuild_mixed_tree_ret.outputs, transitive = [module_srcs.module_scripts]),
+        extra_inputs = depset(transitive = [
+            kbuild_mixed_tree_ret.inputs,
+            module_srcs.module_scripts,
+        ]),
     )
 
     # External modules do not need implicit_outs because they are unsigned.
@@ -2042,10 +2052,10 @@ def _create_infos(
         },
         fake_system_map = False,
         extra_restore_outputs_cmd = kbuild_mixed_tree_ret.cmd,
-        extra_inputs = depset(
-            kbuild_mixed_tree_ret.outputs,
-            transitive = [module_srcs.module_scripts],
-        ),
+        extra_inputs = depset(transitive = [
+            kbuild_mixed_tree_ret.inputs,
+            module_srcs.module_scripts,
+        ]),
     )
 
     # For ddk_config()
