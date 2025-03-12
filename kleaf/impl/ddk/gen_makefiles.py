@@ -286,6 +286,7 @@ def _generate_kbuild_and_extra(
         kbuild_has_linux_include: bool,
         is_library: bool,
         is_pkvm_el2: bool,
+        copy_rule_hack: bool,
         **unused_kwargs
 ):
     """Generates all relevant Kbuild files and extra flag files.
@@ -306,6 +307,7 @@ def _generate_kbuild_and_extra(
         kbuild_has_linux_include: Whether to write LINUXINCLUDE to Kbuild files
         is_library: If set, outer target is a ddk_library
         is_pkvm_el2: If set, building pKVM EL2
+        copy_rule_hack: Employ hack for COPY rule
         **unused_kwargs: unused
     """
     kernel_module_srcs_json_content = json.load(kernel_module_srcs_json)
@@ -390,7 +392,8 @@ def _generate_kbuild_and_extra(
                     kernel_module_out=kernel_module_out,
                     is_pkvm_el2=is_pkvm_el2,
                     obj_suffix=obj_suffix,
-                    is_crate_root = src_item.get("is_crate_root", False)
+                    is_crate_root = src_item.get("is_crate_root", False),
+                    copy_rule_hack=copy_rule_hack
                 )
 
             if config is not None and value != True: # pylint: disable=singleton-comparison
@@ -539,6 +542,7 @@ def _handle_src(
         is_pkvm_el2: bool,
         obj_suffix: str,
         is_crate_root: bool,
+        copy_rule_hack: bool,
 ):
     """Writes rules to build a single source file.
 
@@ -549,6 +553,7 @@ def _handle_src(
         is_pkvm_el2: If true, builds pKVM EL2 code
         obj_suffix: Suffix to `obj-`
         is_crate_root: If true, this source file is from the `crate_root` attribute.
+        copy_rule_hack: Employ hack for COPY rule
     """
     # Ignore non-exported headers specified in srcs
     if src.suffix in (".h",):
@@ -585,6 +590,15 @@ def _handle_src(
         out_file.write(textwrap.dedent(f"""\
                         {object_to_build}-{obj_suffix} += {out}
                     """))
+
+        # HACK: http://b/402888498 - COPY rule doesn't work, so hack it up.
+        # TODO: http://b/402888498 - Figure out why it doesn't work, and remove
+        #   this hack to use the pattern rule provided by Kbuild.
+        if copy_rule_hack and src.suffix in (".o_shipped", ".cmd_shipped"):
+            out_file.write(textwrap.dedent(f"""\
+                $(obj)/{out}: $(src)/{src.relative_to(kernel_module_out.parent)}
+                \t$(call cmd,copy)
+            """))
 
 
 def _handle_linux_includes(out_file: TextIO, kbuild_has_linux_include: bool,
@@ -772,6 +786,7 @@ if __name__ == "__main__":
                         action=SubmoduleLinuxIncludeDirAction)
     parser.add_argument("--is-library", action="store_true")
     parser.add_argument("--pkvm-el2-out", type=pathlib.Path)
+    parser.add_argument("--copy-rule-hack", action="store_true")
     args = parser.parse_args()
 
     die_exception = None

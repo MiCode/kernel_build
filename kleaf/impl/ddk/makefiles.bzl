@@ -16,6 +16,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//lib:sets.bzl", "sets")
+load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load(
     ":common_providers.bzl",
     "DdkConditionalFilegroupInfo",
@@ -479,6 +480,9 @@ def _makefiles_impl(ctx):
 
     if ctx.attr.module_pkvm_el2:
         args.add("--pkvm-el2-out", _PKVM_EL2_OUT)
+
+    if VARS.get("KLEAF_INTERNAL_COPY_RULE_HACK") == "1":
+        args.add("--copy-rule-hack")
 
     ctx.actions.run(
         mnemonic = "DdkMakefiles",
