@@ -185,8 +185,6 @@ _PREBUILT_TOOLS = [
     "//prebuilts/kernel-build-tools:e2fsdroid",
     "//prebuilts/kernel-build-tools:fec",
     "//prebuilts/kernel-build-tools:img2simg",
-    "//prebuilts/kernel-build-tools:interceptor",
-    "//prebuilts/kernel-build-tools:interceptor_analysis",
     "//prebuilts/kernel-build-tools:lpmake",
     "//prebuilts/kernel-build-tools:mkbootfs",
     "//prebuilts/kernel-build-tools:mkdtimg",

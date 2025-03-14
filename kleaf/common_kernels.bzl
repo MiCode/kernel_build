@@ -65,7 +65,6 @@ def common_kernel(
         defconfig = None,
         pre_defconfig_fragments = None,
         post_defconfig_fragments = None,
-        enable_interceptor = None,
         kmi_symbol_list = None,
         additional_kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
@@ -131,7 +130,6 @@ def common_kernel(
         defconfig: See [kernel_build.defconfig](kernel.md#kernel_build-defconfig)
         pre_defconfig_fragments: See [kernel_build.pre_defconfig_fragments](kernel.md#kernel_build-pre_defconfig_fragments)
         post_defconfig_fragments: See [kernel_build.post_defconfig_fragments](kernel.md#kernel_build-post_defconfig_fragments)
-        enable_interceptor: See [kernel_build.enable_interceptor](kernel.md#kernel_build-enable_interceptor)
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](kernel.md#kernel_build-kmi_symbol_list)
         additional_kmi_symbol_lists: See [kernel_build.additional_kmi_symbol_lists](kernel.md#kernel_build-additional_kmi_symbol_lists)
         trim_nonlisted_kmi: See [kernel_build.trim_nonlisted_kmi](kernel.md#kernel_build-trim_nonlisted_kmi)
@@ -166,7 +164,6 @@ def common_kernel(
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
         visibility = visibility,
-        enable_interceptor = enable_interceptor,
         kmi_symbol_list = kmi_symbol_list,
         additional_kmi_symbol_lists = additional_kmi_symbol_lists,
         trim_nonlisted_kmi = trim_nonlisted_kmi,
@@ -239,7 +236,6 @@ def common_kernel(
         defconfig = defconfig,
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
-        enable_interceptor = enable_interceptor,
         visibility = visibility,
         collect_unstripped_modules = _COLLECT_UNSTRIPPED_MODULES,
         strip_modules = _STRIP_MODULES,
@@ -277,9 +273,6 @@ def common_kernel(
         deprecation = deprecation,
         enable_add_vmlinux = _GKI_ADD_VMLINUX,
     )
-
-    if enable_interceptor:
-        return
 
     # A subset of headers in OUT_DIR that only contains scripts/. This is useful
     # for DDK headers interpolation.

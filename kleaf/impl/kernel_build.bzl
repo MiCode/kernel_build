@@ -120,7 +120,6 @@ def kernel_build(
         trim_nonlisted_kmi = None,
         kmi_symbol_list_strict_mode = None,
         collect_unstripped_modules = None,
-        enable_interceptor = None,
         kbuild_symtypes = None,
         strip_modules = None,
         module_signing_key = None,
@@ -448,8 +447,6 @@ def kernel_build(
           and the KMI resulting from the build, to ensure
           they match 1-1.
         collect_unstripped_modules: If `True`, provide all unstripped in-tree.
-        enable_interceptor: If set to `True`, enable interceptor so it can be
-          used in [`kernel_compile_commands`](#kernel_compile_commands).
         kbuild_symtypes: The value of `KBUILD_SYMTYPES`.
 
           This can be set to one of the following:
@@ -798,7 +795,6 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         kernel_uapi_headers = uapi_headers_target_name,
         collect_unstripped_modules = collect_unstripped_modules,
         combined_abi_symbollist = abi_symbollist_target_name,
-        enable_interceptor = enable_interceptor,
         strip_modules = strip_modules,
         src_protected_exports_list = protected_exports_list,
         src_protected_modules_list = protected_modules_list,
@@ -1224,35 +1220,6 @@ def _write_module_names_to_file(ctx, filename, names):
 # but because the `OUT_DIR` needs to be kept between the steps, they are stuffed into the main
 # action.
 
-def _get_interceptor_step(ctx):
-    """Returns a step for interceptor.
-
-    This is a special step that doesn't have a `cmd`, but provides a `command_prefix` instead.
-
-    Returns:
-      A struct with these fields:
-
-      * inputs
-      * tools
-      * outputs
-      * command_prefix
-      * output_file
-    """
-    interceptor_output = None
-    interceptor_command_prefix = ""
-    if ctx.attr.enable_interceptor:
-        interceptor_output = ctx.actions.declare_file("{name}/interceptor_output.bin".format(name = ctx.label.name))
-        interceptor_command_prefix = "interceptor -r -l {interceptor_output} --".format(
-            interceptor_output = interceptor_output.path,
-        )
-    return struct(
-        inputs = [],
-        tools = [],
-        outputs = [interceptor_output] if interceptor_output else [],
-        command_prefix = interceptor_command_prefix,
-        output_file = interceptor_output,
-    )
-
 def _get_grab_intree_modules_step(ctx, has_any_modules, modules_staging_dir, ruledir, all_module_names):
     """Returns a step for grabbing the in-tree modules from `OUT_DIR`.
 
@@ -1650,7 +1617,6 @@ def _build_main_action(
     modules_staging_dir = modules_staging_archive_self.dirname + "/staging"
 
     # Individual steps of the final command.
-    interceptor_step = _get_interceptor_step(ctx)
     cache_dir_step = cache_dir.get_step(
         ctx = ctx,
         common_config_tags = ctx.attr.config[KernelEnvAttrInfo].common_config_tags,
@@ -1686,7 +1652,6 @@ def _build_main_action(
         modules_staging_dir = modules_staging_dir,
     )
     steps = (
-        interceptor_step,
         cache_dir_step,
         modinst_step,
         grab_intree_modules_step,
@@ -1711,7 +1676,7 @@ def _build_main_action(
     command += """
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
-           {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
+           make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
          # Install modules
            {modinst_cmd}
          # Archive headers in OUT_DIR
@@ -1773,7 +1738,6 @@ def _build_main_action(
         modules_staging_dir = modules_staging_dir,
         modules_staging_archive_self = modules_staging_archive_self.path,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar.path,
-        interceptor_command_prefix = interceptor_step.command_prefix,
         label = ctx.label,
         make_goals = " ".join(make_goals),
         copy_module_symvers_cmd = copy_module_symvers_step.cmd,
@@ -1824,7 +1788,6 @@ def _build_main_action(
     return struct(
         all_output_files = all_output_files,
         out_dir_kernel_headers_tar = out_dir_kernel_headers_tar,
-        interceptor_output = interceptor_step.output_file,
         modules_staging_archive_self = modules_staging_archive_self,
         unstripped_dir = grab_unstripped_modules_step.unstripped_dir,
         ruledir = ruledir,
@@ -1989,7 +1952,6 @@ def _create_infos(
         out_dir_kernel_headers_tar = main_action_ret.out_dir_kernel_headers_tar,
         outs = depset(all_output_files["outs"].values()),
         base_kernel_files = kbuild_mixed_tree_ret.base_kernel_files,
-        interceptor_output = main_action_ret.interceptor_output,
     )
 
     kernel_build_uname_info = KernelBuildUnameInfo(
@@ -2347,7 +2309,6 @@ _kernel_build = rule(
             allow_files = True,
         ),
         "collect_unstripped_modules": attr.bool(),
-        "enable_interceptor": attr.bool(),
         "_verify_ksymtab": attr.label(
             default = "//build/kernel:abi_verify_ksymtab",
             executable = True,
