@@ -1547,18 +1547,7 @@ def _get_modinst_step(ctx, modules_staging_dir):
          # Set variables and create dirs for modules
            mkdir -p {modules_staging_dir}
          # Install modules
-           if grep -q -E -e "\\bmodules\\b|[.]ko\\b" <<< "{make_goals}" ; then
-               if grep -q -E -e "[.]ko\\b" <<< "{make_goals}" ; then
-                   # For single_module builds, we need to generate our own
-                   # modules.order since `make` deletes it, but it's needed for
-                   # `modules_install`. We don't really care about the module
-                   # ordering here. With fw_devlink enabled in GKI, the probe
-                   # ordering should be handled based on device dependencies.
-                   : > ${{OUT_DIR}}/modules.order
-                   for module in {make_goals}; do
-                       echo ${{module}} | sed -n "s:\\([.]\\)ko\\>.*:\\1o:p"  >> ${{OUT_DIR}}/modules.order
-                   done
-               fi
+           if grep -q "\\bmodules\\b" <<< "{make_goals}" ; then
                make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} DEPMOD=true O=${{OUT_DIR}} {module_strip_flag} INSTALL_MOD_PATH=$(realpath {modules_staging_dir}) modules_install
            else
                # Workaround as this file is required, hence just produce a placeholder.
@@ -1568,7 +1557,7 @@ def _get_modinst_step(ctx, modules_staging_dir):
         modules_staging_dir = modules_staging_dir,
         internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         module_strip_flag = module_strip_flag,
-        make_goals = " ".join(ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals),
+        make_goals = ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals,
     )
 
     if base_kernel:
@@ -1689,20 +1678,7 @@ def _build_main_action(
     command += """
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
-           if grep -q "\\bdtbs\\b" <<< "{make_goals}" ; then
-               # TODO(b/359683179): if we build dtbs with the individual kernel
-               # modules, then not all of the kernel modules are found in the
-               # OUT_DIR. Building dtbs first, fixes this issue.
-               {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} dtbs
-           fi
-           make_subgoals=$(echo "{make_goals}" | sed "s:\\<dtbs\\>::" || true)
-           if grep -q -E -e "[.]ko\\b" <<< "${{make_subgoals}}" ; then
-               # TODO(b/359681021) Follow up with the upstream maintainer to
-               # see what needs to be done to drop KBUILD_MODPOST_WARN=1.
-               {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KBUILD_MODPOST_WARN=1 ${{make_subgoals}}
-           else
-               {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{make_subgoals}}
-           fi
+           {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
          # Install modules
            {modinst_cmd}
          # Archive headers in OUT_DIR
@@ -1998,28 +1974,8 @@ def _create_infos(
             for dep in ext_mod_serialized_env_info_deps
         },
         fake_system_map = True,
-        extra_restore_outputs_cmd = """
-            (
-                {kbuild_mixed_tree_cmd}
-              # Stitch together the GKI symbols and device module symbols
-              # together for proper linking during the modpost step. This will
-              # also help detect CRC differences between the GKI and device
-              # builds if the same symbol is defined twice with different CRC
-              # values.
-                if [[ -f "${{KBUILD_MIXED_TREE}}/Module.symvers" ]]; then
-                  cp ${{KBUILD_MIXED_TREE}}/Module.symvers ${{OUT_DIR}}/Module.symvers.tmp
-                  grep -v -e "\\bvmlinux\\b" ${{OUT_DIR}}/Module.symvers >> ${{OUT_DIR}}/Module.symvers.tmp
-                  cat ${{OUT_DIR}}/Module.symvers.tmp | sort -u > ${{OUT_DIR}}/Module.symvers
-                  rm -f ${{OUT_DIR}}/Module.symvers.tmp
-                fi
-            )
-        """.format(
-            kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
-        ),
-        extra_inputs = depset(transitive = [
-            kbuild_mixed_tree_ret.inputs,
-            module_srcs.module_scripts,
-        ]),
+        extra_restore_outputs_cmd = "",
+        extra_inputs = depset(transitive = [module_srcs.module_scripts]),
     )
 
     # External modules do not need implicit_outs because they are unsigned.
@@ -2155,7 +2111,6 @@ def _create_infos(
     output_group_info = OutputGroupInfo(**output_group_kwargs)
 
     kbuild_mixed_tree_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
-    kbuild_mixed_tree_files.append(all_output_files["internal_outs"]["Module.symvers"])
     kbuild_mixed_tree_info = KernelBuildMixedTreeInfo(
         files = depset(kbuild_mixed_tree_files),
     )
