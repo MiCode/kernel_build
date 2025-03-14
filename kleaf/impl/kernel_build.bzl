@@ -1696,27 +1696,12 @@ def _build_main_action(
                {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} dtbs
            fi
            make_subgoals=$(echo "{make_goals}" | sed "s:\\<dtbs\\>::" || true)
-           # Allow an empty/unspecified make_goals attribute to trigger just
-           # "make" in the kernel directory to build the default target.
-           #
-           # We check against the blank/whitespace character class to account
-           # for the case where the make_goals attribute isn't set, in which case
-           # we default to MAKE_GOALS, and MAKE_GOALS is defined as just
-           # whitespace--for example:
-           #
-           # MAKE_GOALS="
-           # "
-           #
-           # This aligns with the expectation of an empty/unspecified make_goals
-           # attribute building the default target.
-           if [[ -n "${{make_subgoals}}" ]] || [[ "{make_goals}" =~ ^[[:space:]]*$ ]]; then
-               if grep -q -E -e "[.]ko\\b" <<< "${{make_subgoals}}" ; then
-                   # TODO(b/359681021) Follow up with the upstream maintainer to
-                   # see what needs to be done to drop KBUILD_MODPOST_WARN=1.
-                   {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KBUILD_MODPOST_WARN=1 ${{make_subgoals}}
-               else
-                   {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{make_subgoals}}
-               fi
+           if grep -q -E -e "[.]ko\\b" <<< "${{make_subgoals}}" ; then
+               # TODO(b/359681021) Follow up with the upstream maintainer to
+               # see what needs to be done to drop KBUILD_MODPOST_WARN=1.
+               {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} KBUILD_MODPOST_WARN=1 ${{make_subgoals}}
+           else
+               {interceptor_command_prefix} make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} ${{make_subgoals}}
            fi
          # Install modules
            {modinst_cmd}
