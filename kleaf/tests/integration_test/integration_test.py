@@ -886,7 +886,6 @@ class QuickIntegrationTest(KleafIntegrationTestBase):
                              old: {old_modules_archive.name}
                              new: {modules_prepare_archive}"""))
 
-    @unittest.skip("b/403417761: breaks in 6.13")
     def test_module_does_not_depend_on_vmlinux(self):
         """Tests that, the inputs for building a module does not include vmlinux and System.map.
 
