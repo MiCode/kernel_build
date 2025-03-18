@@ -993,7 +993,6 @@ test_suite(
     tests = [
         ":check_declared_output_list_test",
         ":empty_test",
-        "//build/bazel_common_rules/exec/tests",
         "//build/kernel:init_ddk_test",
         "//build/kernel/kleaf/impl:check_config_test",
         "//build/kernel/kleaf/impl:get_kmi_string_test",

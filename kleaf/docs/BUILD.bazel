@@ -45,7 +45,7 @@ _DESTDIR = package_name() + "/api_reference"
 bzl_library(
     name = "deps",
     srcs = [
-        "//build/bazel_common_rules/exec/impl:exec",
+        "//build/kernel/kleaf/impl/exec",
         "//build/kernel/kleaf/artifact_tests",
         "//build/kernel/kleaf/impl",
         "//build/kernel/kleaf/tests/defconfig_test:bzl_lib",

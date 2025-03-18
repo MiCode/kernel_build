@@ -89,22 +89,19 @@ prefer to use [custom rules](#custom-rules).
 
 ## Use hermetic\_exec and hermetic\_exec\_test
 
-Similarly, the`script` of `exec` and `exec_test` from
-`//build/bazel_common_rules:exec.bzl`
-can access the passthrough `PATH`, hence they are not hermetic either.
-
 Kleaf provides the `hermetic_exec` and `hermetic_exec_test` via
-`//build/kernel:hermetic_tools.bzl` as drop-in replacements for `exec`
-and `exec_test`, respectively.
+`//build/kernel:hermetic_tools.bzl`.
 
-Avoid using absolute paths (e.g. `/bin/ls`) in your `exec`s, `exec_test`s,
+Avoid using absolute paths (e.g. `/bin/ls`) in your
 `hermetic_exec`s, or `hermetic_exec_test`s, since this will use tools and
 resources from your host machine.
 
 ## sh\_* rules
 
 If you use `sh_binary`, `sh_library`, `sh_test` etc. from Bazel, the shell
-executable is defined by the shebangs (e.g. `#!/bin/bash`).
+executable is defined by the shebangs (e.g. `#!/bin/bash`). If you want to
+execute these binaries in an hermetic environment, please file a bug or send an
+email to [kernel-team@android.com](mailto:kernel-team@android.com).
 
 There are several other dependencies on `/bin/bash` and `/bin/sh` (see
 [Known violations](#known-violations)). Besides them, avoid using other

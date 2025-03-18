@@ -168,7 +168,7 @@ bzl_library(
     ],
     visibility = ["//build/kernel/kleaf:__subpackages__"],
     deps = [
-        "//build/bazel_common_rules/exec/impl:exec",
+        "//build/kernel/kleaf/impl/exec",
     ],
 )
 
