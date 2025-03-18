@@ -32,6 +32,7 @@ load(
 )
 load("//build/kernel/kleaf/impl:kernel_sbom.bzl", "kernel_sbom")
 load("//build/kernel/kleaf/impl:out_headers_allowlist_archive.bzl", "out_headers_allowlist_archive")
+load("//build/kernel/kleaf/tests:runtime_protection_presence_test/symbol_presence_test.bzl", "symbol_presence_test")
 load("//build/kernel/kleaf/tests/defconfig_test:pre_defconfig_fragments_menuconfig_test.bzl", "pre_defconfig_fragments_menuconfig_test")
 load(
     ":kernel.bzl",
@@ -461,6 +462,7 @@ def common_kernel(
         arch = arch,
         makefile = makefile,
         defconfig = defconfig,
+        protected_exports_list = protected_exports_list,
     )
 
     native.test_suite(
@@ -646,7 +648,8 @@ def _define_common_kernels_additional_tests(
         defconfig,
         kernel_modules_install,
         modules,
-        arch):
+        arch,
+        protected_exports_list):
     fake_modules_options = Label("//build/kernel/kleaf/artifact_tests:fake_modules_options.txt")
 
     initramfs(
@@ -725,6 +728,17 @@ def _define_common_kernels_additional_tests(
             extra_tests.append(
                 Label("//build/kernel/kleaf/tests/ddk_examples:pkvm_module_test"),
             )
+
+        # This test internally adds the needed checks.
+        symbol_presence_test(
+            name = name + "_runtime_protection_symbol_presence_test",
+            kernel_build = kernel_build_name,
+            protected_exports_list = protected_exports_list,
+            visibility = ["//visibility:private"],
+        )
+        extra_tests.append(
+            name + "_runtime_protection_symbol_presence_test",
+        )
 
     native.test_suite(
         name = name,
