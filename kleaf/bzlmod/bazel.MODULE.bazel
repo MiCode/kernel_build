@@ -119,13 +119,6 @@ bazel_dep(
     repo_name = "io_bazel_stardoc",
 )
 
-# TODO: b/392907760 - Drop this once rules_cc no longer depends on protobuf
-bazel_dep(
-    name = "protobuf",
-    version = "27.0",
-    dev_dependency = True,
-)
-
 bazel_dep(
     name = "rules_python",
     version = "0.37.0",
