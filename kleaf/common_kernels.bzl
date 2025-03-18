@@ -63,6 +63,7 @@ def common_kernel(
         arch = None,
         visibility = None,
         defconfig = None,
+        pre_defconfig_fragments = None,
         post_defconfig_fragments = None,
         enable_interceptor = None,
         kmi_symbol_list = None,
@@ -128,6 +129,7 @@ def common_kernel(
         arch: See [kernel_build.arch](kernel.md#kernel_build-arch)
         makefile: See [kernel_build.makefile](kernel.md#kernel_build-makefile)
         defconfig: See [kernel_build.defconfig](kernel.md#kernel_build-defconfig)
+        pre_defconfig_fragments: See [kernel_build.pre_defconfig_fragments](kernel.md#kernel_build-pre_defconfig_fragments)
         post_defconfig_fragments: See [kernel_build.post_defconfig_fragments](kernel.md#kernel_build-post_defconfig_fragments)
         enable_interceptor: See [kernel_build.enable_interceptor](kernel.md#kernel_build-enable_interceptor)
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](kernel.md#kernel_build-kmi_symbol_list)
@@ -161,6 +163,7 @@ def common_kernel(
         arch = arch,
         makefile = makefile,
         defconfig = defconfig,
+        pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
         visibility = visibility,
         enable_interceptor = enable_interceptor,
@@ -230,10 +233,11 @@ def common_kernel(
         build_config = Label("//build/kernel/kleaf:gki_build_config_fragment"),
         makefile = makefile,
         check_defconfig = select({
-            Label("//build/kernel/kleaf:gki_build_config_fragment_is_unset"): "minimized",
+            Label("//build/kernel/kleaf:gki_build_config_fragment_is_unset"): "match" if pre_defconfig_fragments else "minimized",
             "//conditions:default": "disabled",
         }),
         defconfig = defconfig,
+        pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
         enable_interceptor = enable_interceptor,
         visibility = visibility,
