@@ -14,7 +14,7 @@
 
 """Impl of `exec_aspect`."""
 
-visibility("//build/bazel_common_rules/exec/...")
+visibility("private")
 
 _attrs = ["args", "env", "data", "srcs", "deps"]
 

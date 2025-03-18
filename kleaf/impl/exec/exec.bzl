@@ -17,7 +17,6 @@
 load(":exec_aspect.bzl", "ExecAspectInfo", "exec_aspect")
 
 visibility([
-    "//build/bazel_common_rules/exec/...",
     "//build/kernel/kleaf/...",
 ])
 
