@@ -29,9 +29,9 @@ def _impl(ctx):
         if ExecAspectInfo not in target:
             continue
         if target[ExecAspectInfo].args:
-            fail("{}: {} must not have args. Use embedded_exec to wrap it.".format(ctx.label, target.label))
+            fail("{}: {} must not have args.".format(ctx.label, target.label))
         if target[ExecAspectInfo].env:
-            fail("{}: {} must not have env. Use embedded_exec to wrap it.".format(ctx.label, target.label))
+            fail("{}: {} must not have env.".format(ctx.label, target.label))
 
     content = "#!{}\n".format(ctx.attr.hashbang)
     content += ctx.attr.script
@@ -62,9 +62,7 @@ for details.
     attrs = {
         "data": attr.label_list(aspects = [exec_aspect], allow_files = True, doc = """A list of labels providing runfiles. Labels may be used in `script`.
 
-Executables in `data` must not have the `args` and `env` attribute. Use
-[`embedded_exec`](#embedded_exec) to wrap the depended target so its env and args
-are preserved.
+Executables in `data` must not have the `args` and `env` attribute.
 """),
         "hashbang": attr.string(default = _DEFAULT_HASHBANG, doc = "Hashbang of the script."),
         "script": attr.string(doc = """The script.
@@ -74,7 +72,7 @@ Use `$(rootpath <label>)` to refer to the path of a target specified in `data`. 
 
 Use `$@` to refer to the args attribute of this target.
 
-See `build/bazel_common_rules/exec/tests/BUILD` for examples.
+See `build/kernel/kleaf/tests/exec_test/BUILD.bazel` for examples.
 """),
     },
     executable = True,
@@ -94,9 +92,7 @@ for details.
     attrs = {
         "data": attr.label_list(aspects = [exec_aspect], allow_files = True, doc = """A list of labels providing runfiles. Labels may be used in `script`.
 
-Executables in `data` must not have the `args` and `env` attribute. Use
-[`embedded_exec`](#embedded_exec) to wrap the depended target so its env and args
-are preserved.
+Executables in `data` must not have the `args` and `env` attribute.
 """),
         "hashbang": attr.string(default = _DEFAULT_HASHBANG, doc = "Hashbang of the script."),
         "script": attr.string(doc = """The script.
@@ -106,7 +102,7 @@ Use `$(rootpath <label>)` to refer to the path of a target specified in `data`. 
 
 Use `$@` to refer to the args attribute of this target.
 
-See `build/bazel_common_rules/exec/tests/BUILD` for examples.
+See `build/kernel/kleaf/tests/exec_test/BUILD.bazel` for examples.
 """),
     },
     test = True,

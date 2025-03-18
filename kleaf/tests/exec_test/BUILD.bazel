@@ -12,79 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# BUILD
-load("//build/bazel_common_rules/exec/impl:embedded_exec.bzl", "embedded_exec")
-load("//build/bazel_common_rules/exec/impl:exec.bzl", "exec")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//build/kernel/kleaf/impl/exec:exec.bzl", "exec")
 
 exec(
     name = "script_a",
-    args = [
-        "--argsA=valueA",
-        "--args_expanded=$(rootpath data.txt)",
-    ],
-    data = [":data.txt"],
-    script = "echo script_a $@",
-)
-
-sh_binary(
-    name = "script_b",
-    srcs = ["script_b.sh"],
-    args = [
-        "--script_b_arg=value",
-        "--args_expanded=$(rootpath data.txt)",
-    ],
-    data = [":data.txt"],
-    env = {
-        "SCRIPT_B_ENV": "env_value",
-        "SCRIPT_B_ENV_EXPANDED": "$(rootpath data.txt)",
-    },
-)
-
-exec(
-    name = "cat_data",
-    data = [":data.txt"],
-    script = "cat $(rootpath :data.txt)",
-)
-
-embedded_exec(
-    name = "script_a_embedded",
-    actual = "script_a",
-)
-
-embedded_exec(
-    name = "script_b_embedded",
-    actual = "script_b",
-)
-
-exec(
-    name = "combined",
-    args = ["--script_a_path=$(rootpath :script_a_embedded)"],
-    data = [
-        ":cat_data",
-        ":script_a_embedded",
-        ":script_b_embedded",
-    ],
-    script = """
-        echo combined_args=$@
-        $(rootpath :script_a_embedded)
-        $(rootpath :script_b_embedded)
-        $(rootpath :cat_data)
-    """,
+    script = "export PATH= ; echo script_a",
 )
 
 py_test(
     name = "exec_test",
     srcs = ["exec_test.py"],
-    args = ["$(location :combined)"],
-    data = [":combined"],
+    args = ["$(location :script_a)"],
+    data = [":script_a"],
     deps = [
         "@io_abseil_py//absl/testing:absltest",
-    ],
-)
-
-test_suite(
-    name = "tests",
-    tests = [
-        ":exec_test",
     ],
 )

@@ -30,18 +30,8 @@ arguments = None
 
 class ExecruleTest(unittest.TestCase):
     def test_no_args(self):
-        output = subprocess.check_output([arguments.script], text=True).strip()
-        self.assertEqual(output, """combined_args=
-script_a --argsA=valueA --args_expanded=build/bazel_common_rules/exec/tests/data.txt
-SCRIPT_B_ENV=env_value SCRIPT_B_ENV_EXPANDED=build/bazel_common_rules/exec/tests/data.txt script_b --script_b_arg=value --args_expanded=build/bazel_common_rules/exec/tests/data.txt
-text""")
-
-    def test_args(self):
-        output = subprocess.check_output([arguments.script, "--some_arg"], text=True).strip()
-        self.assertEqual(output, """combined_args=--some_arg
-script_a --argsA=valueA --args_expanded=build/bazel_common_rules/exec/tests/data.txt
-SCRIPT_B_ENV=env_value SCRIPT_B_ENV_EXPANDED=build/bazel_common_rules/exec/tests/data.txt script_b --script_b_arg=value --args_expanded=build/bazel_common_rules/exec/tests/data.txt
-text""")
+        output = subprocess.check_output([arguments.script], text=True)
+        self.assertEqual(output, "script_a\n")
 
 
 if __name__ == '__main__':

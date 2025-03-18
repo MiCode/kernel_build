@@ -26,6 +26,7 @@ test_suite(
         "//build/kernel/kleaf/tests/ddk_test",
         "//build/kernel/kleaf/tests/debug_test",
         "//build/kernel/kleaf/tests/empty_binary_test",
+        "//build/kernel/kleaf/tests/exec_test",
         "//build/kernel/kleaf/tests/hermetic_test",
         "//build/kernel/kleaf/tests/kernel_build_config_test",
         "//build/kernel/kleaf/tests/kernel_build_test",
