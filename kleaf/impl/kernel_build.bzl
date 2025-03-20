@@ -2188,6 +2188,7 @@ def _create_infos(
         ruledir = main_action_ret.ruledir,
         module_env_archive = module_scripts_archive,
         has_base_kernel = base_kernel_utils.get_base_kernel(ctx) != None,
+        copy_module_symvers_outputs = main_action_ret.module_symvers_outputs,
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()

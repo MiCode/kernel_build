@@ -87,10 +87,21 @@ files_test(
     ],
 )
 
+# Test that @gki_prebuilts//kernel_aarch64 contains a file named kernel_aarch64_Module.symvers,
+# align with @kleaf//common:kernel_aarch64, because keep_module_symvers = True.
+files_test(
+    name = "module_symvers_test",
+    src = ":kernel",
+    expected_basenames = [
+        "kernel_aarch64_Module.symvers",
+    ],
+)
+
 test_suite(
     name = "tests",
     tests = [
         ":build_test",
+        ":module_symvers_test",
         ":modules_test",
         ":zram_test",
         "@kleaf//build/kernel/kleaf/tests/ddk_menuconfig_test",

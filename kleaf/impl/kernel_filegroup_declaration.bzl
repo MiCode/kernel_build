@@ -132,7 +132,7 @@ extracted_gki_artifacts_archive(
 
 kernel_filegroup(
     name = {name_repr},
-    srcs = {srcs_repr},
+    srcs = {srcs_repr} + {copy_module_symvers_repr},
     deps = {deps_repr} + {extra_deps_repr},
     kernel_uapi_headers = {uapi_headers_repr},
     collect_unstripped_modules = {collect_unstripped_modules_repr},
@@ -212,6 +212,11 @@ def _write_filegroup_decl_file(
     sub = ctx.actions.template_dict()
     sub.add("{name_repr}", repr(ctx.attr.kernel_build.label.name))
     sub.add_joined("{srcs_repr}", info.filegroup_srcs, **(join | extra))
+    sub.add_joined(
+        "{copy_module_symvers_repr}",
+        depset(info.copy_module_symvers_outputs),
+        **(join | pkg)
+    )
     sub.add_joined("{deps_repr}", depset(deps_files), **(join | pkg))
     sub.add_joined(
         "{extra_deps_repr}",
@@ -333,6 +338,7 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
     ]
     if info.src_protected_modules_list:
         direct_inputs.append(info.src_protected_modules_list)
+    direct_inputs.extend(info.copy_module_symvers_outputs)
     transitive_inputs = [
         info.ddk_module_defconfig_fragments,
         info.internal_outs,
