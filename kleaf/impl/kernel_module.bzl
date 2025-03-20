@@ -540,8 +540,12 @@ def _kernel_module_impl(ctx):
         )
     command += """
         {get_compdb_outputs}
+
+        # Grab *.gcno files
+        {grab_gcno_step_cmd}
     """.format(
         get_compdb_outputs = compile_commands_step.cmd,
+        grab_gcno_step_cmd = grab_gcno_step.cmd,
     )
 
     # For ddk_library etc., directly copy output files in the main action.
@@ -594,8 +598,6 @@ def _kernel_module_impl(ctx):
 
              # Grab unstripped modules
                {grab_unstripped_cmd}
-             # Grab *.gcno files
-               {grab_gcno_step_cmd}
              # Grab *.cmd
                {grab_cmd_cmd}
              # Move Module.symvers
@@ -619,7 +621,6 @@ def _kernel_module_impl(ctx):
             check_no_remaining = check_no_remaining.path,
             grab_modules_order_cmd = grab_modules_order_cmd,
             drop_modules_order_cmd = drop_modules_order_cmd,
-            grab_gcno_step_cmd = grab_gcno_step.cmd,
             grab_cmd_cmd = grab_cmd_step.cmd,
         )
 
