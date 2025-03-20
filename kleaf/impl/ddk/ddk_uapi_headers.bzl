@@ -44,6 +44,7 @@ def _ddk_uapi_headers_impl(ctx):
              base=$(basename ${{hdr}})
              (
                cd ${{KERNEL_DIR}}
+               export objtree="."
                ./scripts/headers_install.sh \
                  ${{OLDPWD}}/${{hdr}} ${{OLDPWD}}/{kernel_uapi_headers_dir}/usr/include/${{out_prefix}}/${{base}}
              )
