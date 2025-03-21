@@ -781,7 +781,7 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         config = config_target_name,
         keep_module_symvers = keep_module_symvers,
         keep_dot_config = keep_dot_config,
-        srcs = srcs,
+        srcs = srcs + all_kmi_symbol_lists,
         outs = kernel_utils.transform_kernel_build_outs(name, "outs", outs),
         module_outs = kernel_utils.transform_kernel_build_outs(name, "module_outs", module_outs),
         implicit_outs = kernel_utils.transform_kernel_build_outs(name, "implicit_outs", implicit_outs),
