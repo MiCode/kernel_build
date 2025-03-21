@@ -74,6 +74,8 @@ build --flag_alias=nokconfig_werror=no//build/kernel/kleaf:kconfig_werror
 # flags that control the build process
 build --flag_alias=experimental_optimize_ddk_config_actions=//build/kernel/kleaf:optimize_ddk_config_actions
 build --flag_alias=noexperimental_optimize_ddk_config_actions=no//build/kernel/kleaf:optimize_ddk_config_actions
+build --flag_alias=optimize_ddk_config_actions=//build/kernel/kleaf:optimize_ddk_config_actions
+build --flag_alias=nooptimize_ddk_config_actions=no//build/kernel/kleaf:optimize_ddk_config_actions
 
 # flags that control the distribution
 build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes

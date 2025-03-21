@@ -768,11 +768,11 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# EXPERIMENTAL: Optimize the size of the sandbox for ddk_config() and
+# Optimize the size of the sandbox for ddk_config() and
 # ddk_module()'s config with the best effort.
 bool_flag(
     name = "optimize_ddk_config_actions",
-    build_setting_default = False,
+    build_setting_default = True,
     visibility = ["//visibility:public"],
 )
 
