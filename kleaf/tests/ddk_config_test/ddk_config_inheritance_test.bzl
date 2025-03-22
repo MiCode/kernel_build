@@ -41,8 +41,8 @@ def ddk_config_inheritance_test(
         defconfig: defconfig file
         override_parent: ddk_module_config.override_parent
         override_parent_log_expected_lines: Expected lines in override_parent.log
-        optimize_ddk_config_actions: If true, pre-set optimize_ddk_config_actions for the
-            internal target
+        optimize_ddk_config_actions: If true, pre-set --optimize_ddk_config_actions for the
+            internal target. Otherwise pre-set --nooptimize_ddk_config_actions.
         **kwargs: kwargs to internal targets
     """
 
@@ -57,18 +57,12 @@ def ddk_config_inheritance_test(
         **kwargs
     )
 
-    if optimize_ddk_config_actions:
-        target_with_optimize_ddk_config_actions(
-            name = name + "_module_config",
-            actual = name + "_module_config_internal",
-            **kwargs
-        )
-    else:
-        native.alias(
-            name = name + "_module_config",
-            actual = name + "_module_config_internal",
-            **kwargs
-        )
+    target_with_optimize_ddk_config_actions(
+        name = name + "_module_config",
+        actual = name + "_module_config_internal",
+        value = optimize_ddk_config_actions,
+        **kwargs
+    )
 
     ddk_config_get_dot_config(
         name = name + "_dot_config",

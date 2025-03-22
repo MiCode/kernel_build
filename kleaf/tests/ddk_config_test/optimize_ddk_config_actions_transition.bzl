@@ -16,9 +16,9 @@
 
 visibility("private")
 
-def _optimize_ddk_config_actions_transition_impl(_settings, _attr):
+def _optimize_ddk_config_actions_transition_impl(_settings, attr):
     return {
-        str(Label("//build/kernel/kleaf:optimize_ddk_config_actions")): True,
+        str(Label("//build/kernel/kleaf:optimize_ddk_config_actions")): attr.value,
     }
 
 _optimize_ddk_config_actions_transition = transition(
@@ -43,5 +43,6 @@ target_with_optimize_ddk_config_actions = rule(
         "actual": attr.label(
             cfg = _optimize_ddk_config_actions_transition,
         ),
+        "value": attr.bool(),
     },
 )
