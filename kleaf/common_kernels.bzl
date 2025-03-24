@@ -460,6 +460,7 @@ def common_kernel(
         kernel_modules_install = name + "_modules_install",
         modules = (module_implicit_outs or []),
         arch = arch,
+        page_size = page_size,
         makefile = makefile,
         defconfig = defconfig,
         protected_exports_list = protected_exports_list,
@@ -649,6 +650,7 @@ def _define_common_kernels_additional_tests(
         kernel_modules_install,
         modules,
         arch,
+        page_size,
         protected_exports_list):
     fake_modules_options = Label("//build/kernel/kleaf/artifact_tests:fake_modules_options.txt")
 
@@ -688,11 +690,13 @@ def _define_common_kernels_additional_tests(
         base_kernel_label = native.package_relative_label(kernel_build_name),
         base_kernel_module = min(modules) if modules else None,
         arch = arch,
+        page_size = page_size,
     )
 
     kernel_build(
         name = name + "_test_device_kernel",
         arch = arch,
+        page_size = page_size,
         makefile = makefile,
         defconfig = defconfig,
         pre_defconfig_fragments = [Label("//build/kernel/kleaf/tests/defconfig_test:pre_defconfig_fragment")],

@@ -89,6 +89,7 @@ def _create_one_device_modules_test(
         name,
         srcs,
         arch,
+        page_size,
         base_kernel_label,
         base_kernel_module,
         expect_signature,
@@ -100,6 +101,7 @@ def _create_one_device_modules_test(
         tags = ["manual"],
         srcs = srcs,
         arch = arch,
+        page_size = page_size,
         makefile = base_kernel_label.same_package_label("Makefile"),
         defconfig = base_kernel_label.same_package_label("arch/{}/configs/gki_defconfig".format(srcarch)),
         pre_defconfig_fragments = [
@@ -136,7 +138,8 @@ def device_modules_test(
         srcs,
         base_kernel_label,
         base_kernel_module,
-        arch):
+        arch,
+        page_size):
     """Tests for device's modules.
 
     This test checks that device targets contains proper modules.
@@ -149,6 +152,7 @@ def device_modules_test(
           does not contain any in-tree modules, this should be `None`, and
           no tests will be defined.
         arch: architecture of `base_kernel`. This is either `"arm64"` or `"x86_64"`.
+        page_size: page size of `base_kernel`.
     """
 
     if not base_kernel_module:
@@ -160,6 +164,7 @@ def device_modules_test(
         name = name + "_use_gki_module",
         srcs = srcs,
         arch = arch,
+        page_size = page_size,
         base_kernel_module = base_kernel_module,
         base_kernel_label = base_kernel_label,
         expect_signature = True,
@@ -170,6 +175,7 @@ def device_modules_test(
         name = name + "_use_device_module",
         srcs = srcs,
         arch = arch,
+        page_size = page_size,
         base_kernel_module = base_kernel_module,
         base_kernel_label = base_kernel_label,
         expect_signature = False,
