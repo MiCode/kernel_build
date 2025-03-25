@@ -115,11 +115,20 @@ def _system_dlkm_image_impl(ctx):
 
         system_dlkm_flatten_img = None
         system_dlkm_flatten_img_name = None
+        system_dlkm_flatten_modules_load = None
+        system_dlkm_flatten_modules_load_name = None
         if ctx.attr.build_flatten:
             system_dlkm_flatten_img = ctx.actions.declare_file("{}/system_dlkm.flatten.{}.img".format(ctx.label.name, fs_type))
             outputs.append(system_dlkm_flatten_img)
             system_dlkm_flatten_img_name = "system_dlkm.flatten.{}.img".format(fs_type)
             outputs_to_compare.append(system_dlkm_flatten_img_name)
+
+            system_dlkm_flatten_modules_load_name = "system_dlkm.flatten.modules.load"
+            system_dlkm_flatten_modules_load = ctx.actions.declare_file(
+                "{}/{}".format(ctx.label.name, system_dlkm_flatten_modules_load_name),
+            )
+            outputs.append(system_dlkm_flatten_modules_load)
+            outputs_to_compare.append(system_dlkm_flatten_modules_load_name)
 
         command += """
                    {extract_staging_archive_cmd}
@@ -142,6 +151,7 @@ def _system_dlkm_image_impl(ctx):
                    mv "${{DIST_DIR}}/{system_dlkm_img_name}" {system_dlkm_img}
                    if [[ {build_flatten_image} == "1" ]]; then
                      mv "${{DIST_DIR}}/{system_dlkm_flatten_img_name}" {system_dlkm_flatten_img}
+                     mv "${{DIST_DIR}}/{system_dlkm_flatten_modules_load_name}" {system_dlkm_flatten_modules_load}
                    fi
                    mv "${{DIST_DIR}}/system_dlkm.modules.load" {system_dlkm_modules_load}
                    mv "${{DIST_DIR}}/system_dlkm_staging_archive.tar.gz" {system_dlkm_staging_archive}
@@ -165,6 +175,8 @@ def _system_dlkm_image_impl(ctx):
             system_dlkm_staging_dir = system_dlkm_staging_dir,
             system_dlkm_flatten_img = system_dlkm_flatten_img.path if system_dlkm_flatten_img else "/dev/null",
             system_dlkm_flatten_img_name = system_dlkm_flatten_img_name,
+            system_dlkm_flatten_modules_load = system_dlkm_flatten_modules_load.path if system_dlkm_flatten_modules_load else "/dev/null",
+            system_dlkm_flatten_modules_load_name = system_dlkm_flatten_modules_load_name,
             system_dlkm_img = system_dlkm_img.path,
             system_dlkm_img_name = system_dlkm_img_name,
             system_dlkm_modules_load = system_dlkm_modules_load.path,
