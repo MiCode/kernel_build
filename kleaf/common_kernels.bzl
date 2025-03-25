@@ -723,9 +723,10 @@ def _define_common_kernels_additional_tests(
     # is only included when we are building //common:kernel_aarch64.
     extra_tests = []
     if native.package_relative_label(kernel_build_name) == native.package_relative_label("//common:kernel_aarch64"):
-        extra_tests.append(
+        extra_tests += [
+            Label("//build/kernel/kleaf/tests/built_with_ddk_test"),
             Label("//build/kernel/kleaf/tests/ddk_examples"),
-        )
+        ]
 
         # Building pKVM module with DDK is only supported if the following file exists.
         if native.glob(["arch/arm64/kvm/hyp/nvhe/Makefile.module"]):

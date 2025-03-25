@@ -18,7 +18,6 @@ load("@rules_python//python:defs.bzl", "py_binary")
 test_suite(
     name = "tests",
     tests = [
-        "//build/kernel/kleaf/tests/built_with_ddk_test",
         "//build/kernel/kleaf/tests/cc_testing",
         "//build/kernel/kleaf/tests/ddk_config_analysis_test",
         "//build/kernel/kleaf/tests/ddk_config_test",
