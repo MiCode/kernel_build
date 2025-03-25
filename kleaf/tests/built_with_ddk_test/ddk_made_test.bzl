@@ -107,7 +107,7 @@ def ddk_made_test(name):
     )
     tests.append(name + "_submodule_test_a_b")
 
-    # Multiple source files with ddk_marker collision.
+    # Multiple source files with ddk modinfo source file collision.
     _ddk_module_test_make(
         name = name + "_multiple_files_test",
         srcs = [

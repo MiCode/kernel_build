@@ -47,6 +47,8 @@ _VALUE_OPT_RE = re.compile(r"^\$\([^)]+\)$")
 # hyp-obj-y builds hypervisor code
 _PKVM_EL2_OBJ = "hyp-obj"
 
+_DDK_MODINFO_SOURCE = "ddk_modinfo.c"
+
 Opts = list[dict[str, str | bool]]
 
 class DieException(SystemExit):
@@ -162,12 +164,12 @@ def _should_apply_cflags(src: pathlib.Path) -> bool:
 def _merge_directories(
         output_makefiles: pathlib.Path,
         submodule_makefile_dir: pathlib.Path,
-        ddk_markers: set[pathlib.Path],
+        ddk_modinfos: set[pathlib.Path],
     ):
     """Merges the content of submodule_makefile_dir into output_makefiles.
 
     File of the same relative path are concatenated.
-    ddk_markers is modified during this keep track of where it' been copied.
+    ddk_modinfos is modified during this keep track of where it' been copied.
     """
 
     if not submodule_makefile_dir.is_dir():
@@ -182,10 +184,10 @@ def _merge_directories(
             with open(dst_path, "a") as dst, \
                     open(submodule_file, "r") as src:
                 if dst_path.suffix in (".c", ".rs", ".h"):
-                    if dst_path.name == "ddk_marker.c":
-                        if file_rel in ddk_markers:
+                    if dst_path.name == _DDK_MODINFO_SOURCE:
+                        if file_rel in ddk_modinfos:
                             continue
-                        ddk_markers.add(file_rel)
+                        ddk_modinfos.add(file_rel)
                     dst.write(f"// {submodule_file}\n")
                 elif dst_path.suffix == ".S":
                     dst.write(f"/* {submodule_file} */\n")
@@ -262,25 +264,25 @@ def generate_all_files(
             pkvm_el2_out=pkvm_el2_out,
         )
 
-    ddk_markers: set[pathlib.Path] = set()
+    ddk_modinfos: set[pathlib.Path] = set()
     for submodule_makefile_dir in submodule_makefiles:
         _merge_directories(
-            output_makefiles, submodule_makefile_dir, ddk_markers)
+            output_makefiles, submodule_makefile_dir, ddk_modinfos)
     _append_submodule_linux_include_dirs(output_makefiles,
                                          linux_include_dirs,
                                          submodule_linux_include_dirs)
 
 
-def _get_ddk_marker(
+def _get_ddk_modinfo(
     output_dir: pathlib.Path,
 ) -> pathlib.Path:
     os.makedirs(output_dir, exist_ok=True)
-    ddk_marker = output_dir / "ddk_marker.c"
-    ddk_marker.write_text(textwrap.dedent("""\
+    ddk_modinfo = output_dir / _DDK_MODINFO_SOURCE
+    ddk_modinfo.write_text(textwrap.dedent("""\
         #include <linux/compiler.h>
         static const char __UNIQUE_ID(built_with)[] __used __section(".modinfo") __aligned(1) = "built_with=DDK";
         """))
-    return ddk_marker
+    return ddk_modinfo
 
 
 def _generate_kbuild_and_extra(
@@ -369,7 +371,7 @@ def _generate_kbuild_and_extra(
 
     if not is_library:
         # For modinfo tagging
-        _handle_ddk_marker(rel_srcs, kernel_module_out,
+        _handle_ddk_modinfo(rel_srcs, kernel_module_out,
             out_cflags_path, package / gen_cflags_subpath.parent)
 
     with open(kbuild, "w") as out_file, \
@@ -520,31 +522,31 @@ def _check_srcs_valid(rel_srcs: list[dict[str, Any]],
             kernel_module_out)
 
 
-def _handle_ddk_marker(
+def _handle_ddk_modinfo(
         rel_srcs: list[dict[str, Any]],
         kernel_module_out: pathlib.Path,
         out_cflags_path: pathlib.Path,
         package: pathlib.Path
 ):
-    """Adds ddk_marker.c or implicitly include it."""
+    """Adds ddk_modinfo.c or implicitly include it."""
     rel_srcs_flat = _get_rel_srcs_flat(rel_srcs)
-    # Avoid possible collisions if there is an existing ddk_marker.c file.
-    #  or if the output .ko is named ddk_marker.ko
-    if any([src.name == "ddk_marker.c" for src in rel_srcs_flat]):
-        die("ddk_marker.c is not allowed to be a source file")
-    if kernel_module_out.with_suffix(".c") == "ddk_marker.c":
-        die("ddk_marker.ko is not allowed to be the output file")
+    # Avoid possible collisions if there is an existing ddk_modinfo.c file.
+    #  or if the output .ko is named ddk_modinfo.ko
+    if any([src.name == _DDK_MODINFO_SOURCE for src in rel_srcs_flat]):
+        die("%s is not allowed to be a source file", _DDK_MODINFO_SOURCE)
+    if kernel_module_out.with_suffix(".c") == _DDK_MODINFO_SOURCE:
+        die("%s is not allowed to be the output file", kernel_module_out)
 
-    ddk_marker = _get_ddk_marker(out_cflags_path.parent)
+    ddk_modinfo = _get_ddk_modinfo(out_cflags_path.parent)
     # Depending on the number of files, choose an appropriate path for tagging.
     if len(rel_srcs_flat) > 1:
         rel_srcs.append(
-            {"files": [kernel_module_out.parent / ddk_marker.name]})
+            {"files": [kernel_module_out.parent / ddk_modinfo.name]})
     else:
         with open(out_cflags_path, "w") as out_cflags:
             out_cflags.write("\n")
             out_cflags.write(textwrap.dedent(f"""\
-                    -include $(ROOT_DIR)/{str(package / ddk_marker.name)}
+                    -include $(ROOT_DIR)/{str(package / ddk_modinfo.name)}
                 """))
             out_cflags.write("\n")
 
