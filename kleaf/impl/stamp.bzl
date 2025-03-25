@@ -162,6 +162,7 @@ def _ext_mod_write_localversion(ctx, ext_mod):
         dest_dir = "${OUT_DIR}"
 
     ret_cmd = """
+        mkdir -p {dest_dir}
         rsync -aL --chmod=F+w {localversion_file} {dest_dir}/localversion
     """.format(
         dest_dir = dest_dir,

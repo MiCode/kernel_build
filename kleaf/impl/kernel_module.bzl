@@ -423,6 +423,17 @@ def _kernel_module_impl(ctx):
         restore_out_dir_cmd = cache_dir_step.cmd,
     )
 
+    command += """
+        # For DDK modules with all sources generated, {ext_mod}/ may not even exist. Create it.
+        if [[ ! -d "{ext_mod}" ]]; then
+            mkdir -p "{ext_mod}"
+        fi
+        # Set variables
+        ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
+    """.format(
+        ext_mod = ext_mod,
+    )
+
     if kernel_uapi_headers_dws:
         command += """
                 # create dirs for modules
@@ -462,7 +473,6 @@ def _kernel_module_impl(ctx):
     if ctx.file.internal_ddk_makefiles_dir:
         command += """
              # Restore Makefile and Kbuild
-               mkdir -p {ext_mod}
                cp -r {ddk_makefiles}/* {ext_mod}/
 
              # Replace env var in cflags/asflags files
@@ -508,9 +518,6 @@ def _kernel_module_impl(ctx):
         make_filter = " 2> >(sed '/Skipping BTF generation/d' >&2) "
 
     command += """
-             # Set variables
-               ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
-
              # Actual kernel module build
                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} {mo_cmd} \\
                     KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} \\
