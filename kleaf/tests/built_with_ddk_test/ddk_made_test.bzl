@@ -16,6 +16,7 @@
 
 load(
     "//build/kernel/kleaf:kernel.bzl",
+    "ddk_library",
     "ddk_module",
     "ddk_submodule",
 )
@@ -226,6 +227,21 @@ def ddk_made_test(name):
         ],
     )
     tests.append(name + "_single_subdir_with_headers")
+
+    # With ddk_library, only one built_with: DDK should be present.
+    ddk_library(
+        name = name + "_lib",
+        kernel_build = "//common:kernel_aarch64",
+        srcs = ["lib.c"],
+    )
+    _ddk_module_test_make(
+        name = name + "_with_lib",
+        kernel_build = "//common:kernel_aarch64",
+        out = "dep.ko",
+        srcs = ["license.c"],
+        deps = [name + "_lib"],
+    )
+    tests.append(name + "_with_lib")
 
     native.test_suite(
         name = name,

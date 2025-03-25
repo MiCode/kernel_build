@@ -367,9 +367,10 @@ def _generate_kbuild_and_extra(
     out_asflags_path = output_makefiles / gen_asflags_subpath
     out_ldflags_path = output_makefiles / gen_ldflags_subpath
 
-    # For modinfo tagging
-    _handle_ddk_marker(rel_srcs, kernel_module_out,
-        out_cflags_path, package / gen_cflags_subpath.parent)
+    if not is_library:
+        # For modinfo tagging
+        _handle_ddk_marker(rel_srcs, kernel_module_out,
+            out_cflags_path, package / gen_cflags_subpath.parent)
 
     with open(kbuild, "w") as out_file, \
          open(out_cflags_path, "a") as out_cflags, \
