@@ -2,6 +2,8 @@
 
 Turn a simple build.config into a Bazel extension.
 
+[TOC]
+
 <a id="key_value_repo"></a>
 
 ## key_value_repo

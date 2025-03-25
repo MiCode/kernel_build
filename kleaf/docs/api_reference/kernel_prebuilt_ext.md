@@ -2,6 +2,8 @@
 
 Extension that helps building Android kernel and drivers.
 
+[TOC]
+
 <a id="kernel_prebuilt_ext"></a>
 
 ## kernel_prebuilt_ext

@@ -2,6 +2,8 @@
 
 Upon `bazel run`, updates a source file.
 
+[TOC]
+
 <a id="update_source_file"></a>
 
 ## update_source_file

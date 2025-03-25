@@ -70,6 +70,7 @@ bzl_library(
     stardoc(
         name = package_relative_label(src).name,
         out = package_relative_label(src).name.removesuffix(".bzl") + ".md",
+        header_template = "header.vm",
         input = src,
         deps = [":deps"],
     )

@@ -6,6 +6,8 @@ directory won't be created in the sandbox.
 These functions resolve the problem by also recording the directory structure
 in a text file.
 
+[TOC]
+
 <a id="directory_with_structure.files"></a>
 
 ## directory_with_structure.files

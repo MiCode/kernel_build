@@ -2,6 +2,8 @@
 
 A rule that fails.
 
+[TOC]
+
 <a id="fail_action"></a>
 
 ## fail_action

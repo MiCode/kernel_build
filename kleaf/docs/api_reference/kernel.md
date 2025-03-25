@@ -2,6 +2,8 @@
 
 All public rules and macros to build the kernel.
 
+[TOC]
+
 <a id="android_filegroup"></a>
 
 ## android_filegroup

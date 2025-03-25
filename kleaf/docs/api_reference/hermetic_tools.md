@@ -2,6 +2,8 @@
 
 Provide tools for a hermetic build.
 
+[TOC]
+
 <a id="hermetic_exec"></a>
 
 ## hermetic_exec

@@ -2,6 +2,8 @@
 
 Functions that are useful in the common kernel package (usually `//common`).
 
+[TOC]
+
 <a id="common_kernel"></a>
 
 ## common_kernel
