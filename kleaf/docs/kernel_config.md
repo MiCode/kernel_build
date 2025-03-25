@@ -1,5 +1,7 @@
 # Configuring kernel\_build
 
+[TOC]
+
 ## Modify defconfig
 
 To run `make *config` or `config.sh` in Kleaf, run

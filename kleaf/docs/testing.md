@@ -1,11 +1,13 @@
 # Testing Kleaf
 
+[TOC]
+
 Some basic tests can be performed with `bazel test` command. For details of
 Bazel testing, please visit
 
 [https://bazel.build/rules/testing](https://bazel.build/rules/testing)
 
-## `kernel_build`
+## kernel_build
 
 ### GKI
 
@@ -51,7 +53,7 @@ This command checks the following on the in-tree modules:
 - scmversion
 - vermagic
 
-## External `kernel_module`
+## External kernel_module
 
 For a `kernel_module()` named `nfc`, the following targets are created.
 

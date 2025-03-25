@@ -1,5 +1,7 @@
 # Ensuring Hermeticity
 
+[TOC]
+
 Hermetic builds are a key goal of Kleaf. Hermeticity means that all tools,
 toolchain, inputs, etc. come from the source tree, not outside of the source
 tree from the host machine.

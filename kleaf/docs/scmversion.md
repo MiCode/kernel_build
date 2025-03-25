@@ -1,5 +1,7 @@
 # Handling SCM version
 
+[TOC]
+
 ## What is SCM version?
 
 SCM version refers to the result of the `scripts/setlocalversion` script.

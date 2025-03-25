@@ -1,6 +1,8 @@
 # Kleaf - Building Android Kernels with Bazel
 
-### Prerequisites
+[TOC]
+
+## Prerequisites
 
 There are no additional host dependencies. The Bazel toolchain and environment
 are provided through `repo sync`. The corresponding entries are in the kernel
@@ -16,7 +18,7 @@ but this creates a dependency on that particular checked out workspace if used
 across workspaces and also adds additional executables from `tools/` to `PATH`.
 Hence, this method is not recommended.)
 
-### Running a build
+## Running a build
 
 Android Common Kernels define at least a 'kernel' rule as part of the build
 definition in the `common/` subdirectory. Building just a kernel is therefore as
@@ -53,7 +55,7 @@ discovered via bazel's `query` subcommand:
 $ bazel query "kind('py_binary', //common:*)"
 ```
 
-### Distribution
+## Distribution
 
 Copy build artifacts to `DIST_DIR` for distribution by running the following
 command.
@@ -71,7 +73,7 @@ put them after the `--` delimiter.
 $ tools/bazel run //common:kernel_dist -- --destdir=out/dist
 ```
 
-#### Cloud Android
+### Cloud Android
 
 ```shell
 $ tools/bazel run //common-modules/virtual-device:virtual_device_x86_64_dist

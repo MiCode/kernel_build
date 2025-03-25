@@ -1,5 +1,7 @@
 # Debugging Kleaf
 
+[TOC]
+
 ## Debugging Options
 
 This is a non exhaustive list of options to help debugging compilation issues:

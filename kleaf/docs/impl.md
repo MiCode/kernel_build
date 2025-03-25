@@ -1,5 +1,7 @@
 # Build your kernels and drivers with Bazel
 
+[TOC]
+
 **Note**:
 You may view the documentation for the following Bazel rules and macros on
 Android Continuous Integration. See

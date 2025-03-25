@@ -1,5 +1,7 @@
 # Supporting ABI monitoring with Bazel (device kernel)
 
+[TOC]
+
 ## Enable ABI monitoring
 
 ABI monitoring only needs to be configured for core kernel build targets. Mixed

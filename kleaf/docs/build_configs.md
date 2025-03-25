@@ -20,7 +20,7 @@ text _"Not used in Bazel."_ is displayed.
 For build configs that are not supported, the text
 _"Not supported"_ is displayed. Contact [owners](../OWNERS) if you need support.
 
-## Table of contents
+[TOC]
 
 * [`BUILD_CONFIG`](#build_config)
 * [`BUILD_CONFIG_FRAGMENTS`](#build_config_fragments)

@@ -2,6 +2,8 @@
 
 This documentation summarizes principles used in Kleaf development.
 
+[TOC]
+
 ## Style Guides
 
 * Follow [.bzl style guide](https://bazel.build/rules/bzl-style) for

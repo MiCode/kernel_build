@@ -1,5 +1,7 @@
 # Resolving Common Errors when Writing Bazel Rules
 
+[TOC]
+
 This document explains how to deal with common errors when
 [building your kernels and drivers with Kleaf](impl.md).
 

@@ -1,5 +1,7 @@
 # Sandboxing
 
+[TOC]
+
 ## TL;DR
 
 To reduce sandboxes and boost build time, build with `--config=local`.
