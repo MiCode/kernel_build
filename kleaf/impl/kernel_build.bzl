@@ -1506,6 +1506,59 @@ _get_dot_config = subrule(
     implementation = _get_dot_config_impl,
 )
 
+def _gen_symvers_step(all_output_names_minus_modules, kbuild_mixed_tree_ret):
+    """Creates a step that generates various .symvers files.
+
+    Args:
+        all_output_names_minus_modules: all non-module output names in *outs
+        kbuild_mixed_tree_ret: from _create_kbuild_mixed_tree
+    """
+    inputs = []
+    cmd = ""
+
+    # After 6.13, Kbuild no longer generates vmlinux.symvers. Manually generates this by
+    # filtering vmlinux lines from Module.symvers if the caller is requesting vmlinux.symvers in
+    # outs.
+    if "vmlinux.symvers" in all_output_names_minus_modules:
+        cmd += """
+            if [[ ! -f ${OUT_DIR}/vmlinux.symvers ]]; then
+                if [[ ! -f ${OUT_DIR}/Module.symvers ]]; then
+                    echo "ERROR: Can't generate vmlinux.symvers because Kbuild did not generate Module.symvers." >&2
+                    exit 1
+                fi
+                grep "\\<vmlinux\\s\\+EXPORT" ${OUT_DIR}/Module.symvers > ${OUT_DIR}/vmlinux.symvers
+            fi
+        """
+
+    # After 6.13, for mixed builds, Kbuild only generates modules-only.symvers. Manually
+    # concatenate it with vmlinux.symvers to form Module.symvers.
+    if "Module.symvers" in all_output_names_minus_modules and kbuild_mixed_tree_ret.base_kernel_files:  # is mixed build
+        # This to_list() is acceptable because GKI's outs/module_outs is a small list
+        symvers_srcs = [
+            file
+            for file in kbuild_mixed_tree_ret.base_kernel_files.to_list()
+            if file.basename == "vmlinux.symvers"
+        ]
+        cmd += """
+            if [[ ! -f ${{OUT_DIR}}/Module.symvers ]]; then
+                if [[ ! -f ${{OUT_DIR}}/modules-only.symvers ]]; then
+                    echo "ERROR: Can't generate Module.symvers because Kbuild did not generate modules-only.symvers." >&2
+                    exit 1
+                fi
+                cat {symvers_srcs} ${{OUT_DIR}}/modules-only.symvers > ${{OUT_DIR}}/Module.symvers
+            fi
+        """.format(
+            symvers_srcs = " ".join([file.path for file in symvers_srcs]),
+        )
+        inputs += symvers_srcs
+
+    return struct(
+        inputs = inputs,
+        tools = [],
+        cmd = cmd,
+        outputs = [],
+    )
+
 def _get_modinst_step(ctx, modules_staging_dir):
     module_strip_flag = "INSTALL_MOD_STRIP="
     if ctx.attr.strip_modules:
@@ -1617,6 +1670,10 @@ def _build_main_action(
     modules_staging_dir = modules_staging_archive_self.dirname + "/staging"
 
     # Individual steps of the final command.
+    gen_symvers_step = _gen_symvers_step(
+        all_output_names_minus_modules = all_output_names.non_modules,
+        kbuild_mixed_tree_ret = kbuild_mixed_tree_ret,
+    )
     cache_dir_step = cache_dir.get_step(
         ctx = ctx,
         common_config_tags = ctx.attr.config[KernelEnvAttrInfo].common_config_tags,
@@ -1677,6 +1734,8 @@ def _build_main_action(
            {kbuild_mixed_tree_cmd}
          # Actual kernel build
            make -C ${{KERNEL_DIR}} ${{TOOL_ARGS}} O=${{OUT_DIR}} {make_goals}
+         # Generate .symvers files that might be missing from Kbuild.
+           {gen_symvers_cmd}
          # Install modules
            {modinst_cmd}
          # Archive headers in OUT_DIR
@@ -1718,6 +1777,7 @@ def _build_main_action(
          # Create last_build symlink in cache_dir
            {cache_dir_post_cmd}
          """.format(
+        gen_symvers_cmd = gen_symvers_step.cmd,
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         kbuild_mixed_tree_cmd = kbuild_mixed_tree_ret.cmd,
         search_and_cp_output = ctx.executable._search_and_cp_output.path,
