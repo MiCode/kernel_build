@@ -815,7 +815,7 @@ def _kernel_module_impl(ctx):
     ]
 
 def _kernel_module_additional_attrs():
-    return cache_dir.attrs() | stamp.ext_mod_attrs() | {
+    return cache_dir.attrs() | {
         attr_name: attr.label(default = label)
         for attr_name, label in compile_commands_utils.config_settings_raw().items()
     }
@@ -893,7 +893,6 @@ _kernel_module = rule(
             cfg = "exec",
             executable = True,
         ),
-        "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_preserve_cmd": attr.label(default = "//build/kernel/kleaf/impl:preserve_cmd"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_debug_modpost_warn": attr.label(default = "//build/kernel/kleaf:debug_modpost_warn"),
@@ -902,6 +901,7 @@ _kernel_module = rule(
     toolchains = [hermetic_toolchain.type],
     subrules = [
         empty_ddk_config_info,
+        stamp.ext_mod_get_localversion_file,
     ],
 )
 

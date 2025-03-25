@@ -19,7 +19,17 @@ See https://bazel.build/docs/user-manual#workspace-status-command
 
 visibility("//build/kernel/kleaf/...")
 
-def _get_status_cmd(_ctx, status_file, var):
+def _get_status_cmd(status_file, var):
+    """Return the command line that gets a variable `var` from the given status_file.
+
+    Require the action with this cmd to:
+    - add status_file to inputs
+    - Set up hermetic tools before calling this command.
+
+    Args:
+        status_file: the file to read from
+        var: name of variable.
+    """
     return """ ( (
         if [ -n "${{BUILD_WORKSPACE_DIRECTORY}}" ] || [ "${{BAZEL_TEST}}" = "1" ]; then
             cat {status_short_path}
@@ -49,7 +59,7 @@ def _get_stable_status_cmd(ctx, var):
         ctx: [ctx](https://bazel.build/rules/lib/ctx)
         var: name of variable, prefixed with `STABLE`.
     """
-    return _get_status_cmd(ctx, ctx.info_file, var)
+    return _get_status_cmd(ctx.info_file, var)
 
 def _get_volatile_status_cmd(ctx, var):
     """Return the command line that gets a variable `var` from `volatile-status.txt`.
@@ -62,9 +72,10 @@ def _get_volatile_status_cmd(ctx, var):
         ctx: [ctx](https://bazel.build/rules/lib/ctx)
         var: name of variable, not prefixed with `STABLE`.
     """
-    return _get_status_cmd(ctx, ctx.version_file, var)
+    return _get_status_cmd(ctx.version_file, var)
 
 status = struct(
+    get_status_cmd = _get_status_cmd,
     get_stable_status_cmd = _get_stable_status_cmd,
     get_volatile_status_cmd = _get_volatile_status_cmd,
 )
