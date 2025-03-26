@@ -137,7 +137,7 @@ def _ext_mod_get_localversion_file_impl(
         _config_is_stamp: --config=stamp
         _build_utils_sh: build_utils.sh
     Returns:
-        If follow_stamp_flag, and --config=stamp, reutrns the file that contains
+        If follow_stamp_flag, and --config=stamp, returns the file that contains
         the localversion. Otherwise returns None.
     """
 
