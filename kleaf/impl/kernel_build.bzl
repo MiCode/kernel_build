@@ -1506,15 +1506,23 @@ _get_dot_config = subrule(
     implementation = _get_dot_config_impl,
 )
 
-def _gen_symvers_step(all_output_names_minus_modules, kbuild_mixed_tree_ret):
+def _gen_symvers_step(ctx, all_output_names_minus_modules, kbuild_mixed_tree_ret):
     """Creates a step that generates various .symvers files.
 
     Args:
+        ctx: context from the rule
         all_output_names_minus_modules: all non-module output names in *outs
         kbuild_mixed_tree_ret: from _create_kbuild_mixed_tree
     """
     inputs = []
-    cmd = ""
+    cmd = """
+            if ! grep -q "\\bmodules\\b" <<< "{make_goals}"; then
+                # Workaround as this file is required, hence just produce a placeholder.
+                touch ${{OUT_DIR}}/Module.symvers
+            fi
+    """.format(
+        make_goals = " ".join(ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals),
+    )
 
     # After 6.13, Kbuild no longer generates vmlinux.symvers. Manually generates this by
     # filtering vmlinux lines from Module.symvers if the caller is requesting vmlinux.symvers in
@@ -1610,7 +1618,7 @@ def _get_modinst_step(ctx, modules_staging_dir):
         modules_staging_dir = modules_staging_dir,
         internal_outs_under_out_dir = " ".join(["${{OUT_DIR}}/{}".format(item) for item in _kernel_build_internal_outs]),
         module_strip_flag = module_strip_flag,
-        make_goals = ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals,
+        make_goals = " ".join(ctx.attr.config[KernelEnvMakeGoalsInfo].make_goals),
     )
 
     if base_kernel:
@@ -1671,6 +1679,7 @@ def _build_main_action(
 
     # Individual steps of the final command.
     gen_symvers_step = _gen_symvers_step(
+        ctx = ctx,
         all_output_names_minus_modules = all_output_names.non_modules,
         kbuild_mixed_tree_ret = kbuild_mixed_tree_ret,
     )
