@@ -527,7 +527,7 @@ class KleafIntegrationTestAbiTest(KleafIntegrationTestBase):
         self.restore_file_after_test(self.driver_file)
         self.replace_lines(self.driver_file,
                            lambda x: re.search(
-                               "EXPORT_SYMBOL_GPL\(i2c_adapter_type\);", x),
+                               r"EXPORT_SYMBOL_GPL\(i2c_adapter_type\);", x),
                            [""])
 
         # Check for errors in the logs.
