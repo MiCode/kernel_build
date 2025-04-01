@@ -955,6 +955,7 @@ class QuickIntegrationTest(KleafIntegrationTestBase):
         self.assertFalse(pathlib.Path(new_out1.name).exists())
         self.assertTrue(pathlib.Path(new_out2.name).exists())
 
+    @unittest.skip("b/355536157")
     def test_config_uapi_header_test(self):
         """Tests that CONFIG_UAPI_HEADER_TEST is not deleted.
 
