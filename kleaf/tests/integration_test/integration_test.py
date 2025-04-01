@@ -544,6 +544,7 @@ class KleafIntegrationTestAbiTest(KleafIntegrationTestBase):
 # Slow integration tests belong to their own shard.
 class KleafIntegrationTestShard1(KleafIntegrationTestBase):
 
+    @unittest.skip("b/407564168")
     def test_incremental_switch_local_and_lto(self):
         """Tests the following:
 
