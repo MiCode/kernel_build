@@ -955,47 +955,6 @@ class QuickIntegrationTest(KleafIntegrationTestBase):
         self.assertFalse(pathlib.Path(new_out1.name).exists())
         self.assertTrue(pathlib.Path(new_out2.name).exists())
 
-    @unittest.skip("b/355536157")
-    def test_config_uapi_header_test(self):
-        """Tests that CONFIG_UAPI_HEADER_TEST is not deleted.
-
-        To keep CONFIG_UAPI_HEADER_TEST, USERCFLAGS needs to set --sysroot and
-        --target properly, and USERLDFLAGS needs to set --sysroot.
-
-        See b/270996321 and b/190019968."""
-
-        archs = [
-            ("aarch64", "arm64"),
-            ("x86_64", "x86"),
-            # TODO(b/271919464): Need NDK_TRIPLE for riscv so --sysroot is properly set
-            # ("riscv64", "riscv"),
-        ]
-
-        for arch, srcarch in archs:
-            with self.subTest(arch=arch, srcarch=srcarch):
-                gki_defconfig = f"{self._common()}/arch/{srcarch}/configs/gki_defconfig"
-                self.restore_file_after_test(gki_defconfig)
-
-                self._check_call("run", [
-                    f"//{self._common()}:kernel_{arch}_config", "--",
-                    "olddefconfig"
-                ] + _FASTEST)
-
-                with open(gki_defconfig) as f:
-                    new_gki_defconfig_content = f.read()
-                self.assertTrue(
-                    "CONFIG_UAPI_HEADER_TEST=y"
-                    in new_gki_defconfig_content.splitlines(),
-                    f"gki_defconfig should still have CONFIG_UAPI_HEADER_TEST=y after "
-                    f"`bazel run //{self._common()}:kernel_aarch64_config "
-                    f"-- olddefconfig`, but got\n{new_gki_defconfig_content}")
-
-                # It should be fine to call the same command subsequently.
-                self._check_call("run", [
-                    f"//{self._common()}:kernel_{arch}_config", "--",
-                    "olddefconfig"
-                ] + _FASTEST)
-
     def test_menuconfig_merge(self):
         """Test that menuconfig works with a raw merge_config.sh in PRE_DEFCONFIG_CMDS.
 
