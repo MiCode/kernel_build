@@ -7,7 +7,7 @@ The bootstrapping script may be found in the
 project. The following one-line command downloads and executes it:
 
 ```shell
-$ curl https://android.googlesource.com/kernel/build/bootstrap/+/refs/heads/main/init.py?format=TEXT | base64 --decode | python3 - [flags]
+$ curl https://android.googlesource.com/kernel/build/bootstrap/+/refs/heads/main-kernel/init.py?format=TEXT | base64 --decode | python3 - [flags]
 ```
 
 This command will be referred to as `python3 init.py` below.
