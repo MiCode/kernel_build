@@ -571,28 +571,28 @@ class KleafIntegrationTestShard1(KleafIntegrationTestBase):
         extract_ikconfig = f"{self._common()}/scripts/extract-ikconfig"
 
         with open(gki_defconfig_path, encoding="utf-8") as f:
-            self.assertIn("CONFIG_UAPI_HEADER_TEST=y\n", f)
+            self.assertIn("CONFIG_DEBUG_INFO_COMPRESSED_ZSTD=y\n", f)
 
         self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
         vmlinux = pathlib.Path(
             f"bazel-bin/{self._common()}/kernel_aarch64/vmlinux")
 
         output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
-        self.assertIn("CONFIG_UAPI_HEADER_TEST=y", output.splitlines())
+        self.assertIn("CONFIG_DEBUG_INFO_COMPRESSED_ZSTD=y", output.splitlines())
 
         self.filter_lines(gki_defconfig_path,
-                          lambda x: "CONFIG_UAPI_HEADER_TEST" not in x)
+                          lambda x: "CONFIG_DEBUG_INFO_COMPRESSED_ZSTD" not in x)
         self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
 
         output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
-        self.assertIn("# CONFIG_UAPI_HEADER_TEST is not set",
+        self.assertIn("# CONFIG_DEBUG_INFO_COMPRESSED_ZSTD is not set",
                       output.splitlines())
 
         restore_defconfig()
         self._build([f"//{self._common()}:kernel_aarch64", "--config=fast"])
 
         output = subprocess.check_output([extract_ikconfig, vmlinux], text=True)
-        self.assertIn("CONFIG_UAPI_HEADER_TEST=y", output.splitlines())
+        self.assertIn("CONFIG_DEBUG_INFO_COMPRESSED_ZSTD=y", output.splitlines())
 
 
 class KleafIntegrationTestShard2(KleafIntegrationTestBase):
