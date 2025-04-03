@@ -41,6 +41,7 @@
 | malachite-u-oss | Redmi Note 14 Pro | Android U | t-alps-release-u0.mp1.tc8sp3-V1 |[malachite-u-oss](https://github.com/MiCode/kernel_build/tree/malachite-u-oss) |
 | beryl-u-oss | POCO M7 Pro 5G / Redmi Note 14 5G | Android U | t-alps-release-s0.mp1.tc8sp-cs3-V1.67 |[beryl-u-oss](https://github.com/MiCode/kernel_build/tree/beryl-u-oss) |
 | muyu-v-oss | Xiaomi Pad 7 Pro | Android U | LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[muyu-v-oss](https://github.com/MiCode/kernel_build/tree/muyu-v-oss) |
+| emerald_r-u-oss | Redmi Note 14S | Android U | alps-mp-s0.mp1.tc8sp2-cs1-xm.V1.104_xiaomi.s0mp1.k6789v1.64_P50 |[emerald_r-u-oss](https://github.com/MiCode/kernel_build/tree/emerald_r-u-oss) |
 | bsp-zorn-v-oss | REDMI K80  | Android V | qcom-LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[bsp-zorn-v-oss](https://github.com/MiCode/kernel_build/tree/bsp-zorn-v-oss) |
 | uke-v-oss | Xiaomi Pad 7 | Android V | LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[uke-v-oss](https://github.com/MiCode/kernel_build/tree/uke-v-oss) |
 | bsp-miro-v-oss | REDMI K80 PRO | Android V | qcom-LA.VENDOR.14.3.0.r1-14500-r1.0.r1_00042.0 |[bsp-miro-v-oss](https://github.com/MiCode/kernel_build/tree/bsp-miro-v-oss) |
