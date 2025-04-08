@@ -166,6 +166,27 @@ alias(
     visibility = ["//visibility:private"],
 )
 
+prebuilt_transitioned_tool(
+    name = "prebuilt_depmod",
+    src = "//prebuilts/kernel-build-tools:depmod",
+    visibility = ["//visibility:private"],
+)
+
+transitioned_tool_from_sources(
+    name = "depmod_from_sources",
+    src = "@kmod//:depmod",
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "depmod",
+    actual = select({
+        "//build/kernel/kleaf:depmod_from_sources_is_true": ":depmod_from_sources",
+        "//conditions:default": ":prebuilt_depmod",
+    }),
+    visibility = ["//visibility:private"],
+)
+
 # List of prebuilt tools where label names are used as the tool names
 _PREBUILT_TOOLS = [
     # keep sorted
@@ -205,7 +226,6 @@ _PREBUILT_TOOLS = [
         visibility = ["//visibility:private"],
     )
     for tool in _PREBUILT_TOOLS + [
-        "//prebuilts/kernel-build-tools:depmod",
         "//prebuilts/build-tools:bzip2",
         "//prebuilts/build-tools:xz",
         "//prebuilts/build-tools:ziptool",
@@ -324,7 +344,7 @@ hermetic_tools(
         "@kleaf_host_tools//:sh": "sh",
         "@kleaf_host_tools//:perl": "perl",
         ":rsync": "rsync",
-        ":prebuilt_depmod": ":".join([
+        ":depmod": ":".join([
             # keep sorted
             "depmod",
             "modinfo",

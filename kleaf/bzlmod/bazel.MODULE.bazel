@@ -24,6 +24,11 @@ new_kleaf_local_repository = use_repo_rule(
     "new_kleaf_local_repository",
 )
 
+kleaf_local_repository = use_repo_rule(
+    "//build/kernel/kleaf/impl:local_repository.bzl",
+    "kleaf_local_repository",
+)
+
 new_kleaf_local_repository(
     name = "libcap",
     build_file = "build/kernel/kleaf/libcap.BUILD",
@@ -64,6 +69,14 @@ new_kleaf_local_repository(
     name = "pigz",
     build_file = "build/kernel/kleaf/pigz.BUILD",
     path = "external/pigz",
+)
+
+kleaf_local_repository(
+    name = "kmod",
+    fallback_build_file = "build/kernel/kleaf/fallback_kmod.BUILD",
+    # TODO: b/409193875 - Drop the below when external/kmod is in all manifests.
+    mandatory = False,
+    path = "external/kmod",
 )
 
 new_kleaf_local_repository(

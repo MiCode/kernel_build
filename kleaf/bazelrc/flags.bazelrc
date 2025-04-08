@@ -36,6 +36,8 @@ build --flag_alias=musl_kbuild=//build/kernel/kleaf:musl_kbuild
 build --flag_alias=nomusl_kbuild=no//build/kernel/kleaf:musl_kbuild
 build --flag_alias=musl_tools_from_sources=//build/kernel/kleaf:musl_tools_from_sources
 build --flag_alias=nomusl_tools_from_sources=no//build/kernel/kleaf:musl_tools_from_sources
+build --flag_alias=depmod_from_sources=//build/kernel/kleaf:depmod_from_sources
+build --flag_alias=nodepmod_from_sources=no//build/kernel/kleaf:depmod_from_sources
 
 # flags that control kleaf integrity checking
 build --flag_alias=allow_ddk_unsafe_headers=//build/kernel/kleaf:allow_ddk_unsafe_headers

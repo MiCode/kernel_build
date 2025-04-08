@@ -448,8 +448,8 @@ config_setting(
     visibility = ["//build/kernel:__pkg__"],
 )
 
-# Default is false.
-# If true, build toybox from sources.
+# Default is true.
+# If true, build toybox / lz4 from sources.
 bool_flag(
     name = "toolchain_from_sources",
     build_setting_default = True,
@@ -460,6 +460,19 @@ bool_flag(
 config_setting(
     name = "toolchain_from_sources_is_true",
     flag_values = {":toolchain_from_sources": "1"},
+    visibility = ["//build/kernel:__pkg__"],
+)
+
+# If true, build depmod from sources
+bool_flag(
+    name = "depmod_from_sources",
+    build_setting_default = False,
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "depmod_from_sources_is_true",
+    flag_values = {":depmod_from_sources": "1"},
     visibility = ["//build/kernel:__pkg__"],
 )
 
