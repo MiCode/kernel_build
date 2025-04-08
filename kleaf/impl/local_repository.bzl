@@ -32,6 +32,14 @@ def _common_attrs():
 
             `path` and `path_candidates` cannot be set simultaneously.
         """),
+        "mandatory": attr.bool(
+            default = True,
+            doc = """If set, and path does not exist or none of path_candidates exist, fail.""",
+        ),
+        "fallback_build_file": attr.string(
+            doc = """If set, and path does not exist or none of path_candidates exist, use the given.
+                file as BUILD file.""",
+        ),
     }
 
 def _get_kleaf_repo_dir(repository_ctx):
@@ -53,17 +61,28 @@ def _kleaf_local_repository_impl(repository_ctx):
     target = None
     if repository_ctx.attr.path:
         target = kleaf_repo_dir.get_child(repository_ctx.attr.path)
+        if repository_ctx.attr.mandatory and not target.exists:
+            fail("{} does not exist".format(target))
+        if not target.exists:
+            target = None
     else:
         target_candidates = [kleaf_repo_dir.get_child(path_candidate) for path_candidate in repository_ctx.attr.path_candidates]
         for target_candidate in target_candidates:
             if target_candidate.exists:
                 target = target_candidate
                 break
-        if not target:
-            fail("@{}: None of path_candidates exists: {}".format(repository_ctx.name, target_candidates))
+        if repository_ctx.attr.mandatory and not target:
+            fail("None of {} exists".format(target_candidates))
 
-    for child in target.readdir():
-        repository_ctx.symlink(child, repository_ctx.path(child.basename))
+    if target:
+        for child in target.readdir():
+            repository_ctx.symlink(child, repository_ctx.path(child.basename))
+
+    if not target and repository_ctx.attr.fallback_build_file:
+        repository_ctx.symlink(
+            kleaf_repo_dir.get_child(repository_ctx.attr.fallback_build_file),
+            repository_ctx.path("BUILD.bazel"),
+        )
 
 kleaf_local_repository = repository_rule(
     attrs = _common_attrs(),
