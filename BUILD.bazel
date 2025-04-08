@@ -175,6 +175,7 @@ _PREBUILT_TOOLS = [
     "//prebuilts/build-tools:make",
     "//prebuilts/build-tools:openssl",
     "//prebuilts/build-tools:runextractor",
+    "//prebuilts/build-tools:soong_zip",
     "//prebuilts/kernel-build-tools:avbtool",
     "//prebuilts/kernel-build-tools:blk_alloc_to_base_fs",
     "//prebuilts/kernel-build-tools:build_image",
@@ -193,7 +194,6 @@ _PREBUILT_TOOLS = [
     "//prebuilts/kernel-build-tools:mkuserimg_mke2fs",
     "//prebuilts/kernel-build-tools:pahole",
     "//prebuilts/kernel-build-tools:simg2img",
-    "//prebuilts/kernel-build-tools:soong_zip",
     "//prebuilts/kernel-build-tools:tune2fs",
     "//prebuilts/kernel-build-tools:ufdt_apply_overlay",
 ]
