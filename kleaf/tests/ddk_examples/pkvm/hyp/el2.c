@@ -14,6 +14,12 @@
  */
 #include <asm/kvm_pkvm_module.h>
 
+// This code is here to showcase how local defines can be used.
+// See BUILD.bazel where it is being defined.
+#if !defined(FOO)
+#error el2.c must be compiled with -DFOO!
+#endif
+
 int example_pkvm_module_hyp_init(const struct pkvm_module_ops *ops) {
     return 0;
 }

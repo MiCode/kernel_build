@@ -19,6 +19,9 @@ ddk_library(
     srcs = ["el2.c"],
     kernel_build = "@kleaf//common:kernel_aarch64",
 
+    # These flags are only applicable to el2.c
+    local_defines = ["FOO"],
+
     # Indicate that this builds EL2 hypervisor code.
     pkvm_el2 = True,
 

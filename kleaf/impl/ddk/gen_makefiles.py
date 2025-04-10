@@ -441,8 +441,10 @@ def _generate_kbuild_and_extra(
 
             for src in src_item["files"]:
 
-                out = src.with_suffix(".o").relative_to(
-                    kernel_module_out.parent)
+                # Adjustment needed to build nVHE object.
+                # See $(srctree)/arch/arm64/kvm/hyp/nvhe/Makefile.module
+                out = src.with_suffix(".nvhe.o" if is_pkvm_el2 else ".o")
+                out = out.relative_to(kernel_module_out.parent)
 
                 if (out not in out_files_with_cflags and
                         _should_apply_cflags(src)):
