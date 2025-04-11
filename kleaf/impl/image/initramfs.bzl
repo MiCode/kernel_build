@@ -132,6 +132,12 @@ def _initramfs_impl(ctx):
                MODULES_CHARGER_LIST={modules_charger_list}
                MODULES_BLOCKLIST={modules_blocklist}
                MODULES_OPTIONS={modules_options}
+               if [ -n "${{TRIM_UNUSED_MODULES}}" ]; then
+                   echo "WARNING: TRIM_UNUSED_MODULES is deprecated; use initramfs(trim_unused_modules=) instead." >&2
+               fi
+               if [ "{trim_unused_modules}" == "1" ]; then
+                   TRIM_UNUSED_MODULES=1
+               fi
              # Use `strip_modules` intead of relying on this.
                unset DO_NOT_STRIP_MODULES
                mkdir -p {initramfs_staging_dir}
@@ -160,6 +166,7 @@ def _initramfs_impl(ctx):
         modules_blocklist = utils.optional_path(ctx.file.modules_blocklist),
         modules_options = utils.optional_path(ctx.file.modules_options),
         modules_staging_dir = modules_staging_dir,
+        trim_unused_modules = "1" if ctx.attr.trim_unused_modules else "",
         initramfs_staging_dir = initramfs_staging_dir,
         ramdisk_compress = ramdisk_compress,
         modules_load = modules_load.path,
@@ -264,6 +271,11 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
         ),
         "ramdisk_compression_args": attr.string(
             doc = "Command line arguments passed only to lz4 command to control compression level.",
+        ),
+        "trim_unused_modules": attr.bool(
+            default = False,
+            doc = """If `True` then modules not mentioned in modules.load are removed
+                from the initramfs. It defaults to `False`.""",
         ),
         "vendor_boot_name": attr.string(doc = """Name of `vendor_boot` image.
 

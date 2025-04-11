@@ -471,6 +471,7 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
 | <a id="initramfs-modules_recovery_list"></a>modules_recovery_list |  A file containing a list of modules to load when booting into recovery.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="initramfs-ramdisk_compression"></a>ramdisk_compression |  If provided it specfies the format used for any ramdisks generated.If not provided a fallback value from build.config is used.   | String | optional |  `""`  |
 | <a id="initramfs-ramdisk_compression_args"></a>ramdisk_compression_args |  Command line arguments passed only to lz4 command to control compression level.   | String | optional |  `""`  |
+| <a id="initramfs-trim_unused_modules"></a>trim_unused_modules |  If `True` then modules not mentioned in modules.load are removed from the initramfs. It defaults to `False`.   | Boolean | optional |  `True`  |
 | <a id="initramfs-vendor_boot_name"></a>vendor_boot_name |  Name of `vendor_boot` image.<br><br>* If `"vendor_boot"`, build `vendor_boot.img` * If `"vendor_kernel_boot"`, build `vendor_kernel_boot.img` * If `None`, skip building `vendor_boot`.   | String | optional |  `""`  |
 
 
