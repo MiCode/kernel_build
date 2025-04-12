@@ -21,3 +21,5 @@
 build:canary --kconfig_werror
 
 build:canary --experimental_optimize_ddk_config_actions
+
+common:canary --depmod_from_sources
