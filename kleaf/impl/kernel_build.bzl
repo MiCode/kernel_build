@@ -415,20 +415,20 @@ def kernel_build(
           and `abi_symbollist.report` should be generated at build time.
           For example:
           ```
-          kmi_symbol_list = "android/abi_gki_aarch64",
-          additional_kmi_symbol_lists = glob(["android/abi_gki_aarch64*"], exclude = ["android/abi_gki_aarch64"]),
+          kmi_symbol_list = "gki/aarch64/symbols/base",
+          additional_kmi_symbol_lists = glob(["gki/aarch64/symbols/*"], exclude = ["gki/aarch64/symbols/base"]),
           ```
 
         protected_exports_list: A file containing list of protected exports.
           For example:
           ```
-          protected_exports_list = "//common:android/abi_gki_protected_exports"
+          protected_exports_list = "//common:gki/aarch64/protected_exports"
           ```
 
         protected_modules_list: A file containing list of protected modules,
           For example:
           ```
-          protected_modules_list = "//common:android/gki_protected_modules"
+          protected_modules_list = "//common:gki/aarch64/protected_modules"
           ```
 
         trim_nonlisted_kmi: If `True`, trim symbols not listed in
@@ -440,7 +440,7 @@ def kernel_build(
           is a `glob()`, it is possible to set `trim_nonlisted_kmi` to be a
           value based on that `glob()`. For example:
           ```
-          trim_nonlisted_kmi = len(glob(["android/abi_gki_aarch64*"])) > 0
+          trim_nonlisted_kmi = len(glob(["gki/aarch64/symbols/*"])) > 0
           ```
         kmi_symbol_list_strict_mode: If `True`, add a build-time check between
           `[kmi_symbol_list] + additional_kmi_symbol_lists`

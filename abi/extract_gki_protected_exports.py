@@ -61,13 +61,13 @@ def main():
   parser.add_argument(
       "--protected-exports-list",
       required=True,
-      help="The symbol list to create with protected exports (e.g. common/android/abi_gki_protected_exports)"
+      help="The symbol list to create with protected exports (e.g. common/gki/aarch64/protected_exports)"
   )
 
   parser.add_argument(
       "--gki-protected-modules-list",
       required=True,
-      help="A file with list of GKI protected modules (e.g. common/android/gki_protected_modules)"
+      help="A file with list of GKI protected modules (e.g. common/gki/aarch64/protected_modules)"
   )
 
   args = parser.parse_args()

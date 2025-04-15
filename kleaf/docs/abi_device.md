@@ -16,7 +16,7 @@ To set up the device symbol list, update the relevant targets in `BUILD.bazel`.
 Add these attributes to the `kernel_build` target for KMI symbol list support:
 
 - `kmi_symbol_list`: The KMI symbol list for the device, e.g.
-  `"//common:android/abi_gki_aarch64_virtual_device"`.
+  `"//common:gki/aarch64/symbols/virtual_device"`.
 
 ### Define a `kernel_abi` target
 
@@ -44,7 +44,7 @@ attributes: [API Reference and Documentation for all rules](api_reference.md).
 
 ### Example for virtual\_device\_aarch64
 
-See `virtual_device_aarch64_abi` in [common-modules/virtual-device/BUILD.bazel](https://android.googlesource.com/kernel/common-modules/virtual-device/+/refs/heads/android14-5.15/BUILD.bazel) for an
+See `virtual_device_aarch64_abi` in [common-modules/virtual-device/BUILD.bazel](https://android.googlesource.com/kernel/common-modules/virtual-device/+/refs/heads/android16-6.12/BUILD.bazel) for an
 example.
 
 ## Update the KMI symbol list {#update-symbol-list}
@@ -62,12 +62,12 @@ In the above example for virtual\_device\_aarch64, the command is
 $ tools/bazel run //common-modules/virtual-device:virtual_device_aarch64_abi_update_symbol_list
 ```
 
-This updates `common/android/abi_gki_aarch64_virtual_device` file.
+This updates `common/gki/aarch64/symbols/virtual_device` file.
 
 ## Update the ABI definition
 
 After the [KMI symbol list updated](#update-symbol-list) you may
-update the ABI definition at `common/android/abi_gki_aarch64.stg` with the
+update the ABI definition at `common/gki/aarch64/abi.stg` with the
 following command:
 
 ```shell
