@@ -24,8 +24,6 @@ load(
 )
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
-load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
-load("//prebuilts/clang/host/linux-x86/kleaf:versions.bzl", _CLANG_VERSIONS = "VERSIONS")
 
 def _pass_analysis_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -37,97 +35,69 @@ _pass_analysis_test = analysistest.make(
 )
 
 def kernel_toolchain_test(name):
-    """Tests kernel_build.toolchain_version.
+    """Tests that building against kernel_filegroup does not fail toolchain version checks.
 
     Args:
         name: name of the test suite
     """
 
-    tests = []
-    for base_toolchain in _CLANG_VERSIONS:
-        filegroup_name = name + "_filegroup_" + base_toolchain
+    filegroup_name = name + "_filegroup"
 
-        write_file(
-            name = filegroup_name + "_staging_archive",
-            out = filegroup_name + "_staging_archive/" + MODULES_STAGING_ARCHIVE,
-        )
-        write_file(
-            name = filegroup_name + "_unstripped_modules",
-            out = filegroup_name + "_unstripped_modules/" + UNSTRIPPED_MODULES_ARCHIVE,
-        )
+    write_file(
+        name = filegroup_name + "_staging_archive",
+        out = filegroup_name + "_staging_archive/" + MODULES_STAGING_ARCHIVE,
+    )
+    write_file(
+        name = filegroup_name + "_unstripped_modules",
+        out = filegroup_name + "_unstripped_modules/" + UNSTRIPPED_MODULES_ARCHIVE,
+    )
 
-        write_file(
-            name = filegroup_name + "_gki_info",
-            out = filegroup_name + "_gki_info/gki-info.txt",
-            content = [
-                "KERNEL_RELEASE=99.98.97",
-                "",
-            ],
-        )
+    write_file(
+        name = filegroup_name + "_gki_info",
+        out = filegroup_name + "_gki_info/gki-info.txt",
+        content = [
+            "KERNEL_RELEASE=99.98.97",
+            "",
+        ],
+    )
 
-        native.platform(
-            name = filegroup_name + "_target_platform",
-            constraint_values = [
-                "@platforms//os:android",
-                "@platforms//cpu:arm64",
-                Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(base_toolchain)),
-            ],
-        )
+    native.platform(
+        name = filegroup_name + "_target_platform",
+        constraint_values = [
+            "@platforms//os:android",
+            "@platforms//cpu:arm64",
+        ],
+    )
 
-        native.platform(
-            name = filegroup_name + "_exec_platform",
-            constraint_values = [
-                "@platforms//os:linux",
-                "@platforms//cpu:x86_64",
-                Label("//prebuilts/clang/host/linux-x86/kleaf:{}".format(base_toolchain)),
-            ],
-        )
+    native.platform(
+        name = filegroup_name + "_exec_platform",
+        constraint_values = [
+            "@platforms//os:linux",
+            "@platforms//cpu:x86_64",
+        ],
+    )
 
-        kernel_filegroup(
-            name = filegroup_name,
-            deps = [
-                filegroup_name + "_unstripped_modules",
-                filegroup_name + "_staging_archive",
-            ],
-            gki_artifacts = filegroup_name + "_gki_info",
-            target_platform = filegroup_name + "_target_platform",
-            exec_platform = filegroup_name + "_exec_platform",
-            expected_toolchain_version = base_toolchain,
-            tags = ["manual"],
-        )
+    kernel_filegroup(
+        name = filegroup_name,
+        deps = [
+            filegroup_name + "_unstripped_modules",
+            filegroup_name + "_staging_archive",
+        ],
+        gki_artifacts = filegroup_name + "_gki_info",
+        target_platform = filegroup_name + "_target_platform",
+        exec_platform = filegroup_name + "_exec_platform",
+        expected_toolchain_version = CLANG_VERSION,
+        tags = ["manual"],
+    )
 
-        test_name = "{name}_{device_toolchain}_against_filegroup_{base_toolchain}_test".format(
-            name = name,
-            device_toolchain = CLANG_VERSION,
-            base_toolchain = base_toolchain,
-        )
-        base_kernel = "{name}_filegroup_{base_toolchain}".format(
-            name = name,
-            base_toolchain = base_toolchain,
-        )
+    kernel_build(
+        name = name + "_device_kernel",
+        base_kernel = filegroup_name,
+        outs = [],
+        tags = ["manual"],
+    )
 
-        kernel_build(
-            name = test_name + "_device_kernel",
-            base_kernel = base_kernel,
-            outs = [],
-            tags = ["manual"],
-        )
-
-        if base_toolchain == CLANG_VERSION:
-            _pass_analysis_test(
-                name = test_name,
-                target_under_test = test_name + "_device_kernel",
-            )
-        else:
-            failure_test(
-                name = test_name,
-                target_under_test = test_name + "_device_kernel",
-                error_message_substrs = ["They must use the same `toolchain_version`."],
-            )
-
-        tests.append(test_name)
-
-    native.test_suite(
+    _pass_analysis_test(
         name = name,
-        tests = tests,
+        target_under_test = name + "_device_kernel",
     )

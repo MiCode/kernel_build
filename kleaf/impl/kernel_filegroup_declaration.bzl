@@ -97,8 +97,6 @@ platform(
     constraint_values = [
         "@platforms//os:android",
         "@platforms//cpu:{arch}",
-        # @kleaf//prebuilts/clang/host/linux-x86/kleaf:{toolchain_version}
-        package_relative_label(_CLANG_KLEAF_PKG).same_package_label({toolchain_version_repr}),
     ],
     visibility = ["//visibility:private"],
 )
@@ -106,10 +104,6 @@ platform(
 platform(
     name = {exec_platform_repr},
     parents = ["@platforms//host"],
-    constraint_values = [
-        # @kleaf//prebuilts/clang/host/linux-x86/kleaf:{toolchain_version}
-        package_relative_label(_CLANG_KLEAF_PKG).same_package_label({toolchain_version_repr}),
-    ],
     visibility = ["//visibility:private"],
 )
 
