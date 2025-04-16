@@ -124,6 +124,7 @@ export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"
 export KBUILD_BUILD_HOST=build-host
 export KBUILD_BUILD_USER=build-user
 export KBUILD_BUILD_VERSION=1
+export KBUILD_GENDWARFKSYMS_STABLE=1
 
 # List of dreprecated prebuilt directories that should not be used anywhere.
 deprecated_prebuilts_paths=(
