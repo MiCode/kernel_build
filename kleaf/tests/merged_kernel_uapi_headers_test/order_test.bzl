@@ -16,6 +16,7 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@kernel_toolchain_info//:dict.bzl", "CLANG_VERSION")
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelBuildUapiInfo", "KernelModuleInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_filegroup.bzl", "kernel_filegroup")
@@ -131,6 +132,7 @@ def order_test(name):
         gki_artifacts = name + "_gki_info",
         target_platform = Label("//build/kernel/kleaf/impl:android_arm64"),
         exec_platform = Label("@platforms//host"),
+        expected_toolchain_version = CLANG_VERSION,
         tags = ["manual"],
     )
 

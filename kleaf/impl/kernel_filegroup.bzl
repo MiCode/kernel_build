@@ -58,8 +58,17 @@ def _get_mixed_tree_files(target):
     return target.files
 
 def _get_toolchain_version_info(ctx):
+    actual = kernel_toolchains_utils.get(ctx).compiler_version
+    if actual != ctx.attr.expected_toolchain_version:
+        fail(("{}: Expected toolchain version {}, but resolved {}. " +
+              "Did you check out the same tree that was used to build these artifacts?").format(
+            ctx.label,
+            ctx.attr.expected_toolchain_version,
+            actual,
+        ))
+
     return KernelToolchainInfo(
-        toolchain_version = kernel_toolchains_utils.get(ctx).compiler_version,
+        toolchain_version = actual,
     )
 
 def _get_kernel_release(ctx):
@@ -602,6 +611,9 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "ddk_module_headers": attr.label_list(
             doc = "Additional `ddk_headers` for dependant DDK modules.",
             providers = [DdkHeadersInfo],
+        ),
+        "expected_toolchain_version": attr.string(
+            doc = "Checks resolved toolchain version against this string.",
         ),
     } | _kernel_filegroup_additional_attrs(),
     toolchains = [hermetic_toolchain.type],

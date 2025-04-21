@@ -154,6 +154,7 @@ kernel_filegroup(
         _MUSL_KBUILD_IS_TRUE: {exec_musl_platform_repr},
         "//conditions:default": {exec_platform_repr},
     }),
+    expected_toolchain_version = {toolchain_version_repr},
     visibility = ["//visibility:public"],
 )
 """

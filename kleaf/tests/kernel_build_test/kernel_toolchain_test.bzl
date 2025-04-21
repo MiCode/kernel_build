@@ -92,6 +92,7 @@ def kernel_toolchain_test(name):
             gki_artifacts = filegroup_name + "_gki_info",
             target_platform = filegroup_name + "_target_platform",
             exec_platform = filegroup_name + "_exec_platform",
+            expected_toolchain_version = base_toolchain,
             tags = ["manual"],
         )
 
