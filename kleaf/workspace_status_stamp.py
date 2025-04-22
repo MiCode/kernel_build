@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import dataclasses
 import json
 import logging
@@ -20,6 +21,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+from typing import Iterable
 import xml.dom.minidom
 import xml.parsers.expat
 
@@ -39,9 +41,13 @@ class PathCollectible(object):
 class PathPopen(PathCollectible):
     """Consists of a path and the result of a subprocess."""
     popen: subprocess.Popen
+    result: str | None = None
 
     def collect(self) -> str:
-        return collect(self.popen)
+        if self.result is not None:
+            return self.result
+        self.result = collect(self.popen)
+        return self.result
 
 
 @dataclasses.dataclass
@@ -53,7 +59,7 @@ class PresetResult(PathCollectible):
         return self.result
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class LocalversionResult(PathPopen):
     """Consists of results of localversion."""
     removed_prefix: str | None
@@ -238,6 +244,8 @@ class Stamp(object):
         self.use_kleaf_localversion = os.environ.get(
             "KLEAF_USE_KLEAF_LOCALVERSION") == "true"
 
+        self.bzlmod_mapping = self._init_bzlmod_mapping()
+
         self.projects = list_projects()
         extra_git_project_env_var = os.environ.get("KLEAF_EXTRA_GIT_PROJECTS")
         if extra_git_project_env_var:
@@ -245,6 +253,50 @@ class Stamp(object):
                                  extra_git_project_env_var.split(":"))
 
         self.init_for_dot_source_date_epoch_dir()
+
+    def _init_bzlmod_mapping(self) -> dict[pathlib.Path, pathlib.Path]:
+        """Returns value for self.bzlmod_mapping.
+
+        Key: source path relative to the workspace (e.g. external/kleaf)
+        Value: set of source paths relative to the execroot.
+            (e.g. {external/kleaf~})
+        """
+        output_base_s = os.environ.get("KLEAF_OUTPUT_BASE")
+        if not output_base_s:
+            return {}
+        output_base = pathlib.Path(output_base_s)
+
+        # Implementation note: We use absolute() instead of resolve() to handle
+        # the edge cases for symlinks. That is, for symlinks, we use the
+        # absolute path, not the realpath.
+
+        abs_workspace = pathlib.Path().absolute()
+        ret = collections.defaultdict(set)
+        for child in (output_base / "external").iterdir():
+            if not child.is_dir():
+                # Skip marker files
+                continue
+            if not child.is_symlink():
+                # Skip this child. This is e.g. a `new_local_repository`,
+                # so it isn't a symlink below the output_base.
+                continue
+            # For repositories that aren't present, Bazel did not fetch it,
+            # indicating that it is not a dependency of the currently requested
+            # target. Hence there is no point reading Git metadata from it.
+
+            # For the repositories that are present, create workspace_rel ->
+            # external/<canonical name> mapping.
+            # We create an entry for EACH workspace_rel along the symlink chain
+            # until we hit the destination. This is to cover project symlinks
+            # in the source tree.
+            execroot_rel = child.relative_to(output_base)
+            while child.is_symlink():
+                abs_link_dest = child.readlink().absolute()
+                if abs_link_dest.is_relative_to(abs_workspace):
+                    ret[abs_link_dest.relative_to(abs_workspace)].add(
+                        execroot_rel)
+                child = child.readlink()
+        return ret
 
     def init_for_dot_source_date_epoch_dir(self) -> None:
         self.kernel_dir = pathlib.Path(".source_date_epoch_dir").resolve()
@@ -318,7 +370,8 @@ class Stamp(object):
 
             path_popen = self.get_localversion(project)
             if path_popen:
-                scmversion_map[project] = path_popen
+                for execroot_rel in self.get_execroot_rel_paths(project):
+                    scmversion_map[execroot_rel] = path_popen
 
         return scmversion_map
 
@@ -361,10 +414,11 @@ class Stamp(object):
         if self.ignore_missing_projects:
             all_projects = filter(pathlib.Path.is_dir, all_projects)
 
-        return {
-            proj: self.async_get_source_date_epoch(proj)
-            for proj in all_projects
-        }
+        ret = {}
+        for proj in all_projects:
+            for execroot_rel in self.get_execroot_rel_paths(proj):
+                ret[execroot_rel] = self.async_get_source_date_epoch(proj)
+        return ret
 
     def async_get_source_date_epoch(self, rel_path: pathlib.Path) -> PathCollectible:
         env_val = os.environ.get("SOURCE_DATE_EPOCH")
@@ -378,6 +432,46 @@ class Stamp(object):
             popen = subprocess.Popen(args, text=True, stdout=subprocess.PIPE)
             return PathPopen(rel_path, popen)
         return PresetResult(rel_path, "0")
+
+    def get_execroot_rel_paths(self, project: pathlib.Path) -> \
+            Iterable[pathlib.Path]:
+        """Returns all possible paths of the project within the execroot.
+
+        Args:
+            project: path to the Git project, relative to the workspace."""
+        candidates = [
+            (workspace_rel_path, canonical)
+            for workspace_rel_path, canonical in self.bzlmod_mapping.items()
+            if project.is_relative_to(workspace_rel_path)]
+        if not candidates:
+            if project.parts[0] == "external":
+                # These Git projects aren't available in the execroot because
+                # `//external` is not a valid package under the root repository,
+                # and these Git projects may be one of the following:
+                # - It is not a Bazel module or Bazel external repository
+                # - It is a Bazel module or Bazel external repository, but not
+                #   fetched.
+                # Hence, we should skip them to not provide false information.
+                return ()
+            # Regular source projects (packages in the root repository)
+            # show up directly in the execroot.
+            # Example: private/<manufacturer_name>/<device_name>
+            return (project,)
+
+        # Get the tuple in candidates that has the most specific
+        #   workspace_rel_path. This is to handle potential Git submodules.
+        sorted_candidates = sorted(candidates,
+                                   key=lambda x: len(x[0].parts), reverse=True)
+        workspace_rel_path, canonical_paths = sorted_candidates[0]
+
+        # Example:
+        #  project: external/kleaf/external/toybox
+        #  workspace_rel_path: external/kleaf
+        #  canonical_paths: {external/kleaf~, external/kleaf2~}
+        # Return: {external/kleaf~/external/toybox,
+        #          external/kleaf2~/external/toybox}
+        return {canonical / (project.relative_to(workspace_rel_path))
+                for canonical in canonical_paths}
 
     def collect_map(
         self,

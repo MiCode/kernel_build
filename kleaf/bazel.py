@@ -19,6 +19,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 import textwrap
 from typing import BinaryIO, Generator, Tuple, Optional
@@ -405,6 +406,20 @@ class BazelWrapper(KleafHelpPrinter):
             default=False,
             help="Equivalent to --incompatible_hermetic_actions=false",
         )
+        group.add_argument(
+            "--source_date_epoch_fix",
+            help=textwrap.dedent("""\
+                If you are using @kleaf as a Bazel module dependency, turning
+                this on fixes an error about SOURCE_DATE_EPOCH.
+                """),
+            action="store_true",
+        )
+        group.add_argument(
+            "--nosource_date_epoch_fix",
+            help="--source_date_epoch_fix=false",
+            dest="source_date_epoch_fix",
+            action="store_false",
+        )
 
     def _check_repo_manifest(self, value: str) \
             -> tuple[pathlib.Path | None, pathlib.Path | None]:
@@ -484,6 +499,9 @@ class BazelWrapper(KleafHelpPrinter):
 
         repo_root, repo_manifest = self.known_args.repo_manifest
         self.env["KLEAF_REPO_MANIFEST"] = f"{repo_root or ''}:{repo_manifest or ''}"
+
+        if self.known_args.source_date_epoch_fix:
+            self.env["KLEAF_OUTPUT_BASE"] = self._get_output_base()
 
         if self.known_args.extra_git_projects:
             self.env["KLEAF_EXTRA_GIT_PROJECTS"] = ":".join(
@@ -629,6 +647,14 @@ class BazelWrapper(KleafHelpPrinter):
             os.makedirs(self.known_args.cache_dir, exist_ok=True)
 
         return final_args
+
+    def _get_output_base(self) -> str:
+        """Returns $(bazel info output_base)"""
+
+        return subprocess.check_output(
+            [sys.executable, __file__, self.kleaf_repo_dir] +
+            self.startup_options +
+            ["info", "output_base"], text=True).strip()
 
     def _transform_bazelrc_files(self, bazelrc_files: list[pathlib.Path]) -> list[str]:
         """Given a list of bazelrc files, return startup options."""
