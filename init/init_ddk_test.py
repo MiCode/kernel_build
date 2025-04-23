@@ -171,9 +171,9 @@ class KleafProjectSetterTest(parameterized.TestCase):
         expected: str,
     ):
         """Helper method for checking path in a prebuilt extension."""
-        download_configs = prebuilts_dir / "download_configs.json"
-        download_configs.parent.mkdir(parents=True)
-        download_configs.write_text("{}")
+        ci_target_mapping = prebuilts_dir / "ci_target_mapping.json"
+        ci_target_mapping.parent.mkdir(parents=True)
+        ci_target_mapping.write_text("{}")
         try:
             init_ddk.KleafProjectSetter(
                 build_id=None,
@@ -246,19 +246,19 @@ class KleafProjectSetterTest(parameterized.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             ddk_workspace = pathlib.Path(tmp) / "ddk_workspace"
             prebuilts_dir = ddk_workspace / "prebuilts_dir"
-            download_configs = ddk_workspace / "download_configs.json"
-            download_configs.parent.mkdir(parents=True, exist_ok=True)
-            download_configs.write_text(
-                json.dumps({
+            ci_target_mapping = ddk_workspace / "ci_target_mapping.json"
+            ci_target_mapping.parent.mkdir(parents=True, exist_ok=True)
+            ci_target_mapping.write_text(
+                json.dumps({"download_configs": {
                     "non-existent-file": {
                         "target_suffix": "non-existent-file",
                         "mandatory": False,
                         "remote_filename_fmt": "non-existent-file",
                     }
-                })
+                }})
             )
-            with open(download_configs, "r", encoding="utf-8"):
-                url_fmt = f"file://{str(download_configs.parent)}/{{filename}}"
+            with open(ci_target_mapping, "r", encoding="utf-8"):
+                url_fmt = f"file://{str(ci_target_mapping.parent)}/{{filename}}"
                 init_ddk.KleafProjectSetter(
                     build_id="12345",
                     build_target=None,
@@ -372,14 +372,14 @@ class KleafProjectSetterTest(parameterized.TestCase):
 
             remote_prebuilts_dir = tmp / "remote_prebuilts_dir"
             remote_prebuilts_dir.mkdir(parents=True, exist_ok=True)
-            download_configs = remote_prebuilts_dir / "download_configs.json"
-            download_configs.write_text(json.dumps({
+            ci_target_mapping = remote_prebuilts_dir / "ci_target_mapping.json"
+            ci_target_mapping.write_text(json.dumps({"download_configs": {
                 "manifest.xml": {
                     "target_suffix": "init_ddk_files",
                     "mandatory": False,
                     "remote_filename_fmt": "manifest_{build_number}.xml",
                 },
-            }))
+            }}))
 
             build_id = "12345"
             downloaded_manifest = (remote_prebuilts_dir /

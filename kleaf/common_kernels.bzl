@@ -383,19 +383,19 @@ def common_kernel(
     )
     target_mapping = CI_TARGET_MAPPING.get(name, {})
     write_file(
-        name = name + "_download_configs",
+        name = name + "_ci_target_mapping",
         content = [
-            json.encode_indent(target_mapping.get("download_configs", {})),
+            json.encode_indent(target_mapping),
         ],
         # / is needed to distinguish between variants as 16k (and avoid conflicts).
-        out = name + "/download_configs.json",
+        out = name + "/ci_target_mapping.json",
     )
 
     # Everything in name + "_dist" for the DDK.
     # These are necessary for driver development. Hence they are also added to
     # kernel_*_dist so they can be downloaded.
     ddk_artifacts = [
-        name + "_download_configs",
+        name + "_ci_target_mapping",
         name + "_filegroup_declaration",
         name + "_unstripped_modules_archive",
     ]

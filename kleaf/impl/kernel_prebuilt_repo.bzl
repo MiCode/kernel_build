@@ -170,25 +170,25 @@ def _download_remote_file(repository_ctx, local_filename, remote_filename_fmt, f
         block = False,
     )
 
-def _get_download_configs(repository_ctx):
+def _get_ci_target_mapping(repository_ctx):
     if repository_ctx.attr.local_artifact_path:
-        path = repository_ctx.workspace_root.get_child(repository_ctx.attr.local_artifact_path).get_child("download_configs.json")
+        path = repository_ctx.workspace_root.get_child(repository_ctx.attr.local_artifact_path).get_child("ci_target_mapping.json")
     else:
         _download_remote_file(
             repository_ctx = repository_ctx,
-            local_filename = "download_configs.json",
-            remote_filename_fmt = "download_configs.json",
+            local_filename = "ci_target_mapping.json",
+            remote_filename_fmt = "ci_target_mapping.json",
             file_mandatory = True,
         ).wait()
-        path = _get_local_path(repository_ctx, "download_configs.json")
+        path = _get_local_path(repository_ctx, "ci_target_mapping.json")
     content = repository_ctx.read(path)
     return json.decode(content)
 
 def _kernel_prebuilt_repo_impl(repository_ctx):
-    download_configs = _get_download_configs(repository_ctx)
+    ci_target_mapping = _get_ci_target_mapping(repository_ctx)
 
     futures = {}
-    for local_filename, config in download_configs.items():
+    for local_filename, config in ci_target_mapping.get("download_configs", {}).items():
         if repository_ctx.attr.local_artifact_path:
             download = _symlink_local_file
         else:
@@ -238,16 +238,16 @@ filegroup(
         )
         repository_ctx.file(_join(local_filename, "BUILD.bazel"), content)
 
-    _create_top_level_files(repository_ctx, download_configs)
+    _create_top_level_files(repository_ctx, ci_target_mapping)
 
-def _create_top_level_files(repository_ctx, download_configs):
+def _create_top_level_files(repository_ctx, ci_target_mapping):
     bazel_target_name = repository_ctx.attr.target
     repository_ctx.file("""WORKSPACE.bazel""", """\
 workspace({})
 """.format(repr(repository_ctx.attr.name)))
 
     filegroup_decl_archives = []
-    for local_filename in download_configs:
+    for local_filename in ci_target_mapping.get("download_configs", {}):
         if _basename(local_filename).endswith(FILEGROUP_DEF_ARCHIVE_SUFFIX):
             local_path = repository_ctx.path(_join(local_filename, _basename(local_filename)))
             filegroup_decl_archives.append(local_path)
