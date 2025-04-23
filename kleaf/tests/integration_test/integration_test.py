@@ -131,6 +131,10 @@ def _require_absolute_path(p: str) -> pathlib.Path:
     return path
 
 
+def _get_label_name(label: str):
+    return label[label.rfind(":") + 1:]
+
+
 MountSpec = collections.OrderedDict[pathlib.Path, pathlib.Path]
 
 
@@ -669,7 +673,21 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
             build_targets=["//forked_common:fake_device"])
 
     def test_setup_with_local_prebuilts(self):
+        self._run_test_setup_with_local_prebuilts(
+            source_base_kernel=f"@kleaf//{self._common()}:kernel_aarch64",
+            prebuilt_base_kernel="@gki_prebuilts//kernel_aarch64")
+
+    def test_setup_with_local_prebuilts_16k(self):
+        self._run_test_setup_with_local_prebuilts(
+            source_base_kernel=f"@kleaf//{self._common()}:kernel_aarch64_16k",
+            prebuilt_base_kernel =
+                "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k")
+
+
+    def _run_test_setup_with_local_prebuilts(
+            self, source_base_kernel, prebuilt_base_kernel):
         """Tests that init_ddk --prebuilts_dir & --local works."""
+        base_kernel_name = _get_label_name(source_base_kernel)
         if not arguments.mount_spec:
             with tempfile.TemporaryDirectory() as ddk_workspace_tmp:
                 ddk_workspace = pathlib.Path(ddk_workspace_tmp)
@@ -680,7 +698,7 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
                 )
                 mount_spec = MountSpec({
                     self.ddk_workspace: ddk_workspace,
-                    self.real_kleaf_repo / "out/kernel_aarch64/dist":
+                    self.real_kleaf_repo / "out" / base_kernel_name / "dist":
                         prebuilts_dir,
                 }) | mount_spec
 
@@ -688,7 +706,7 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
                                         link_spec=link_spec)
                 return
 
-        self._check_call("run", [f"//{self._common()}:kernel_aarch64_dist"])
+        self._check_call("run", [f"{source_base_kernel}_dist"])
 
         # Restore value of ddk_workspace in child process, which is a tmp dir
         ddk_workspace = arguments.mount_spec[self.ddk_workspace]
@@ -699,9 +717,22 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
             kleaf_repo,
             ddk_workspace=ddk_workspace,
             prebuilts_dir=prebuilts_dir,
-            local=True)
+            local=True,
+            base_kernel=prebuilt_base_kernel)
 
     def test_setup_with_downloaded_prebuilts(self):
+        self._run_test_setup_with_downloaded_prebuilts(
+            source_base_kernel=f"@kleaf//{self._common()}:kernel_aarch64",
+            prebuilt_base_kernel="@gki_prebuilts//kernel_aarch64")
+
+    def test_setup_with_downloaded_prebuilts_16k(self):
+        self._run_test_setup_with_downloaded_prebuilts(
+            source_base_kernel=f"@kleaf//{self._common()}:kernel_aarch64_16k",
+            prebuilt_base_kernel =
+                "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k")
+
+    def _run_test_setup_with_downloaded_prebuilts(
+            self, source_base_kernel, prebuilt_base_kernel):
         """Tests that init_ddk --prebuilts_dir & --local=false works."""
         if not arguments.mount_spec:
             with tempfile.TemporaryDirectory() as ddk_workspace_tmp:
@@ -723,8 +754,10 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
                                         link_spec=link_spec)
                 return
 
-        self._check_call("run", [f"//{self._common()}:kernel_aarch64_dist"])
-        real_prebuilts_dir = self.real_kleaf_repo / "out/kernel_aarch64/dist"
+        self._check_call("run", [f"{source_base_kernel}_dist"])
+        base_kernel_name = _get_label_name(source_base_kernel)
+        real_prebuilts_dir = (
+            self.real_kleaf_repo / "out" / base_kernel_name / "dist")
         build_id = "123456"
 
         with open(real_prebuilts_dir / f"manifest_{build_id}.xml", "w") as f:
@@ -744,7 +777,8 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
             build_id=build_id,
             # build bots have no repo, so we cannot check if `repo sync`
             # actually works. Skip sync and rely on the mount point.
-            sync=False)
+            sync=False,
+            base_kernel=prebuilt_base_kernel)
 
     def _run_ddk_workspace_setup_test(self,
                                       kleaf_repo: pathlib.Path,
@@ -754,7 +788,8 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
                                       url_fmt: str | None = None,
                                       build_id: str | None = None,
                                       sync: bool | None = None,
-                                      build_targets: Iterable[str] = ()):
+                                      build_targets: Iterable[str] = (),
+                                      base_kernel = None):
         """Tests a DDKv2 workspace setup.
 
         Args:
@@ -767,6 +802,9 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
             sync: See init_ddk.py
             build_targets: If not empty, build the given list of targets below
                 the workspace. Otherwise run build tests.
+            base_kernel: Label to the base kernel target within the
+                DDK workspace. If None, defaults to
+                @kleaf//common:kernel_aarch64.
         """
         # kleaf_repo relative to ddk_workspace
         kleaf_repo_rel = self._force_relative_to(
@@ -830,12 +868,9 @@ class DdkWorkspaceSetupTest(KleafIntegrationTestBase):
         args = []
         # Switch base kernel when using prebuilts
         # pylint: disable=line-too-long
-        if prebuilts_dir:
-            args.append("--//tests:kernel=@gki_prebuilts//kernel_aarch64")
-            args.append("--@kleaf//build/kernel/kleaf/tests/ddk_menuconfig_test:kernel_build=@gki_prebuilts//kernel_aarch64")
-        else:
-            # --//tests:kernel already this default value
-            args.append("--@kleaf//build/kernel/kleaf/tests/ddk_menuconfig_test:kernel_build=@kleaf//common:kernel_aarch64")
+        base_kernel = base_kernel or f"@kleaf//{self._common()}:kernel_aarch64"
+        args.append(f"--//tests:kernel_flag={base_kernel}")
+        args.append(f"--@kleaf//build/kernel/kleaf/tests/ddk_menuconfig_test:kernel_build={base_kernel}")
 
         if build_targets:
             args.extend(build_targets)

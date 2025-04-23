@@ -29,18 +29,15 @@ load(
 
 visibility("//build/kernel/kleaf/...")
 
-# Key: Bazel target name in common_kernels.bzl
-# repo_name: name of download_artifacts_repo in bazel.WORKSPACE
-# outs: list of outs associated with that target name
-# arch: Architecture associated with this mapping.
-CI_TARGET_MAPPING = {
-    # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
-    "kernel_aarch64": {
-        "arch": "arm64",
-        # TODO: Rename this when more architectures are added.
-        "repo_name": "gki_prebuilts",
-        "bazel_target_name": "kernel_aarch64",
+def _common_ci_target_config(
+        bazel_target_name,
+        ddk_headers_archive_name):
+    return {
+        "bazel_target_name": bazel_target_name,
         # Key: local file name.
+        # target_suffix: Legacy for --use_prebuilt_gki. Unused in DDKv2.
+        # mandatory: Whether to flag error if the file does not exist
+        # remote_filename_fmt: The name of the file on build servers.
         "download_configs": {
             "kernel-uapi-headers.tar.gz": {
                 "target_suffix": "uapi_headers",
@@ -76,10 +73,10 @@ CI_TARGET_MAPPING = {
                 # The others can be found by extracting the archive, see gki_artifacts_prebuilts
                 "remote_filename_fmt": "signed/certified-boot-img-{build_number}.tar.gz",
             },
-            "kernel_aarch64" + FILEGROUP_DEF_ARCHIVE_SUFFIX: {
+            bazel_target_name + FILEGROUP_DEF_ARCHIVE_SUFFIX: {
                 "target_suffix": "ddk_artifacts",
                 "mandatory": True,
-                "remote_filename_fmt": "kernel_aarch64" + FILEGROUP_DEF_ARCHIVE_SUFFIX,
+                "remote_filename_fmt": bazel_target_name + FILEGROUP_DEF_ARCHIVE_SUFFIX,
             },
             "abi_symbollist": {
                 "target_suffix": "kmi_symbol_list",
@@ -120,10 +117,10 @@ CI_TARGET_MAPPING = {
         } | {
             # TODO(b/328770706): download_configs.json should be a proper rule to
             # get the name of the file from :kernel_aarch64_ddk_headers_archive
-            "kernel_aarch64_ddk_headers_archive.tar.gz": {
+            ddk_headers_archive_name: {
                 "target_suffix": "init_ddk_files",
                 "mandatory": True,
-                "remote_filename_fmt": "kernel_aarch64_ddk_headers_archive.tar.gz",
+                "remote_filename_fmt": ddk_headers_archive_name,
             },
             "build.config.constants": {
                 "target_suffix": "init_ddk_files",
@@ -136,5 +133,27 @@ CI_TARGET_MAPPING = {
                 "remote_filename_fmt": "manifest_{build_number}.xml",
             },
         },
+    }
+
+# Key: Bazel target name in common_kernels.bzl
+# repo_name: name of download_artifacts_repo in bazel.WORKSPACE.
+#   init_ddk uses this name as the repo name.
+# arch: Architecture associated with this mapping.
+CI_TARGET_MAPPING = {
+    # TODO(b/206079661): Allow downloaded prebuilts for x86_64 and debug targets.
+    "kernel_aarch64": _common_ci_target_config(
+        bazel_target_name = "kernel_aarch64",
+        ddk_headers_archive_name = "kernel_aarch64_ddk_headers_archive.tar.gz",
+    ) | {
+        "repo_name": "gki_prebuilts",
+        "arch": "arm64",
+    },
+    "kernel_aarch64_16k": _common_ci_target_config(
+        bazel_target_name = "kernel_aarch64_16k",
+        # TODO: This should come from common/BUILD.bazel via common_kernel()
+        ddk_headers_archive_name = "kernel_aarch64_ddk_headers_archive.tar.gz",
+    ) | {
+        "repo_name": "gki_prebuilts_aarch64_16k",
+        "arch": "arm64",
     },
 }
