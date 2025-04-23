@@ -495,12 +495,22 @@ function build_vendor_dlkm() {
 
   if [ -z "${VENDOR_DLKM_PROPS}" ]; then
     vendor_dlkm_props_file="$(mktemp)"
-    echo -e "vendor_dlkm_fs_type=${VENDOR_DLKM_FS_TYPE}\n" >> ${vendor_dlkm_props_file}
+    vendor_dlkm_file_contexts="$(mktemp)"
+    echo -e "fs_type=${VENDOR_DLKM_FS_TYPE}\n" >> ${vendor_dlkm_props_file}
     echo -e "use_dynamic_partition_size=true\n" >> ${vendor_dlkm_props_file}
     if [[ "${VENDOR_DLKM_FS_TYPE}" == "ext4" ]]; then
       echo -e "ext_mkuserimg=mkuserimg_mke2fs\n" >> ${vendor_dlkm_props_file}
       echo -e "ext4_share_dup_blocks=true\n" >> ${vendor_dlkm_props_file}
+      echo -e "extfs_rsv_pct=0\n" >> ${vendor_dlkm_props_file}
+      echo -e "journal_size=0\n" >> ${vendor_dlkm_props_file}
     fi
+    echo -e "mount_point=vendor_dlkm\n" >> ${vendor_dlkm_props_file}
+    echo -e "selinux_fc=${vendor_dlkm_file_contexts}\n" >> ${vendor_dlkm_props_file}
+
+    echo -e "/vendor_dlkm(/.*)?                    u:object_r:vendor_file:s0" >> ${vendor_dlkm_file_contexts}
+    echo -e "/vendor_dlkm/lib/modules(/.*)?/.*\.ko u:object_r:vendor_kernel_modules:s0" >> ${vendor_dlkm_file_contexts}
+
+
   else
     vendor_dlkm_props_file="${VENDOR_DLKM_PROPS}"
     if [[ -f "${ROOT_DIR}/${vendor_dlkm_props_file}" ]]; then
@@ -534,15 +544,15 @@ function build_vendor_dlkm() {
   if [[ ${VENDOR_DLKM_GEN_FLATTEN_IMAGE:-0} == "1" ]]; then
     local vendor_dlkm_flatten_image_name="vendor_dlkm.flatten.img"
 
-    if [ -z "${VENDOR_DLKM_PROPS}" ]; then
-      echo -e "fs_type=${VENDOR_DLKM_FS_TYPE}" >> ${vendor_dlkm_props_file}
-      echo -e "mount_point=vendor_dlkm\n" >> ${vendor_dlkm_props_file}
-    fi
-
   build_flattened_dlkm_image "${vendor_dlkm_flatten_image_name}" "${VENDOR_DLKM_STAGING_DIR}" \
     "${vendor_dlkm_props_file}" "${DIST_DIR}"
 
   generated_images+=(${vendor_dlkm_flatten_image_name})
+  fi
+
+  if [ -z "${VENDOR_DLKM_PROPS}" ]; then
+    rm ${vendor_dlkm_props_file}
+    rm ${vendor_dlkm_file_contexts}
   fi
 
   for image in "${generated_images[@]}"
