@@ -216,6 +216,44 @@ class KleafProjectSetterTest(parameterized.TestCase):
                 expected=str(prebuilts_dir_abs),
             )
 
+    def test_repo_name(self):
+        """Tests that repo_name in ci_target_mapping.json is respected."""
+        with tempfile.TemporaryDirectory() as tmp:
+            ddk_workspace = pathlib.Path(tmp) / "ddk_workspace"
+            # Verify the right local_artifact_path is set for prebuilts
+            #  in a relative to workspace directory.
+            prebuilts_dir = ddk_workspace / "prebuilts_dir"
+
+            ci_target_mapping = prebuilts_dir / "ci_target_mapping.json"
+            ci_target_mapping.parent.mkdir(parents=True)
+            ci_target_mapping.write_text(f"""{{
+                "repo_name": "my_gki_prebuilts"
+            }}""")
+            try:
+                init_ddk.KleafProjectSetter(
+                    build_id=None,
+                    build_target=None,
+                    ddk_workspace=ddk_workspace,
+                    kleaf_repo=None,
+                    local=False,
+                    prebuilts_dir=prebuilts_dir,
+                    url_fmt=None,
+                    superproject_tool="repo",
+                    sync=False,
+                ).run()
+            except:  # pylint: disable=bare-except
+                pass
+            finally:
+                module_bazel = ddk_workspace / init_ddk._MODULE_BAZEL_FILE
+                self.assertTrue(module_bazel.exists())
+                content = module_bazel.read_text()
+                self.assertIn(textwrap.dedent("""\
+                    kernel_prebuilt_ext.declare_kernel_prebuilts(
+                        name = "my_gki_prebuilts",
+                        local_artifact_path = "prebuilts_dir",
+                    )
+                    """), content)
+
     def test_download_works_for_local_file(self):
         """Tests that local files can be downloaded."""
         with tempfile.TemporaryDirectory() as tmp_dir:
