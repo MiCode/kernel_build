@@ -39,7 +39,6 @@ load(
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
     "KernelBuildFilegroupDeclInfo",
-    "KernelBuildGeneratedHeadersForModuleInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildInfo",
     "KernelBuildMixedTreeInfo",
@@ -1515,22 +1514,17 @@ _get_dot_config = subrule(
     implementation = _get_dot_config_impl,
 )
 
-def _pack_generated_headers_for_module_step_impl(subrule_ctx, base_kernel, generated_headers_for_module):
+def _pack_generated_headers_for_module_step_impl(subrule_ctx, generated_headers_for_module):
     """Returns a step that packages generated headers for external modules.
 
     Args:
         subrule_ctx: subrule_ctx
-        base_kernel: from base_kernel_utils.get_base_kernel()
         generated_headers_for_module: list of header paths to be packaged below $OUT_DIR.
     Returns:
         A struct with the following extra fields:
 
         * archive: the archive to be provided to downstream targets.
     """
-    if base_kernel:
-        archive = base_kernel[KernelBuildGeneratedHeadersForModuleInfo].archive
-        return struct(inputs = [], tools = [], cmd = "", outputs = [], archive = archive)
-
     if not generated_headers_for_module:
         return struct(inputs = [], tools = [], cmd = "", outputs = [], archive = None)
 
@@ -1729,7 +1723,6 @@ def _build_main_action(
 
     # Individual steps of the final command.
     pack_generated_headers_for_module_step = _pack_generated_headers_for_module_step(
-        base_kernel = base_kernel_utils.get_base_kernel(ctx),
         generated_headers_for_module = ctx.attr.generated_headers_for_module,
     )
     gen_symvers_step = _gen_symvers_step(
@@ -2253,9 +2246,6 @@ def _create_infos(
     kbuild_mixed_tree_info = KernelBuildMixedTreeInfo(
         files = depset(kbuild_mixed_tree_files),
     )
-    generated_headers_for_module_info = KernelBuildGeneratedHeadersForModuleInfo(
-        archive = main_action_ret.generated_headers_for_module_archive,
-    )
 
     cmds_info = KernelCmdsInfo(
         srcs = depset([target.files for target in ctx.attr.srcs]),
@@ -2327,7 +2317,6 @@ def _create_infos(
         serialized_env_info,
         orig_env_info,
         kbuild_mixed_tree_info,
-        generated_headers_for_module_info,
         kernel_build_info,
         kernel_build_module_info,
         kernel_build_uapi_info,
