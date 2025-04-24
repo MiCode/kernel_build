@@ -39,6 +39,7 @@ CI_TARGET_MAPPING = {
         "arch": "arm64",
         # TODO: Rename this when more architectures are added.
         "repo_name": "gki_prebuilts",
+        "bazel_target_name": "kernel_aarch64",
         # Key: local file name.
         "download_configs": {
             "kernel-uapi-headers.tar.gz": {

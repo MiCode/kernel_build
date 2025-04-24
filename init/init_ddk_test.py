@@ -251,7 +251,6 @@ class KleafProjectSetterTest(parameterized.TestCase):
                     kernel_prebuilt_ext.declare_kernel_prebuilts(
                         name = "my_gki_prebuilts",
                         local_artifact_path = "prebuilts_dir",
-                    )
                     """), content)
 
     def test_download_works_for_local_file(self):

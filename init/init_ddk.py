@@ -59,6 +59,7 @@ kernel_prebuilt_ext = use_extension(
 kernel_prebuilt_ext.declare_kernel_prebuilts(
     name = "{repo_name}",
     local_artifact_path = "{prebuilts_dir_relative}",
+    target = "{bazel_target_name}",
 )
 use_repo(kernel_prebuilt_ext, "{repo_name}")
 """
@@ -247,6 +248,8 @@ class KleafProjectSetter:
         if self.prebuilts_dir:
             module_bazel_content += "\n"
             module_bazel_content += _LOCAL_PREBUILTS_CONTENT_TEMPLATE.format(
+                bazel_target_name=self._ci_target_mapping.get(
+                    "bazel_target_name", "kernel_aarch64"),
                 repo_name=self._ci_target_mapping.get("repo_name",
                                                       "gki_prebuilts"),
                 # The prebuilts directory must be relative to the DDK workspace.
