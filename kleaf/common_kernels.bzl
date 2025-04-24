@@ -87,7 +87,8 @@ def common_kernel(
         extra_dist = None,
         kcflags = None,
         system_dlkm_extra_archive_files = None,
-        clang_autofdo_profile = None):
+        clang_autofdo_profile = None,
+        generated_headers_for_module = None):
     """Macro for an Android Common Kernel.
 
     The following targets are declared as public API:
@@ -155,6 +156,7 @@ def common_kernel(
         kcflags: [kernel_build.kcflags](kernel.md#kernel_build-kcflags)
         system_dlkm_extra_archive_files: [system_dlkm_image.internal_extra_archive_files](#system_dlkm_image-internal_extra_archive_files)
         clang_autofdo_profile: See [kernel_build.clang_autofdo_profile](kernel.md#kernel_build-clang_autofdo_profile)
+        generated_headers_for_module: See [kernel_build.generated_headers_for_module](kernel.md#kernel_build-generated_headers_for_module)
     """
     json_target_config = dict(
         name = name,
@@ -183,6 +185,7 @@ def common_kernel(
         ddk_headers_archive = ddk_headers_archive,
         ddk_module_headers = ddk_module_headers,
         extra_dist = extra_dist,
+        generated_headers_for_module = generated_headers_for_module,
     )
 
     print_debug(
@@ -259,6 +262,7 @@ def common_kernel(
         ddk_module_headers = ddk_module_headers,
         kcflags = kcflags,
         clang_autofdo_profile = clang_autofdo_profile,
+        generated_headers_for_module = generated_headers_for_module,
     )
 
     kernel_abi(
