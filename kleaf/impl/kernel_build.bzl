@@ -1843,6 +1843,12 @@ def _build_main_action(
     for step in steps:
         command_outputs += step.outputs
 
+    if ctx.file.src_protected_exports_list:
+        inputs.append(ctx.file.src_protected_exports_list)
+
+    if ctx.file.src_protected_modules_list:
+        inputs.append(ctx.file.src_protected_modules_list)
+
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
