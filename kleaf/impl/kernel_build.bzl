@@ -1918,7 +1918,6 @@ def _build_main_action(
         gcno_mapping = grab_gcno_step.gcno_mapping,
         gcno_dir = grab_gcno_step.gcno_dir,
         module_symvers_outputs = copy_module_symvers_step.outputs,
-        generated_headers_for_module_archive = pack_generated_headers_for_module_step.archive,
     )
 
 def create_serialized_env_info(
@@ -2079,14 +2078,6 @@ def _create_infos(
         kernel_release = all_output_files["internal_outs"]["include/config/kernel.release"],
     )
 
-    extract_module_generated_archive_cmd = ""
-    module_env_extra_inputs_direct = []
-    if main_action_ret.generated_headers_for_module_archive:
-        extract_module_generated_archive_cmd = """
-            tar xf {} -C ${{OUT_DIR}}
-        """.format(main_action_ret.generated_headers_for_module_archive.path)
-        module_env_extra_inputs_direct.append(main_action_ret.generated_headers_for_module_archive)
-
     # For kernel_module()
     ext_mod_serialized_env_info_deps = all_output_files["internal_outs"].values()
     mod_min_env = create_serialized_env_info(
@@ -2098,13 +2089,8 @@ def _create_infos(
             for dep in ext_mod_serialized_env_info_deps
         },
         fake_system_map = True,
-        extra_restore_outputs_cmd = extract_module_generated_archive_cmd,
-        extra_inputs = depset(
-            module_env_extra_inputs_direct,
-            transitive = [
-                module_srcs.module_scripts,
-            ],
-        ),
+        extra_restore_outputs_cmd = "",
+        extra_inputs = depset(transitive = [module_srcs.module_scripts]),
     )
 
     # External modules do not need implicit_outs because they are unsigned.
@@ -2121,14 +2107,11 @@ def _create_infos(
             for dep in ext_mod_full_serialized_env_info_dependencies
         },
         fake_system_map = False,
-        extra_restore_outputs_cmd = extract_module_generated_archive_cmd + kbuild_mixed_tree_ret.cmd,
-        extra_inputs = depset(
-            module_env_extra_inputs_direct,
-            transitive = [
-                kbuild_mixed_tree_ret.inputs,
-                module_srcs.module_scripts,
-            ],
-        ),
+        extra_restore_outputs_cmd = kbuild_mixed_tree_ret.cmd,
+        extra_inputs = depset(transitive = [
+            kbuild_mixed_tree_ret.inputs,
+            module_srcs.module_scripts,
+        ]),
     )
 
     # For ddk_config()
