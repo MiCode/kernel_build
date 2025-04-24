@@ -2304,6 +2304,7 @@ def _create_infos(
         module_env_archive = module_scripts_archive,
         has_base_kernel = base_kernel_utils.get_base_kernel(ctx) != None,
         copy_module_symvers_outputs = main_action_ret.module_symvers_outputs,
+        generated_headers_for_module_archive = main_action_ret.generated_headers_for_module_archive,
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()

@@ -15,6 +15,12 @@
 
 #include <linux/module.h>
 
+
+// b/409881963: Test that selinux headers can be included
+// The following is based on -I<OUT_DIR>/include
+#include <../security/selinux/flask.h>
+#include <../security/selinux/av_permissions.h>
+
 MODULE_DESCRIPTION("A test module for DDK testing purposes");
 MODULE_AUTHOR("Yifan Hong <elsk@google.com>");
 MODULE_LICENSE("GPL v2");
