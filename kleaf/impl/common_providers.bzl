@@ -337,8 +337,6 @@ KernelBuildFilegroupDeclInfo = provider(
         "module_env_archive": "Archive preparing an environment to build modules. May be `None`.",
         "has_base_kernel": "Whether the original `kernel_build()` has a not-None `base_kernel`.",
         "copy_module_symvers_outputs": "The output `<name>_Module.symvers` file.",
-        "generated_headers_for_module_archive": """An archive that contains list of generated headers to be extracted to
-            $OUT_DIR prior to module builds. May be None.""",
     },
 )
 

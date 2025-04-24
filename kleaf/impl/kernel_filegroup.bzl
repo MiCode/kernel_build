@@ -21,7 +21,6 @@ load(
     "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
-    "KernelBuildGeneratedHeadersForModuleInfo",
     "KernelBuildInTreeModulesInfo",
     "KernelBuildMixedTreeInfo",
     "KernelBuildUapiInfo",
@@ -274,22 +273,14 @@ def _get_mod_envs(ctx, modules_prepare_env, outs_mapping, internal_outs_mapping)
             modinst_env = None,
         )
 
-    extract_module_generated_archive_cmd = ""
-    module_env_extra_inputs_direct = []
-    if ctx.file.generated_headers_for_module_archive:
-        extract_module_generated_archive_cmd = """
-            tar xf {} -C ${{OUT_DIR}}
-        """.format(ctx.file.generated_headers_for_module_archive.path)
-        module_env_extra_inputs_direct.append(ctx.file.generated_headers_for_module_archive)
-
     mod_min_env = create_serialized_env_info(
         ctx = ctx,
         setup_script_name = "{name}/{name}_mod_min_setup.sh".format(name = ctx.attr.name),
         pre_info = modules_prepare_env,
         outputs = internal_outs_mapping,
         fake_system_map = True,
-        extra_restore_outputs_cmd = extract_module_generated_archive_cmd,
-        extra_inputs = depset(module_env_extra_inputs_direct),
+        extra_restore_outputs_cmd = "",
+        extra_inputs = depset(),
     )
 
     mod_full_env = create_serialized_env_info(
@@ -299,8 +290,8 @@ def _get_mod_envs(ctx, modules_prepare_env, outs_mapping, internal_outs_mapping)
         outputs = outs_mapping | internal_outs_mapping,
         fake_system_map = False,
         # kernel_filegroup does not have base_kernel, so no need to restore kbuild_mixed_tree
-        extra_restore_outputs_cmd = extract_module_generated_archive_cmd,
-        extra_inputs = depset(module_env_extra_inputs_direct),
+        extra_restore_outputs_cmd = "",
+        extra_inputs = depset(),
     )
 
     return KernelBuildExtModuleInfo(
@@ -443,17 +434,11 @@ def _kernel_filegroup_impl(ctx):
 
     srcs_depset = depset(transitive = [target.files for target in ctx.attr.srcs])
     mixed_tree_files = depset(transitive = [_get_mixed_tree_files(target) for target in ctx.attr.srcs])
-
-    generated_headers_for_module_info = KernelBuildGeneratedHeadersForModuleInfo(
-        archive = ctx.file.generated_headers_for_module_archive,
-    )
-
     kernel_release = _get_kernel_release(ctx)
 
     infos = [
         DefaultInfo(files = srcs_depset),
         KernelBuildMixedTreeInfo(files = mixed_tree_files),
-        generated_headers_for_module_info,
         KernelBuildUnameInfo(kernel_release = kernel_release),
         kernel_module_dev_info,
         ddk_headers_info,
@@ -597,12 +582,7 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "module_env_archive": attr.label(
             allow_single_file = True,
             doc = """Archive from `kernel_build.pack_module_env` that contains
-                necessary source files to build external modules.""",
-        ),
-        "generated_headers_for_module_archive": attr.label(
-            allow_single_file = True,
-            doc = """Archive from `kernel_build.generated_headers_for_module` that contains
-                generated headers to be restored to $OUT_DIR to build external modules.""",
+                necessary files to build external modules.""",
         ),
         "outs": attr.label_keyed_string_dict(
             allow_files = True,

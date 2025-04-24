@@ -147,7 +147,6 @@ kernel_filegroup(
     env_setup_script = {env_setup_script_repr},
     modules_prepare_archive = {modules_prepare_archive_repr},
     module_env_archive = {module_env_archive_repr},
-    generated_headers_for_module_archive = {generated_headers_for_modules_archive_repr},
     outs = {outs_repr},
     internal_outs = {internal_outs_repr},
     target_platform = {target_platform_repr},
@@ -253,11 +252,6 @@ def _write_filegroup_decl_file(
         **(one | pkg)
     )
     sub.add_joined("{module_env_archive_repr}", depset([info.module_env_archive]), **(one | pkg))
-    sub.add_joined(
-        "{generated_headers_for_modules_archive_repr}",
-        depset([info.generated_headers_for_module_archive]),
-        **(one | pkg)
-    )
 
     # {"//vmlinux": "vmlinux", ...}
     sub.add_joined(
@@ -343,8 +337,6 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
         info.modules_prepare_archive,
         info.module_env_archive,
     ]
-    if info.generated_headers_for_module_archive:
-        direct_inputs.append(info.generated_headers_for_module_archive)
     if info.src_protected_modules_list:
         direct_inputs.append(info.src_protected_modules_list)
     direct_inputs.extend(info.copy_module_symvers_outputs)
