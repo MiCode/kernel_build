@@ -543,6 +543,7 @@ class BazelWrapper(KleafHelpPrinter):
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/fast.bazelrc",
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/rbe.bazelrc",
             self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/silent.bazelrc",
+            self.kleaf_repo_dir / "build/kernel/kleaf/bazelrc/gbl.bazelrc",
         ])
 
         self.transformed_startup_options += self._transform_bazelrc_files([
