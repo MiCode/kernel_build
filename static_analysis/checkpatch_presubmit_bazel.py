@@ -43,7 +43,6 @@ _SILENT_ARGS = [
 # TODO: Find a better way to handle this exceptions;
 _PATH_PREFIX_DENY_LIST = (
     "external/",
-    "bootable/",
 )
 
 def load_arguments() -> dict[str, Any]:
