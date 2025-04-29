@@ -18,7 +18,7 @@ common_kernel(<a href="#common_kernel-name">name</a>, <a href="#common_kernel-ou
               <a href="#common_kernel-gki_system_dlkm_modules">gki_system_dlkm_modules</a>, <a href="#common_kernel-make_goals">make_goals</a>, <a href="#common_kernel-abi_definition_stg">abi_definition_stg</a>, <a href="#common_kernel-kmi_enforced">kmi_enforced</a>,
               <a href="#common_kernel-build_gki_artifacts">build_gki_artifacts</a>, <a href="#common_kernel-gki_boot_img_sizes">gki_boot_img_sizes</a>, <a href="#common_kernel-page_size">page_size</a>, <a href="#common_kernel-deprecation">deprecation</a>, <a href="#common_kernel-ddk_headers_archive">ddk_headers_archive</a>,
               <a href="#common_kernel-ddk_module_headers">ddk_module_headers</a>, <a href="#common_kernel-extra_dist">extra_dist</a>, <a href="#common_kernel-kcflags">kcflags</a>, <a href="#common_kernel-system_dlkm_extra_archive_files">system_dlkm_extra_archive_files</a>,
-              <a href="#common_kernel-clang_autofdo_profile">clang_autofdo_profile</a>)
+              <a href="#common_kernel-clang_autofdo_profile">clang_autofdo_profile</a>, <a href="#common_kernel-generated_headers_for_module">generated_headers_for_module</a>)
 </pre>
 
 Macro for an Android Common Kernel.
@@ -92,6 +92,7 @@ Usually, for ABI monitoring to be fully turned on, you should set:
 | <a id="common_kernel-kcflags"></a>kcflags |  [kernel_build.kcflags](kernel.md#kernel_build-kcflags)   |  `None` |
 | <a id="common_kernel-system_dlkm_extra_archive_files"></a>system_dlkm_extra_archive_files |  [system_dlkm_image.internal_extra_archive_files](#system_dlkm_image-internal_extra_archive_files)   |  `None` |
 | <a id="common_kernel-clang_autofdo_profile"></a>clang_autofdo_profile |  See [kernel_build.clang_autofdo_profile](kernel.md#kernel_build-clang_autofdo_profile)   |  `None` |
+| <a id="common_kernel-generated_headers_for_module"></a>generated_headers_for_module |  See [kernel_build.generated_headers_for_module](kernel.md#kernel_build-generated_headers_for_module)   |  `None` |
 
 
 <a id="define_prebuilts"></a>
