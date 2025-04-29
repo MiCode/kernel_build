@@ -1,4 +1,4 @@
-build:gbl --@rules_rust//rust/settings:experimental_toolchain_generated_sysroot=false
+build:gbl --@rules_rust//rust/settings:toolchain_generated_sysroot=false
 common:gbl --extra_toolchains=@gbl//toolchain:all
 test:gbl  --test_output=errors
 
