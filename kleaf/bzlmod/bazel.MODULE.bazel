@@ -134,7 +134,7 @@ bazel_dep(
 
 bazel_dep(
     name = "rules_python",
-    version = "0.37.0",
+    version = "1.0.0",
 )
 bazel_dep(
     name = "rules_shell",
