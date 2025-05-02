@@ -30,6 +30,10 @@ def _vendor_boot_image_impl(ctx):
         outs = list(outs)
         if vendor_bootconfig_file.basename in outs:
             outs.remove(vendor_bootconfig_file.basename)
+    if ctx.attr.vendor_ramdisk_dev_nodes:
+        # buildifier: disable=print
+        print("""\nWARNING: vendor_ramdisk_dev_nodes option will be deprecated from vendor_boot. Use the
+              option from initramfs""")
 
     return build_boot_or_vendor_boot(
         bin_dir = ctx.bin_dir,
