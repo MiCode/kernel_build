@@ -52,6 +52,7 @@ def _vendor_boot_image_impl(ctx):
         ramdisk_compression_args = ctx.attr.ramdisk_compression_args,
         dtb_image_file = ctx.file.dtb_image,
         vendor_bootconfig_file = vendor_bootconfig_file,
+        kernel_vendor_cmdline = ctx.attr.kernel_vendor_cmdline,
     )
 
 vendor_boot_image = rule(
@@ -144,6 +145,9 @@ vendor_boot_image = rule(
 
                 Requires header version >= 4.
             """,
+        ),
+        "kernel_vendor_cmdline": attr.string(
+            doc = """string of kernel parameters for vendor boot image""",
         ),
     },
     subrules = [build_boot_or_vendor_boot],
