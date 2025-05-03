@@ -57,6 +57,7 @@ def _vendor_boot_image_impl(ctx):
         dtb_image_file = ctx.file.dtb_image,
         vendor_bootconfig_file = vendor_bootconfig_file,
         kernel_vendor_cmdline = ctx.attr.kernel_vendor_cmdline,
+        header_version = ctx.attr.header_version,
     )
 
 vendor_boot_image = rule(
@@ -152,6 +153,16 @@ vendor_boot_image = rule(
         ),
         "kernel_vendor_cmdline": attr.string(
             doc = """string of kernel parameters for vendor boot image""",
+        ),
+        "header_version": attr.int(
+            doc = """Boot image header version.
+
+            If unspecified, falls back to the value of BOOT_IMAGE_HEADER_VERSION
+            in build configs. If BOOT_IMAGE_HEADER_VERSION is not set, defaults
+            to 3.""",
+            # It is intentional that 0 is not in the list. When specified explicitly,
+            # the user can only provide these values. If unset, the value is 0.
+            values = [3, 4],
         ),
     },
     subrules = [build_boot_or_vendor_boot],

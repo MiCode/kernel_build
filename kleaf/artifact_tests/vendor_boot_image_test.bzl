@@ -82,6 +82,19 @@ def _vendor_boot_image_test_impl(ctx):
             quoted_expected_cmdline = shell.quote(ctx.attr.expected_cmdline),
             extracted = extracted.short_path,
         )
+    if ctx.attr.expected_header_version:
+        test_script += """
+            if ! grep -q -F "vendor boot image header version: {expected_header_version}" {extracted}/stdout.txt; then
+                echo "ERROR: header version differs. " >&2
+                echo "expected: "{expected_header_version} >&2
+                grep -F "vendor boot image header version:" {extracted}/stdout.txt >&2
+                exit 1
+            fi
+        """.format(
+            expected_header_version = ctx.attr.expected_header_version,
+            extracted = extracted.short_path,
+        )
+
     test_script_file = ctx.actions.declare_file("{}/test.sh".format(ctx.label.name))
     ctx.actions.write(test_script_file, test_script, is_executable = True)
     runfiles = ctx.runfiles(
@@ -116,6 +129,7 @@ vendor_boot_image_test = rule(
         "expected_cmdline": attr.string(
             doc = "The expected kernel_vendor_cmdline in the image.",
         ),
+        "expected_header_version": attr.int(),
     },
     test = True,
     toolchains = [hermetic_toolchain.type],

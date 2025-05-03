@@ -48,6 +48,7 @@ def _build_boot_or_vendor_boot(
         *,
         vendor_bootconfig_file = None,
         kernel_vendor_cmdline = None,
+        header_version = None,
         _search_and_cp_output):
     ## Declare implicit outputs of the command
     ## This is like subrule_ctx.actions.declare_directory(subrule_ctx.label.name) without actually declaring it.
@@ -253,6 +254,12 @@ def _build_boot_or_vendor_boot(
             KERNEL_VENDOR_CMDLINE={kernel_vendor_cmdline}
         """.format(kernel_vendor_cmdline = kernel_vendor_cmdline)
 
+    header_version_cmd = ""
+    if header_version:
+        header_version_cmd = """
+            BOOT_IMAGE_HEADER_VERSION={header_version}
+        """.format(header_version = header_version)
+
     command += """
              # Build boot images
                (
@@ -267,6 +274,7 @@ def _build_boot_or_vendor_boot(
                  RAMDISK_EXT="{ramdisk_ext}"
                  {vendor_bootconfig_command}
                  {kernel_vendor_cmdline_cmd}
+                 {header_version_cmd}
                  build_boot_images
                )
                {search_and_cp_output} --srcdir ${{DIST_DIR}} --dstdir {outdir} {outs}
@@ -286,6 +294,7 @@ def _build_boot_or_vendor_boot(
         ramdisk_ext = ramdisk_options.ramdisk_ext,
         vendor_bootconfig_command = vendor_bootconfig_command,
         kernel_vendor_cmdline_cmd = kernel_vendor_cmdline_cmd,
+        header_version_cmd = header_version_cmd,
     )
 
     debug.print_scripts_subrule(command)
