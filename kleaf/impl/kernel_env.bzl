@@ -409,6 +409,8 @@ def _kernel_env_impl(ctx):
     if ctx.file.clang_autofdo_profile:
         setup_inputs.append(ctx.file.clang_autofdo_profile)
     setup_inputs += dtstree_srcs
+    if dtstree_makefile:
+        setup_inputs.append(dtstree_makefile)
 
     env_info = KernelEnvInfo(
         inputs = depset(setup_inputs),
