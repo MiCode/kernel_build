@@ -136,8 +136,16 @@ function create_modules_order_lists() {
       # If file doesn't end in newline the last module is skipped from filter
       echo >> ${modules_list_filter}
 
+      # Empty lines does not work properly with grep so remove them
+      sed -n '/^.\+$/p' -i ${modules_list_filter} \
+        || true
+
+      # To eliminate ambiguity of flatten KO basenames change them to regexps for KO pathnames
+      sed 's@^\([0-9a-zA-Z_\-]\+\)\.ko$@^\\(.*/\\)\\?\1\\.ko$@' -i ${modules_list_filter} \
+        || true
+
       # grep the modules.order for any KOs in the modules list
-      grep -w -f ${modules_list_filter} ${tmp_modules_order_file} > ${dest_file} \
+      grep -f ${modules_list_filter} ${tmp_modules_order_file} > ${dest_file} \
         || true
 
       rm -f ${modules_list_filter}
