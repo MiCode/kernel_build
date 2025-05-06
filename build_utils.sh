@@ -128,15 +128,17 @@ function create_modules_order_lists() {
       local modules_list_filter=$(mktemp)
 
       # Remove all lines starting with "#" (comments)
-      # Exclamation point makes interpreter ignore the exit code under set -e
-      ! grep -v "^#" ${mod_list_file} > ${modules_list_filter}
+      # "|| true" ignores the exit code under set -e
+      grep -v "^#" ${mod_list_file} > ${modules_list_filter} \
+        || true
 
       # Append a new line at the end of file
       # If file doesn't end in newline the last module is skipped from filter
       echo >> ${modules_list_filter}
 
       # grep the modules.order for any KOs in the modules list
-      ! grep -w -f ${modules_list_filter} ${tmp_modules_order_file} > ${dest_file}
+      grep -w -f ${modules_list_filter} ${tmp_modules_order_file} > ${dest_file} \
+        || true
 
       rm -f ${modules_list_filter}
     fi
