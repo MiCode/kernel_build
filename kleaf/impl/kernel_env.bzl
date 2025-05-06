@@ -22,6 +22,7 @@ load("@kernel_toolchain_info//:dict.bzl", "VARS")
 load(":abi/force_add_vmlinux_utils.bzl", "force_add_vmlinux_utils")
 load(
     ":common_providers.bzl",
+    "DtstreeInfo",
     "KernelBuildConfigInfo",
     "KernelEnvAttrInfo",
     "KernelEnvInfo",
@@ -32,7 +33,6 @@ load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":kernel_config_settings.bzl", "kernel_config_settings")
-load(":kernel_dtstree.bzl", "DtstreeInfo")
 load(":kernel_toolchains_utils.bzl", "kernel_toolchains_utils")
 load(":kgdb.bzl", "kgdb")
 load(":set_kernel_dir.bzl", "set_kernel_dir")

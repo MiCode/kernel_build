@@ -602,3 +602,11 @@ KernelConfigInfo = provider(
         "env_setup_script": "script from `kernel_env`",
     },
 )
+
+DtstreeInfo = provider(
+    doc = "DTS tree info",
+    fields = {
+        "srcs": "DTS tree sources",
+        "makefile": "DTS tree makefile",
+    },
+)
