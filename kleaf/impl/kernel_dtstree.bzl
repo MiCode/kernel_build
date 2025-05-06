@@ -23,7 +23,7 @@ visibility("//build/kernel/kleaf/...")
 
 def _kernel_dtstree_impl(ctx):
     return DtstreeInfo(
-        srcs = ctx.files.srcs,
+        srcs = depset(transitive = [target.files for target in ctx.attr.srcs]),
         makefile = ctx.file.makefile,
     )
 

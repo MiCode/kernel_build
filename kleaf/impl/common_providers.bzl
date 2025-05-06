@@ -606,7 +606,7 @@ KernelConfigInfo = provider(
 DtstreeInfo = provider(
     doc = "DTS tree info",
     fields = {
-        "srcs": "DTS tree sources",
+        "srcs": "depset of DTS tree sources",
         "makefile": "DTS tree makefile",
     },
 )
