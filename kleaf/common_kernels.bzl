@@ -64,6 +64,7 @@ def common_kernel(
         arch = None,
         visibility = None,
         defconfig = None,
+        check_defconfig = None,
         pre_defconfig_fragments = None,
         post_defconfig_fragments = None,
         kmi_symbol_list = None,
@@ -130,6 +131,14 @@ def common_kernel(
         arch: See [kernel_build.arch](kernel.md#kernel_build-arch)
         makefile: See [kernel_build.makefile](kernel.md#kernel_build-makefile)
         defconfig: See [kernel_build.defconfig](kernel.md#kernel_build-defconfig)
+        check_defconfig: Non-configurable. See [kernel_build.check_defconfig](kernel.md#kernel_build-check_defconfig).
+
+            If value is `None`, default value is the following:
+            -   If `--gki_build_config_fragment` is set, default is "disabled".
+            -   Otherwise:
+                -   If `pre_defconfig_fragments` is set, default is "match".
+                -   Otherwise, default is "minimized".
+
         pre_defconfig_fragments: See [kernel_build.pre_defconfig_fragments](kernel.md#kernel_build-pre_defconfig_fragments)
         post_defconfig_fragments: See [kernel_build.post_defconfig_fragments](kernel.md#kernel_build-post_defconfig_fragments)
         kmi_symbol_list: See [kernel_build.kmi_symbol_list](kernel.md#kernel_build-kmi_symbol_list)
@@ -164,6 +173,7 @@ def common_kernel(
         arch = arch,
         makefile = makefile,
         defconfig = defconfig,
+        check_defconfig = check_defconfig,
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
         visibility = visibility,
@@ -218,6 +228,12 @@ def common_kernel(
         srcs = all_kmi_symbol_lists,
     )
 
+    if check_defconfig == None:
+        check_defconfig = select({
+            Label("//build/kernel/kleaf:gki_build_config_fragment_is_unset"): "match" if pre_defconfig_fragments else "minimized",
+            "//conditions:default": "disabled",
+        })
+
     kernel_build(
         name = name,
         srcs = [name + "_sources"],
@@ -233,10 +249,7 @@ def common_kernel(
         ],
         build_config = Label("//build/kernel/kleaf:gki_build_config_fragment"),
         makefile = makefile,
-        check_defconfig = select({
-            Label("//build/kernel/kleaf:gki_build_config_fragment_is_unset"): "match" if pre_defconfig_fragments else "minimized",
-            "//conditions:default": "disabled",
-        }),
+        check_defconfig = check_defconfig,
         defconfig = defconfig,
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
