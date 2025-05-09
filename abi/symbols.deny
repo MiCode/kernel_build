@@ -40,3 +40,6 @@ fscrypt_ioctl_add_key	ext4 or f2fs cannot be a module
 fscrypt_ioctl_set_policy	ext4 or f2fs cannot be a module
 fsverity_ioctl_enable	ext4 or f2fs cannot be a module
 fsverity_ioctl_measure	ext4 or f2fs cannot be a module
+
+# Vendor modules are not allowed to replace Binder
+unload_binder	Partners may not replace Binder
