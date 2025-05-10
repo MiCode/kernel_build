@@ -480,6 +480,8 @@ def common_kernel(
         page_size = page_size,
         makefile = makefile,
         defconfig = defconfig,
+        pre_defconfig_fragments = pre_defconfig_fragments,
+        post_defconfig_fragments = post_defconfig_fragments,
         protected_exports_list = protected_exports_list,
     )
 
@@ -664,6 +666,8 @@ def _define_common_kernels_additional_tests(
         kernel_build_name,
         makefile,
         defconfig,
+        pre_defconfig_fragments,
+        post_defconfig_fragments,
         kernel_modules_install,
         modules,
         arch,
@@ -708,6 +712,9 @@ def _define_common_kernels_additional_tests(
         base_kernel_module = min(modules) if modules else None,
         arch = arch,
         page_size = page_size,
+        defconfig = defconfig,
+        pre_defconfig_fragments = pre_defconfig_fragments,
+        post_defconfig_fragments = post_defconfig_fragments,
     )
 
     kernel_build(
