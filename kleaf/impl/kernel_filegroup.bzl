@@ -18,6 +18,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load(
     ":common_providers.bzl",
     "DdkHeadersInfo",
+    "DefconfigInfo",
     "GcovInfo",
     "KernelBuildAbiInfo",
     "KernelBuildExtModuleInfo",
@@ -465,6 +466,7 @@ def _kernel_filegroup_impl(ctx):
         kernel_env_attr_info,
         gcov_info,
         _get_toolchain_version_info(ctx),
+        DefconfigInfo(file = ctx.file.defconfig, make_target = None),
     ]
     if serialized_env:
         infos.append(serialized_env)
@@ -634,6 +636,11 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         ),
         "expected_toolchain_version": attr.string(
             doc = "Checks resolved toolchain version against this string.",
+        ),
+        "defconfig": attr.label(
+            doc = """See [kernel_build.defconfig](#kernel_build-defconfig).
+                Only a file is allowed; allmodconfig is currently not supported.""",
+            allow_single_file = True,
         ),
     } | _kernel_filegroup_additional_attrs(),
     toolchains = [hermetic_toolchain.type],

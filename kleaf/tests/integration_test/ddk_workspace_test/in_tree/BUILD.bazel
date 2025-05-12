@@ -12,7 +12,6 @@ kernel_build(
     srcs = ["@kleaf//common:kernel_aarch64_sources"],
     outs = [],
     base_kernel = "@kleaf//common:kernel_aarch64",
-    defconfig = "@kleaf//common:arch/arm64/configs/gki_defconfig",
     defconfig_fragments = [
         "in_tree_defconfig",
     ],

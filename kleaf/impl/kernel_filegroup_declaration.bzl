@@ -150,6 +150,7 @@ kernel_filegroup(
         "//conditions:default": {exec_platform_repr},
     }),
     expected_toolchain_version = {toolchain_version_repr},
+    defconfig = {defconfig_repr},
     visibility = ["//visibility:public"],
 )
 """
@@ -309,6 +310,16 @@ def _write_filegroup_decl_file(
         str(target.label).replace("@@//", "@kleaf//")
         for target in ctx.attr.ddk_module_headers
     ]))
+    if info.defconfig_info.file:
+        sub.add_joined("{defconfig_repr}", depset([info.defconfig_info.file]), **(one | pkg))
+    elif info.defconfig_info.make_target:
+        fail("{}: {} has defconfig {} which is not yet supported".format(
+            ctx.label,
+            ctx.attr.kernel_build.label,
+            info.defconfig_info.make_target,
+        ))
+    else:
+        sub.add("{defconfig_repr}", repr(None))
 
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
         ctx.attr.kernel_build.label.name,
@@ -342,6 +353,8 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
     if info.src_protected_modules_list:
         direct_inputs.append(info.src_protected_modules_list)
     direct_inputs.extend(info.copy_module_symvers_outputs)
+    if info.defconfig_info.file:
+        direct_inputs.append(info.defconfig_info.file)
     transitive_inputs = [
         info.ddk_module_defconfig_fragments,
         info.internal_outs,
