@@ -439,7 +439,8 @@ load("@kleaf//build/kernel/kleaf:kernel.bzl", "initramfs")
 
 initramfs(<a href="#initramfs-name">name</a>, <a href="#initramfs-deps">deps</a>, <a href="#initramfs-create_modules_order">create_modules_order</a>, <a href="#initramfs-kernel_modules_install">kernel_modules_install</a>, <a href="#initramfs-modules_blocklist">modules_blocklist</a>,
           <a href="#initramfs-modules_charger_list">modules_charger_list</a>, <a href="#initramfs-modules_list">modules_list</a>, <a href="#initramfs-modules_options">modules_options</a>, <a href="#initramfs-modules_recovery_list">modules_recovery_list</a>,
-          <a href="#initramfs-ramdisk_compression">ramdisk_compression</a>, <a href="#initramfs-ramdisk_compression_args">ramdisk_compression_args</a>, <a href="#initramfs-vendor_boot_name">vendor_boot_name</a>)
+          <a href="#initramfs-ramdisk_compression">ramdisk_compression</a>, <a href="#initramfs-ramdisk_compression_args">ramdisk_compression_args</a>, <a href="#initramfs-trim_unused_modules">trim_unused_modules</a>, <a href="#initramfs-vendor_boot_name">vendor_boot_name</a>,
+          <a href="#initramfs-vendor_ramdisk_dev_nodes">vendor_ramdisk_dev_nodes</a>)
 </pre>
 
 Build initramfs.
@@ -471,8 +472,9 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
 | <a id="initramfs-modules_recovery_list"></a>modules_recovery_list |  A file containing a list of modules to load when booting into recovery.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="initramfs-ramdisk_compression"></a>ramdisk_compression |  If provided it specfies the format used for any ramdisks generated.If not provided a fallback value from build.config is used.   | String | optional |  `""`  |
 | <a id="initramfs-ramdisk_compression_args"></a>ramdisk_compression_args |  Command line arguments passed only to lz4 command to control compression level.   | String | optional |  `""`  |
-| <a id="initramfs-trim_unused_modules"></a>trim_unused_modules |  If `True` then modules not mentioned in modules.load are removed from the initramfs. It defaults to `False`.   | Boolean | optional |  `True`  |
+| <a id="initramfs-trim_unused_modules"></a>trim_unused_modules |  If `True` then modules not mentioned in modules.load are removed from the initramfs. It defaults to `False`.   | Boolean | optional |  `False`  |
 | <a id="initramfs-vendor_boot_name"></a>vendor_boot_name |  Name of `vendor_boot` image.<br><br>* If `"vendor_boot"`, build `vendor_boot.img` * If `"vendor_kernel_boot"`, build `vendor_kernel_boot.img` * If `None`, skip building `vendor_boot`.   | String | optional |  `""`  |
+| <a id="initramfs-vendor_ramdisk_dev_nodes"></a>vendor_ramdisk_dev_nodes |  List of dev nodes description files which describes special device files to be added to the vendor ramdisk. File format is as accepted by mkbootfs. See `mkbootfs -h` for more details.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
 <a id="kernel_build_config"></a>
@@ -929,9 +931,10 @@ When included in a `pkg_files`/`pkg_install` rule, this rule copies a `super_uns
 <pre>
 load("@kleaf//build/kernel/kleaf:kernel.bzl", "vendor_boot_image")
 
-vendor_boot_image(<a href="#vendor_boot_image-name">name</a>, <a href="#vendor_boot_image-deps">deps</a>, <a href="#vendor_boot_image-outs">outs</a>, <a href="#vendor_boot_image-dtb_image">dtb_image</a>, <a href="#vendor_boot_image-initramfs">initramfs</a>, <a href="#vendor_boot_image-kernel_build">kernel_build</a>, <a href="#vendor_boot_image-mkbootimg">mkbootimg</a>,
-                  <a href="#vendor_boot_image-ramdisk_compression">ramdisk_compression</a>, <a href="#vendor_boot_image-ramdisk_compression_args">ramdisk_compression_args</a>, <a href="#vendor_boot_image-unpack_ramdisk">unpack_ramdisk</a>, <a href="#vendor_boot_image-vendor_boot_name">vendor_boot_name</a>,
-                  <a href="#vendor_boot_image-vendor_bootconfig">vendor_bootconfig</a>, <a href="#vendor_boot_image-vendor_ramdisk_binaries">vendor_ramdisk_binaries</a>, <a href="#vendor_boot_image-vendor_ramdisk_dev_nodes">vendor_ramdisk_dev_nodes</a>)
+vendor_boot_image(<a href="#vendor_boot_image-name">name</a>, <a href="#vendor_boot_image-deps">deps</a>, <a href="#vendor_boot_image-outs">outs</a>, <a href="#vendor_boot_image-dtb_image">dtb_image</a>, <a href="#vendor_boot_image-header_version">header_version</a>, <a href="#vendor_boot_image-initramfs">initramfs</a>, <a href="#vendor_boot_image-kernel_build">kernel_build</a>,
+                  <a href="#vendor_boot_image-kernel_vendor_cmdline">kernel_vendor_cmdline</a>, <a href="#vendor_boot_image-mkbootimg">mkbootimg</a>, <a href="#vendor_boot_image-ramdisk_compression">ramdisk_compression</a>, <a href="#vendor_boot_image-ramdisk_compression_args">ramdisk_compression_args</a>,
+                  <a href="#vendor_boot_image-unpack_ramdisk">unpack_ramdisk</a>, <a href="#vendor_boot_image-vendor_boot_name">vendor_boot_name</a>, <a href="#vendor_boot_image-vendor_bootconfig">vendor_bootconfig</a>, <a href="#vendor_boot_image-vendor_ramdisk_binaries">vendor_ramdisk_binaries</a>,
+                  <a href="#vendor_boot_image-vendor_ramdisk_dev_nodes">vendor_ramdisk_dev_nodes</a>)
 </pre>
 
 Build `vendor_boot` or `vendor_kernel_boot` image.
@@ -945,8 +948,10 @@ Build `vendor_boot` or `vendor_kernel_boot` image.
 | <a id="vendor_boot_image-deps"></a>deps |  Additional dependencies to build boot images.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="vendor_boot_image-outs"></a>outs |  A list of output files that will be installed to `DIST_DIR` when `build_boot_images` in `build/kernel/build_utils.sh` is executed.<br><br>Unlike `kernel_images`, you must specify the list explicitly.   | List of strings | optional |  `[]`  |
 | <a id="vendor_boot_image-dtb_image"></a>dtb_image |  A dtb.img to packaged. If this is set, then *.dtb from `kernel_build` are ignored.<br><br>See [`dtb_image`](#dtb_image).   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+| <a id="vendor_boot_image-header_version"></a>header_version |  Boot image header version.<br><br>If unspecified, falls back to the value of BOOT_IMAGE_HEADER_VERSION in build configs. If BOOT_IMAGE_HEADER_VERSION is not set, defaults to 3.   | Integer | optional |  `0`  |
 | <a id="vendor_boot_image-initramfs"></a>initramfs |  The [`initramfs`](#initramfs).   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="vendor_boot_image-kernel_build"></a>kernel_build |  The [`kernel_build`](#kernel_build).   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="vendor_boot_image-kernel_vendor_cmdline"></a>kernel_vendor_cmdline |  string of kernel parameters for vendor boot image   | String | optional |  `""`  |
 | <a id="vendor_boot_image-mkbootimg"></a>mkbootimg |  mkbootimg.py script which builds boot.img. Only used if `build_boot`. If `None`, default to `//tools/mkbootimg:mkbootimg.py`. NOTE: This overrides `MKBOOTIMG_PATH`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `"@kleaf//tools/mkbootimg:mkbootimg.py"`  |
 | <a id="vendor_boot_image-ramdisk_compression"></a>ramdisk_compression |  If provided it specfies the format used for any ramdisks generated.If not provided a fallback value from build.config is used.   | String | optional |  `""`  |
 | <a id="vendor_boot_image-ramdisk_compression_args"></a>ramdisk_compression_args |  Command line arguments passed only to lz4 command to control compression level.   | String | optional |  `""`  |
