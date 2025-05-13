@@ -592,8 +592,16 @@ def _kernel_config_impl(ctx):
     else:
         defconfig_info = DefconfigInfo(file = None, make_target = None)
 
+    # Inherit pre_defconfig_fragments from base_kernel so that
+    # for mixed builds, the device kernel_build() won't have to reiterate pre_defconfig_fragments
+    inherit_pre = ctx.attr._inherit_pre_defconfig_fragments_from_base_kernel[BuildSettingInfo].value
+    base_fragments = base_kernel_utils.get_base_defconfig_fragments_info(ctx)
+    base_pre = base_fragments.pre_defconfig_fragments if inherit_pre and base_fragments else depset()
+
     defconfig_fragments_info = DefconfigFragmentsInfo(
-        pre_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.pre_defconfig_fragments]),
+        pre_defconfig_fragments = depset(transitive = (
+            [base_pre] + [target.files for target in ctx.attr.pre_defconfig_fragments]
+        )),
         post_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.post_defconfig_fragments]),
     )
     defconfig_fragments_list_info = _DefconfigFragmentsListInfo(
@@ -1066,6 +1074,7 @@ kernel_config = rule(
         ),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
+        "_inherit_pre_defconfig_fragments_from_base_kernel": attr.label(default = "//build/kernel/kleaf:inherit_pre_defconfig_fragments_from_base_kernel"),
     } | _kernel_config_additional_attrs(),
     executable = True,
     toolchains = [hermetic_toolchain.type],

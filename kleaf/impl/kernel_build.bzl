@@ -529,6 +529,10 @@ def kernel_build(
             For mixed builds (`base_kernel` is set), the file usually contains additional
             in-tree modules to build on top of `gki_defconfig`, e.g. `CONFIG_FOO=m`.
 
+            For mixed builds (`base_kernel` is set), the `pre_defconfig_fragments` of the
+            `base_kernel` is implicitly included when
+            --incompatible_inherit_pre_defconfig_fragments_from_base_kernel is set.
+
             **NOTE**: `pre_defconfig_fragments` are applied **before** `make defconfig`, similar
             to `PRE_DEFCONFIG_CMDS`. If you had `POST_DEFCONFIG_CMDS` applying fragments in your
             build configs, consider using `post_defconfig_fragments` instead.
@@ -548,6 +552,10 @@ def kernel_build(
             describe what the defconfig does. However, this is not a requirement.
             These configs are also applied to external modules, including
             `kernel_module`s and `ddk_module`s.
+
+            Unlike `pre_defconfig_fragments`,
+            for mixed builds (`base_kernel` is set), the `post_defconfig_fragments` of the
+            `base_kernel` is not implicit included. This may change in the future.
 
             Files usually contain debug options. If you want to build in-tree modules, adding them
             to `pre_defconfig_fragments` may be a better choice.

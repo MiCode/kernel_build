@@ -17,6 +17,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
+    "DefconfigFragmentsInfo",
     "DefconfigInfo",
     "GcovInfo",
     "KernelBuildAbiInfo",
@@ -40,6 +41,7 @@ def _base_kernel_non_config_attrs():
         "base_kernel": attr.label(
             providers = [
                 DefconfigInfo,
+                DefconfigFragmentsInfo,
                 KernelBuildInTreeModulesInfo,
                 KernelBuildMixedTreeInfo,
                 KernelBuildAbiInfo,
@@ -82,6 +84,13 @@ def _get_base_defconfig_info(ctx):
         return None
     return ctx.attr.base_kernel[DefconfigInfo]
 
+def _get_base_defconfig_fragments_info(ctx):
+    # ignores _force_ignore_base_kernel, because inheriting defconfig fragments from base_kernel
+    # makes sense even when running ABI monitoring on device kernel_build.
+    if not ctx.attr.base_kernel:
+        return None
+    return ctx.attr.base_kernel[DefconfigFragmentsInfo]
+
 base_kernel_utils = struct(
     config_settings_raw = _base_kernel_config_settings_raw,
     non_config_attrs = _base_kernel_non_config_attrs,
@@ -90,4 +99,5 @@ base_kernel_utils = struct(
     get_base_kernel_for_ddk_headers = _get_base_kernel_for_ddk_headers,
     get_base_modules_staging_archive = _get_base_modules_staging_archive,
     get_base_defconfig_info = _get_base_defconfig_info,
+    get_base_defconfig_fragments_info = _get_base_defconfig_fragments_info,
 )

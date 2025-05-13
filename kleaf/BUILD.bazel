@@ -638,6 +638,14 @@ label_flag(
     visibility = ["//visibility:public"],
 )
 
+# Default is True. A kernel_build() inherits pre_defconfig_fragments
+# from its base_kernel attribute.
+bool_flag(
+    name = "inherit_pre_defconfig_fragments_from_base_kernel",
+    build_setting_default = True,
+    visibility = ["//visibility:public"],
+)
+
 # If true, enable Rust support
 bool_flag(
     name = "rust",
