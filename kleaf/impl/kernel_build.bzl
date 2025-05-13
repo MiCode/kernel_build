@@ -119,6 +119,7 @@ def kernel_build(
         kmi_symbol_list = None,
         protected_exports_list = None,
         protected_modules_list = None,
+        protected_module_names_list = None,
         additional_kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
         kmi_symbol_list_strict_mode = None,
@@ -434,7 +435,11 @@ def kernel_build(
           ```
           protected_modules_list = "//common:gki/aarch64/protected_modules"
           ```
-
+        protected_module_names_list: A file containing list of protected module names,
+          For example:
+          ```
+          protected_module_names_list = "//common:gki/aarch64/protected_module_names"
+          ```
         trim_nonlisted_kmi: If `True`, trim symbols not listed in
           `kmi_symbol_list` and `additional_kmi_symbol_lists`.
           This is the Bazel equivalent of `TRIM_NONLISTED_KMI`.
@@ -812,6 +817,7 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         pre_defconfig_fragments = pre_defconfig_fragments,
         post_defconfig_fragments = post_defconfig_fragments,
         check_defconfig = check_defconfig,
+        protected_module_names_list = protected_module_names_list,
         **internal_kwargs
     )
 

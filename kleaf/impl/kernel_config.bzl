@@ -47,6 +47,9 @@ visibility("//build/kernel/kleaf/...")
 # Name of raw symbol list under $OUT_DIR
 _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR = "abi_symbollist.raw"
 
+# Name of protected modules symbol list under $OUT_DIR
+_PROTECTED_MODULE_NAMES_LIST_BELOW_OUT_DIR = "protected_module_names_list"
+
 _DefconfigFragmentsListInfo = provider(
     doc = "Same as DefconfigFragmentsInfo, but contains lists instead of depsets.",
     fields = {
@@ -145,6 +148,27 @@ def _config_symbol_list_impl(_subrule_ctx, raw_kmi_symbol_list_file):
 
 _config_symbol_list = subrule(implementation = _config_symbol_list_impl)
 
+def _config_module_list_impl(_subrule_ctx, protected_module_names_list_file, trim_attr_value):
+    """Return configs for `raw_symbol_list`.
+
+    Args:
+        _subrule_ctx: subrule_ctx
+        protected_module_names_list_file: the raw_kmi_symbol_list file
+        trim_attr_value: value of trim_nonlisted_kmi_utils.get_value(ctx)
+    Returns:
+        a list of arguments to `scripts/config`
+    """
+    if not protected_module_names_list_file or not trim_attr_value:
+        return []
+    return [
+        _config.set_str(
+            "MODULE_SIG_PROTECT_LIST",
+            _PROTECTED_MODULE_NAMES_LIST_BELOW_OUT_DIR,
+        ),
+    ]
+
+_config_module_list = subrule(implementation = _config_module_list_impl)
+
 def _config_keys_impl(_subrule_ctx, module_signing_key_file, system_trusted_key_file):
     """Return configs for module signing keys and system trusted keys.
 
@@ -213,6 +237,7 @@ def _reconfig_impl(
         _subrule_ctx,
         trim_attr_value,
         raw_kmi_symbol_list_file,
+        protected_module_names_list_file,
         module_signing_key_file,
         system_trusted_key_file,
         post_defconfig_fragment_files):
@@ -222,6 +247,7 @@ def _reconfig_impl(
         _subrule_ctx: subrule_ctx
         trim_attr_value: value of trim_nonlisted_kmi_utils.get_value(ctx)
         raw_kmi_symbol_list_file: the raw_kmi_symbol_list file
+        protected_module_names_list_file: protected_module_names_list file
         module_signing_key_file: file of module_signing_key
         system_trusted_key_file: file of system_trusted_key
         post_defconfig_fragment_files: files of post_defconfig_fragments
@@ -238,6 +264,10 @@ def _reconfig_impl(
     )
     configs += _config_symbol_list(
         raw_kmi_symbol_list_file = raw_kmi_symbol_list_file,
+    )
+    configs += _config_module_list(
+        protected_module_names_list_file = protected_module_names_list_file,
+        trim_attr_value = trim_attr_value,
     )
     configs += _config_keys(
         module_signing_key_file = module_signing_key_file,
@@ -292,6 +322,7 @@ _reconfig = subrule(
         _check_trimming_disabled,
         _config_trim,
         _config_symbol_list,
+        _config_module_list,
         _config_keys,
         kgdb.get_scripts_config_args,
     ],
@@ -478,6 +509,7 @@ def _post_defconfig_impl(
         _subrule_ctx,
         trim_attr_value,
         raw_kmi_symbol_list_file,
+        protected_module_names_list_file,
         module_signing_key_file,
         system_trusted_key_file,
         post_defconfig_fragment_files):
@@ -487,6 +519,7 @@ def _post_defconfig_impl(
         _subrule_ctx: subrule_ctx
         trim_attr_value: value of trim_nonlisted_kmi_utils.get_value(ctx)
         raw_kmi_symbol_list_file: the raw_kmi_symbol_list file
+        protected_module_names_list_file: list of protected modules file
         module_signing_key_file: file of module_signing_key
         system_trusted_key_file: file of system_trusted_key
         post_defconfig_fragment_files: files of post_defconfig_fragments
@@ -499,6 +532,7 @@ def _post_defconfig_impl(
     reconfig_ret = _reconfig(
         trim_attr_value = trim_attr_value,
         raw_kmi_symbol_list_file = raw_kmi_symbol_list_file,
+        protected_module_names_list_file = protected_module_names_list_file,
         module_signing_key_file = module_signing_key_file,
         system_trusted_key_file = system_trusted_key_file,
         post_defconfig_fragment_files = post_defconfig_fragment_files,
@@ -657,6 +691,7 @@ def _kernel_config_impl(ctx):
         _post_defconfig(
             trim_attr_value = trim_nonlisted_kmi_utils.get_value(ctx),
             raw_kmi_symbol_list_file = utils.optional_file(ctx.files.raw_kmi_symbol_list),
+            protected_module_names_list_file = utils.optional_file(ctx.files.protected_module_names_list),
             module_signing_key_file = ctx.file.module_signing_key,
             system_trusted_key_file = ctx.file.system_trusted_key,
             post_defconfig_fragment_files = defconfig_fragments_list_info.post_list,
@@ -697,6 +732,17 @@ def _kernel_config_impl(ctx):
         )
         inputs += ctx.files.raw_kmi_symbol_list
 
+    sync_protected_module_names_list_cmd = ""
+    if ctx.files.protected_module_names_list:
+        sync_protected_module_names_list_cmd = """
+            rsync -aL {protected_module_names_list} {out_dir}/{protected_module_names_list_below_out_dir}
+        """.format(
+            out_dir = out_dir.path,
+            protected_module_names_list = ctx.file.protected_module_names_list.path,
+            protected_module_names_list_below_out_dir = _PROTECTED_MODULE_NAMES_LIST_BELOW_OUT_DIR,
+        )
+        inputs += ctx.files.protected_module_names_list
+
     # exclude keys in out_dir to avoid accidentally including them
     # in the distribution.
 
@@ -710,6 +756,7 @@ def _kernel_config_impl(ctx):
           rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
           rsync -aL {localversion_file} {out_dir}/localversion
           {sync_raw_kmi_symbol_list_cmd}
+          {sync_protected_module_names_list_cmd}
 
         # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
           sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
@@ -726,6 +773,7 @@ def _kernel_config_impl(ctx):
         defconfig_cmd = "\n".join([step_return.cmd for step_return in step_returns]),
         localversion_file = localversion_file.path,
         sync_raw_kmi_symbol_list_cmd = sync_raw_kmi_symbol_list_cmd,
+        sync_protected_module_names_list_cmd = sync_protected_module_names_list_cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -1012,6 +1060,10 @@ def get_config_setup_command(
             rsync -aL --chmod=F+w \\
                 ${{rule_out_dir}}/{raw_kmi_symbol_list_below_out_dir} ${{OUT_DIR}}/
         fi
+        if [[ -f ${{rule_out_dir}}/{protected_module_names_list_below_out_dir} ]]; then
+            rsync -aL --chmod=F+w \\
+                ${{rule_out_dir}}/{protected_module_names_list_below_out_dir} ${{OUT_DIR}}/
+        fi
         unset rule_out_dir
 
         # Restore real value of $ROOT_DIR in auto.conf.cmd
@@ -1025,6 +1077,7 @@ def get_config_setup_command(
         out_dir = out_dir.path,
         out_dir_short = out_dir.short_path,
         raw_kmi_symbol_list_below_out_dir = _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
+        protected_module_names_list_below_out_dir = _PROTECTED_MODULE_NAMES_LIST_BELOW_OUT_DIR,
     )
     cmd += extra_restore_outputs_cmd
     return cmd
@@ -1061,6 +1114,7 @@ kernel_config = rule(
             doc = "Label to abi_symbollist.raw. Must be 0 or 1 file.",
             allow_files = True,
         ),
+        "protected_module_names_list": attr.label(allow_single_file = True),
         "module_signing_key": attr.label(
             doc = "Label to module signing key.",
             allow_single_file = True,
