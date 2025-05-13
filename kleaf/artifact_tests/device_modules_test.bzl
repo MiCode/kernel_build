@@ -17,6 +17,7 @@
 load("//build/kernel/kleaf/impl:common_providers.bzl", "KernelModuleInfo")
 load("//build/kernel/kleaf/impl:kernel_build.bzl", "kernel_build")
 load("//build/kernel/kleaf/impl:kernel_modules_install.bzl", "kernel_modules_install")
+load("//build/kernel/kleaf/impl:utils.bzl", "kernel_utils")
 load("//build/kernel/kleaf/tests:empty_test.bzl", "empty_test")
 load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test")
 
@@ -92,10 +93,9 @@ def _create_one_device_modules_test(
         base_kernel_label,
         base_kernel_module,
         expect_signature,
-        defconfig,
-        pre_defconfig_fragments,
-        post_defconfig_fragments,
         module_outs = None):
+    srcarch = kernel_utils.get_src_arch(arch)
+
     kernel_build(
         name = name + "_kernel_build",
         tags = ["manual"],
@@ -103,12 +103,10 @@ def _create_one_device_modules_test(
         arch = arch,
         page_size = page_size,
         makefile = base_kernel_label.same_package_label("Makefile"),
-        defconfig = defconfig,
-        pre_defconfig_fragments = (pre_defconfig_fragments or []) + [
+        defconfig = base_kernel_label.same_package_label("arch/{}/configs/gki_defconfig".format(srcarch)),
+        pre_defconfig_fragments = [
             Label("//build/kernel/kleaf/impl/defconfig:signing_modules_disabled"),
         ],
-        post_defconfig_fragments = post_defconfig_fragments,
-        check_defconfig = "disabled" if pre_defconfig_fragments else "match",
         outs = [],
         base_kernel = base_kernel_label,
         module_outs = module_outs,
@@ -141,10 +139,7 @@ def device_modules_test(
         base_kernel_label,
         base_kernel_module,
         arch,
-        page_size,
-        defconfig,
-        pre_defconfig_fragments,
-        post_defconfig_fragments):
+        page_size):
     """Tests for device's modules.
 
     This test checks that device targets contains proper modules.
@@ -158,9 +153,6 @@ def device_modules_test(
           no tests will be defined.
         arch: architecture of `base_kernel`. This is either `"arm64"` or `"x86_64"`.
         page_size: page size of `base_kernel`.
-        defconfig: defconfig of the device kernel, likely the same as the one of base_kernel.
-        pre_defconfig_fragments: pre_defconfig_fragments of the device kernel, likely the same as the one of base_kernel.
-        post_defconfig_fragments: post_defconfig_fragments of the device kernel, likely the same as the one of base_kernel.
     """
 
     if not base_kernel_module:
@@ -176,9 +168,6 @@ def device_modules_test(
         base_kernel_module = base_kernel_module,
         base_kernel_label = base_kernel_label,
         expect_signature = True,
-        defconfig = defconfig,
-        pre_defconfig_fragments = pre_defconfig_fragments,
-        post_defconfig_fragments = post_defconfig_fragments,
     )
     tests.append(name + "_use_gki_module")
 
@@ -190,9 +179,6 @@ def device_modules_test(
         base_kernel_module = base_kernel_module,
         base_kernel_label = base_kernel_label,
         expect_signature = False,
-        defconfig = defconfig,
-        pre_defconfig_fragments = pre_defconfig_fragments,
-        post_defconfig_fragments = post_defconfig_fragments,
         module_outs = [base_kernel_module],
     )
     tests.append(name + "_use_device_module")
