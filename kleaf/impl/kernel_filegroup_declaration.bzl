@@ -151,6 +151,8 @@ kernel_filegroup(
     }),
     expected_toolchain_version = {toolchain_version_repr},
     defconfig = {defconfig_repr},
+    pre_defconfig_fragments = {pre_defconfig_fragments_repr},
+    post_defconfig_fragments = {post_defconfig_fragments_repr},
     visibility = ["//visibility:public"],
 )
 """
@@ -320,6 +322,8 @@ def _write_filegroup_decl_file(
         ))
     else:
         sub.add("{defconfig_repr}", repr(None))
+    sub.add_joined("{pre_defconfig_fragments_repr}", info.defconfig_fragments_info.pre_defconfig_fragments, **(join | pkg))
+    sub.add_joined("{post_defconfig_fragments_repr}", info.defconfig_fragments_info.post_defconfig_fragments, **(join | pkg))
 
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
         ctx.attr.kernel_build.label.name,
@@ -358,6 +362,8 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
     transitive_inputs = [
         info.ddk_module_defconfig_fragments,
         info.internal_outs,
+        info.defconfig_fragments_info.pre_defconfig_fragments,
+        info.defconfig_fragments_info.post_defconfig_fragments,
     ]
     inputs = depset(
         direct_inputs,

@@ -35,6 +35,7 @@ load(
     "CompileCommandsInfo",
     "CompileCommandsSingleInfo",
     "DdkHeadersInfo",
+    "DefconfigFragmentsInfo",
     "DefconfigInfo",
     "GcovInfo",
     "KernelBuildAbiInfo",
@@ -2312,6 +2313,7 @@ def _create_infos(
         copy_module_symvers_outputs = main_action_ret.module_symvers_outputs,
         generated_headers_for_module_archive = main_action_ret.generated_headers_for_module_archive,
         defconfig_info = ctx.attr.config[DefconfigInfo],
+        defconfig_fragments_info = ctx.attr.config[DefconfigFragmentsInfo],
     )
 
     default_info_files = all_output_files["outs"].values() + all_output_files["module_outs"].values()
@@ -2356,6 +2358,7 @@ def _create_infos(
         ctx.attr.config[KernelEnvAttrInfo],
         ctx.attr.config[KernelToolchainInfo],
         ctx.attr.config[DefconfigInfo],
+        ctx.attr.config[DefconfigFragmentsInfo],
         output_group_info,
         default_info,
         module_symvers_file_info,
@@ -2433,6 +2436,7 @@ _kernel_build = rule(
             mandatory = True,
             providers = [
                 DefconfigInfo,
+                DefconfigFragmentsInfo,
                 KernelSerializedEnvInfo,
                 KernelEnvAttrInfo,
                 KernelEnvMakeGoalsInfo,

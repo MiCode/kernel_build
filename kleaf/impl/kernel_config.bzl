@@ -22,6 +22,7 @@ load(":abi/trim_nonlisted_kmi_utils.bzl", "trim_nonlisted_kmi_utils")
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "DefconfigFragmentsInfo",
     "DefconfigInfo",
     "KernelBuildOriginalEnvInfo",
     "KernelConfigInfo",
@@ -581,6 +582,11 @@ def _kernel_config_impl(ctx):
     else:
         defconfig_info = DefconfigInfo(file = None, make_target = None)
 
+    defconfig_fragments_info = DefconfigFragmentsInfo(
+        pre_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.pre_defconfig_fragments]),
+        post_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.post_defconfig_fragments]),
+    )
+
     step_returns = [
         _set_up_defconfig(
             is_run_env = False,
@@ -757,6 +763,7 @@ def _kernel_config_impl(ctx):
 
     return [
         defconfig_info,
+        defconfig_fragments_info,
         serialized_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
         ctx.attr.env[KernelEnvMakeGoalsInfo],
