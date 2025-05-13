@@ -47,6 +47,16 @@ visibility("//build/kernel/kleaf/...")
 # Name of raw symbol list under $OUT_DIR
 _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR = "abi_symbollist.raw"
 
+_DefconfigFragmentsListInfo = provider(
+    doc = "Same as DefconfigFragmentsInfo, but contains lists instead of depsets.",
+    fields = {
+        "pre_list": """A list of [File](https://bazel.build/rules/lib/File]s
+            describing kernel_build.pre_defconfig_fragments""",
+        "post_list": """A list of [File](https://bazel.build/rules/lib/File]s
+            describing kernel_build.post_defconfig_fragments""",
+    },
+)
+
 def _check_defconfig_minimized_impl(
         subrule_ctx,
         defconfig_info,
@@ -586,6 +596,10 @@ def _kernel_config_impl(ctx):
         pre_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.pre_defconfig_fragments]),
         post_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.post_defconfig_fragments]),
     )
+    defconfig_fragments_list_info = _DefconfigFragmentsListInfo(
+        pre_list = defconfig_fragments_info.pre_defconfig_fragments.to_list(),
+        post_list = defconfig_fragments_info.post_defconfig_fragments.to_list(),
+    )
 
     step_returns = [
         _set_up_defconfig(
@@ -595,7 +609,7 @@ def _kernel_config_impl(ctx):
         ),
         _pre_defconfig(
             is_run_env = False,
-            pre_defconfig_fragment_files = ctx.files.pre_defconfig_fragments,
+            pre_defconfig_fragment_files = defconfig_fragments_list_info.pre_list,
         ),
         _make_defconfig(),
     ]
@@ -603,7 +617,7 @@ def _kernel_config_impl(ctx):
     check_defconfig_minimized_ret = _check_defconfig_minimized(
         check_defconfig_attr_value = ctx.attr.check_defconfig,
         defconfig_info = defconfig_info,
-        pre_defconfig_fragment_files = ctx.files.pre_defconfig_fragments,
+        pre_defconfig_fragment_files = defconfig_fragments_list_info.pre_list,
     )
     step_returns.append(check_defconfig_minimized_ret)
 
@@ -615,7 +629,7 @@ def _kernel_config_impl(ctx):
             _check_dot_config_against_defconfig(
                 check_defconfig_attr_value = ctx.attr.check_defconfig,
                 defconfig_info = defconfig_info,
-                pre_defconfig_fragment_files = ctx.files.pre_defconfig_fragments,
+                pre_defconfig_fragment_files = defconfig_fragments_list_info.pre_list,
                 post_defconfig_fragment_files = [],
             ),
         )
@@ -626,13 +640,13 @@ def _kernel_config_impl(ctx):
             raw_kmi_symbol_list_file = utils.optional_file(ctx.files.raw_kmi_symbol_list),
             module_signing_key_file = ctx.file.module_signing_key,
             system_trusted_key_file = ctx.file.system_trusted_key,
-            post_defconfig_fragment_files = ctx.files.post_defconfig_fragments,
+            post_defconfig_fragment_files = defconfig_fragments_list_info.post_list,
         ),
         _check_dot_config_against_defconfig(
             check_defconfig_attr_value = ctx.attr.check_defconfig,
             defconfig_info = DefconfigInfo(file = None, make_target = None),
             pre_defconfig_fragment_files = [],
-            post_defconfig_fragment_files = ctx.files.post_defconfig_fragments,
+            post_defconfig_fragment_files = defconfig_fragments_list_info.post_list,
         ),
     ]
     transitive_inputs += [step_return.inputs for step_return in step_returns]
@@ -750,7 +764,7 @@ def _kernel_config_impl(ctx):
         env_info = ctx.attr.env[KernelEnvInfo],
         defconfig_info = defconfig_info,
         base_kernel_defconfig_info = base_kernel_utils.get_base_defconfig_info(ctx),
-        pre_defconfig_fragment_files = ctx.files.pre_defconfig_fragments,
+        pre_defconfig_fragment_files = defconfig_fragments_list_info.pre_list,
     )
     config_script_runfiles = ctx.runfiles(
         files = inputs,
