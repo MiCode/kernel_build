@@ -61,7 +61,7 @@ building against the GKI directly.
 # path/to/tuna/BUILD.bazel
 ddk_config(
     name = "tuna_common_config",
-    defconfig =  "//path/to/camera:camera_and_nfc_defconfig",
+    defconfig =  "tuna_defconfig",
     kconfigs = [
         "//path/to/camera:Kconfig.camera",
         "//path/to/camera:Kconfig.nfc",
@@ -157,9 +157,9 @@ may improve overall build time if you build multiple devices simultaneously.
 However, a full build starting from scratch could become slower with extra disk
 space used.
 
-### experimental_optimize_ddk_config_actions
+### optimize_ddk_config_actions
 
-The `--experimental_optimize_ddk_config_actions` flag was recently introduced as
+The `--optimize_ddk_config_actions` flag was introduced as
 an alternative way to optimize (best effort) the sandbox creation for
 `ddk_config()`s and `ddk_module()`s.
 
@@ -170,8 +170,7 @@ have extra `defconfig` / `kconfigs`. In such cases, the extra `DdkConfig` action
 is deleted, and the internal `_kernel_module()` target gets the `.config`
 directly from `kernel_build` or its parent target.
 
-**Note:** As of April 2025, this option is disabled by default, with plans to
-enable it by default in the near future.
+**Note:** As of May 2025, this option is enabled by default.
 
 ## Kconfig
 
