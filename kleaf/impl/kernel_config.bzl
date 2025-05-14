@@ -597,12 +597,22 @@ def _kernel_config_impl(ctx):
     inherit_pre = ctx.attr._inherit_pre_defconfig_fragments_from_base_kernel[BuildSettingInfo].value
     base_fragments = base_kernel_utils.get_base_defconfig_fragments_info(ctx)
     base_pre = base_fragments.pre_defconfig_fragments if inherit_pre and base_fragments else depset()
+    base_check_pre = base_fragments.check_pre_defconfig_fragments if inherit_pre and base_fragments else None
+
+    check_pre_defconfig_fragments = ctx.attr.check_defconfig
+    if not check_pre_defconfig_fragments:
+        # If base_kernel is set and its check_defconfig == "disabled", do not elevate the check level.
+        if inherit_pre and base_check_pre == "disabled":
+            check_pre_defconfig_fragments = "disabled"
+        else:
+            check_pre_defconfig_fragments = "match"
 
     defconfig_fragments_info = DefconfigFragmentsInfo(
         pre_defconfig_fragments = depset(transitive = (
             [base_pre] + [target.files for target in ctx.attr.pre_defconfig_fragments]
         )),
         post_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.post_defconfig_fragments]),
+        check_pre_defconfig_fragments = check_pre_defconfig_fragments,
     )
     defconfig_fragments_list_info = _DefconfigFragmentsListInfo(
         pre_list = defconfig_fragments_info.pre_defconfig_fragments.to_list(),
@@ -623,7 +633,7 @@ def _kernel_config_impl(ctx):
     ]
 
     check_defconfig_minimized_ret = _check_defconfig_minimized(
-        check_defconfig_attr_value = ctx.attr.check_defconfig,
+        check_defconfig_attr_value = check_pre_defconfig_fragments,
         defconfig_info = defconfig_info,
         pre_defconfig_fragment_files = defconfig_fragments_list_info.pre_list,
     )
@@ -635,13 +645,14 @@ def _kernel_config_impl(ctx):
     if not check_defconfig_minimized_ret.cmd:
         step_returns.append(
             _check_dot_config_against_defconfig(
-                check_defconfig_attr_value = ctx.attr.check_defconfig,
+                check_defconfig_attr_value = check_pre_defconfig_fragments,
                 defconfig_info = defconfig_info,
                 pre_defconfig_fragment_files = defconfig_fragments_list_info.pre_list,
                 post_defconfig_fragment_files = [],
             ),
         )
 
+    check_post_defconfig_fragments = ctx.attr.check_defconfig or "match"
     step_returns += [
         _post_defconfig(
             trim_attr_value = trim_nonlisted_kmi_utils.get_value(ctx),
@@ -651,7 +662,7 @@ def _kernel_config_impl(ctx):
             post_defconfig_fragment_files = defconfig_fragments_list_info.post_list,
         ),
         _check_dot_config_against_defconfig(
-            check_defconfig_attr_value = ctx.attr.check_defconfig,
+            check_defconfig_attr_value = check_post_defconfig_fragments,
             defconfig_info = DefconfigInfo(file = None, make_target = None),
             pre_defconfig_fragment_files = [],
             post_defconfig_fragment_files = defconfig_fragments_list_info.post_list,
@@ -1069,7 +1080,10 @@ kernel_config = rule(
         ),
         "check_defconfig": attr.string(
             doc = "minimized: Checks defconfig against savedefconfig. match: check values only.",
-            default = "match",
+            # Default value is intentionally empty so we can deduce it in the rule implementation.
+            # The default value depends on base_kernel.
+            # See documentation for kernel_build.check_defconfig.
+            default = "",
             values = ["disabled", "minimized", "match"],
         ),
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),

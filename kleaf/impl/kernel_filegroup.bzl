@@ -455,6 +455,7 @@ def _kernel_filegroup_impl(ctx):
     defconfig_fragments_info = DefconfigFragmentsInfo(
         pre_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.pre_defconfig_fragments]),
         post_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.post_defconfig_fragments]),
+        check_pre_defconfig_fragments = ctx.attr.check_pre_defconfig_fragments,
     )
 
     infos = [
@@ -656,6 +657,13 @@ default, which in turn sets `collect_unstripped_modules` to `True` by default.
         "post_defconfig_fragments": attr.label_list(
             doc = """See [kernel_build.post_defconfig_fragments](#kernel_build-post_defconfig_fragments).""",
             allow_files = True,
+        ),
+        "check_pre_defconfig_fragments": attr.string(
+            doc = """See [kernel_build.check_defconfig](#kernel_build-check_defconfig).""",
+            # kernel_filegroup itself has no base_kernel, so the default is just "match".
+            # See documentation for kernel_build.check_defconfig.
+            default = "match",
+            values = ["disabled", "minimized", "match"],
         ),
     } | _kernel_filegroup_additional_attrs(),
     toolchains = [hermetic_toolchain.type],

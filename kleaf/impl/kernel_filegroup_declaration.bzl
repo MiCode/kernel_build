@@ -153,6 +153,7 @@ kernel_filegroup(
     defconfig = {defconfig_repr},
     pre_defconfig_fragments = {pre_defconfig_fragments_repr},
     post_defconfig_fragments = {post_defconfig_fragments_repr},
+    check_pre_defconfig_fragments = {check_pre_defconfig_fragments_repr},
     visibility = ["//visibility:public"],
 )
 """
@@ -324,6 +325,7 @@ def _write_filegroup_decl_file(
         sub.add("{defconfig_repr}", repr(None))
     sub.add_joined("{pre_defconfig_fragments_repr}", info.defconfig_fragments_info.pre_defconfig_fragments, **(join | pkg))
     sub.add_joined("{post_defconfig_fragments_repr}", info.defconfig_fragments_info.post_defconfig_fragments, **(join | pkg))
+    sub.add("{check_pre_defconfig_fragments_repr}", repr(info.defconfig_fragments_info.check_pre_defconfig_fragments))
 
     filegroup_decl_file = ctx.actions.declare_file("{}/{}".format(
         ctx.attr.kernel_build.label.name,

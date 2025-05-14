@@ -568,18 +568,51 @@ def kernel_build(
             Items must be present in the final `.config`. See
             `build/kernel/kleaf/docs/kernel_config.md` for details.
         defconfig_fragments: **Deprecated**. Same as `post_defconfig_fragments`.
-        check_defconfig: Default is `match`.
+        check_defconfig: Whether to check `.config` against `defconfig`, `pre_defconfig_fragments`
+            and `post_defconfig_fragments`.
 
-            If `disabled`, no check is performed.
+            Value is one of `disabled`, `match` or `minimized`.
 
-            If `match`, checks `.config` against the `defconfig`, `pre_defconfig_fragments`
-            and ` post_defconfig_fragments`.
+            For `defconfig` and `pre_defconfig_fragments`, if `check_defconfig` is unspecified, and
+            `--incompatible_inherit_pre_defconfig_fragments_from_base_kernel`:
 
-            If `minimized`, checks `.config` against the result of
-            `make savedefconfig` right after `make defconfig`, but before
-            `post_defconfig_fragments` are applied.
-            This can be set to `minimized` **only if** `defconfig` is set and `pre_defconfig_fragments`
-            is not set.
+            -   If `base_kernel` is set, and `base_kernel` checks `defconfig` and
+                `pre_defconfig_fragments` using the `match` or `minimized` strategy,
+                this `kernel_build()` checks `defconfig` and `pre_defconfig_fragments` using the
+                `match` strategy.
+            -   If `base_kernel` is set, and `base_kernel` does not check against `defconfig` and
+                `pre_defconfig_fragments` (`disabled`),
+                this `kernel_build()` does not check against `defconfig` and
+                `pre_defconfig_fragments` (`disabled`).
+            -   If `base_kernel` is not set, this `kernel_build()` checks `defconfig` and
+                `pre_defconfig_fragments` using the `match` strategy.
+
+            For `defconfig` and `pre_defconfig_fragments`, if `check_defconfig` is unspecified,
+            and `--noincompatible_inherit_defconfig_fragments_from_base_kernel`,
+            this `kernel_build()` checks `defconfig` and `pre_defconfig_fragments` using the
+            `match` strategy.
+
+            For `post_defconfig_fragments`, if `check_defconfig` is unspecified, this
+            `kernel_build()` checks `post_defconfig_fragments` using the `match` strategy.
+
+            `disabled` startegy: no check is performed.
+
+            `match` strategy:
+            -   For each requirement item in `defconfig` + `pre_defconfig_fragments`, before
+                `post_defconfig_fragments` is applied, `.config` is checked against the item.
+            -   For each requirement item in `post_defconfig_fragments`, after
+                `post_defconfig_fragments` is applied, `.config` is checked against the item.
+
+            `minimized` strategy:
+            -   checks `.config` against the result of
+                `make savedefconfig` right after `make defconfig`, but before
+                `post_defconfig_fragments` are applied.
+            -   For each requirement item in `post_defconfig_fragments`, after
+                `post_defconfig_fragments` is applied, `.config` is checked against the item.
+
+            `check_defconfig` can be set to `minimized` **only if** `defconfig` is set and
+            `pre_defconfig_fragments` is not set (including those inherited from `base_kernel`).
+
         page_size: Default is `"default"`. Page size of the kernel build.
 
           Value may be one of `"default"`, `"4k"`, `"16k"` or `"64k"`. If
