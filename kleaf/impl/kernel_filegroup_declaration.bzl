@@ -133,7 +133,6 @@ kernel_filegroup(
     strip_modules = {strip_modules_repr},
     all_module_names = _ALL_MODULE_NAMES,
     kernel_release = {kernel_release_repr},
-    protected_modules_list = {protected_modules_repr},
     ddk_module_defconfig_fragments = {ddk_module_defconfig_fragments_repr},
     ddk_module_headers = {ddk_module_headers_repr},
     config_out_dir_files = glob([{config_out_dir_repr} + "/**"]),
@@ -234,11 +233,6 @@ def _write_filegroup_decl_file(
         **join
     )
     sub.add_joined("{kernel_release_repr}", depset([info.kernel_release]), **(one | pkg))
-    sub.add_joined(
-        "{protected_modules_repr}",
-        depset([info.src_protected_modules_list]),
-        **(one | pkg)
-    )
     sub.add_joined(
         "{ddk_module_defconfig_fragments_repr}",
         info.ddk_module_defconfig_fragments,
@@ -358,8 +352,6 @@ def _create_archive(ctx, info, deps_files, kernel_uapi_headers, filegroup_decl_f
     ]
     if info.generated_headers_for_module_archive:
         direct_inputs.append(info.generated_headers_for_module_archive)
-    if info.src_protected_modules_list:
-        direct_inputs.append(info.src_protected_modules_list)
     direct_inputs.extend(info.copy_module_symvers_outputs)
     if info.defconfig_info.file:
         direct_inputs.append(info.defconfig_info.file)

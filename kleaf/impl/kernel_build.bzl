@@ -117,8 +117,6 @@ def kernel_build(
         kconfig_ext = None,
         dtstree = None,
         kmi_symbol_list = None,
-        protected_exports_list = None,
-        protected_modules_list = None,
         protected_module_names_list = None,
         additional_kmi_symbol_lists = None,
         trim_nonlisted_kmi = None,
@@ -424,17 +422,6 @@ def kernel_build(
           additional_kmi_symbol_lists = glob(["gki/aarch64/symbols/*"], exclude = ["gki/aarch64/symbols/base"]),
           ```
 
-        protected_exports_list: A file containing list of protected exports.
-          For example:
-          ```
-          protected_exports_list = "//common:gki/aarch64/protected_exports"
-          ```
-
-        protected_modules_list: A file containing list of protected modules,
-          For example:
-          ```
-          protected_modules_list = "//common:gki/aarch64/protected_modules"
-          ```
         protected_module_names_list: A file containing list of protected module names,
           For example:
           ```
@@ -867,8 +854,6 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         collect_unstripped_modules = collect_unstripped_modules,
         combined_abi_symbollist = kmi_symbol_list_target_name,
         strip_modules = strip_modules,
-        src_protected_exports_list = protected_exports_list,
-        src_protected_modules_list = protected_modules_list,
         src_kmi_symbol_list = kmi_symbol_list,
         trim_nonlisted_kmi = trim_post_defconfig_fragment,
         pack_module_env = pack_module_env,
@@ -1964,12 +1949,6 @@ def _build_main_action(
     for step in steps:
         command_outputs += step.outputs
 
-    if ctx.file.src_protected_exports_list:
-        inputs.append(ctx.file.src_protected_exports_list)
-
-    if ctx.file.src_protected_modules_list:
-        inputs.append(ctx.file.src_protected_modules_list)
-
     debug.print_scripts(ctx, command)
     ctx.actions.run_shell(
         mnemonic = "KernelBuild",
@@ -2269,8 +2248,6 @@ def _create_infos(
         combined_abi_symbollist = combined_abi_symbollist,
         modules_staging_archive = modules_staging_archive,
         base_modules_staging_archive = base_kernel_utils.get_base_modules_staging_archive(ctx),
-        src_protected_exports_list = ctx.file.src_protected_exports_list,
-        src_protected_modules_list = ctx.file.src_protected_modules_list,
         src_kmi_symbol_list = ctx.file.src_kmi_symbol_list,
         kmi_strict_mode_out = kmi_strict_mode_out,
     )
@@ -2355,7 +2332,6 @@ def _create_infos(
         modules_prepare_archive = modules_prepare_archive,
         collect_unstripped_modules = ctx.attr.collect_unstripped_modules,
         strip_modules = ctx.attr.strip_modules,
-        src_protected_modules_list = ctx.file.src_protected_modules_list,
         ddk_module_defconfig_fragments = ddk_module_defconfig_fragments,
         kernel_uapi_headers = kernel_uapi_headers_depset,
         arch = ctx.attr.arch,
@@ -2565,8 +2541,6 @@ _kernel_build = rule(
             allow_files = True,
         ),
         "strip_modules": attr.bool(default = False, doc = "if set, debug information won't be kept for distributed modules.  Note, modules will still be stripped when copied into the ramdisk."),
-        "src_protected_exports_list": attr.label(allow_single_file = True),
-        "src_protected_modules_list": attr.label(allow_single_file = True),
         "src_kmi_symbol_list": attr.label(allow_single_file = True),
         "pack_module_env": attr.bool(default = False, doc = "Create `<name>_module_scripts.tar.gz`."),
         "sanitizers": attr.string_list(

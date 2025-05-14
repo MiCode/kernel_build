@@ -72,8 +72,6 @@ def common_kernel(
         kmi_symbol_list_strict_mode = None,
         kmi_symbol_list_add_only = None,
         module_implicit_outs = None,
-        protected_exports_list = None,
-        protected_modules_list = None,
         protected_module_names_list = None,
         gki_system_dlkm_modules = None,
         make_goals = None,
@@ -118,8 +116,6 @@ def common_kernel(
     Usually, for ABI monitoring to be fully turned on, you should set:
     -   `kmi_symbol_list`
     -   `additional_kmi_symbol_lists`
-    -   `protected_exports_list`
-    -   `protected_modules_list`
     -   `trim_nonlisted_kmi` to True
     -   `kmi_symbol_list_strict_mode` to True
     -   `abi_definition_stg` to the ABI definition
@@ -147,8 +143,6 @@ def common_kernel(
         kmi_symbol_list_strict_mode: See [kernel_build.kmi_symbol_list_strict_mode](kernel.md#kernel_build-kmi_symbol_list_strict_mode)
         module_implicit_outs: See [kernel_build.module_implicit_outs](kernel.md#kernel_build-module_implicit_outs)
         kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](kernel.md#kernel_abi-kmi_symbol_list_add_only)
-        protected_exports_list: See [kernel_build.protected_exports_list](kernel.md#kernel_build-protected_exports_list)
-        protected_modules_list: See [kernel_build.protected_modules_list](kernel.md#kernel_build-protected_modules_list)
         protected_module_names_list: See [kernel_config.protected_module_names_list](kernel.md#kernel_config-protected_module_names_list)
         make_goals: See [kernel_build.make_goals](kernel.md#kernel_build-make_goals)
         abi_definition_stg: See [kernel_abi.abi_definition_stg](kernel.md#kernel_abi-abi_definition_stg)
@@ -183,8 +177,6 @@ def common_kernel(
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         module_implicit_outs = module_implicit_outs,
-        protected_exports_list = protected_exports_list,
-        protected_modules_list = protected_modules_list,
         protected_module_names_list = protected_module_names_list,
         gki_system_dlkm_modules = gki_system_dlkm_modules,
         make_goals = make_goals,
@@ -265,8 +257,6 @@ def common_kernel(
         trim_nonlisted_kmi = trim_nonlisted_kmi,
         kmi_symbol_list_strict_mode = kmi_symbol_list_strict_mode,
         module_implicit_outs = module_implicit_outs,
-        protected_exports_list = protected_exports_list,
-        protected_modules_list = protected_modules_list,
         protected_module_names_list = protected_module_names_list,
         make_goals = make_goals,
         page_size = page_size,

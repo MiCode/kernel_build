@@ -487,16 +487,6 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
-# Tools visible to all packages that uses kernel_abi.
-# Implementation detail of kernel_abi; do not use directly.
-py_binary(
-    name = "extract_protected_exports",
-    srcs = ["abi/extract_gki_protected_exports.py"],
-    main = "abi/extract_gki_protected_exports.py",
-    visibility = ["//visibility:public"],
-    deps = [":symbol_extraction"],
-)
-
 # Tools visible to all packages.
 py_library(
     name = "xml_handler",

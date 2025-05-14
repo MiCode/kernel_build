@@ -22,8 +22,6 @@ load(":abi/abi_transitions.bzl", "abi_common_attrs", "with_vmlinux_transition")
 load(":abi/abi_update.bzl", "abi_update")
 load(":abi/extracted_symbols.bzl", "extracted_symbols")
 load(":abi/get_src_kmi_symbol_list.bzl", "get_src_kmi_symbol_list")
-load(":abi/get_src_protected_exports_files.bzl", "get_src_protected_exports_list", "get_src_protected_modules_list")
-load(":abi/protected_exports.bzl", "protected_exports")
 load(":common_providers.bzl", "KernelBuildAbiInfo")
 load(":diff.bzl", "diff")
 load(":empty_binary.bzl", "empty_binary")
@@ -91,8 +89,6 @@ def kernel_abi(
     In addition, the following targets are defined if `define_abi_targets = True`:
     - `kernel_aarch64_abi_update_symbol_list`
       - Running this target updates `kmi_symbol_list`.
-    - `kernel_aarch64_abi_update_protected_exports`
-      - Running this target updates `protected_exports_list`.
     - `kernel_aarch64_abi_update`
       - Running this target updates `abi_definition`.
     - `kernel_aarch64_abi_dump`
@@ -298,37 +294,11 @@ def _define_abi_targets(
         **private_kwargs
     )
 
-    # Protected Exports
-    get_src_protected_exports_list(
-        name = name + "_src_protected_exports_list",
-        kernel_build = kernel_build,
-        **private_kwargs
-    )
-    get_src_protected_modules_list(
-        name = name + "_src_protected_modules_list",
-        kernel_build = kernel_build,
-        **private_kwargs
-    )
-    protected_exports(
-        name = name + "_protected_exports",
-        kernel_build = kernel_build,
-        protected_modules_list_file = name + "_src_protected_modules_list",
-        enable_add_vmlinux = enable_add_vmlinux,
-        **private_kwargs
-    )
-    update_source_file(
-        name = name + "_update_protected_exports",
-        src = name + "_protected_exports",
-        dst = name + "_src_protected_exports_list",
-        **private_kwargs
-    )
-
     default_outputs += _define_abi_definition_targets(
         name = name,
         abi_definition_stg = abi_definition_stg,
         kmi_enforced = kmi_enforced,
         kmi_symbol_list = name + "_src_kmi_symbol_list",
-        protected_exports_list = name + "_src_protected_exports_list",
         kmi_symbol_checks = name + "_kmi_symbol_checks",
         **kwargs
     )
@@ -344,7 +314,6 @@ def _define_abi_definition_targets(
         abi_definition_stg,
         kmi_enforced,
         kmi_symbol_list,
-        protected_exports_list,
         kmi_symbol_checks,
         **kwargs):
     """Helper to `_define_abi_targets`.
@@ -423,29 +392,12 @@ symbol list must be updated before updating ABI definition.
             **private_kwargs
         )
 
-        diff(
-            name = name + "_diff_protected_exports_list",
-            file1 = name + "_protected_exports",
-            file2 = protected_exports_list,
-            failure_message = """\
-protected exports list must be updated before updating ABI definition.
-    To update, execute
-        tools/bazel run {}
-    To discover additional files to be updated, execute
-        tools/bazel run -k {}""".format(
-                native.package_relative_label(native.package_relative_label(name + "_update_protected_exports")),
-                native.package_relative_label(name + "_update"),
-            ),
-            **private_kwargs
-        )
-
         update_source_file(
             name = name + "_nodiff_update",
             src = name + "_out_file",
             dst = abi_definition_stg,
             deps = [
                 name + "_diff_symbol_list",
-                name + "_diff_protected_exports_list",
                 # Ensure KMI checks are executed before updating ABI.
                 kmi_symbol_checks,
             ],
