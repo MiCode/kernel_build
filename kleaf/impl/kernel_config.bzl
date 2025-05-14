@@ -302,7 +302,7 @@ def _defconfig_info_to_shell_variables(defconfig_info, is_run_env):
 
     Returns:
         A struct with these fields:
-        -   path: string representing the path to the DefconfigInfo.file if set,
+        -   path: string representing the path to the defconfig_info.file if set,
             otherwise empty string
         -   make_target: defconfig_info.make_target if set,
             otherwise empty string.
