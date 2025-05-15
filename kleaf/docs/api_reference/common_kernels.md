@@ -14,11 +14,11 @@ load("@kleaf//build/kernel/kleaf:common_kernels.bzl", "common_kernel")
 common_kernel(<a href="#common_kernel-name">name</a>, <a href="#common_kernel-outs">outs</a>, <a href="#common_kernel-makefile">makefile</a>, <a href="#common_kernel-arch">arch</a>, <a href="#common_kernel-visibility">visibility</a>, <a href="#common_kernel-defconfig">defconfig</a>, <a href="#common_kernel-check_defconfig">check_defconfig</a>,
               <a href="#common_kernel-pre_defconfig_fragments">pre_defconfig_fragments</a>, <a href="#common_kernel-post_defconfig_fragments">post_defconfig_fragments</a>, <a href="#common_kernel-kmi_symbol_list">kmi_symbol_list</a>,
               <a href="#common_kernel-additional_kmi_symbol_lists">additional_kmi_symbol_lists</a>, <a href="#common_kernel-trim_nonlisted_kmi">trim_nonlisted_kmi</a>, <a href="#common_kernel-kmi_symbol_list_strict_mode">kmi_symbol_list_strict_mode</a>,
-              <a href="#common_kernel-kmi_symbol_list_add_only">kmi_symbol_list_add_only</a>, <a href="#common_kernel-module_implicit_outs">module_implicit_outs</a>, <a href="#common_kernel-protected_exports_list">protected_exports_list</a>,
-              <a href="#common_kernel-protected_modules_list">protected_modules_list</a>, <a href="#common_kernel-gki_system_dlkm_modules">gki_system_dlkm_modules</a>, <a href="#common_kernel-make_goals">make_goals</a>, <a href="#common_kernel-abi_definition_stg">abi_definition_stg</a>,
-              <a href="#common_kernel-kmi_enforced">kmi_enforced</a>, <a href="#common_kernel-build_gki_artifacts">build_gki_artifacts</a>, <a href="#common_kernel-gki_boot_img_sizes">gki_boot_img_sizes</a>, <a href="#common_kernel-page_size">page_size</a>, <a href="#common_kernel-deprecation">deprecation</a>,
-              <a href="#common_kernel-ddk_headers_archive">ddk_headers_archive</a>, <a href="#common_kernel-ddk_module_headers">ddk_module_headers</a>, <a href="#common_kernel-extra_dist">extra_dist</a>, <a href="#common_kernel-kcflags">kcflags</a>,
-              <a href="#common_kernel-system_dlkm_extra_archive_files">system_dlkm_extra_archive_files</a>, <a href="#common_kernel-clang_autofdo_profile">clang_autofdo_profile</a>, <a href="#common_kernel-generated_headers_for_module">generated_headers_for_module</a>)
+              <a href="#common_kernel-kmi_symbol_list_add_only">kmi_symbol_list_add_only</a>, <a href="#common_kernel-module_implicit_outs">module_implicit_outs</a>, <a href="#common_kernel-protected_module_names_list">protected_module_names_list</a>,
+              <a href="#common_kernel-gki_system_dlkm_modules">gki_system_dlkm_modules</a>, <a href="#common_kernel-make_goals">make_goals</a>, <a href="#common_kernel-abi_definition_stg">abi_definition_stg</a>, <a href="#common_kernel-kmi_enforced">kmi_enforced</a>,
+              <a href="#common_kernel-build_gki_artifacts">build_gki_artifacts</a>, <a href="#common_kernel-gki_boot_img_sizes">gki_boot_img_sizes</a>, <a href="#common_kernel-page_size">page_size</a>, <a href="#common_kernel-deprecation">deprecation</a>, <a href="#common_kernel-ddk_headers_archive">ddk_headers_archive</a>,
+              <a href="#common_kernel-ddk_module_headers">ddk_module_headers</a>, <a href="#common_kernel-extra_dist">extra_dist</a>, <a href="#common_kernel-kcflags">kcflags</a>, <a href="#common_kernel-system_dlkm_extra_archive_files">system_dlkm_extra_archive_files</a>,
+              <a href="#common_kernel-clang_autofdo_profile">clang_autofdo_profile</a>, <a href="#common_kernel-generated_headers_for_module">generated_headers_for_module</a>)
 </pre>
 
 Macro for an Android Common Kernel.
@@ -49,8 +49,6 @@ If `kmi_symbol_list` is set, ABI monitoring is turned on.
 Usually, for ABI monitoring to be fully turned on, you should set:
 -   `kmi_symbol_list`
 -   `additional_kmi_symbol_lists`
--   `protected_exports_list`
--   `protected_modules_list`
 -   `trim_nonlisted_kmi` to True
 -   `kmi_symbol_list_strict_mode` to True
 -   `abi_definition_stg` to the ABI definition
@@ -77,8 +75,7 @@ Usually, for ABI monitoring to be fully turned on, you should set:
 | <a id="common_kernel-kmi_symbol_list_strict_mode"></a>kmi_symbol_list_strict_mode |  See [kernel_build.kmi_symbol_list_strict_mode](kernel.md#kernel_build-kmi_symbol_list_strict_mode)   |  `None` |
 | <a id="common_kernel-kmi_symbol_list_add_only"></a>kmi_symbol_list_add_only |  See [kernel_abi.kmi_symbol_list_add_only](kernel.md#kernel_abi-kmi_symbol_list_add_only)   |  `None` |
 | <a id="common_kernel-module_implicit_outs"></a>module_implicit_outs |  See [kernel_build.module_implicit_outs](kernel.md#kernel_build-module_implicit_outs)   |  `None` |
-| <a id="common_kernel-protected_exports_list"></a>protected_exports_list |  See [kernel_build.protected_exports_list](kernel.md#kernel_build-protected_exports_list)   |  `None` |
-| <a id="common_kernel-protected_modules_list"></a>protected_modules_list |  See [kernel_build.protected_modules_list](kernel.md#kernel_build-protected_modules_list)   |  `None` |
+| <a id="common_kernel-protected_module_names_list"></a>protected_module_names_list |  See [kernel_config.protected_module_names_list](kernel.md#kernel_config-protected_module_names_list)   |  `None` |
 | <a id="common_kernel-gki_system_dlkm_modules"></a>gki_system_dlkm_modules |  system_dlkm module_list   |  `None` |
 | <a id="common_kernel-make_goals"></a>make_goals |  See [kernel_build.make_goals](kernel.md#kernel_build-make_goals)   |  `None` |
 | <a id="common_kernel-abi_definition_stg"></a>abi_definition_stg |  See [kernel_abi.abi_definition_stg](kernel.md#kernel_abi-abi_definition_stg)   |  `None` |

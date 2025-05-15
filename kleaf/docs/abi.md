@@ -25,24 +25,6 @@ $ tools/bazel run //common:kernel_aarch64_abi_update_symbol_list
 This updates `kmi_symbol_list` of `//common:kernel_aarch64`, which is
 `common/android/abi_gki_aarch64`.
 
-### Update the protected exports list {#update-protected-exports}
-
-Similar to [updating the KMI symbol list for GKI](abi.md#update-symbol-list),
-you may update the `protected_exports_list` defined previously with the
-following.
-
-```shell
-$ tools/bazel run //path/to/package:{name}_abi_update_protected_exports
-```
-
-In the above example for kernel\_aarch64, the command is
-
-```shell
-$ tools/bazel run //common:kernel_aarch64_abi_update_protected_exports
-```
-
-This updates `common/android/abi_gki_protected_exports`.
-
 ### Extracting the ABI
 
 ```shell
@@ -51,8 +33,7 @@ $ tools/bazel build //common:kernel_aarch64_abi_dump
 
 ### Update the ABI definition {#update-abi}
 
-**Note**: You must [update the symbol list](#update-symbol-list) and
-[update the protected exports list](#update-protected-exports) before
+**Note**: You must [update the symbol list](#update-symbol-list) before
 updating the ABI definition. The Bazel command below does not also update
 the source symbol list, unlike the `build_abi.sh` command.
 
