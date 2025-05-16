@@ -72,6 +72,8 @@ build --flag_alias=kconfig_werror=//build/kernel/kleaf:kconfig_werror
 build --flag_alias=nokconfig_werror=no//build/kernel/kleaf:kconfig_werror
 build --flag_alias=incompatible_inherit_pre_defconfig_fragments_from_base_kernel=//build/kernel/kleaf:inherit_pre_defconfig_fragments_from_base_kernel
 build --flag_alias=noincompatible_inherit_pre_defconfig_fragments_from_base_kernel=no//build/kernel/kleaf:inherit_pre_defconfig_fragments_from_base_kernel
+build --flag_alias=incompatible_inherit_post_defconfig_fragments_from_base_kernel=//build/kernel/kleaf:inherit_post_defconfig_fragments_from_base_kernel
+build --flag_alias=noincompatible_inherit_post_defconfig_fragments_from_base_kernel=no//build/kernel/kleaf:inherit_post_defconfig_fragments_from_base_kernel
 
 # flags that control the build process
 build --flag_alias=experimental_optimize_ddk_config_actions=//build/kernel/kleaf:optimize_ddk_config_actions

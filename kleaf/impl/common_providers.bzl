@@ -56,8 +56,10 @@ DefconfigFragmentsInfo = provider(
             describing kernel_build.pre_defconfig_fragments""",
         "post_defconfig_fragments": """A [depset](https://bazel.build/extending/depsets) of [File](https://bazel.build/rules/lib/File]s
             describing kernel_build.post_defconfig_fragments""",
-        "check_pre_defconfig_fragments": """resolved value of kernel_build.check_defconfig. This may be None
-            that represents DefconfigFragmentsInfo of the base_kernel if there is no base_kernel.""",
+        "check_pre_defconfig_fragments": """resolved value of kernel_build.check_defconfig for defconfig and pre_defconfig_fragments.
+            This may be None that represents DefconfigFragmentsInfo of the base_kernel if there is no base_kernel.""",
+        "check_post_defconfig_fragments": """resolved value of kernel_build.check_defconfig for post_defconfig_fragments.
+            This may be None that represents DefconfigFragmentsInfo of the base_kernel if there is no base_kernel.""",
     },
 )
 

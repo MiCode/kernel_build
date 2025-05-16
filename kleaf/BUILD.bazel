@@ -646,6 +646,15 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+# Default is True. A kernel_build() inherits post_defconfig_fragments,
+# page_size, sanitizers etc. from its base_kernel attribute. See doc for
+# `kernel_build()`.
+bool_flag(
+    name = "inherit_post_defconfig_fragments_from_base_kernel",
+    build_setting_default = True,
+    visibility = ["//visibility:public"],
+)
+
 # If true, enable Rust support
 bool_flag(
     name = "rust",

@@ -629,9 +629,12 @@ def _kernel_config_impl(ctx):
     # Inherit pre_defconfig_fragments from base_kernel so that
     # for mixed builds, the device kernel_build() won't have to reiterate pre_defconfig_fragments
     inherit_pre = ctx.attr._inherit_pre_defconfig_fragments_from_base_kernel[BuildSettingInfo].value
+    inherit_post = ctx.attr._inherit_post_defconfig_fragments_from_base_kernel[BuildSettingInfo].value
     base_fragments = base_kernel_utils.get_base_defconfig_fragments_info(ctx)
     base_pre = base_fragments.pre_defconfig_fragments if inherit_pre and base_fragments else depset()
+    base_post = base_fragments.post_defconfig_fragments if inherit_post and base_fragments else depset()
     base_check_pre = base_fragments.check_pre_defconfig_fragments if inherit_pre and base_fragments else None
+    base_check_post = base_fragments.check_post_defconfig_fragments if inherit_post and base_fragments else None
 
     check_pre_defconfig_fragments = ctx.attr.check_defconfig
     if not check_pre_defconfig_fragments:
@@ -641,15 +644,25 @@ def _kernel_config_impl(ctx):
         else:
             check_pre_defconfig_fragments = "match"
 
+    check_post_defconfig_fragments = ctx.attr.check_defconfig
+    if not check_post_defconfig_fragments:
+        # If base_kernel is set and its check_defconfig == "disabled", do not elevate the check level.
+        if inherit_post and base_check_post == "disabled":
+            check_post_defconfig_fragments = "disabled"
+        else:
+            check_post_defconfig_fragments = "match"
+
     defconfig_fragments_info = DefconfigFragmentsInfo(
         pre_defconfig_fragments = depset(transitive = (
             [base_pre] + [target.files for target in ctx.attr.pre_defconfig_fragments]
         )),
         post_defconfig_fragments = depset(transitive = (
+            [base_post] +
             [target.files for target in ctx.attr.post_defconfig_fragments_inherited] +
             [target.files for target in ctx.attr.post_defconfig_fragments_non_inherited]
         )),
         check_pre_defconfig_fragments = check_pre_defconfig_fragments,
+        check_post_defconfig_fragments = check_post_defconfig_fragments,
     )
     defconfig_fragments_list_info = _DefconfigFragmentsListInfo(
         pre_list = defconfig_fragments_info.pre_defconfig_fragments.to_list(),
@@ -689,7 +702,6 @@ def _kernel_config_impl(ctx):
             ),
         )
 
-    check_post_defconfig_fragments = ctx.attr.check_defconfig or "match"
     step_returns += [
         _post_defconfig(
             trim_attr_value = trim_nonlisted_kmi_utils.get_value(ctx),
@@ -845,9 +857,22 @@ def _kernel_config_impl(ctx):
         ]),
     )
 
+    # The returned DefconfigFragmentsInfo is used by device kernel_build() setting
+    # base_kernel to this kernel_build(), and hence excludes non-inherited
+    # post_defconfig_fragments.
+    mixed_defconfig_fragments_info = DefconfigFragmentsInfo(
+        pre_defconfig_fragments = defconfig_fragments_info.pre_defconfig_fragments,
+        post_defconfig_fragments = depset(transitive = (
+            [base_post] +
+            [target.files for target in ctx.attr.post_defconfig_fragments_inherited]
+        )),
+        check_pre_defconfig_fragments = defconfig_fragments_info.check_pre_defconfig_fragments,
+        check_post_defconfig_fragments = defconfig_fragments_info.check_post_defconfig_fragments,
+    )
+
     return [
         defconfig_info,
-        defconfig_fragments_info,
+        mixed_defconfig_fragments_info,
         serialized_env_info,
         ctx.attr.env[KernelEnvAttrInfo],
         ctx.attr.env[KernelEnvMakeGoalsInfo],
@@ -1152,6 +1177,7 @@ kernel_config = rule(
         "_config_is_stamp": attr.label(default = "//build/kernel/kleaf:config_stamp"),
         "_debug_print_scripts": attr.label(default = "//build/kernel/kleaf:debug_print_scripts"),
         "_inherit_pre_defconfig_fragments_from_base_kernel": attr.label(default = "//build/kernel/kleaf:inherit_pre_defconfig_fragments_from_base_kernel"),
+        "_inherit_post_defconfig_fragments_from_base_kernel": attr.label(default = "//build/kernel/kleaf:inherit_post_defconfig_fragments_from_base_kernel"),
     } | _kernel_config_additional_attrs(),
     executable = True,
     toolchains = [hermetic_toolchain.type],
