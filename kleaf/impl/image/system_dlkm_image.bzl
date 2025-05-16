@@ -273,8 +273,28 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
             doc = """List of file systems type for `system_dlkm` images.
 
                 Supported filesystems for `system_dlkm` image are `ext4` and `erofs`.
-                If not specified, build `system_dlkm.img` with ext4. Otherwise, build
-                `system_dlkm.<fs>.img` for each file system type in the list.""",
+                If not specified, build `system_dlkm.ext4.img` with ext4. Otherwise, build
+                `system_dlkm.<fs>.img` for each file system type in the list.
+
+                If the name `system_dlkm.img` is needed, use a
+                [`hermetc_genrule`](hemetic_tools.md#hermetc_genrule) to achieve this. Example:
+
+                ```
+                load("@kleaf//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
+                hermetic_genrule(
+                    name = "tuna_system_dlkm_with_legacy_name",
+                    srcs = [":tuna_system_dlkm"],
+                    outs = ["tuna_system_dlkm_with_legacy_name/system_dlkm.img"],
+                    cmd = \"""
+                        for f in $(execpaths :tuna_system_dlkm); do
+                            if [[ "$$(basename $$f)" == "system_dlkm.ext4.img" ]]; then
+                                cp -aL $$f $@
+                            fi
+                        done
+                    \"""
+                )
+                ```
+                """,
             allow_empty = False,
             default = ["ext4"],
         ),
@@ -287,7 +307,7 @@ When included in a `pkg_files` target included by `pkg_install`, this rule copie
         """),
         "internal_extra_archive_files": attr.label_list(
             allow_files = True,
-            doc = """**Internal only; subject to change without notice.** 
+            doc = """**Internal only; subject to change without notice.**
                 Extra files to be placed at the root of the archive.
             """,
         ),
