@@ -662,7 +662,6 @@ def kernel_build(
     headers_target_name = name + "_headers"
     src_kmi_symbol_list_target_name = name + "_src_kmi_symbol_list"
     kmi_symbol_list_target_name = name + "_kmi_symbol_list"
-    abi_symbollist_target_name = name + "_kmi_symbol_list_abi_symbollist"
     raw_kmi_symbol_list_target_name = name + "_raw_kmi_symbol_list"
 
     # Currently only support one sanitizer
@@ -793,17 +792,10 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         **internal_kwargs
     )
 
-    native.filegroup(
-        name = abi_symbollist_target_name,
-        srcs = [kmi_symbol_list_target_name],
-        output_group = "abi_symbollist",
-        **internal_kwargs
-    )
-
     raw_kmi_symbol_list(
         name = raw_kmi_symbol_list_target_name,
         env = env_target_name,
-        src = abi_symbollist_target_name,
+        src = kmi_symbol_list_target_name,
         **internal_kwargs
     )
 
@@ -850,7 +842,7 @@ WARNING: {}: defconfig_fragments is deprecated; use post_defconfig_fragments ins
         raw_kmi_symbol_list = raw_kmi_symbol_list_target_name,
         kernel_uapi_headers = uapi_headers_target_name,
         collect_unstripped_modules = collect_unstripped_modules,
-        combined_abi_symbollist = abi_symbollist_target_name,
+        combined_abi_symbollist = kmi_symbol_list_target_name,
         strip_modules = strip_modules,
         src_protected_exports_list = protected_exports_list,
         src_protected_modules_list = protected_modules_list,

@@ -29,9 +29,7 @@ def _kmi_symbol_list_impl(ctx):
     tools = [ctx.executable._process_symbols]
     transitive_tools = [ctx.attr.env[KernelEnvInfo].tools]
 
-    outputs = []
     out_file = ctx.actions.declare_file("{}/abi_symbollist".format(ctx.attr.name))
-    outputs = [out_file]
 
     command = ctx.attr.env[KernelEnvInfo].setup + """
         mkdir -p {out_dir}
@@ -48,16 +46,13 @@ def _kmi_symbol_list_impl(ctx):
     ctx.actions.run_shell(
         mnemonic = "KmiSymbolList",
         inputs = depset(inputs, transitive = transitive_inputs),
-        outputs = outputs,
+        outputs = [out_file],
         tools = depset(tools, transitive = transitive_tools),
         progress_message = "Creating abi_symbollist and report %{label}",
         command = command,
     )
 
-    return [
-        DefaultInfo(files = depset(outputs)),
-        OutputGroupInfo(abi_symbollist = depset([out_file])),
-    ]
+    return DefaultInfo(files = depset([out_file]))
 
 kmi_symbol_list = rule(
     implementation = _kmi_symbol_list_impl,
