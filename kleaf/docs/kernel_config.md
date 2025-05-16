@@ -30,8 +30,10 @@ $ tools/bazel run //common:kernel_x86_64_config -- nconfig
 
 The above command works if the following conditions are satisified:
 
-*   `kernel_build.defconfig` is set
-*   `kernel_build.pre_defconfig_fragments` has at most one element.
+*   `kernel_build.defconfig` is set or implicitly inherited from
+    `base_kernel`.
+*   `kernel_build.pre_defconfig_fragments` (including the ones inherited
+    from `base_kernel`) has at most one element.
 
 For `nconfig` etc. to work, `ncurses` may also be required on the host machine.
 
@@ -46,16 +48,19 @@ the generated configs on `pre_defconfig_fragments` manually.
 After the developer goes through the `menuconfig` / `nconfig` / `xconfig` etc.
 to configure the the kernel, Kleaf does the following:
 
-If `kernel_build.pre_defconfig_fragments` is empty, Kleaf calls
+If `kernel_build.pre_defconfig_fragments` (including the ones inherited
+from `base_kernel`) is empty, Kleaf calls
 `make savedefconfig` and copies the minimized defconfig to the source file
 pointed by `kernel_build.defconfig`. The path to the updated file is printed.
 
-If `kernel_build.pre_defconfig_fragments` has a single element, the difference
+If `kernel_build.pre_defconfig_fragments` (including the ones inherited
+from `base_kernel`) has a single element, the difference
 of the `.config` after and before the developer invokes `menuconfig` is
 calculated, and then applied to the pre defconfig fragment. The path to the
 updated file is printed.
 
-If `kernel_build.pre_defconfig_fragments` has more than one element,
+If `kernel_build.pre_defconfig_fragments` (including the ones inherited
+from `base_kernel`) has more than one element,
 the difference of the `.config` after and before the developer invokes
 `menuconfig` is calculated. Then, the command cowardly fails, with the path to
 the temporary difference file printed. The developer is expected to move the
@@ -69,15 +74,13 @@ calculations.
 When a `kernel_build` is built, Kleaf configures the kernel by applying the
 following steps:
 
-1.  The `kernel_build.defconfig` file is used as a base.
-2.  The `kernel_build.pre_defconfig_fragments` are applied.
-3.  Calls `make ..._defconfig` to build `.config`
-4.  If `kernel_build.check_defconfig` is set, calls `make savedefconfig` and
-    compares it with `kernel_build.defconfig`. (Note: `check_defconfig`
-    requires `pre_defconfig_fragments` to be empty)
-5.  If step 4 did not take place, enforces that `.config` contains all
-    configurations in `defconfig` and `pre_defconfig_fragments`; see
-    [Checks](#checks). Otherwise skip.
+1.  The `kernel_build.defconfig` file is used as a base. If unspecified, the
+    one from `base_kernel` is used.
+2.  The `kernel_build.pre_defconfig_fragments` from `base_kernel` are applied.
+3.  The `kernel_build.pre_defconfig_fragments` are applied.
+4.  Calls `make ..._defconfig` to build `.config`
+5.  If `kernel_build.check_defconfig` is set, compares `.config` against
+    `defconfig` and `pre_defconfig_fragments`. See [Checks](#checks)
 6.  The `kernel_build.post_defconfig_fragments`, `--defconfig_fragment` and
     other command line flags (e.g. `--kasan`) are applied on `.config`. If
     anything is applied, calls `make olddefconfig`.
@@ -91,9 +94,12 @@ details.
 
 This is the base defconfig.
 
-For GKI and mixed device builds that sets `base_kernel` to GKI, this is usually
+For GKI, this is usually
 the `gki_defconfig` for the architecture, e.g.
 `//common:arch/arm64/configs/gki_defconfig`.
+
+For mixed device builds that sets `base_kernel` to GKI, this is inherited from
+the `base_kernel`. There is usually no need to specify `defconfig` explicitly.
 
 ### Pre Defconfig fragments
 
@@ -103,12 +109,19 @@ works. see [Modify defconfig: Conditions](#conditions).
 This usually contains configs to build in-tree modules that are not built in
 the base kernel, e.g. `CONFIG_SOME_MODULE=m`.
 
+A `kernel_build()` applies `pre_defconfig_fragments` from the `base_kernel`
+before applying `pre_defconfig_fragments` of itself.
+
 At step 2, When pre defconfig fragments are applied, items in
 `defconfig` are overridden. In addition, **order matters**; items appearing
 later in the `pre_defconfig_fragments` list overrides items appearing earlier.
 
-At step 7, [Checks](#checks) are applied with the above in consideration, so
-you don't have to manually add `# nocheck` for conflicting items.
+At step 5, [Checks](#checks) are applied with the above in consideration, so
+you don't have to manually add `# nocheck` for conflicting items. However, if
+a `CONFIG_FOO` in `pre_defconfig_fragments` implicilty changed the value of
+`CONFIG_BAR` in the `defconfig`, Kleaf may report an error. In this case,
+explicitly specify the value of `CONFIG_BAR` in `pre_defconfig_fragments`, or
+simply set `check_defconfig = "disabled"`.
 
 Example:
 
@@ -213,8 +226,8 @@ kernel_build(
 # path/to/tuna/tuna_defconfig
 
 # Precondition:
-#   CONFIG_TUNA_GRAPHICS must already be declared in kernel_build.kconfig_ext
-CONFIG_TUNA_GRAPHICS=y
+#   CONFIG_TUNA_DEBUG must already be declared in kernel_build.kconfig_ext
+CONFIG_TUNA_DEBUG=y
 ```
 
 #### --defconfig_fragment flag
@@ -289,6 +302,7 @@ own defconfig fragments to avoid fragmentation in the ecosystem (pun intended).
 *   `--kasan_sw_tags`
 *   `--kasan_generic`
 *   `--kcsan`
+*   `--notrim`
 *   `--page_size`
 *   `--rust` / `--norust`
 *   `--rust_ashmem` / `--norust_ashmem`
