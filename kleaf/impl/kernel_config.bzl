@@ -645,7 +645,10 @@ def _kernel_config_impl(ctx):
         pre_defconfig_fragments = depset(transitive = (
             [base_pre] + [target.files for target in ctx.attr.pre_defconfig_fragments]
         )),
-        post_defconfig_fragments = depset(transitive = [target.files for target in ctx.attr.post_defconfig_fragments]),
+        post_defconfig_fragments = depset(transitive = (
+            [target.files for target in ctx.attr.post_defconfig_fragments_inherited] +
+            [target.files for target in ctx.attr.post_defconfig_fragments_non_inherited]
+        )),
         check_pre_defconfig_fragments = check_pre_defconfig_fragments,
     )
     defconfig_fragments_list_info = _DefconfigFragmentsListInfo(
@@ -1128,8 +1131,14 @@ kernel_config = rule(
             doc = "**pre** defconfig fragments",
             allow_files = True,
         ),
-        "post_defconfig_fragments": attr.label_list(
-            doc = "**post** defconfig fragments",
+        "post_defconfig_fragments_inherited": attr.label_list(
+            doc = """**post** defconfig fragments passed to device kernel_build() with
+                base_kernel set to this kernel_build().""",
+            allow_files = True,
+        ),
+        "post_defconfig_fragments_non_inherited": attr.label_list(
+            doc = """**post** defconfig fragments NOT passed to device kernel_build() with
+                base_kernel set to this kernel_build().""",
             allow_files = True,
         ),
         "check_defconfig": attr.string(
