@@ -111,6 +111,23 @@ check the following.
 - `modinfo -F scmversion <modulename>.ko`
 - Boot the device, and check `/sys/module/<MODULENAME>/scmversion`.
 
+## Overriding values
+
+SCM version and `SOURCE_DATE_EPOCH` can be overridden by creating a file called
+`workspace_status.json` in the `common` directory. The format of mentioned JSON
+file is as follows:
+
+```
+{
+    "SCMVERSION": "-12345-ab98765",
+    "SOURCE_DATE_EPOCH": 38927492
+}
+```
+
+Note that `SCMVERSION` is a string and `SOURCE_DATE_EPOCH` is a integer.
+Additionally, any of these fields can be skipped to avoid overriding their
+corresponding values.
+
 ## Examples
 
 ### Simple Example
