@@ -619,8 +619,6 @@ kernel_module_group(<a href="#kernel_module_group-name">name</a>, <a href="#kern
 
 Like filegroup but for [`kernel_module`](#kernel_module)s or [`ddk_module`](#ddk_module)s.
 
-Unlike filegroup, `srcs` must not be empty.
-
 Example:
 
 ```
@@ -661,7 +659,7 @@ kernel_modules_install(
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="kernel_module_group-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="kernel_module_group-srcs"></a>srcs |  List of [`kernel_module`](#kernel_module)s or [`ddk_module`](#ddk_module)s.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | required |  |
+| <a id="kernel_module_group-srcs"></a>srcs |  List of [`kernel_module`](#kernel_module)s or [`ddk_module`](#ddk_module)s.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
 <a id="kernel_modules_install"></a>
