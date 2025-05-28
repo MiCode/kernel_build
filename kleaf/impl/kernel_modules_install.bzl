@@ -50,8 +50,8 @@ def _kernel_modules_install_impl(ctx):
     kernel_build_infos = None
     if ctx.attr.kernel_build:
         kernel_build_infos = kernel_utils.create_kernel_module_kernel_build_info(ctx.attr.kernel_build)
-    elif ctx.attr.kernel_modules:
-        kernel_build_infos = ctx.attr.kernel_modules[0][KernelModuleInfo].kernel_build_infos
+    else:
+        kernel_build_infos = kernel_utils.get_kernel_build_infos(ctx.attr.kernel_modules)
 
     if not kernel_build_infos:
         fail("No `kernel_build` or `kernel_modules` provided.")

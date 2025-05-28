@@ -391,6 +391,20 @@ def _transform_kernel_build_outs(name, what, outs):
     else:
         fail("{}: Invalid type for {}: {}".format(name, what, type(outs)))
 
+def _get_kernel_build_infos(kernel_modules):
+    """Get kernel_build_infos from kernel_modules.
+
+    Return the first kernel_build_infos found in kernel_modules. This does not guarantee that all
+    kernel_modules have the same kernel_build, if needed, call `kernel_utils.check_kernel_build`.
+
+    Args:
+        kernel_modules: list of `kernel_module` or `kernel_module_group`.
+    """
+    for kernel_module in kernel_modules:
+        if kernel_module[KernelModuleInfo].kernel_build_infos != None:
+            return kernel_module[KernelModuleInfo].kernel_build_infos
+    return None
+
 def _check_kernel_build(kernel_module_infos, kernel_build_label, this_label):
     """Check that kernel_modules have the same kernel_build as the given one.
 
@@ -401,6 +415,9 @@ def _check_kernel_build(kernel_module_infos, kernel_build_label, this_label):
     """
 
     for kernel_module_info in kernel_module_infos:
+        if kernel_module_info.kernel_build_infos == None:
+            continue
+
         if kernel_build_label == None:
             kernel_build_label = kernel_module_info.kernel_build_infos.label
             continue
@@ -600,6 +617,7 @@ def _setup_serialized_env_cmd(serialized_env_info, restore_out_dir_cmd):
 kernel_utils = struct(
     filter_module_srcs = _filter_module_srcs,
     transform_kernel_build_outs = _transform_kernel_build_outs,
+    get_kernel_build_infos = _get_kernel_build_infos,
     check_kernel_build = _check_kernel_build,
     local_exec_requirements = _local_exec_requirements,
     split_kernel_module_deps = _split_kernel_module_deps,

@@ -73,7 +73,7 @@ def _kernel_module_group_impl(ctx):
         ctx.label,
     )
     kernel_module_info = KernelModuleInfo(
-        kernel_build_infos = targets[0][KernelModuleInfo].kernel_build_infos,
+        kernel_build_infos = kernel_utils.get_kernel_build_infos(targets),
         modules_staging_dws_depset = depset(transitive = [
             target[KernelModuleInfo].modules_staging_dws_depset
             for target in targets
@@ -157,8 +157,6 @@ kernel_module_group = rule(
     implementation = _kernel_module_group_impl,
     doc = """Like filegroup but for [`kernel_module`](#kernel_module)s or [`ddk_module`](#ddk_module)s.
 
-Unlike filegroup, `srcs` must not be empty.
-
 Example:
 
 ```
@@ -196,7 +194,6 @@ kernel_modules_install(
     attrs = {
         "srcs": attr.label_list(
             doc = "List of [`kernel_module`](#kernel_module)s or [`ddk_module`](#ddk_module)s.",
-            mandatory = True,
             providers = [
                 DdkLibraryInfo,
                 DdkHeadersInfo,

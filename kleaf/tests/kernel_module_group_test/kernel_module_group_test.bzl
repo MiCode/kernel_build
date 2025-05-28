@@ -184,6 +184,12 @@ def kernel_module_group_test(name):
     )
     tests.append(name + "_two")
 
+    _good_test(
+        name = name + "_no_srcs",
+        srcs = [],
+    )
+    tests.append(name + "_no_srcs")
+
     _bad_test(
         name = name + "_bad",
         srcs = [
