@@ -402,7 +402,7 @@ def _set_up_defconfig_impl(subrule_ctx, defconfig_info, base_kernel_defconfig_in
                         echo "ERROR: Please delete ${{KERNEL_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}} and try again." >&2
                         exit 1
                     fi
-                    mkdir -p "${{OUT_DIR}}/arch/${{SRCARCH}}/configs/"
+                    mkdir -p "$(dirname "${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}}")"
                     cp -L "${{defconfig_file}}" "${{OUT_DIR}}/arch/${{SRCARCH}}/configs/${{DEFCONFIG}}"
                 )
             fi
