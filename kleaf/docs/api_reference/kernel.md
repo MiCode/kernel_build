@@ -239,10 +239,10 @@ Create a build.config file by concatenating build config fragments.
 ## kernel_compile_commands
 
 <pre>
-kernel_compile_commands(<a href="#kernel_compile_commands-name">name</a>, <a href="#kernel_compile_commands-kernel_build">kernel_build</a>)
+kernel_compile_commands(<a href="#kernel_compile_commands-name">name</a>, <a href="#kernel_compile_commands-deps">deps</a>, <a href="#kernel_compile_commands-kernel_build">kernel_build</a>)
 </pre>
 
-Define an executable that creates `compile_commands.json` from a `kernel_build`.
+Define an executable that creates `compile_commands.json` from kernel targets.
 
 **ATTRIBUTES**
 
@@ -250,7 +250,8 @@ Define an executable that creates `compile_commands.json` from a `kernel_build`.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="kernel_compile_commands-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="kernel_compile_commands-kernel_build"></a>kernel_build |  The `kernel_build` rule to extract from.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="kernel_compile_commands-deps"></a>deps |  The targets to extract from. The following are allowed:<br><br>- [`kernel_build`](#kernel_build) - [`kernel_module`](#kernel_module) - [`ddk_module`](#ddk_module) - [`kernel_module_group`](#kernel_module_group)   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="kernel_compile_commands-kernel_build"></a>kernel_build |  The `kernel_build` rule to extract from.<br><br>Deprecated:     Use `deps` instead.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 
 
 <a id="kernel_filegroup"></a>

@@ -38,14 +38,15 @@ def update_gki_protected_exports(directory, gki_protected_modules_list,
 
     protected_gki_modules.append(full_path)
 
-  gki_protected_exports = []
+  gki_protected_exports = set()
   for module in protected_gki_modules:
-    gki_protected_exports.extend(
+    gki_protected_exports.update(
         symbol_extraction.extract_exported_symbols(module))
 
   with open(protected_exports_list, "w") as protected_exports_symbol_list:
-    protected_exports_symbol_list.write("\n".join(
-        sorted(set(gki_protected_exports))))
+    for symbol in sorted(gki_protected_exports):
+      protected_exports_symbol_list.write(symbol)
+      protected_exports_symbol_list.write("\n")
 
 
 def main():
