@@ -50,3 +50,4 @@
 | bixi-v-oss | Xiaomi MIX Flip 2 | Android V | LA.VENDOR.15.4.0.r1-10100-r1.0.r1_00025.1 |[bixi-v-oss](https://github.com/MiCode/kernel_build/tree/bixi-v-oss) |
 | creek-v-oss | POCO M7 / Redmi 15 | Android V | Divar.LA.3.0.1 MPSS.HA.1.2-00060-KD_ALL_PACK-1 |[creek-v-oss](https://github.com/MiCode/kernel_build/tree/creek-v-oss) |
 | dew-v-oss | REDMI 15C / POCO C85 | Android V | t-alps-release-v0.mp1.rc-V4 |[dew-v-oss](https://github.com/MiCode/kernel_build/tree/dew-v-oss) |
+| bsp-klimt-v-oss | Xiaomi 15T Pro | Android V | alps-release-v0.mp1.rc-V12.13 |[bsp-klimt-v-oss](https://github.com/MiCode/kernel_build/tree/bsp-klimt-v-oss) |
