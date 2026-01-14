@@ -52,3 +52,4 @@
 | dew-v-oss | REDMI 15C / POCO C85 | Android V | t-alps-release-v0.mp1.rc-V4 |[dew-v-oss](https://github.com/MiCode/kernel_build/tree/dew-v-oss) |
 | bsp-klimt-v-oss | Xiaomi 15T Pro | Android V | t-alps-release-v0.mp1.rc-V12.13 |[bsp-klimt-v-oss](https://github.com/MiCode/kernel_build/tree/bsp-klimt-v-oss) |
 | kunzite-v-oss | REDMI Note 15 SE 5G / REDMI Note 15 | Android V | lc-snapdragon_high_mid_2024.SPF.1.0_r1.0.r1_00020.1 |[kunzite-v-oss](https://github.com/MiCode/kernel_build/tree/kunzite-v-oss) |
+| lapis-v-oss | REDMI Note 15 Pro | Android V | bsp-t-alps-release-u0.mp1.tc8sp3-V1 |[lapis-v-oss](https://github.com/MiCode/kernel_build/tree/lapis-v-oss) |
