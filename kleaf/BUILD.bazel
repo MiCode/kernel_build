@@ -1,0 +1,92 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/bazel_common_rules/docs:docs.bzl", "docs")
+
+package(default_visibility = ["//visibility:public"])
+
+# Build flags
+
+string_flag(
+    name = "lto",
+    build_setting_default = "default",
+    values = [
+        "default",
+        "none",
+        "thin",
+        "full",
+    ],
+)
+
+# Debug options
+
+bool_flag(
+    name = "debug_annotate_scripts",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "debug_print_scripts",
+    build_setting_default = False,
+)
+
+exports_files([
+    "preserve_env.sh",
+    "search_and_mv_output.py",
+    "check_duplicated_files_in_archives.py",
+])
+
+# Docs. To view them:
+#   bazel run //build/kernel/kleaf:docs_server
+
+docs(
+    name = "docs",
+    srcs = [
+        "common_kernels.bzl",
+        "constants.bzl",
+        "download_repo.bzl",
+        "kernel.bzl",
+        "key_value_repo.bzl",
+    ],
+    default = "kernel.bzl",
+    deps = [
+        "//build/bazel_common_rules/dist",
+        "@bazel_skylib//rules:common_settings",
+        "@kernel_toolchain_info//:dict",
+    ],
+)
+
+#
+# Remote Build Execution (RBE) Definitions
+#
+_CONTAINER = "gcr.io/androidbuild-re-dockerimage/android-build-remoteexec-image"
+
+_CONTAINER_VERSION = "sha256:582efb38f0c229ea39952fff9e132ccbe183e14869b39888010dacf56b360d62"
+
+platform(
+    name = "rbe_platform",
+    constraint_values = [
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:x86_64",
+    ],
+    exec_properties = {
+        "container-image": "docker://%s@%s" % (_CONTAINER, _CONTAINER_VERSION),
+        "OSFamily": "Linux",
+    },
+    parents = ["@local_config_platform//:host"],
+)
