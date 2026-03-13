@@ -57,3 +57,4 @@
 | tornado-v-oss | Redmi 15C 5G / POCO C85 5G / REDMI 15C 5G / REDMI 15R 5G | Android V | alps-release-t0.mp1.tc8sp2-V1.281.1 |[tornado-v-oss](https://github.com/MiCode/kernel_build/tree/tornado-v-oss) |
 | dash-w-oss | REDMI Turbo 5 Max | Android W | base-v-t-alps-release-v0.mp1.rc-V13.94 |[dash-w-oss](https://github.com/MiCode/kernel_build/tree/dash-w-oss) |
 | rock-u-oss | POCO M5 / Redmi 11 Prime | Android U | alps-mp-s0.mp1.tc8sp2-cs1-xm.V1.0.13 |[rock-u-oss](https://github.com/MiCode/kernel_build/tree/rock-u-oss) |
+| annibale-w-oss | REDMI K90 / POCO F8 Pro | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[annibale-w-oss](https://github.com/MiCode/kernel_build/tree/annibale-w-oss) |
