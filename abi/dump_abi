@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2019 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import argparse
+import os
+import sys
+
+from abitool import get_abi_tool
+
+def dump_abi(abitool, linux_tree, out_file, symbol_list, vmlinux_path=None,
+             tidy=False):
+    tool = get_abi_tool(abitool)
+    tool.dump_kernel_abi(linux_tree, out_file, symbol_list, vmlinux_path, tidy)
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--linux-tree',
+                        help='Path to kernel tree containing '
+                             'vmlinux and modules',
+                        required=True)
+    parser.add_argument('--vmlinux',
+                        help='Path to the vmlinux binary to consider to '
+                             'emit the ABI of the union of vmlinux and its '
+                             'modules', default=None)
+    parser.add_argument('--abi-tool', default='libabigail',
+                        help='abi tool to be used to monitor abi')
+    parser.add_argument('--out-file', default=None,
+                        help='where to write the ABI dump to')
+    parser.add_argument('--kmi-symbol-list', '--kmi-whitelist', default=None,
+                        help='KMI symbol list to filter for')
+    parser.add_argument('--tidy', action='store_true',
+                        help='postprocess ABI dump with abitidy')
+
+    args = parser.parse_args()
+
+    dump_abi(args.abi_tool,
+             args.linux_tree,
+             args.out_file or os.path.join(args.linux_tree, "abi.xml"),
+             args.kmi_symbol_list,
+             args.vmlinux,
+             args.tidy)
+
+if __name__ == "__main__":
+    sys.exit(main())
