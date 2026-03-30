@@ -58,3 +58,4 @@
 | dash-w-oss | REDMI Turbo 5 Max | Android W | base-v-t-alps-release-v0.mp1.rc-V13.94 |[dash-w-oss](https://github.com/MiCode/kernel_build/tree/dash-w-oss) |
 | rock-u-oss | POCO M5 / Redmi 11 Prime | Android U | alps-mp-s0.mp1.tc8sp2-cs1-xm.V1.0.13 |[rock-u-oss](https://github.com/MiCode/kernel_build/tree/rock-u-oss) |
 | annibale-w-oss | REDMI K90 / POCO F8 Pro | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[annibale-w-oss](https://github.com/MiCode/kernel_build/tree/annibale-w-oss) |
+| charoite-v-oss | REDMI Note 15 Pro | Android V | t-alps-release-s0.mp1.tc8sp2-cs1-xm-V1.143.1 |[charoite-v-oss](https://github.com/MiCode/kernel_build/tree/charoite-v-oss) |
