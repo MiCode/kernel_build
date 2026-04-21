@@ -52,7 +52,7 @@
 | dew-v-oss | REDMI 15C / POCO C85 | Android V | t-alps-release-v0.mp1.rc-V4 |[dew-v-oss](https://github.com/MiCode/kernel_build/tree/dew-v-oss) |
 | bsp-klimt-v-oss | Xiaomi 15T Pro | Android V | t-alps-release-v0.mp1.rc-V12.13 |[bsp-klimt-v-oss](https://github.com/MiCode/kernel_build/tree/bsp-klimt-v-oss) |
 | kunzite-v-oss | REDMI Note 15 SE 5G / REDMI Note 15 | Android V | LA.VENDOR.15.4.1.r1-06600-r1.0.r1_00017.0 |[kunzite-v-oss](https://github.com/MiCode/kernel_build/tree/kunzite-v-oss) |
-| lapis-v-oss | REDMI Note 15 Pro | Android V | bsp-t-alps-release-u0.mp1.tc8sp3-V1 |[lapis-v-oss](https://github.com/MiCode/kernel_build/tree/lapis-v-oss) |
+| lapis-v-oss | REDMI Note 15 Pro 5G | Android V | bsp-t-alps-release-u0.mp1.tc8sp3-V1 |[lapis-v-oss](https://github.com/MiCode/kernel_build/tree/lapis-v-oss) |
 | spring-v-oss | Redmi 15 5G / Redmi Note 15R / POCO M7 Plus 5G | Android V | LA.VENDOR.14.3.1.r1-03700-MANNAR.QSSI15.0-1.107589.1.111280.1 |[spring-v-oss](https://github.com/MiCode/kernel_build/tree/spring-v-oss) |
 | tornado-v-oss | Redmi 15C 5G / POCO C85 5G / REDMI 15C 5G / REDMI 15R 5G | Android V | alps-release-t0.mp1.tc8sp2-V1.281.1 |[tornado-v-oss](https://github.com/MiCode/kernel_build/tree/tornado-v-oss) |
 | dash-w-oss | REDMI Turbo 5 Max | Android W | base-v-t-alps-release-v0.mp1.rc-V13.94 |[dash-w-oss](https://github.com/MiCode/kernel_build/tree/dash-w-oss) |
