@@ -1,0 +1,133 @@
+# Copyright (C) 2024 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "ddk_config",
+    "kernel_build",
+)
+load(":ddk_config_inheritance_test.bzl", "ddk_config_inheritance_test")
+
+kernel_build(
+    name = "test_kernel",
+    testonly = True,
+    srcs = ["//common:kernel_aarch64_sources"],
+    outs = [".config"],
+    arch = "arm64",
+    ddk_module_headers = ["//common:all_headers_aarch64"],
+    defconfig = "//common:arch/arm64/configs/gki_defconfig",
+    make_goals = [
+        "olddefconfig",
+    ],
+    makefile = "//common:Makefile",
+    tags = ["manual"],
+)
+
+label_flag(
+    name = "kernel_build",
+    build_setting_default = ":test_kernel",
+)
+
+ddk_config(
+    name = "common_ddk_config",
+    testonly = True,
+    defconfig = "common_defconfig",
+    kconfigs = ["Kconfig.common"],
+    kernel_build = ":kernel_build",
+    tags = ["manual"],
+)
+
+# Test inheritance.
+
+ddk_config_inheritance_test(
+    name = "inherit_values_from_parent_config",
+    testonly = True,
+    expects = {
+        "CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N": "",
+        "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "y",
+    },
+    kernel_build = ":kernel_build",
+    parent = ":common_ddk_config",
+    tags = ["manual"],
+)
+
+ddk_config_inheritance_test(
+    name = "override_values_from_parent_config",
+    testonly = True,
+    defconfig = "override_defconfig",
+    expects = {
+        "CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N": "y",
+        "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "",
+    },
+    kernel_build = ":kernel_build",
+    override_parent = "expect_override",
+    override_parent_log_expected_lines = [
+        "WARNING: Adding extra defconfig files:",
+        "+build/kernel/kleaf/tests/ddk_config_test/override_defconfig",
+        "ERROR: detected defconfig/Kconfig changes, triggering olddefconfig.",
+        "Changes in .config:",
+        "+CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N=y",
+        "+# CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y is not set",
+    ],
+    parent = ":common_ddk_config",
+    tags = ["manual"],
+)
+
+# Test inheritance with optimize_ddk_config_actions flag
+
+ddk_config_inheritance_test(
+    name = "inherit_values_from_parent_config_optimized",
+    testonly = True,
+    expects = {
+        "CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N": "",
+        "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "y",
+    },
+    kernel_build = ":kernel_build",
+    optimize_ddk_config_actions = True,
+    parent = ":common_ddk_config",
+    tags = ["manual"],
+)
+
+ddk_config_inheritance_test(
+    name = "override_values_from_parent_config_optimized",
+    testonly = True,
+    defconfig = "override_defconfig",
+    expects = {
+        "CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N": "y",
+        "CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y": "",
+    },
+    kernel_build = ":kernel_build",
+    optimize_ddk_config_actions = True,
+    override_parent = "expect_override",
+    override_parent_log_expected_lines = [
+        "WARNING: Adding extra defconfig files:",
+        "+build/kernel/kleaf/tests/ddk_config_test/override_defconfig",
+        "ERROR: detected defconfig/Kconfig changes, triggering olddefconfig.",
+        "Changes in .config:",
+        "+CONFIG_KLEAF_TEST_COMMON_IMPLICIT_N=y",
+        "+# CONFIG_KLEAF_TEST_COMMON_EXPLICIT_Y is not set",
+    ],
+    parent = ":common_ddk_config",
+    tags = ["manual"],
+)
+
+test_suite(
+    name = "ddk_config_test",
+    tests = [
+        ":inherit_values_from_parent_config",
+        ":inherit_values_from_parent_config_optimized",
+        ":override_values_from_parent_config",
+        ":override_values_from_parent_config_optimized",
+    ],
+)

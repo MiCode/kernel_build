@@ -1,0 +1,5 @@
+# Ashmem in Rust
+
+CONFIG_RUST=y
+CONFIG_ASHMEM_RUST=y
+# CONFIG_ASHMEM is not set

@@ -1,0 +1,558 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+load("//build/kernel/kleaf/impl:bison_wrapper.bzl", "bison_wrapper")
+load("//build/kernel/kleaf/impl:native_binary_with_arg.bzl", "native_binary_with_arg")
+load("//build/kernel/kleaf/impl:swig_wrapper.bzl", "swig_wrapper")
+load(
+    "//build/kernel/kleaf/impl:transitioned_tool.bzl",
+    "prebuilt_transitioned_files",
+    "prebuilt_transitioned_tool",
+    "transitioned_tool_from_sources",
+)
+
+filegroup(
+    name = "sysroot",
+    srcs = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ),
+    visibility = [
+        ":__subpackages__",
+        "@kleaf_clang_toolchain//:__subpackages__",
+    ],
+)
+
+filegroup(
+    name = "sysroot_dir",
+    srcs = ["build-tools/sysroot"],
+    visibility = [
+        "@kleaf_clang_toolchain//:__subpackages__",
+    ],
+)
+
+native_binary_with_arg(
+    name = "rsync",
+    src = "@kleaf_host_tools//:rsync",
+    args = ["--no-group"],
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_tool(
+    name = "prebuilt_toybox",
+    src = "//prebuilts/build-tools:toybox",
+    visibility = ["//visibility:private"],
+)
+
+transitioned_tool_from_sources(
+    name = "toybox_from_sources",
+    src = "@toybox",
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "toybox",
+    actual = select({
+        "//build/kernel/kleaf:toolchain_from_sources_is_true": ":toybox_from_sources",
+        "//conditions:default": ":prebuilt_toybox",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+# Some aliases for :toybox to workaround dict keys needing to be unique
+# hermetic_tools.symlinks.
+[alias(
+    name = "toybox_%s" % tool,
+    actual = ":toybox",
+    visibility = ["//visibility:private"],
+) for tool in ("find", "flock")]
+
+transitioned_tool_from_sources(
+    name = "pigz",
+    src = "@pigz",
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "gzip",
+    actual = select({
+        "//build/kernel/kleaf:gzip_is_pigz_is_true": ":pigz",
+        "//conditions:default": ":toybox",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+native_binary_with_arg(
+    name = "tar",
+    src = ":toybox",
+    args = [
+        "--mtime=@0",
+        "--owner=0",
+        "--group=0",
+        "--numeric-owner",
+        "--sort=name",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_tool(
+    name = "m4",
+    src = "//prebuilts/build-tools:m4",
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_tool(
+    name = "prebuilt_bison",
+    src = "//prebuilts/build-tools:bison",
+    visibility = ["//visibility:private"],
+)
+
+bison_wrapper(
+    name = "bison",
+    actual = ":prebuilt_bison",
+    m4 = ":m4",
+    pkgdata_dir = "//prebuilts/build-tools:bison.runfiles_dir",
+    pkgdata_files = "//prebuilts/build-tools:bison.runfiles",
+    visibility = ["//visibility:private"],
+)
+
+swig_wrapper(
+    name = "wrapped_swig",
+    src = "//prebuilts/kernel-build-tools:swig",
+    swig_lib = "//prebuilts/kernel-build-tools:swig_lib_dir",
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_tool(
+    name = "swig",
+    src = ":wrapped_swig",
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_tool(
+    name = "prebuilt_lz4",
+    src = "//prebuilts/kernel-build-tools:lz4",
+    visibility = ["//visibility:private"],
+)
+
+transitioned_tool_from_sources(
+    name = "lz4_from_sources",
+    src = "@lz4",
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "lz4",
+    actual = select({
+        "//build/kernel/kleaf:toolchain_from_sources_is_true": ":lz4_from_sources",
+        "//conditions:default": ":prebuilt_lz4",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_tool(
+    name = "prebuilt_depmod",
+    src = "//prebuilts/kernel-build-tools:depmod",
+    visibility = ["//visibility:private"],
+)
+
+transitioned_tool_from_sources(
+    name = "depmod_from_sources",
+    src = "@kmod//:depmod",
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "depmod",
+    actual = select({
+        "//build/kernel/kleaf:depmod_from_sources_is_true": ":depmod_from_sources",
+        "//conditions:default": ":prebuilt_depmod",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+# List of prebuilt tools where label names are used as the tool names
+_PREBUILT_TOOLS = [
+    # keep sorted
+    "//prebuilts/build-tools:awk",
+    "//prebuilts/build-tools:bc",
+    "//prebuilts/build-tools:flex",
+    "//prebuilts/build-tools:make",
+    "//prebuilts/build-tools:openssl",
+    "//prebuilts/build-tools:runextractor",
+    "//prebuilts/build-tools:soong_zip",
+    "//prebuilts/kernel-build-tools:avbtool",
+    "//prebuilts/kernel-build-tools:blk_alloc_to_base_fs",
+    "//prebuilts/kernel-build-tools:build_image",
+    "//prebuilts/kernel-build-tools:build_super_image",
+    "//prebuilts/kernel-build-tools:certify_bootimg",
+    "//prebuilts/kernel-build-tools:dtc",
+    "//prebuilts/kernel-build-tools:e2fsck",
+    "//prebuilts/kernel-build-tools:e2fsdroid",
+    "//prebuilts/kernel-build-tools:fec",
+    "//prebuilts/kernel-build-tools:img2simg",
+    "//prebuilts/kernel-build-tools:lpmake",
+    "//prebuilts/kernel-build-tools:mkbootfs",
+    "//prebuilts/kernel-build-tools:mkdtimg",
+    "//prebuilts/kernel-build-tools:mke2fs",
+    "//prebuilts/kernel-build-tools:mkfs.erofs",
+    "//prebuilts/kernel-build-tools:mkuserimg_mke2fs",
+    "//prebuilts/kernel-build-tools:pahole",
+    "//prebuilts/kernel-build-tools:simg2img",
+    "//prebuilts/kernel-build-tools:tune2fs",
+    "//prebuilts/kernel-build-tools:ufdt_apply_overlay",
+]
+
+[
+    prebuilt_transitioned_tool(
+        name = "prebuilt_" + paths.basename(package_relative_label(tool).name),
+        src = tool,
+        visibility = ["//visibility:private"],
+    )
+    for tool in _PREBUILT_TOOLS + [
+        "//prebuilts/build-tools:bzip2",
+        "//prebuilts/build-tools:xz",
+        "//prebuilts/build-tools:ziptool",
+    ]
+]
+
+# List of hermetic tools where label names are used as the tool names
+_HERMETIC_TOOLS = [
+    # keep sorted
+    ":bison",
+    ":gzip",
+    ":lz4",
+    ":m4",
+    ":swig",
+    ":tar",
+    # TODO: This is only used by abi_stgdiff. It should be fine to be removed from hermetic_tools.
+    "//build/kernel/kleaf/impl:stgdiff",
+] + glob([
+    # Intentionally glob here to test for existance of alias destination
+    # buildifier: disable=constant-glob
+    "build-tools/kleaf_internal_do_not_use_path/linux-x86/cxx_extractor",
+])
+
+# Hermetic tools symlinks (other than _HERMETIC_TOOLS)
+_TOYS = [
+    # keep sorted
+    "basename",
+    "cat",
+    "chmod",
+    "cmp",
+    "comm",
+    "cp",
+    "cpio",
+    "cut",
+    "date",
+    "dd",
+    "diff",
+    "dirname",
+    "du",
+    "echo",
+    "egrep",
+    "env",
+    "expr",
+    "getconf",
+    "grep",
+    "head",
+    "hostname",
+    "id",
+    "install",
+    "ln",
+    "ls",
+    "md5sum",
+    "mkdir",
+    "mktemp",
+    "mount",
+    "mv",
+    "nproc",
+    "od",
+    "paste",
+    "pgrep",
+    "pkill",
+    "ps",
+    "pwd",
+    "readlink",
+    "realpath",
+    "rm",
+    "rmdir",
+    "sed",
+    "seq",
+    "setsid",
+    "sha1sum",
+    "sha256sum",
+    "sha512sum",
+    "sleep",
+    "sort",
+    "stat",
+    "tail",
+    "tee",
+    "test",
+    "timeout",
+    "touch",
+    "tr",
+    "true",
+    "truncate",
+    "umount",
+    "uname",
+    "uniq",
+    "unix2dos",
+    "unshare",
+    "wc",
+    "which",
+    "whoami",
+    "xargs",
+    "xxd",
+]
+
+hermetic_tools(
+    name = "hermetic-tools",
+    symlinks = select({
+        "//build/kernel/kleaf:debug_cache_dir_conflict_needs_flock": {
+            ":toybox_flock": "flock",
+        },
+        "//conditions:default": {},
+    }) | select({
+        "//build/kernel/kleaf:workaround_btrfs_b292212788_is_true": {
+            "@kleaf_host_tools//:find": "find",
+        },
+        "//conditions:default": {
+            ":toybox_find": "find",
+        },
+    }) | {
+        ":toybox": ":".join(_TOYS),
+
+        # Host tools
+        "@kleaf_host_tools//:bash": "bash",
+        "@kleaf_host_tools//:sh": "sh",
+        "@kleaf_host_tools//:perl": "perl",
+        ":rsync": "rsync",
+        ":depmod": ":".join([
+            # keep sorted
+            "depmod",
+            "modinfo",
+        ]),
+        ":prebuilt_bzip2": ":".join([
+            # keep sorted
+            "bzcat",
+            "bzip2",
+        ]),
+        ":prebuilt_xz": ":".join([
+            # keep sorted
+            "xz",
+            "xzcat",
+        ]),
+        ":prebuilt_ziptool": ":".join([
+            # keep sorted
+            "unzip",
+            "zipinfo",
+        ]),
+
+        # Python
+        "//build/kernel/kleaf/impl:python_runtime_files": ":".join([
+            # keep sorted
+            "python",
+            "python3",
+        ]),
+    } | {
+        tool: paths.basename(package_relative_label(tool).name)
+        for tool in _HERMETIC_TOOLS
+    } | {
+        ":prebuilt_" + paths.basename(package_relative_label(tool).name): paths.basename(package_relative_label(tool).name)
+        for tool in _PREBUILT_TOOLS
+    },
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
+    name = "hermetic_tools_toolchain_type",
+    visibility = ["//visibility:private"],
+)
+
+toolchain(
+    name = "hermetic_tools_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":hermetic-tools",
+    toolchain_type = ":hermetic_tools_toolchain_type",
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "_setup_env",
+    srcs = ["_setup_env.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+sh_library(
+    name = "build_utils",
+    srcs = ["build_utils.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_verify_ksymtab",
+    srcs = ["abi/verify_ksymtab.py"],
+    main = "abi/verify_ksymtab.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_flatten_symbol_list",
+    srcs = ["abi/flatten_symbol_list.py"],
+    main = "abi/flatten_symbol_list.py",
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages that uses kernel_build.
+# Implementation detail of kernel_build; do not use directly.
+py_binary(
+    name = "abi_process_symbols",
+    srcs = ["abi/process_symbols.py"],
+    data = [
+        "abi/symbols.deny",
+    ],
+    main = "abi/process_symbols.py",
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "symbol_extraction",
+    srcs = ["abi/symbol_extraction.py"],
+    imports = ["abi"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages that uses kernel_abi
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "check_buildtime_symbol_protection",
+    srcs = ["abi/check_buildtime_symbol_protection.py"],
+    main = "abi/check_buildtime_symbol_protection.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages that uses kernel_abi.
+# Implementation detail of kernel_abi; do not use directly.
+py_binary(
+    name = "extract_symbols",
+    srcs = ["abi/extract_symbols.py"],
+    main = "abi/extract_symbols.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+# Tools visible to all packages.
+py_binary(
+    name = "dependency_graph_extractor",
+    srcs = ["abi/dependency_graph_extractor.py"],
+    main = "abi/dependency_graph_extractor.py",
+    visibility = ["//visibility:public"],
+    deps = [":symbol_extraction"],
+)
+
+py_binary(
+    name = "dependency_graph_drawer",
+    srcs = ["abi/dependency_graph_drawer.py"],
+    main = "abi/dependency_graph_drawer.py",
+    visibility = ["//visibility:public"],
+)
+
+# Tools visible to all packages.
+py_library(
+    name = "xml_handler",
+    srcs = ["gki/xml_handler.py"],
+    imports = ["gki"],
+    visibility = ["//visibility:private"],
+)
+
+# Tools visible to all packages.
+py_binary(
+    name = "modinfo_summary",
+    srcs = ["gki/modinfo_summary.py"],
+    main = "gki/modinfo_summary.py",
+    visibility = ["//visibility:public"],
+    deps = [":xml_handler"],
+)
+
+# Boostrap tool for DDK development.
+py_binary(
+    name = "init_ddk",
+    srcs = [
+        "init/__init__.py",
+        "init/init_ddk.py",
+        "init/init_errors.py",
+        "init/repo_manifest_parser.py",
+        "init/repo_wrapper.py",
+    ],
+    data = ["init/init_download.py"],
+    imports = ["."],
+    main = "init/init_ddk.py",
+    visibility = ["//visibility:private"],
+)
+
+py_test(
+    name = "init_ddk_test",
+    srcs = ["init/init_ddk_test.py"],
+    data = [
+        "init/test_data/sample_manifest.xml",
+    ],
+    imports = ["init"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":init_ddk",
+        "@io_abseil_py//absl/testing:absltest",
+        "@io_abseil_py//absl/testing:parameterized",
+    ],
+)
+
+# Target for distribution.
+filegroup(
+    name = "init_ddk_zip",
+    srcs = [":init_ddk"],
+    output_group = "python_zip_file",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "gki_certification_tools_tar",
+    srcs = ["//prebuilts/kernel-build-tools:gki_certification_tools_pkg_files"],
+    out = "gki_certification_tools.tar.gz",
+    compressor = ":gzip",
+    visibility = ["//visibility:private"],
+)
+
+prebuilt_transitioned_files(
+    name = "gki_certification_tools",
+    srcs = [":gki_certification_tools_tar"],
+    visibility = ["//visibility:public"],
+)

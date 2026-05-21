@@ -1,0 +1,118 @@
+# Copyright (C) 2024 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_genrule")
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "ddk_module",
+    "kernel_build",
+)
+load("//build/kernel/kleaf/tests:fail_binary_test.bzl", "fail_binary_test")
+load(":ddk_menuconfig_test.bzl", "ddk_menuconfig_test")
+
+_DEFCONFIG = "my_ddk_module_defconfig"
+
+py_binary(
+    name = "ddk_menuconfig_test_binary",
+    srcs = ["ddk_menuconfig_test.py"],
+    main = "ddk_menuconfig_test.py",
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
+kernel_build(
+    name = "test_kernel",
+    srcs = ["//common:kernel_aarch64_sources"],
+    outs = [".config"],
+    arch = "arm64",
+    ddk_module_headers = ["//common:all_headers_aarch64"],
+    defconfig = "//common:arch/arm64/configs/gki_defconfig",
+    make_goals = [
+        "olddefconfig",
+    ],
+    makefile = "//common:Makefile",
+    tags = ["manual"],
+)
+
+label_flag(
+    name = "kernel_build",
+    build_setting_default = ":test_kernel",
+)
+
+ddk_module(
+    name = "my_ddk_module_with_defconfig",
+    srcs = ["ddk_mod.c"],
+    out = "my_ddk_module_with_defconfig.ko",
+    defconfig = _DEFCONFIG,
+    kconfig = "Kconfig.ddk",
+    kernel_build = ":kernel_build",
+    tags = ["manual"],
+)
+
+ddk_menuconfig_test(
+    name = "with_defconfig_test",
+    ddk_config = ":my_ddk_module_with_defconfig_config",
+    defconfig = _DEFCONFIG,
+)
+
+ddk_module(
+    name = "my_ddk_module_without_defconfig",
+    srcs = ["ddk_mod.c"],
+    out = "my_ddk_module_without_defconfig.ko",
+    kconfig = "Kconfig.ddk",
+    kernel_build = ":kernel_build",
+    tags = ["manual"],
+)
+
+fail_binary_test(
+    name = "no_defconfig_test",
+    src = ":my_ddk_module_without_defconfig_config",
+    args = ["olddefconfig"],
+    error_message = "Unable to update any file because defconfig is not set.",
+)
+
+hermetic_genrule(
+    name = "generated_kconfig",
+    srcs = ["Kconfig.ddk"],
+    outs = ["kconfig.generated"],
+    cmd = "cat $(execpath Kconfig.ddk) > $@",
+    tags = ["manual"],
+)
+
+ddk_module(
+    name = "my_ddk_module_with_generated_kconfig",
+    srcs = ["ddk_mod.c"],
+    out = "my_ddk_module_with_generated_kconfig.ko",
+    defconfig = _DEFCONFIG,
+    kconfig = ":generated_kconfig",
+    kernel_build = ":kernel_build",
+    tags = ["manual"],
+)
+
+ddk_menuconfig_test(
+    name = "with_generated_kconfig_test",
+    ddk_config = ":my_ddk_module_with_generated_kconfig_config",
+    defconfig = _DEFCONFIG,
+)
+
+test_suite(
+    name = "ddk_menuconfig_test",
+    tests = [
+        ":no_defconfig_test",
+        ":with_defconfig_test",
+        ":with_generated_kconfig_test",
+    ],
+)

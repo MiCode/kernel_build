@@ -1,0 +1,54 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test")
+
+# Make sure our examples may be built.
+build_test(
+    name = "ddk_examples",
+    targets = [
+        # keep sorted
+        "//build/kernel/kleaf/tests/ddk_examples/conditional_defines:foo",
+        "//build/kernel/kleaf/tests/ddk_examples/conditional_dependency/child",
+        "//build/kernel/kleaf/tests/ddk_examples/ddk_library:mymod",
+        "//build/kernel/kleaf/tests/ddk_examples/ddk_prebuilt_object:mymod",
+        "//build/kernel/kleaf/tests/ddk_examples/exported_includes/child",
+        "//build/kernel/kleaf/tests/ddk_examples/local_includes:foo",
+        # Exclude pkvm because it is not supported on all branches yet.
+    ],
+)
+
+# The test is placed here, not in pkvm/BUILD.bazel, to avoid polluting the example.
+py_test(
+    name = "pkvm_module_test_bin",
+    srcs = ["pkvm_module_test.py"],
+    main = "pkvm_module_test.py",
+    tags = ["manual"],
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
+# TODO: b/399579881 -- Enable the test for all targets once the symbol is available
+#  for all builds (including trimmed ones).
+#  Using an alias is not an option due to https://github.com/bazelbuild/bazel/issues/10893
+hermetic_test(
+    name = "pkvm_module_test",
+    actual = select({
+        "//build/kernel/kleaf:debug_is_true": ":pkvm_module_test_bin",
+        "//conditions:default": "//build/kernel/kleaf:empty_test",
+    }),
+    args = select({
+        "//build/kernel/kleaf:debug_is_true": [
+            "$(rootpaths //build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module)",
+        ],
+        "//conditions:default": [],
+    }),
+    data = select({
+        "//build/kernel/kleaf:debug_is_true": [
+            "//build/kernel/kleaf/tests/ddk_examples/pkvm:example_pkvm_module",
+        ],
+        "//conditions:default": [],
+    }),
+    tags = ["manual"],
+    use_cc_toolchain = True,
+)
