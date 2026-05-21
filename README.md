@@ -63,3 +63,4 @@
 | bsp-klee-w-oss | REDMI Trubo 5 | Android W | t-alps-release-v0.mp1.rc-V2 |[klee-w-oss](https://github.com/MiCode/kernel_build/tree/bsp-klee-w-oss) |
 | yupei-w-oss | Xiaomi Pad 8 | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[yupei-w-oss](https://github.com/MiCode/kernel_build/tree/yupei-w-oss) |
 | piano-w-oss | Xiaomi Pad 8 Pro | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[piano-w-oss](https://github.com/MiCode/kernel_build/tree/piano-w-oss) |
+| yili-w-oss | REDMI K Pad 2 | Android W | t-alps-release-b0.mp1.rc-V10.25 |[yili-w-oss](https://github.com/MiCode/kernel_build/tree/yili-w-oss) |
