@@ -65,3 +65,4 @@
 | piano-w-oss | Xiaomi Pad 8 Pro | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[piano-w-oss](https://github.com/MiCode/kernel_build/tree/piano-w-oss) |
 | yili-w-oss | REDMI K Pad 2 | Android W | t-alps-release-b0.mp1.rc-V10.25 |[yili-w-oss](https://github.com/MiCode/kernel_build/tree/yili-w-oss) |
 | agate-u-oss | Xiaomi 11T | Android U | alps-mp-s0.mp1.tc8sp-cs2-V1.14 |[agate-u-oss](https://github.com/MiCode/kernel_build/tree/agate-u-oss) |
+| frost-r-oss | POCO C40 | Android R | JR510_R_V0.5.6.R3.B0005.7-0297 |[frost-r-oss](https://github.com/MiCode/kernel_build/tree/frost-r-oss) |
