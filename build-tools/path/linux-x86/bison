@@ -1,0 +1,7 @@
+#!/bin/sh
+
+base=$(readlink -f $(dirname $0))
+export BISON_PKGDATADIR=$(readlink -f ${base}/../../../../prebuilts/build-tools/common/bison)
+export M4=${base}/m4
+
+${base}/../../../../prebuilts/build-tools/linux-x86/bin/bison $*
