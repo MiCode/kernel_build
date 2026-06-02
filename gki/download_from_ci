@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2019-2020 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import argparse
+import collections
+import functools
+import glob
+import json
+import multiprocessing
+import os
+import pathlib
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+from pathlib import Path
+
+sys.path.append(str(Path(os.path.dirname(__file__)) / ".." / "abi"))
+from abitool import get_abi_tool
+
+BASE_URL = "https://ci.android.com/builds/submitted/{build_id}/{target}/latest/raw"
+ARM_TARGETS = ["u-boot_qemu_arm"]
+ARM64_TARGETS = ["kernel_aarch64", "kernel_debug_aarch64",
+                 "u-boot_crosvm_aarch64", "u-boot_qemu_aarch64"]
+X86_64_TARGETS = ["kernel_x86_64", "kernel_debug_x86_64",
+                  "u-boot_crosvm_x86_64", "u-boot_qemu_x86_64"]
+GIT_COMMIT_LOG_LENGTH = 100
+
+# Arguments from argparse.
+_args = None
+
+# Multiprocessing pool. Pool creation must happen after the worker fn is defined.
+_pool = None
+
+def download(url_base, dest_dir, filename, dest_filename = None):
+  dest_filename = os.path.join(dest_dir, dest_filename or filename)
+  if not os.path.exists(dest_filename):
+    print("Downloading %s to %s" % (filename, dest_dir))
+    try:
+      urllib.request.urlretrieve(os.path.join(url_base, filename), dest_filename)
+    except urllib.error.HTTPError as e:
+      print("Could not download %s: %s" % (filename, e))
+
+def parse_args():
+  global _args
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+      "build_id",
+      type=int,
+      help="the build id to download the build for, e.g. 6148204")
+  parser.add_argument(
+      "build_target",
+      nargs="?",
+      type=str,
+      help='the build target to download, e.g. "kernel_aarch64"')
+  parser.add_argument(
+      "-u",
+      "--update-gki",
+      action="store_true",
+      help="update GKI kernel prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
+      "--update-u-boot",
+      action="store_true",
+      help="update U-Boot prebuilts in Android platform (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
+      "-r",
+      "--repo-branch",
+      action="store_true",
+      help="create branches in Android repo that can be uploaded together (set $ANDROID_BUILD_TOP)")
+  parser.add_argument(
+      "-b",
+      "--bug",
+      type=int,
+      default=0,
+      help="bug number for kernel prebuilt update commit")
+
+  _args = parser.parse_args()
+
+  if _args.update_gki or _args.update_u_boot:
+    if _args.build_target is not None:
+      raise Exception("build_target cannot be specified when updating prebuilts")
+    if "ANDROID_BUILD_TOP" not in os.environ:
+      raise Exception("$ANDROID_BUILD_TOP must be set to update prebuilts")
+    if not _args.bug:
+      raise Exception("A bug number must be provided when updating prebuilts")
+
+def list_artifacts(url_base):
+  # Download BUILD_INFO to get the file list
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  return json.loads(data)["target"]["dir_list"]
+
+def download_files(url_base, files):
+  """Download multiple files in url_base using a multiprocessing pool."""
+  for f in files:
+    dirname = os.path.dirname(f)
+    if dirname and not os.path.isdir(dirname):
+      os.makedirs(dirname)
+
+  func = functools.partial(download, url_base, "")
+  _pool.map(func, files)
+
+def get_kernel_dir():
+  """ Return the path of the kernel source directory in the same repo as this script."""
+  # download_from_ci lives in <ack manifest root>/build/gki
+  return pathlib.Path(os.path.abspath(__file__)).parents[2].joinpath('common')
+
+def get_u_boot_dir():
+  """ Return the path of the u-boot source directory in the same repo as this script."""
+  # download_from_ci lives in <ack manifest root>/build/gki
+  return pathlib.Path(os.path.abspath(__file__)).parents[2].joinpath('u-boot')
+
+def get_build_kernel_version(data):
+  """Given a build's BUILD_INFO in json format, return the kernel version as a string."""
+  branch = json.loads(data)["branch"]
+  if branch == "aosp_kernel-common-android-mainline":
+    return "mainline"
+  else:
+    pattern = "android(\d\d)?-(?P<version>\d+\.\d+|\w\+)(-stable)?$"
+    result = re.search(pattern, branch)
+    if not result:
+      raise Exception("Could not determine kernel version in branch " + branch)
+    return result.group('version')
+
+def get_git_log(old_sha, new_sha, path=get_kernel_dir()):
+  """Return a string containing the git log between two commits."""
+  gitlog = "git log --first-parent -{} --oneline --no-decorate {}..{}".format(GIT_COMMIT_LOG_LENGTH,
+                                                                              old_sha,new_sha)
+  gitlog += ":\n" + subprocess.check_output(shlex.split(gitlog), text=True,
+                                            cwd=path) + "\n"
+  return gitlog
+
+def commit_prebuilts(output_dir, gitlog, name="kernel"):
+  commit_message = ("Update {} to builds {}\n"
+                    "\n"
+                    "{}"
+                    "\n"
+                    "Test: treehugger\n"
+                    "Bug: {}\n").format(name, _args.build_id, gitlog, _args.bug)
+  subprocess.check_call(["git", "add", "."], cwd=output_dir)
+  subprocess.check_call(["git", "commit", "-a", "-m", commit_message], cwd=output_dir)
+  if _args.repo_branch:
+    branch_name = "kernel-update-b{}-{}".format(_args.bug, _args.build_id)
+    subprocess.check_call(["repo", "start", "--head", branch_name], cwd=output_dir)
+    print("Changes committed to local Android branch: {}.".format(branch_name))
+    print("Use the following command from your Android repository to upload your changes:")
+    print(" repo upload -t --br {}".format(branch_name))
+
+def get_binary_kernel_version(path):
+  """Returns a tuple of strings of the x.y.z (LTS) version and the SHA."""
+  rawdata = subprocess.check_output(["grep", "-a", "Linux version ", path])
+  pattern = b"Linux version (?P<release>(?P<version>[0-9]+[.][0-9]+[.][0-9]+)(-rc\d+)?(-\w+(-\d+)?)?-\d+-g(?P<sha>\w+)-ab\d+) \(.*@.*\) \((?P<compiler>.*)\) .*\n"
+  result = re.search(pattern, rawdata)
+  if not result:
+    raise Exception("Could not determine version in kernel binary " + path)
+  return (result.group("version").decode('ascii'),
+          result.group("sha").decode('ascii'))
+
+def get_binary_u_boot_version(path):
+  """Returns a tuple of strings of the YYYY.MM(-rcXX) version and the SHA."""
+  rawdata = subprocess.check_output(["grep", "-a", "U-Boot\s[0-9]*.[0-9]*-.*", path])
+  pattern = b"U-Boot (?P<release>(?P<version>[0-9]+[.][0-9]+)(-rc\d+)?(-\d+)?-g(?P<sha>\w+)(-dirty)?) .*"
+  result = re.search(pattern, rawdata)
+  if not result:
+    raise Exception("Could not determine version in U-Boot binary " + path)
+  return (result.group("version").decode('ascii'),
+          result.group("sha").decode('ascii'))
+
+def write_prebuilt_info(output_dir):
+  with open(os.path.join(output_dir, "prebuilt-info.txt"), "w") as prebuilt_info:
+    json.dump({"kernel-build-id": _args.build_id}, prebuilt_info, indent=4)
+    prebuilt_info.write("\n")
+
+def repackage_kernels(build_is_arm64, output_dir, version, suffix = ""):
+  uncompressed_kernel = os.path.join(output_dir, "kernel-" + version + suffix)
+  lz4_kernel = os.path.join(output_dir, "kernel-" + version + "-lz4" + suffix)
+  if build_is_arm64:
+    shutil.move(os.path.join(output_dir, "Image"), uncompressed_kernel)
+    # older platform versions did not need compressed kernels
+    if not version in ["4.14"]:
+      subprocess.check_call(["gzip -nc " + uncompressed_kernel + " > " +
+                             os.path.join(output_dir, "kernel-" +
+                                          version + "-gz" + suffix)],
+                            shell=True)
+      subprocess.check_call(["lz4", "-f", "-l", "-12", "--favor-decSpeed",
+                            uncompressed_kernel, lz4_kernel])
+  else:
+    shutil.move(os.path.join(output_dir, "bzImage"),
+              os.path.join(output_dir, "kernel-" + version + suffix))
+
+
+def get_or_update_abi_definition(target, output_dir):
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  files = list_artifacts(url_base)
+
+  output_dir = Path(output_dir)
+  abi_prop = "abi.prop"
+  with tempfile.TemporaryDirectory() as tmp:
+    tmp = Path(tmp)
+
+    props = {}
+    if abi_prop in files:
+      # First, download the abi.prop to see if we can reuse something
+      download(url_base, tmp, abi_prop)
+      with open(tmp / abi_prop) as prop:
+        props.update(line.split("=", 1) for line in prop.read().splitlines())
+
+    # Now see whether there is a symbol list to consider
+    symbol_list = props.get("KMI_SYMBOL_LIST", None)
+    if symbol_list is not None:
+      download(url_base, tmp, symbol_list)
+      shutil.copyfile(tmp / symbol_list, output_dir / "abi_symbol_list")
+
+    # If there is an existing XML representation, we do not generate one, so
+    # let's try that
+    abi_xml = props.get("KMI_DEFINITION", None)
+    if abi_xml is not None:
+      download(url_base, tmp, abi_xml)
+    else:
+      abi_xml = "abi.xml"
+      # So there was none, let's download the binaries then
+      abi_files = [x for x in files if re.search(".+\.ko$|^abi", x)
+                  ] + ["vmlinux"]
+      func = functools.partial(download, url_base, tmp)
+      _pool.map(func, abi_files)
+
+      get_abi_tool().dump_kernel_abi(tmp, tmp / abi_xml,
+                                     tmp / symbol_list if symbol_list else None)
+
+    shutil.copyfile(tmp / abi_xml, output_dir / "abi.xml")
+
+def download_kernel(target, version, output_dir):
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  build_is_arm64 = target in ARM64_TARGETS
+  files = ["Image"] if build_is_arm64 else ["bzImage"]
+  files.append("System.map")
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  func = functools.partial(download, url_base, output_dir)
+  _pool.map(func, files)
+
+  if target.startswith("kernel_debug_"):
+    suffix = "-allsyms"
+    shutil.move(os.path.join(output_dir, "System.map"),
+              os.path.join(output_dir, "System.map" + suffix))
+  else:
+    suffix = ""
+  repackage_kernels(build_is_arm64, output_dir, version, suffix)
+
+def download_kernel_modules(target, output_dir, fetch_initramfs=False):
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  files = list_artifacts(url_base)
+  files_to_fetch = [x for x in files if x.endswith((".dtb", ".ko"))]
+  if fetch_initramfs:
+    files_to_fetch.append("initramfs.img")
+
+  func = functools.partial(download, url_base, output_dir)
+  _pool.map(func, files_to_fetch)
+
+def update_android_4_1x_pq(output_dir, version):
+  output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")
+
+  arm64_dirname = "%s-arm64" % version
+  arm64_dir = os.path.join(output_dir, arm64_dirname)
+  x86_64_dirname = "%s-x86_64" % version
+  x86_64_dir = os.path.join(output_dir, x86_64_dirname)
+
+  arm64_kernel = os.path.join(arm64_dir, "kernel-%s" % version)
+  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  subprocess.check_call(["git", "rm", "-rf", arm64_dirname, x86_64_dirname],
+                        cwd=output_dir)
+
+  download_kernel("kernel_aarch64", version, arm64_dir)
+  download_kernel("kernel_x86_64", version, x86_64_dir)
+
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+
+  gitlog = get_git_log(old_sha, new_sha)
+  commit_prebuilts(output_dir, gitlog)
+
+def update_android_4_14_p(output_dir):
+  return update_android_4_1x_pq(output_dir, "4.14")
+
+def update_android_4_19_q(output_dir):
+  return update_android_4_1x_pq(output_dir, "4.19")
+
+def update_android_4_19_r(output_dir):
+  old_sha = None
+
+  arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", "4.19", "arm64")
+  arm64_kernel = os.path.join(arm64_dir, "kernel-4.19")
+  if os.path.isfile(arm64_kernel):
+      (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  # arm64 GKI kernels and kernel modules
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
+  download_kernel("kernel_debug_aarch64", "4.19" , arm64_dir)
+  download_kernel("kernel_aarch64", "4.19", arm64_dir)
+  download_kernel_modules("kernel_aarch64", arm64_dir)
+  get_or_update_abi_definition("kernel_aarch64", arm64_dir)
+  write_prebuilt_info(arm64_dir)
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+  if old_sha is not None:
+      gitlog = get_git_log(old_sha, new_sha)
+  else:
+      gitlog = "Initial prebuilts at commit {}\n".format(new_sha)
+  commit_prebuilts(arm64_dir, gitlog)
+
+def update_android11_5_4(output_dir):
+  output_dir = os.path.join(output_dir, "device", "google", "cuttlefish_kernel")
+
+  arm64_dirname = "5.4-arm64"
+  arm64_dir = os.path.join(output_dir, arm64_dirname)
+  x86_64_dirname = "5.4-x86_64"
+  x86_64_dir = os.path.join(output_dir, x86_64_dirname)
+
+  arm64_kernel = os.path.join(arm64_dir, "kernel-5.4")
+  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  subprocess.check_call(["git", "rm", "-rf", arm64_dirname, x86_64_dirname],
+                        cwd=output_dir)
+
+  # arm64 GKI kernel and kernel modules
+  download_kernel("kernel_debug_aarch64", "5.4", arm64_dir)
+  download_kernel("kernel_aarch64", "5.4", arm64_dir)
+  download_kernel_modules("kernel_aarch64", arm64_dir)
+  download_kernel_modules("kernel_cf_aarch64", arm64_dir)
+  get_or_update_abi_definition("kernel_aarch64", arm64_dir)
+
+  # x86_64 GKI kernel and kernel modules
+  download_kernel("kernel_debug_x86_64", "5.4", x86_64_dir)
+  download_kernel("kernel_x86_64", "5.4", x86_64_dir)
+  download_kernel_modules("kernel_x86_64", x86_64_dir)
+  download_kernel_modules("kernel_cf_x86_64", x86_64_dir)
+  get_or_update_abi_definition("kernel_x86_64", x86_64_dir)
+
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+
+  gitlog = get_git_log(old_sha, new_sha)
+  commit_prebuilts(output_dir, gitlog)
+
+def update_androidx_virtual_device_modules(gitlog, output_dir, version):
+  mods_dir = os.path.join(output_dir, "kernel", "prebuilts", "common-modules",
+                          "virtual-device")
+  ver_mods_dir = os.path.join(mods_dir, version)
+  arm64_mods_dir = os.path.join(ver_mods_dir, "arm64")
+  x86_64_mods_dir = os.path.join(ver_mods_dir, "x86-64")
+
+  try:
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_mods_dir)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_mods_dir)
+  except subprocess.CalledProcessError:
+    pass
+
+  try:
+    subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_mods_dir)
+    subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_mods_dir)
+  except subprocess.CalledProcessError:
+    pass
+
+  download_kernel_modules("kernel_virt_aarch64", arm64_mods_dir, fetch_initramfs=True)
+  download_kernel_modules("kernel_virt_x86_64", x86_64_mods_dir, fetch_initramfs=True)
+
+  commit_prebuilts(arm64_mods_dir, gitlog)
+  commit_prebuilts(x86_64_mods_dir, gitlog)
+
+def update_androidx_cf(gitlog, output_dir, version):
+  i686_cf_dirname = version + "-i686"
+
+  cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts",
+                        "kernel")
+  i686_cf_dir = os.path.join(cf_dir, i686_cf_dirname)
+
+  subprocess.check_call(["git", "rm", "-rf", i686_cf_dirname], cwd=cf_dir)
+
+  download_kernel("kernel_virt_i686", version, i686_cf_dir)
+  download_kernel_modules("kernel_virt_i686", i686_cf_dir)
+
+  commit_prebuilts(cf_dir, gitlog)
+
+def update_androidx(output_dir, version):
+  arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", version, "arm64")
+  x86_64_dir = os.path.join(output_dir, "kernel", "prebuilts", version,
+                            "x86_64")
+  arm64_kernel = os.path.join(arm64_dir, "kernel-" + version)
+  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  # arm64 GKI kernels and kernel modules
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=arm64_dir)
+  download_kernel("kernel_debug_aarch64", version, arm64_dir)
+  download_kernel("kernel_aarch64", version, arm64_dir)
+  download_kernel_modules("kernel_aarch64", arm64_dir)
+  get_or_update_abi_definition("kernel_aarch64", arm64_dir)
+  write_prebuilt_info(arm64_dir)
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+  gitlog = get_git_log(old_sha, new_sha)
+  commit_prebuilts(arm64_dir, gitlog)
+
+  # x86_64 GKI kernels and kernel modules
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=x86_64_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "Android.bp"], cwd=x86_64_dir)
+  download_kernel("kernel_debug_x86_64", version, x86_64_dir)
+  download_kernel("kernel_x86_64", version, x86_64_dir)
+  download_kernel_modules("kernel_x86_64", x86_64_dir)
+  get_or_update_abi_definition("kernel_x86_64", x86_64_dir)
+  write_prebuilt_info(x86_64_dir)
+  commit_prebuilts(x86_64_dir, gitlog)
+
+  update_androidx_virtual_device_modules(gitlog, output_dir, version)
+  update_androidx_cf(gitlog, output_dir, version)
+
+def update_android_mainline(output_dir):
+  arm64_dir = os.path.join(output_dir, "kernel", "prebuilts", "mainline",
+                           "arm64")
+  arm64_kernel = os.path.join(arm64_dir, "kernel-mainline-allsyms")
+  (old_version, old_sha) = get_binary_kernel_version(arm64_kernel)
+
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=arm64_dir)
+  download_kernel("kernel_debug_aarch64", "mainline", arm64_dir)
+  download_kernel_modules("kernel_aarch64", arm64_dir)
+  write_prebuilt_info(arm64_dir)
+  get_or_update_abi_definition("kernel_aarch64", arm64_dir)
+
+  (new_version, new_sha) = get_binary_kernel_version(arm64_kernel)
+
+  gitlog = get_git_log(old_sha, new_sha)
+  commit_prebuilts(arm64_dir, gitlog)
+
+def update_gki():
+  url_base = BASE_URL.format(build_id=_args.build_id, target="kernel_aarch64")
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  branch = json.loads(data)["branch"]
+
+  output_dir = os.environ["ANDROID_BUILD_TOP"]
+
+  if branch == "aosp_kernel-p-common-android-4.14":
+    update_android_4_14_p(output_dir)
+  elif branch == "aosp_kernel-q-common-android-4.19":
+    update_android_4_19_q(output_dir)
+  elif branch == "aosp_kernel-common-android-4.19-stable":
+    update_android_4_19_r(output_dir)
+  elif branch == "aosp_kernel-common-android11-5.4":
+    update_android11_5_4(output_dir)
+  elif branch == "aosp_kernel-common-android-mainline":
+    update_android_mainline(output_dir)
+  else:
+    update_androidx(output_dir, get_build_kernel_version(data))
+
+def download_u_boot(target, output_dir):
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  build_is_arm = target in ARM_TARGETS + ARM64_TARGETS
+  files = ["u-boot.bin"] if build_is_arm else ["u-boot.rom"]
+  files.append("System.map")
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  func = functools.partial(download, url_base, output_dir)
+  _pool.map(func, files)
+
+def download_u_boot_tools(target, output_dir):
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  files = ["mkenvimage", "mkimage"]
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=target)
+  func = functools.partial(download, url_base, output_dir)
+  _pool.map(func, files)
+
+  subprocess.check_call(["chmod", "a+x"] + files, cwd=output_dir)
+
+def update_u_boot_mainline(output_dir):
+  cf_dir = os.path.join(output_dir, "device", "google", "cuttlefish_prebuilts")
+  bootloader_dir = os.path.join(cf_dir, "bootloader")
+
+  crosvm_aarch64_dir = os.path.join(bootloader_dir, "crosvm_aarch64")
+  crosvm_x86_64_dir = os.path.join(bootloader_dir, "crosvm_x86_64")
+  qemu_aarch64_dir = os.path.join(bootloader_dir, "qemu_aarch64")
+  qemu_arm_dir = os.path.join(bootloader_dir, "qemu_arm")
+  qemu_x86_64_dir = os.path.join(bootloader_dir, "qemu_x86_64")
+
+  crosvm_aarch64_u_boot = os.path.join(crosvm_aarch64_dir, "u-boot.bin")
+
+  (old_version, old_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
+
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_aarch64_dir)
+  download_u_boot("u-boot_crosvm_aarch64", crosvm_aarch64_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=crosvm_x86_64_dir)
+  download_u_boot("u-boot_crosvm_x86_64", crosvm_x86_64_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_aarch64_dir)
+  download_u_boot("u-boot_qemu_aarch64", qemu_aarch64_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_arm_dir)
+  download_u_boot("u-boot_qemu_arm", qemu_arm_dir)
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=qemu_x86_64_dir)
+  download_u_boot("u-boot_qemu_x86_64", qemu_x86_64_dir)
+
+  tools_dir = os.path.join(cf_dir, "uboot_tools")
+  subprocess.check_call(["git", "rm", "-rf", "*"], cwd=tools_dir)
+  download_u_boot_tools("u-boot_tools", tools_dir)
+  subprocess.check_call(["git", "checkout", "HEAD", "mkenvimage_mac.sh"], cwd=tools_dir)
+
+  (new_version, new_sha) = get_binary_u_boot_version(crosvm_aarch64_u_boot)
+  gitlog = get_git_log(old_sha, new_sha, get_u_boot_dir())
+  commit_prebuilts(cf_dir, gitlog, "bootloader, u-boot tools")
+
+def update_u_boot():
+  url_base = BASE_URL.format(build_id=_args.build_id, target="u-boot_crosvm_aarch64")
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  branch = json.loads(data)["branch"]
+
+  output_dir = os.environ["ANDROID_BUILD_TOP"]
+
+  # Right now, we only have the mainline branch
+  if branch == "aosp_u-boot-mainline":
+    update_u_boot_mainline(output_dir)
+  else:
+    print("Unknown u-boot branch %s for build" % branch)
+
+def main():
+  global _pool
+  _pool = multiprocessing.Pool(10)
+
+  parse_args()
+
+  if _args.update_gki:
+    update_gki()
+    return
+
+  if _args.update_u_boot:
+    update_u_boot()
+    return
+
+  url_base = BASE_URL.format(build_id=_args.build_id, target=_args.build_target)
+
+  url = os.path.join(url_base, "BUILD_INFO")
+  response = urllib.request.urlopen(url)
+  data = response.read().decode("utf-8")
+  files = json.loads(data)["target"]["dir_list"]
+
+  download_files(url_base, files)
+
+if __name__ == "__main__":
+  sys.exit(main())
