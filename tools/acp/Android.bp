@@ -1,0 +1,14 @@
+// Copyright 2005 The Android Open Source Project
+//
+// Custom version of cp.
+
+cc_binary_host {
+
+    srcs: ["acp.c"],
+    cflags: ["-Wall", "-Werror"],
+
+    static_libs: ["libhost"],
+    name: "acp",
+    stl: "none",
+
+}

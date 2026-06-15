@@ -1,0 +1,1 @@
+name="com.android.conscrypt.apex" public_key="external/conscrypt/apex/com.android.conscrypt.avbpubkey" private_key="external/conscrypt/apex/com.android.conscrypt.pem" container_certificate="external/conscrypt/apex/com.android.conscrypt.x509.pem" container_private_key="external/conscrypt/apex/com.android.conscrypt.pk8" partition="vendor"
