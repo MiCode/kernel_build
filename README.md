@@ -69,3 +69,4 @@
 | light-u-oss | POCO M4 5G/Redmi 10 5G/Redmi 11 Prime 5G/Redmi Note 11E | Android U | t-alps-release-s0.mp1.tc8sp2-cs1-xm-V1.0.13 |[light-u-oss](https://github.com/MiCode/kernel_build/tree/light-u-oss) |
 | spinel-v-oss | REDMI Note 15 | Android U | alps-mp-s0.mp1.tc8sp2-cs1-xm.V1.143.1 |[spinel-v-oss](https://github.com/MiCode/kernel_build/tree/spinel-v-oss) |
 | sunstone-u-oss | Redmi Note 12 5G / Redmi Note 12 5G / Redmi Note 12R | Android U | Snapdragon_Mid_2021.SPF.2.0 r2.0.c3_00004.3.145544.1 |[sunstone-u-oss](https://github.com/MiCode/kernel_build/tree/sunstone-u-oss) |
+| guitar-w-oss | REDMI Pad 2 SE | Android W | snapdragon-mid-2022-spf-2-0-2_00004.0 |[guitar-w-oss](https://github.com/MiCode/kernel_build/tree/guitar-w-oss) |
