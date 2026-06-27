@@ -1,0 +1,185 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/bazel_common_rules/docs:docs.bzl", "docs")
+load(":constants.bzl", "LTO_VALUES")
+load(":print_flags.bzl", "print_flags")
+
+package(default_visibility = ["//visibility:public"])
+
+# Build flags
+
+string_flag(
+    name = "lto",
+    build_setting_default = "default",
+    values = LTO_VALUES,
+)
+
+string_flag(
+    name = "cache_dir",
+    build_setting_default = "",
+)
+
+# If true, set `KBUILD_SYMTYPES=1` for kernel_build() with
+# kbuild_symtypes="auto".
+bool_flag(
+    name = "kbuild_symtypes",
+    build_setting_default = False,
+)
+
+# If true, enable kasan. This assumes --lto=none, but :print_flags only shows
+# values from the command line.
+bool_flag(
+    name = "kasan",
+    build_setting_default = False,
+)
+
+# Debug options
+
+bool_flag(
+    name = "debug_annotate_scripts",
+    build_setting_default = False,
+)
+
+bool_flag(
+    name = "debug_print_scripts",
+    build_setting_default = False,
+)
+
+# The values of --config, as passed by command line and bazelrc files.
+_config_values = (
+    "local",
+    "fast",
+    "stamp",
+    "release",
+    "remote",
+)
+
+[bool_flag(
+    name = "config_" + value,
+    build_setting_default = False,
+) for value in _config_values]
+
+print_flags(
+    name = "print_flags",
+    flags = [
+        ":kasan",
+        ":kbuild_symtypes",
+        ":lto",
+    ] + [":config_" + value for value in _config_values],
+)
+
+exports_files([
+    "preserve_env.sh",
+    "search_and_cp_output.py",
+    "check_declared_output_list.py",
+    "check_duplicated_files_in_archives.py",
+])
+
+bzl_library(
+    name = "directory_with_structure_def",
+    srcs = ["directory_with_structure.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = ["@bazel_skylib//lib:paths"],
+)
+
+bzl_library(
+    name = "hermetic_tools_def",
+    srcs = ["hermetic_tools.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = ["@bazel_skylib//lib:paths"],
+)
+
+bzl_library(
+    name = "update_source_file_def",
+    srcs = ["update_source_file.bzl"],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+    deps = [":hermetic_tools_def"],
+)
+
+# Docs. To view them:
+#   bazel run //build/kernel/kleaf:docs_server
+
+docs(
+    name = "docs",
+    srcs = [
+        "common_kernels.bzl",
+        "constants.bzl",
+        "directory_with_structure.bzl",
+        "download_repo.bzl",
+        "fail.bzl",
+        "hermetic_tools.bzl",
+        "kernel.bzl",
+        "key_value_repo.bzl",
+        "print_debug.bzl",
+        "update_source_file.bzl",
+    ],
+    default = "kernel.bzl",
+    deps = [
+        "//build/bazel_common_rules/dist",
+        "//build/bazel_common_rules/exec",
+        "//build/kernel/kleaf/artifact_tests",
+        "//build/kernel/kleaf/impl",
+        "@bazel_skylib//lib:dicts",
+        "@bazel_skylib//lib:paths",
+        "@bazel_skylib//rules:common_settings",
+        "@kernel_toolchain_info//:dict",
+    ],
+)
+
+#
+# Remote Build Execution (RBE) Definitions
+#
+_CONTAINER = "gcr.io/androidbuild-re-dockerimage/android-build-remoteexec-image"
+
+_CONTAINER_VERSION = "sha256:582efb38f0c229ea39952fff9e132ccbe183e14869b39888010dacf56b360d62"
+
+platform(
+    name = "rbe_platform",
+    constraint_values = [
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:x86_64",
+    ],
+    exec_properties = {
+        "container-image": "docker://%s@%s" % (_CONTAINER, _CONTAINER_VERSION),
+        "OSFamily": "Linux",
+    },
+    parents = ["@local_config_platform//:host"],
+)
+
+# tests
+
+py_test(
+    name = "check_declared_output_list_test",
+    srcs = ["check_declared_output_list_test.py"],
+    python_version = "PY3",
+    deps = [
+        "@io_abseil_py//absl/testing:absltest",
+    ],
+)
+
+# Quick test on Kleaf static definitions and scripts, but not built artifacts
+test_suite(
+    name = "quick_tests",
+    tests = [
+        ":check_declared_output_list_test",
+        "//build/bazel_common_rules/exec/tests",
+        "//build/kernel/kleaf/tests",
+        "//prebuilts/build-tools/tests",
+    ],
+)
