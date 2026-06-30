@@ -1,0 +1,205 @@
+# Copyright (C) 2025 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "ddk_config",
+    "kernel_build",
+)
+load("//build/kernel/kleaf/impl:ddk/ddk_module_config.bzl", "ddk_module_config")
+load("//build/kernel/kleaf/tests:failure_test.bzl", "failure_test")
+load(":optimize_ddk_config_actions_analysis_test.bzl", "optimize_ddk_config_actions_analysis_test")
+
+kernel_build(
+    name = "test_kernel_build_1",
+    outs = [],
+    tags = ["manual"],
+)
+
+kernel_build(
+    name = "test_kernel_build_2",
+    outs = [],
+    tags = ["manual"],
+)
+
+ddk_config(
+    name = "parent_config",
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+# Tests that ddk_module_config must have the same kernel_build as its parent.
+
+ddk_module_config(
+    name = "child_config_1",
+    kernel_build = "test_kernel_build_2",
+    parent = ":parent_config",
+    tags = ["manual"],
+)
+
+failure_test(
+    name = "parent_child_test",
+    error_message_substrs = [
+        "The following dependencies refers to a different kernel_build. They must refer to the same kernel_build.",
+    ],
+    target_under_test = ":child_config_1",
+)
+
+# Tests that ddk_module_config must have the same kernel_build as ddk_config in module_deps.
+
+ddk_module_config(
+    name = "child_config_2",
+    kernel_build = "test_kernel_build_2",
+    module_deps = [":parent_config"],
+    tags = ["manual"],
+)
+
+failure_test(
+    name = "dep_test",
+    error_message_substrs = [
+        "The following dependencies refers to a different kernel_build. They must refer to the same kernel_build.",
+    ],
+    target_under_test = ":child_config_2",
+)
+
+# Tests that ddk_module_config without parent or kconfig/defconfig must not execute anything
+# in the execution phase; it should take from kernel_build directly.
+
+ddk_module_config(
+    name = "empty",
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+optimize_ddk_config_actions_analysis_test(
+    name = "no_parent_test",
+    # When inheriting directly from kernel_build, there should not be out_dir and kconfig_ext
+    expects = [],
+    target_under_test = ":empty",
+)
+
+# Tests that ddk_module_config inheriting from [parent without kconfig/defconfig] must not
+# execute anything in the execution phase; it should take parent directly.
+
+ddk_config(
+    name = "empty_parent",
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+ddk_module_config(
+    name = "child_with_empty_parent",
+    kernel_build = "test_kernel_build_1",
+    parent = ":empty_parent",
+    tags = ["manual"],
+)
+
+optimize_ddk_config_actions_analysis_test(
+    name = "child_with_empty_parent_test",
+    # Because parent has nothing, this target also yields nothing.
+    expects = [],
+    parent = ":empty_parent",
+    target_under_test = ":child_with_empty_parent",
+)
+
+# Tests that ddk_module_config inheriting from [parent with defconfig] must not
+# execute anything in the execution phase; it should take parent directly.
+
+ddk_config(
+    name = "defconfig_only",
+    defconfig = "defconfig",
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+ddk_module_config(
+    name = "child_with_parent_defconfig",
+    kernel_build = "test_kernel_build_1",
+    parent = ":defconfig_only",
+    tags = ["manual"],
+)
+
+optimize_ddk_config_actions_analysis_test(
+    name = "child_with_parent_defconfig_test",
+    # Because parent has defconfig, there is no kconfig_ext, but out_dir is passed down with
+    # modified .config.
+    expects = ["out_dir"],
+    parent = ":defconfig_only",
+    target_under_test = ":child_with_parent_defconfig",
+)
+
+# Tests that ddk_module_config inheriting from [parent with kconfigs] must not
+# execute anything in the execution phase; it should take parent directly.
+
+ddk_config(
+    name = "kconfig_only",
+    kconfigs = ["kconfig"],
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+ddk_module_config(
+    name = "child_with_parent_kconfig",
+    kernel_build = "test_kernel_build_1",
+    parent = ":kconfig_only",
+    tags = ["manual"],
+)
+
+optimize_ddk_config_actions_analysis_test(
+    name = "child_with_parent_kconfig_test",
+    # Because parent has kconfig, there will be kconfig_ext, and out_dir is passed down with
+    # modified .config.
+    expects = [
+        "kconfig_ext",
+        "out_dir",
+    ],
+    parent = ":kconfig_only",
+    target_under_test = ":child_with_parent_kconfig",
+)
+
+# Tests that ddk_module_config inheriting from [parent with kconfig and defconfig] must not
+# execute anything in the execution phase; it should take parent directly. Because parent has
+# kconfigs, child should inherit that kconfig.
+
+ddk_config(
+    name = "defconfig_and_kconfig",
+    defconfig = "defconfig",
+    kconfigs = ["kconfig"],
+    kernel_build = "test_kernel_build_1",
+    tags = ["manual"],
+)
+
+ddk_module_config(
+    name = "child_with_parent_defconfig_and_kconfig",
+    kernel_build = "test_kernel_build_1",
+    parent = ":defconfig_and_kconfig",
+    tags = ["manual"],
+)
+
+optimize_ddk_config_actions_analysis_test(
+    name = "child_with_parent_defconfig_and_kconfig_test",
+    # Because parent has kconfig, there will be kconfig_ext, and out_dir is also passed down with
+    # modified .config.
+    expects = [
+        "kconfig_ext",
+        "out_dir",
+    ],
+    parent = ":defconfig_and_kconfig",
+    target_under_test = ":child_with_parent_defconfig_and_kconfig",
+)
+
+test_suite(
+    name = "ddk_config_analysis_test",
+    tests = None,  # All tests in this package
+)

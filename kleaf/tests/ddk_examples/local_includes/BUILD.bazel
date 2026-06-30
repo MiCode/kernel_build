@@ -1,0 +1,35 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
+
+ddk_headers(
+    name = "foo_local_headers",
+
+    # List of headers used by this DDK module
+    # You may also add textual headers like .c or .i files,
+    # though this is uncommon.
+    hdrs = ["include/foo.h"],
+
+    # List of include directories. By adding `-Iinclude`, the source
+    # file can use `#include "foo.h"` directly.
+    includes = ["include"],
+
+    # Explicitly set this to private so no other packages can refer to it.
+    visibility = ["//visibility:private"],
+)
+
+ddk_module(
+    name = "foo",
+
+    # You may not add .c files as textual headers to srcs, because all .c
+    # files are compiled as .o files and linked into the module.
+    # To add .c files as textual headers, add them to hdrs of foo_local_headers.
+    srcs = ["foo.c"],
+    out = "foo.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+
+    # Use `deps` not `hdrs` so foo_local_headers is not exported to children.
+    deps = [":foo_local_headers"],
+)

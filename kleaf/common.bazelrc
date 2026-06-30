@@ -1,0 +1,56 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Allow scl files
+common --experimental_enable_scl_dialect
+
+# Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
+build --incompatible_strict_action_env
+
+# By default, output all the logs to stdout/stderr by disabling the console limit
+build --experimental_ui_max_stdouterr_bytes=-1
+
+# Show the full set of flags for observability and debuggability.
+# common --announce_rc
+
+# Make output directories writable so `rm -rf out/` works.
+build --experimental_writable_outputs
+
+# Use subrule()
+common --experimental_rule_extension_api
+
+# Control auto-load modules
+common --incompatible_autoload_externally=+@rules_cc,@rules_python,@rules_shell,-@rules_android,-@rules_java,-@protobuf,-@com_google_protobuf
+common --noincompatible_enable_proto_toolchain_resolution
+# See bazel.py for additional flags.
+
+# TODO: b/385005950 - drop this flag once partners added allow_empty properly
+common --noincompatible_disallow_empty_glob
+
+# b/390213080: This is needed because CONFIG_UAPI_HEADER_TEST needs cc-can-link.sh in
+# kernel_config menuconfig script. The command line from the toolchain uses paths,
+# not short_paths.
+common --legacy_external_runfiles
+
+# Always dump full test results
+test --test_output=errors --test_summary=terse
+
+# Support a device-specific bazelrc file
+try-import %workspace%/device.bazelrc
+
+# Support a local user-specific bazelrc file.
+try-import %workspace%/user.bazelrc
+
+# Do not add more flags below so that the flags set by device.bazelrc
+# and user.bazelrc are respected.

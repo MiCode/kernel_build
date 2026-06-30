@@ -1,0 +1,137 @@
+# Copyright (C) 2024 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Test merging of generated *Module.symvers files."""
+
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "ddk_library",
+    "ddk_module",
+    "kernel_module_group",
+    "merge_module_symvers",
+)
+load("//build/kernel/kleaf/tests:hermetic_test.bzl", "hermetic_test")
+
+ddk_module(
+    name = "module_a",
+    srcs = ["a.c"],
+    out = "a.ko",
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+)
+
+ddk_module(
+    name = "module_b",
+    srcs = ["b.c"],
+    out = "b.ko",
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+)
+
+ddk_module(
+    name = "module_c",
+    srcs = ["c.c"],
+    out = "c.ko",
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+)
+
+kernel_module_group(
+    name = "modules_ab",
+    srcs = [
+        "module_a",
+        "module_b",
+    ],
+    tags = ["manual"],
+)
+
+merge_module_symvers(
+    name = "abc_module_symvers",
+    srcs = [
+        "module_c",
+        "modules_ab",
+    ],
+    tags = ["manual"],
+)
+
+# Expected values.
+write_file(
+    name = "validator_sh",
+    out = "validator.sh",
+    content = ["""
+if ! grep -q .*a_func.*EXPORT_SYMBOL $1; then
+    exit 1
+elif ! grep -q .*b_func.*EXPORT_SYMBOL $1; then
+    exit 1
+elif ! grep -q .*c_func.*EXPORT_SYMBOL_GPL $1; then
+    exit 1
+fi
+exit 0
+"""],
+    is_executable = True,
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "all_module_symvers_merged_check",
+    srcs = [":validator_sh"],
+    tags = ["manual"],
+)
+
+hermetic_test(
+    name = "all_module_symvers_merged_test",
+    actual = ":all_module_symvers_merged_check",
+    args = ["$(rootpath :abc_module_symvers)"],
+    data = [":abc_module_symvers"],
+)
+
+# DDK Library as dependency test.
+ddk_module(
+    name = "example_library_dependency",
+    srcs = ["a.c"],
+    out = "example_library_dependency.ko",
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+    # Test that having mixed dependencies (library, modules) work.
+    deps = [
+        ":ddk_library",
+        ":module_a",
+    ],
+)
+
+ddk_library(
+    name = "ddk_library",
+    srcs = ["lib.c"],
+    kernel_build = "//common:kernel_aarch64",
+    tags = ["manual"],
+)
+
+build_test(
+    name = "ddk_examples_build_tests",
+    tags = ["manual"],
+    targets = [
+        ":example_library_dependency",
+    ],
+)
+
+test_suite(
+    name = "merge_module_symvers_test",
+    tests = [
+        ":all_module_symvers_merged_test",
+        ":ddk_examples_build_tests",
+    ],
+)
