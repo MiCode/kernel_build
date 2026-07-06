@@ -622,7 +622,80 @@ def _define_common_kernel(
         page_size = None,
         deprecation = None,
         ddk_headers_archive = None,
-        extra_dist = None):
+        ddk_module_headers = None,
+        extra_dist = None,
+        kcflags = None,
+        system_dlkm_extra_archive_files = None,
+        clang_autofdo_profile = None):
+    """Macro for an Android Common Kernel.
+
+    The following targets are declared as public API:
+    -   `<name>_sources` (e.g. `kernel_aarch64_sources`)
+        -   Convenience filegroups that refers to all sources required to
+            build `<name>` and related targets.
+    -   `<name>` (e.g. `kernel_aarch64`): [`kernel_build()`](kernel.md#kernel_build)
+        -   This build the main kernel build artifacts, e.g. `vmlinux`, etc.
+    -   `<name>_uapi_headers` (e.g. `kernel_aarch64_uapi_headers`)
+        -   build `kernel-uapi-headers.tar.gz`.
+    -   `<name>_modules` (e.g. `kernel_aarch64_modules`)
+    -   `<name>_additional_artifacts` (e.g. `kernel_aarch64_additional_artifacts`)
+        -   contains additional artifacts that may be added to
+            a distribution. This includes:
+            -   Images, including `system_dlkm`, etc.
+            -   `kernel-headers.tar.gz`
+    -   `<name>_dist` (e.g. `kernel_aarch64_dist`)
+        -   can be run to obtain a distribution outside the workspace.
+
+    **ABI monitoring**
+    If `kmi_symbol_list` is set, ABI monitoring is turned on.
+
+    -    `<name>_abi` (e.g. `kernel_aarch64_abi`): [`kernel_abi()`](kernel.md#kernel_abi)
+    -    `<name>_abi_dist` (e.g. `kernel_aarch64_abi_dist`)
+
+    Usually, for ABI monitoring to be fully turned on, you should set:
+    -   `kmi_symbol_list`
+    -   `additional_kmi_symbol_lists`
+    -   `protected_exports_list`
+    -   `protected_modules_list`
+    -   `trim_nonlisted_kmi` to True
+    -   `kmi_symbol_list_strict_mode` to True
+    -   `abi_definition_stg` to the ABI definition
+    -   `kmi_enforced` to True
+
+    Args:
+        name: name of the kernel_build().
+        outs: See [kernel_build.outs](kernel.md#kernel_build-outs)
+        arch: See [kernel_build.arch](kernel.md#kernel_build-arch)
+        build_config: See [kernel_build.build_config](kernel.md#kernel_build-build_config)
+        makefile: See [kernel_build.makefile](kernel.md#kernel_build-makefile)
+        defconfig: See [kernel_build.defconfig](kernel.md#kernel_build-defconfig)
+        post_defconfig_fragments: See [kernel_build.post_defconfig_fragments](kernel.md#kernel_build-post_defconfig_fragments)
+        enable_interceptor: See [kernel_build.enable_interceptor](kernel.md#kernel_build-enable_interceptor)
+        kmi_symbol_list: See [kernel_build.kmi_symbol_list](kernel.md#kernel_build-kmi_symbol_list)
+        additional_kmi_symbol_lists: See [kernel_build.additional_kmi_symbol_lists](kernel.md#kernel_build-additional_kmi_symbol_lists)
+        trim_nonlisted_kmi: See [kernel_build.trim_nonlisted_kmi](kernel.md#kernel_build-trim_nonlisted_kmi)
+        kmi_symbol_list_strict_mode: See [kernel_build.kmi_symbol_list_strict_mode](kernel.md#kernel_build-kmi_symbol_list_strict_mode)
+        module_implicit_outs: See [kernel_build.module_implicit_outs](kernel.md#kernel_build-module_implicit_outs)
+        kmi_symbol_list_add_only: See [kernel_abi.kmi_symbol_list_add_only](kernel.md#kernel_abi-kmi_symbol_list_add_only)
+        protected_exports_list: See [kernel_build.protected_exports_list](kernel.md#kernel_build-protected_exports_list)
+        protected_modules_list: See [kernel_build.protected_modules_list](kernel.md#kernel_build-protected_modules_list)
+        make_goals: See [kernel_build.make_goals](kernel.md#kernel_build-make_goals)
+        abi_definition_stg: See [kernel_abi.abi_definition_stg](kernel.md#kernel_abi-abi_definition_stg)
+        kmi_enforced: See [kernel_abi.kmi_enforced](kernel.md#kernel_abi-kmi_enforced)
+        page_size: See [kernel_build.page_size](kernel.md#kernel_build-page_size)
+        ddk_module_headers: See [kernel_build.ddk_module_headers](kernel.md#kernel_build-ddk_module_headers)
+        gki_system_dlkm_modules: system_dlkm module_list
+        build_gki_artifacts: nonconfigurable. If true, build GKI artifacts under
+            target name `<name>_gki_artifacts`.
+        gki_boot_img_sizes: gki_artifacts.boot_img_sizes
+        visibility: default visibility for some targets instantiated with this macro
+        deprecation: If set, mark target deprecated with given message.
+        ddk_headers_archive: nonconfigurable. Target to the archive packing DDK headers
+        extra_dist: extra targets added to `<name>_dist`
+        kcflags: [kernel_build.kcflags](kernel.md#kernel_build-kcflags)
+        system_dlkm_extra_archive_files: [system_dlkm_image.internal_extra_archive_files](#system_dlkm_image-internal_extra_archive_files)
+        clang_autofdo_profile: See [kernel_build.clang_autofdo_profile](kernel.md#kernel_build-clang_autofdo_profile)
+    """
     json_target_config = dict(
         name = name,
         outs = outs,
@@ -723,6 +796,9 @@ def _define_common_kernel(
         ddk_module_defconfig_fragments = [
             Label("//build/kernel/kleaf/impl/defconfig:signing_modules_disabled"),
         ],
+        ddk_module_headers = ddk_module_headers,
+        kcflags = kcflags,
+        clang_autofdo_profile = clang_autofdo_profile,
     )
 
     kernel_abi(
@@ -923,7 +999,7 @@ def _define_common_kernel(
 
     kernel_compile_commands(
         name = name + "_compile_commands",
-        kernel_build = name,
+        deps = [name],
     )
 
     kernel_kythe(

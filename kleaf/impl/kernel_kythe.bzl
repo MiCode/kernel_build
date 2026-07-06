@@ -18,7 +18,7 @@ load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     ":common_providers.bzl",
-    "KernelBuildInfo",
+    "CompileCommandsInfo",
     "KernelBuildOriginalEnvInfo",
 )
 load(":srcs_aspect.bzl", "SrcsInfo", "srcs_aspect")
@@ -63,8 +63,12 @@ def _kernel_kythe_impl(ctx):
         # buildifier: disable=print
         print("WARNING: {}: --{} is not defined!".format(ctx.label, ctx.attr.corpus.label))
 
-    compile_commands_with_vars = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_with_vars
-    compile_commands_out_dir = ctx.attr.kernel_build[KernelBuildInfo].compile_commands_out_dir
+    compile_commands_infos = ctx.attr.kernel_build[CompileCommandsInfo].infos.to_list()
+    if len(compile_commands_infos) != 1:
+        fail("kernel_build should provide CompileCommandsInfo with exactly one CompileCommandsSingleInfo")
+    compile_commands_with_vars = compile_commands_infos[0].compile_commands_with_vars
+    compile_commands_common_out_dir = compile_commands_infos[0].compile_commands_common_out_dir
+
     all_kzip = ctx.actions.declare_file(ctx.attr.name + "/all.kzip")
     intermediates_dir = utils.intermediates_dir(ctx)
     kzip_dir = intermediates_dir + "/kzip"
@@ -73,7 +77,7 @@ def _kernel_kythe_impl(ctx):
     vnames_mappings_json_file = _create_vnames_mappings(ctx)
     inputs = [
         compile_commands_with_vars,
-        compile_commands_out_dir,
+        compile_commands_common_out_dir,
         vnames_mappings_json_file,
     ]
     tools = [ctx.executable._reconstruct_out_dir]
@@ -86,12 +90,12 @@ def _kernel_kythe_impl(ctx):
     command += """
              # Copy compile_commands.json to root, resolving $ROOT_DIR to the real value,
              # and $OUT_DIR to $ROOT_DIR/$KERNEL_DIR.
-               sed -e "s:\\${{OUT_DIR}}:${{OUT_DIR}}:g;s:\\${{ROOT_DIR}}:${{ROOT_DIR}}:g" \\
+               sed -e "s:\\${{COMMON_OUT_DIR}}:${{COMMON_OUT_DIR}}:g;s:\\${{ROOT_DIR}}:${{ROOT_DIR}}:g" \\
                     {compile_commands_with_vars} > ${{ROOT_DIR}}/compile_commands.json
 
-             # Prepare directories. Copy from compile_commands_out_dir to $OUT_DIR.
-               mkdir -p {kzip_dir} {extracted_kzip_dir} ${{OUT_DIR}}
-               rsync -aL --chmod=D+w --chmod=F+w {compile_commands_out_dir}/ ${{OUT_DIR}}/
+             # Prepare directories. Copy from compile_commands_common_out_dir to $COMMON_OUT_DIR.
+               mkdir -p {kzip_dir} {extracted_kzip_dir} ${{COMMON_OUT_DIR}}
+               rsync -aL --chmod=D+w --chmod=F+w {compile_commands_common_out_dir}/ ${{COMMON_OUT_DIR}}/
 
                {reconstruct_out_dir} ${{COMMON_OUT_DIR}} {compile_commands_with_vars}
 
@@ -115,7 +119,7 @@ def _kernel_kythe_impl(ctx):
                rm -rf {extracted_kzip_dir}
     """.format(
         compile_commands_with_vars = compile_commands_with_vars.path,
-        compile_commands_out_dir = compile_commands_out_dir.path,
+        compile_commands_common_out_dir = compile_commands_common_out_dir.path,
         vnames_mappings_json_file = vnames_mappings_json_file.path,
         reconstruct_out_dir = ctx.executable._reconstruct_out_dir.path,
         kzip_dir = kzip_dir,
@@ -146,7 +150,7 @@ Extract Kythe source code index (kzip file) from a `kernel_build`.
         "kernel_build": attr.label(
             mandatory = True,
             doc = "The `kernel_build` target to extract from.",
-            providers = [KernelBuildOriginalEnvInfo, KernelBuildInfo],
+            providers = [KernelBuildOriginalEnvInfo, CompileCommandsInfo],
             aspects = [srcs_aspect],
         ),
         "corpus": attr.label(

@@ -432,6 +432,8 @@ platform(
     ],
 )
 
+# LINT.IfChange(platforms)
+
 # 32-bit
 platform(
     name = "android_arm",
@@ -480,6 +482,7 @@ python_interpreter_file(
     name = "python_interpreter_file",
     visibility = ["//build/kernel:__pkg__"],
 )
+# LINT.ThenChange(/kleaf/platforms/config_settings/BUILD.bazel)
 
 python_runtime_files(
     name = "python_runtime_files",

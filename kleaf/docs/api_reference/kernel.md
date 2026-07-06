@@ -239,10 +239,10 @@ Create a build.config file by concatenating build config fragments.
 ## kernel_compile_commands
 
 <pre>
-kernel_compile_commands(<a href="#kernel_compile_commands-name">name</a>, <a href="#kernel_compile_commands-kernel_build">kernel_build</a>)
+kernel_compile_commands(<a href="#kernel_compile_commands-name">name</a>, <a href="#kernel_compile_commands-deps">deps</a>, <a href="#kernel_compile_commands-kernel_build">kernel_build</a>)
 </pre>
 
-Define an executable that creates `compile_commands.json` from a `kernel_build`.
+Define an executable that creates `compile_commands.json` from kernel targets.
 
 **ATTRIBUTES**
 
@@ -250,7 +250,8 @@ Define an executable that creates `compile_commands.json` from a `kernel_build`.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="kernel_compile_commands-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="kernel_compile_commands-kernel_build"></a>kernel_build |  The `kernel_build` rule to extract from.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="kernel_compile_commands-deps"></a>deps |  The targets to extract from. The following are allowed:<br><br>- [`kernel_build`](#kernel_build) - [`kernel_module`](#kernel_module) - [`ddk_module`](#ddk_module) - [`kernel_module_group`](#kernel_module_group)   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="kernel_compile_commands-kernel_build"></a>kernel_build |  The `kernel_build` rule to extract from.<br><br>Deprecated:     Use `deps` instead.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 
 
 <a id="kernel_filegroup"></a>
@@ -969,14 +970,16 @@ particular, the `kernel_build` targets in `data` automatically builds
 ## kernel_build
 
 <pre>
-kernel_build(<a href="#kernel_build-name">name</a>, <a href="#kernel_build-build_config">build_config</a>, <a href="#kernel_build-outs">outs</a>, <a href="#kernel_build-keep_module_symvers">keep_module_symvers</a>, <a href="#kernel_build-srcs">srcs</a>, <a href="#kernel_build-module_outs">module_outs</a>, <a href="#kernel_build-implicit_outs">implicit_outs</a>,
-             <a href="#kernel_build-module_implicit_outs">module_implicit_outs</a>, <a href="#kernel_build-generate_vmlinux_btf">generate_vmlinux_btf</a>, <a href="#kernel_build-deps">deps</a>, <a href="#kernel_build-arch">arch</a>, <a href="#kernel_build-base_kernel">base_kernel</a>, <a href="#kernel_build-make_goals">make_goals</a>,
-             <a href="#kernel_build-kconfig_ext">kconfig_ext</a>, <a href="#kernel_build-dtstree">dtstree</a>, <a href="#kernel_build-kmi_symbol_list">kmi_symbol_list</a>, <a href="#kernel_build-protected_exports_list">protected_exports_list</a>, <a href="#kernel_build-protected_modules_list">protected_modules_list</a>,
-             <a href="#kernel_build-additional_kmi_symbol_lists">additional_kmi_symbol_lists</a>, <a href="#kernel_build-trim_nonlisted_kmi">trim_nonlisted_kmi</a>, <a href="#kernel_build-kmi_symbol_list_strict_mode">kmi_symbol_list_strict_mode</a>,
-             <a href="#kernel_build-collect_unstripped_modules">collect_unstripped_modules</a>, <a href="#kernel_build-enable_interceptor">enable_interceptor</a>, <a href="#kernel_build-kbuild_symtypes">kbuild_symtypes</a>, <a href="#kernel_build-toolchain_version">toolchain_version</a>,
-             <a href="#kernel_build-strip_modules">strip_modules</a>, <a href="#kernel_build-module_signing_key">module_signing_key</a>, <a href="#kernel_build-system_trusted_key">system_trusted_key</a>,
-             <a href="#kernel_build-modules_prepare_force_generate_headers">modules_prepare_force_generate_headers</a>, <a href="#kernel_build-defconfig_fragments">defconfig_fragments</a>, <a href="#kernel_build-page_size">page_size</a>, <a href="#kernel_build-pack_module_env">pack_module_env</a>,
-             <a href="#kernel_build-sanitizers">sanitizers</a>, <a href="#kernel_build-ddk_module_defconfig_fragments">ddk_module_defconfig_fragments</a>, <a href="#kernel_build-kwargs">kwargs</a>)
+kernel_build(<a href="#kernel_build-name">name</a>, <a href="#kernel_build-outs">outs</a>, <a href="#kernel_build-build_config">build_config</a>, <a href="#kernel_build-makefile">makefile</a>, <a href="#kernel_build-keep_module_symvers">keep_module_symvers</a>, <a href="#kernel_build-keep_dot_config">keep_dot_config</a>, <a href="#kernel_build-srcs">srcs</a>,
+             <a href="#kernel_build-module_outs">module_outs</a>, <a href="#kernel_build-implicit_outs">implicit_outs</a>, <a href="#kernel_build-module_implicit_outs">module_implicit_outs</a>, <a href="#kernel_build-generate_vmlinux_btf">generate_vmlinux_btf</a>, <a href="#kernel_build-deps">deps</a>, <a href="#kernel_build-arch">arch</a>,
+             <a href="#kernel_build-base_kernel">base_kernel</a>, <a href="#kernel_build-make_goals">make_goals</a>, <a href="#kernel_build-kconfig_ext">kconfig_ext</a>, <a href="#kernel_build-dtstree">dtstree</a>, <a href="#kernel_build-kmi_symbol_list">kmi_symbol_list</a>, <a href="#kernel_build-protected_exports_list">protected_exports_list</a>,
+             <a href="#kernel_build-protected_modules_list">protected_modules_list</a>, <a href="#kernel_build-additional_kmi_symbol_lists">additional_kmi_symbol_lists</a>, <a href="#kernel_build-trim_nonlisted_kmi">trim_nonlisted_kmi</a>,
+             <a href="#kernel_build-kmi_symbol_list_strict_mode">kmi_symbol_list_strict_mode</a>, <a href="#kernel_build-collect_unstripped_modules">collect_unstripped_modules</a>, <a href="#kernel_build-enable_interceptor">enable_interceptor</a>,
+             <a href="#kernel_build-kbuild_symtypes">kbuild_symtypes</a>, <a href="#kernel_build-strip_modules">strip_modules</a>, <a href="#kernel_build-module_signing_key">module_signing_key</a>, <a href="#kernel_build-system_trusted_key">system_trusted_key</a>,
+             <a href="#kernel_build-modules_prepare_force_generate_headers">modules_prepare_force_generate_headers</a>, <a href="#kernel_build-defconfig">defconfig</a>, <a href="#kernel_build-pre_defconfig_fragments">pre_defconfig_fragments</a>,
+             <a href="#kernel_build-post_defconfig_fragments">post_defconfig_fragments</a>, <a href="#kernel_build-defconfig_fragments">defconfig_fragments</a>, <a href="#kernel_build-check_defconfig">check_defconfig</a>, <a href="#kernel_build-page_size">page_size</a>,
+             <a href="#kernel_build-pack_module_env">pack_module_env</a>, <a href="#kernel_build-sanitizers">sanitizers</a>, <a href="#kernel_build-ddk_module_defconfig_fragments">ddk_module_defconfig_fragments</a>, <a href="#kernel_build-ddk_module_headers">ddk_module_headers</a>, <a href="#kernel_build-kcflags">kcflags</a>,
+             <a href="#kernel_build-clang_autofdo_profile">clang_autofdo_profile</a>, <a href="#kernel_build-kwargs">kwargs</a>)
 </pre>
 
 Defines a kernel build target with all dependent targets.
@@ -1033,7 +1036,10 @@ For example, if name is `"kernel_aarch64"`:
 | <a id="kernel_build-page_size"></a>page_size |  Default is `"default"`. Page size of the kernel build.<br><br>Value may be one of `"default"`, `"4k"`, `"16k"` or `"64k"`. If `"default"`, the defconfig is left as-is.<br><br>16k / 64k page size is only supported on `arch = "arm64"`.   |  `None` |
 | <a id="kernel_build-pack_module_env"></a>pack_module_env |  If `True`, create `{name}_module_env.tar.gz` and other archives as part of the default output of this target.<br><br>These archives contains necessary files to build external modules.   |  `None` |
 | <a id="kernel_build-sanitizers"></a>sanitizers |  **non-configurable**. A list of sanitizer configurations. By default, no sanitizers are explicity configured; values in defconfig are respected. Possible values are:   - `["kasan_any_mode"]`   - `["kasan_sw_tags"]`   - `["kasan_generic"]`   - `["kcsan"]`   |  `None` |
-| <a id="kernel_build-ddk_module_defconfig_fragments"></a>ddk_module_defconfig_fragments |  A list of additional defconfigs, to be used in `ddk_module`s building against this kernel. Unlike `defconfig_fragments`, `ddk_module_defconfig_fragments` is not applied to this `kernel_build` target, nor dependent legacy `kernel_module`s.   |  `None` |
+| <a id="kernel_build-ddk_module_defconfig_fragments"></a>ddk_module_defconfig_fragments |  A list of additional defconfigs, to be used in `ddk_module`s building against this kernel. Unlike `post_defconfig_fragments`, `ddk_module_defconfig_fragments` is not applied to this `kernel_build` target, nor dependent legacy `kernel_module`s.   |  `None` |
+| <a id="kernel_build-ddk_module_headers"></a>ddk_module_headers |  A list of `ddk_headers`, to be used in `ddk_module`s building against this kernel.<br><br>Inherits `ddk_module_headers` from `base_kernel`, with a lower priority than `ddk_module_headers` of this kernel_build.<br><br>These headers are not applied to this `kernel_build` target.   |  `None` |
+| <a id="kernel_build-kcflags"></a>kcflags |  Extra `KCFLAGS`. If `None`, this is set to `["-D__ANDROID_COMMON_KERNEL__"]`.<br><br>To prevent the default KCFLAGS to be added (this is unusual), you must explicitly set it to `[]`.   |  `None` |
+| <a id="kernel_build-clang_autofdo_profile"></a>clang_autofdo_profile | Label to an AutoFDO profile. | `None` |
 | <a id="kernel_build-kwargs"></a>kwargs |  Additional attributes to the internal rule, e.g. [`visibility`](https://docs.bazel.build/versions/main/visibility.html). See complete list [here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes).   |  none |
 
 

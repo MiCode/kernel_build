@@ -23,8 +23,9 @@ $ tools/bazel run //common:kernel_aarch64_compile_commands -- /tmp/compile_comma
 ## Device kernel
 
 If you want to build `compile_commands.json` for in-tree modules, create a
-`kernel_compile_commands` target with `kernel_build` set accordingly,
-then `tools/bazel run` the target.
+`kernel_compile_commands` target with `deps` set to the `kernel_build` and
+external module targets (`kernel_module`, `ddk_module` and/or
+`kernel_module_group`). Then `tools/bazel run` the target.
 
 See `kernel_compile_commands` in
 [documentation for all rules](api_reference.md) for details.

@@ -209,6 +209,11 @@ def _kernel_env_impl(ctx):
             quoted_clangtools_bin = shell.quote(bindgen.dirname),
         )
 
+    if ctx.file.clang_autofdo_profile:
+        set_clang_autofdo_profile_cmd = "export CLANG_AUTOFDO_PROFILE=${ROOT_DIR}/" + ctx.file.clang_autofdo_profile.path
+    else:
+        set_clang_autofdo_profile_cmd = ""
+
     env_setup_cmds = _get_env_setup_cmds(ctx)
     pre_env_script = ctx.actions.declare_file("{}/pre_env.sh".format(ctx.attr.name))
     ctx.actions.write(pre_env_script, env_setup_cmds.pre_env)
@@ -231,6 +236,7 @@ def _kernel_env_impl(ctx):
           {check_arch_cmd}
         # Variables from resolved toolchain
           {toolchains_setup_env_var_cmd}
+          {set_clang_autofdo_profile_cmd}
         # TODO(b/236012223) Remove the warning after deprecation.
           {make_goals_deprecation_warning}
         # Identify the build user as 'kleaf' to recognize a kleaf-built kernel
@@ -273,6 +279,7 @@ def _kernel_env_impl(ctx):
         setup_env = setup_env.path,
         check_arch_cmd = _get_check_arch_cmd(ctx),
         toolchains_setup_env_var_cmd = toolchains.setup_env_var_cmd,
+        set_clang_autofdo_profile_cmd = set_clang_autofdo_profile_cmd,
         make_goals_deprecation_warning = make_goals_deprecation_warning,
         out = out_file.path,
         config_tags_comment_file = config_tags_out.env.path,
@@ -314,6 +321,8 @@ def _kernel_env_impl(ctx):
     ]
     if kconfig_ext:
         setup_inputs.append(kconfig_ext)
+    if ctx.file.clang_autofdo_profile:
+        setup_inputs.append(ctx.file.clang_autofdo_profile)
     setup_inputs += dtstree_srcs
 
     run_env = _get_run_env(ctx, srcs, toolchains)
@@ -613,6 +622,8 @@ kernel_env = rule(
         ),
         "make_goals": attr.string_list(doc = "`MAKE_GOALS`"),
         "_rust_tools": attr.label_list(default = _get_rust_tools, allow_files = True),
+        "kcflags": attr.string_list(),
+        "clang_autofdo_profile": attr.label(allow_single_file = True),
         "_build_utils_sh": attr.label(
             allow_single_file = True,
             default = Label("//build/kernel:build_utils"),

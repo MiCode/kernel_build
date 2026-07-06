@@ -16,6 +16,7 @@
 
 load(
     ":common_providers.bzl",
+    "CompileCommandsInfo",
     "KernelCmdsInfo",
     "KernelModuleInfo",
     "KernelModuleSetupInfo",
@@ -94,6 +95,13 @@ def _kernel_module_group_impl(ctx):
         directories = depset(transitive = cmds_info_directories),
     )
 
+    compile_commands_info = CompileCommandsInfo(
+        infos = depset(transitive = [
+            target[CompileCommandsInfo].infos
+            for target in targets
+        ]),
+    )
+
     # Sync list of infos with kernel_module / ddk_module.
     return [
         default_info,
@@ -103,6 +111,7 @@ def _kernel_module_group_impl(ctx):
         module_symvers_info,
         ddk_headers_info,
         cmds_info,
+        compile_commands_info,
     ]
 
 kernel_module_group = rule(

@@ -27,6 +27,8 @@ load(
 load(":cache_dir.bzl", "cache_dir")
 load(
     ":common_providers.bzl",
+    "CompileCommandsInfo",
+    "CompileCommandsSingleInfo",
     "DdkConfigInfo",
     "DdkSubmoduleInfo",
     "GcovInfo",
@@ -39,6 +41,7 @@ load(
     "KernelUnstrippedModulesInfo",
     "ModuleSymversInfo",
 )
+load(":compile_commands_utils.bzl", "compile_commands_utils")
 load(":ddk/ddk_headers.bzl", "DdkHeadersInfo")
 load(":debug.bzl", "debug")
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
@@ -357,9 +360,19 @@ def _kernel_module_impl(ctx):
         common_config_tags = ctx.attr.kernel_build[KernelEnvAttrInfo].common_config_tags,
         symlink_name = "module_{}".format(ctx.attr.name),
     )
-    inputs += cache_dir_step.inputs
-    command_outputs += cache_dir_step.outputs
-    tools += cache_dir_step.tools
+    grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
+    grab_gcno_step = get_grab_gcno_step(ctx, "${OUT_DIR}/${ext_mod_rel}", is_kernel_build = False)
+    compile_commands_step = compile_commands_utils.get_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
+
+    for step in (
+        cache_dir_step,
+        grab_cmd_step,
+        grab_gcno_step,
+        compile_commands_step,
+    ):
+        inputs += step.inputs
+        command_outputs += step.outputs
+        tools += step.tools
 
     # Determine the proper script to set up environment
     if ctx.attr.internal_ddk_config:
@@ -407,14 +420,6 @@ def _kernel_module_impl(ctx):
             modules_staging_dir = modules_staging_dws.directory.path,
         )
 
-    grab_cmd_step = get_grab_cmd_step(ctx, "${OUT_DIR}/${ext_mod_rel}")
-    inputs += grab_cmd_step.inputs
-    command_outputs += grab_cmd_step.outputs
-
-    grab_gcno_step = get_grab_gcno_step(ctx, "${OUT_DIR}/${ext_mod_rel}", is_kernel_build = False)
-    inputs += grab_gcno_step.inputs
-    command_outputs += grab_gcno_step.outputs
-
     scmversion_ret = stamp.ext_mod_write_localversion(ctx, ext_mod)
     inputs += scmversion_ret.deps
     command += scmversion_ret.cmd
@@ -460,7 +465,25 @@ def _kernel_module_impl(ctx):
                ext_mod_rel=$(realpath ${{ROOT_DIR}}/{ext_mod} --relative-to ${{KERNEL_DIR}})
 
              # Actual kernel module build
-               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {make_filter} {make_redirect}
+               make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} VPATH=${{ROOT_DIR}}/${{KERNEL_DIR}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {make_filter} {make_redirect}
+    """.format(
+        ext_mod = ext_mod,
+        make_filter = make_filter,
+        make_redirect = modpost_warn.make_redirect,
+    )
+
+    # TODO(b/291955924): make the `make` invocations parallel
+    for goal in compile_commands_utils.additional_make_goals(ctx):
+        command += """
+                make -C {ext_mod} ${{TOOL_ARGS}} M=${{ext_mod_rel}} O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}} {goal} {make_filter} {make_redirect}
+        """.format(
+            ext_mod = ext_mod,
+            goal = goal,
+            make_filter = make_filter,
+            make_redirect = modpost_warn.make_redirect,
+        )
+
+    command += """
              # Install into staging directory
                make -C {ext_mod} ${{TOOL_ARGS}} DEPMOD=true M=${{ext_mod_rel}} \
                    O=${{OUT_DIR}} KERNEL_SRC=${{ROOT_DIR}}/${{KERNEL_DIR}}     \
@@ -492,6 +515,8 @@ def _kernel_module_impl(ctx):
                {grab_gcno_step_cmd}
              # Grab *.cmd
                {grab_cmd_cmd}
+             # Grab compile_commands.json
+               {compile_commands_cmd}
              # Move Module.symvers
                rsync -aL ${{OUT_DIR}}/${{ext_mod_rel}}/Module.symvers {module_symvers}
              # Grab and then drop modules.order
@@ -501,8 +526,6 @@ def _kernel_module_impl(ctx):
         label = ctx.label,
         ext_mod = ext_mod,
         generate_btf = int(ctx.attr.generate_btf),
-        make_filter = make_filter,
-        make_redirect = modpost_warn.make_redirect,
         module_symvers = module_symvers.path,
         modules_staging_dir = modules_staging_dws.directory.path,
         outdir = outdir,
@@ -516,6 +539,7 @@ def _kernel_module_impl(ctx):
         drop_modules_order_cmd = drop_modules_order_cmd,
         grab_gcno_step_cmd = grab_gcno_step.cmd,
         grab_cmd_cmd = grab_cmd_step.cmd,
+        compile_commands_cmd = compile_commands_step.cmd,
     )
 
     command += dws.record(modules_staging_dws)
@@ -668,10 +692,19 @@ def _kernel_module_impl(ctx):
             srcs = module_srcs,
             directories = depset([grab_cmd_step.cmd_dir]),
         ),
+        CompileCommandsInfo(
+            infos = depset([CompileCommandsSingleInfo(
+                compile_commands_with_vars = compile_commands_step.compile_commands_with_vars,
+                compile_commands_common_out_dir = compile_commands_step.compile_commands_common_out_dir,
+            )]),
+        ),
     ]
 
 def _kernel_module_additional_attrs():
-    return cache_dir.attrs() | stamp.ext_mod_attrs()
+    return cache_dir.attrs() | stamp.ext_mod_attrs() | {
+        attr_name: attr.label(default = label)
+        for attr_name, label in compile_commands_utils.config_settings_raw().items()
+    }
 
 _kernel_module = rule(
     implementation = _kernel_module_impl,

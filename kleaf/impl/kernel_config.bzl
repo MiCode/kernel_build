@@ -38,7 +38,7 @@ load(":stamp.bzl", "stamp")
 load(":utils.bzl", "kernel_utils")
 
 visibility("//build/kernel/kleaf/...")
-
+_RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR= "abi_symbollist.raw"
 def _determine_local_path(ctx, file_name, file_attr):
     """A local action that stores the path to sandboxed file to a file object"""
 
@@ -204,7 +204,8 @@ def _config_symbol_list(ctx):
     configs = [
         _config.set_str(
             "UNUSED_KSYMS_WHITELIST",
-            "$(cat {})".format(raw_symbol_list_path_file.path),
+            _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
+            #"$(cat {})".format(raw_symbol_list_path_file.path),
         ),
     ]
     return struct(
@@ -443,6 +444,16 @@ def _kernel_config_impl(ctx):
     tools += cache_dir_step.tools
 
     inputs.append(localversion_file)
+    sync_raw_kmi_symbol_list_cmd = ""
+    if ctx.files.raw_kmi_symbol_list:
+        sync_raw_kmi_symbol_list_cmd = """
+            rsync -al {raw_kmi_symbol_list} {out_dir}/{raw_kmi_symbol_list_below_out_dir}
+        """.format(
+            out_dir = out_dir.path,
+            raw_kmi_symbol_list = ctx.files.raw_kmi_symbol_list[0].path,
+            raw_kmi_symbol_list_below_out_dir = _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
+        )
+        inputs += ctx.files.raw_kmi_symbol_list
 
     command = ctx.attr.env[KernelEnvInfo].setup + """
           {cache_dir_cmd}
@@ -460,6 +471,7 @@ def _kernel_config_impl(ctx):
           rsync -aL ${{OUT_DIR}}/.config {out_dir}/.config
           rsync -aL ${{OUT_DIR}}/include/ {out_dir}/include/
           rsync -aL {localversion_file} {out_dir}/localversion
+          {sync_raw_kmi_symbol_list_cmd}
 
         # Ensure reproducibility. The value of the real $ROOT_DIR is replaced in the setup script.
           sed -i'' -e 's:'"${{ROOT_DIR}}"':${{ROOT_DIR}}:g' {out_dir}/include/config/auto.conf.cmd
@@ -475,6 +487,7 @@ def _kernel_config_impl(ctx):
         cache_dir_post_cmd = cache_dir_step.post_cmd,
         reconfig_cmd = reconfig.cmd,
         localversion_file = localversion_file.path,
+        sync_raw_kmi_symbol_list_cmd = sync_raw_kmi_symbol_list_cmd,
     )
 
     debug.print_scripts(ctx, command)
@@ -607,13 +620,17 @@ def get_config_setup_command(
         rsync -aL {out_dir}/.config ${{OUT_DIR}}/.config
         rsync -aL --chmod=D+w {out_dir}/include/ ${{OUT_DIR}}/include/
         rsync -aL --chmod=F+w {out_dir}/localversion ${{OUT_DIR}}/localversion
-
+        if [[ -f {out_dir}/{raw_kmi_symbol_list_below_out_dir} ]]; then
+            rsync -aL --chmod=F+w \\
+                {out_dir}/{raw_kmi_symbol_list_below_out_dir} ${{OUT_DIR}}/
+        fi
         # Restore real value of $ROOT_DIR in auto.conf.cmd
         sed -i'' -e 's:${{ROOT_DIR}}:'"${{ROOT_DIR}}"':g' ${{OUT_DIR}}/include/config/auto.conf.cmd
     """.format(
         env_setup_command = env_setup_command,
         eval_restore_out_dir_cmd = kernel_utils.eval_restore_out_dir_cmd(),
         out_dir = out_dir.path,
+        raw_kmi_symbol_list_below_out_dir = _RAW_KMI_SYMBOL_LIST_BELOW_OUT_DIR,
     )
 
 def _kernel_config_additional_attrs():
