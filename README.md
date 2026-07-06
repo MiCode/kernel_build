@@ -74,3 +74,4 @@
 | ruan-u-oss | POCO Pad 5G / Redmi Pad Pro 5G | Android U | LA.VENDOR.1.0.r1-23800_r2.0.1.r1_00007.0 |[ruan-u-oss](https://github.com/MiCode/kernel_build/tree/ruan-u-oss) |
 | flare-w-oss | Redmi Pad SE 8.7 | Android W | t-alps-release-v0.mp1.tc8sp3-V1.121 |[flare-w-oss](https://github.com/MiCode/kernel_build/tree/flare-w-oss) |
 | spark-w-oss | Redmi Pad SE 4G / Redmi Pad SE 8.7 4G | Android W | t-alps-release-v0.mp1.tc8sp3-V1.121 |[spark-w-oss](https://github.com/MiCode/kernel_build/tree/spark-w-oss) |
+| bsp-chagall-w-oss | Xiaomi 17T | Android W | alps-mp-v0.mp1.tc8sp6-V1 | [bsp-chagall-w-oss](https://github.com/MiCode/kernel_build/tree/bsp-chagall-w-oss ) |
