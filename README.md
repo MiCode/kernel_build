@@ -76,3 +76,4 @@
 | spark-w-oss | Redmi Pad SE 4G / Redmi Pad SE 8.7 4G | Android W | t-alps-release-v0.mp1.tc8sp3-V1.121 |[spark-w-oss](https://github.com/MiCode/kernel_build/tree/spark-w-oss) |
 | bsp-chagall-w-oss | Xiaomi 17T | Android W | alps-mp-v0.mp1.tc8sp6-V1 | [bsp-chagall-w-oss](https://github.com/MiCode/kernel_build/tree/bsp-chagall-w-oss ) |
 | camellian-t-oss | POCO M3 Pro 5G / Redmi Note 10 5G / Redmi Note 10T | Android T | alps-mp-s0.mp1.tc8sp-mt6785 |[camellian-t-oss](https://github.com/MiCode/kernel_build/tree/camellian-t-oss) |
+| warsaw-w-oss | REDMI K90 Ultra | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[warsaw-w-oss](https://github.com/MiCode/kernel_build/tree/warsaw-w-oss) |
