@@ -77,3 +77,4 @@
 | bsp-chagall-w-oss | Xiaomi 17T | Android W | alps-mp-v0.mp1.tc8sp6-V1 | [bsp-chagall-w-oss](https://github.com/MiCode/kernel_build/tree/bsp-chagall-w-oss ) |
 | camellian-t-oss | POCO M3 Pro 5G / Redmi Note 10 5G / Redmi Note 10T | Android T | alps-mp-s0.mp1.tc8sp-mt6785 |[camellian-t-oss](https://github.com/MiCode/kernel_build/tree/camellian-t-oss) |
 | warsaw-w-oss | REDMI K90 Ultra | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[warsaw-w-oss](https://github.com/MiCode/kernel_build/tree/warsaw-w-oss) |
+| mist-w-oss | REDMI Note 17 5G/REDMI Note 17/POCO M8 Power 5G | Android W | snapdragon-high-mid-2024-spf-2-0_amss_standard_oem r2.0.r1_00009.1 |[mist-w-oss](https://github.com/MiCode/kernel_build/tree/mist-w-oss) |
