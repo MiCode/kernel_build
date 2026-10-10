@@ -1,0 +1,52 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Lock down the PATH variable in actions to /usr/bin and /usr/local/bin.
+build --experimental_strict_action_env
+
+# By default, output all the logs to stdout/stderr by disabling the console limit
+build --experimental_ui_max_stdouterr_bytes=-1
+
+# Show the full set of flags for observability and debuggability.
+# common --announce_rc
+
+# Add support for various configs
+import %workspace%/build/kernel/kleaf/bazelrc/ants.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/android_ci.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/local.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/fast.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/rbe.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/stamp.bazelrc
+import %workspace%/build/kernel/kleaf/bazelrc/release.bazelrc
+
+# flag aliases for build settings
+build --flag_alias=lto=//build/kernel/kleaf:lto
+build --flag_alias=kbuild_symtypes=//build/kernel/kleaf:kbuild_symtypes
+build --flag_alias=kasan=//build/kernel/kleaf:kasan
+
+# add a flag alias to allow passing --debug_* flags
+build --flag_alias=debug_annotate_scripts=//build/kernel/kleaf:debug_annotate_scripts
+build --flag_alias=debug_print_scripts=//build/kernel/kleaf:debug_print_scripts
+
+# By default, do not embed scmversion.
+build --workspace_status_command=build/kernel/kleaf/workspace_status_common.sh
+
+# Always dump full test results
+test --test_output=errors --test_summary=terse
+
+# Support a device-specific bazelrc file
+try-import %workspace%/device.bazelrc
+
+# Support a local user-specific bazelrc file.
+try-import %workspace%/user.bazelrc

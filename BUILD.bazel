@@ -1,0 +1,116 @@
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+package(default_visibility = ["//visibility:public"])
+
+load("//build/kernel/kleaf:hermetic_tools.bzl", "hermetic_tools")
+
+hermetic_tools(
+    name = "hermetic-tools",
+    srcs = glob(
+        ["build-tools/path/**"],
+        allow_empty = False,
+    ),
+    host_tools = [
+        "bash",
+        "install",
+        "perl",
+        "rsync",
+        "sh",
+        "tar",
+    ],
+    test_host_tools = [
+        "modinfo",
+        "strings",
+    ],
+    deps = glob(
+        ["build-tools/sysroot/**"],
+        allow_empty = False,
+    ) + [
+        "//prebuilts/build-tools:linux-x86",
+        "//prebuilts/kernel-build-tools:linux-x86",
+        "@prebuilt_ndk//:sysroot",
+    ],
+)
+
+filegroup(
+    name = "kernel-build-scripts",
+    srcs = [
+        "_setup_env.sh",
+        "build.sh",
+        "build_utils.sh",
+    ],
+)
+
+filegroup(
+    name = "kernel-abi-scripts",
+    srcs = [
+        "abi/compare_to_symbol_list",
+        "abi/flatten_symbol_list",
+        "abi/process_symbols",
+        "abi/symbols.allow",
+        "abi/symbols.deny",
+    ],
+)
+
+filegroup(
+    name = "dump-abi-scripts",
+    srcs = [
+        "abi/abitool.py",
+        "abi/dump_abi",
+    ],
+)
+
+filegroup(
+    name = "diff-abi-scripts",
+    srcs = [
+        "abi/abitool.py",
+        "abi/diff_abi",
+    ],
+)
+
+_GKI_CERTIFICATION_BINARIES_PREFIX = "//prebuilts/kernel-build-tools:linux-x86/bin/"
+
+_GKI_CERTIFICATION_BINARIES = [
+    "avbtool",
+    "certify_bootimg",
+]
+
+genrule(
+    name = "gki_certification_tools",
+    srcs = [_GKI_CERTIFICATION_BINARIES_PREFIX + tool for tool in _GKI_CERTIFICATION_BINARIES],
+    outs = ["gki_certification_tools.tar.gz"],
+    # Clear PATH to ensure hermeticity.
+    cmd = """
+        PATH=
+        $(location :hermetic-tools/tar) -c \\
+            -C $$($(location :hermetic-tools/dirname) $$($(location :hermetic-tools/dirname) $(location {prefix}{first}))) \\
+            {files} | \\
+          $(location :hermetic-tools/gzip) > $@
+    """.format(
+        files = " ".join(["bin/" + tool for tool in _GKI_CERTIFICATION_BINARIES]),
+        first = _GKI_CERTIFICATION_BINARIES[0],
+        prefix = _GKI_CERTIFICATION_BINARIES_PREFIX,
+    ),
+    tools = [
+        ":hermetic-tools/dirname",
+        ":hermetic-tools/gzip",
+        ":hermetic-tools/tar",
+    ],
+)
+
+exports_files([
+    "abi/extract_symbols",
+    "abi/filter_abi",
+])
