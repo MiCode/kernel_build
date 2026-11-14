@@ -1,0 +1,67 @@
+load(
+    "@kleaf//build/kernel/kleaf:kernel.bzl",
+    "ddk_module",
+    "ddk_prebuilt_object",
+)
+load("@kleaf//build/kernel/kleaf/tests/utils:test_cc_object.bzl", "test_cc_object")
+
+# For the purpose of this example, ignore these targets.
+# This example uses a custom rule to build the .o files to avoid checking in
+# prebuilts artifacts.
+# In practice, you can use prebuilt files checked into the source tree.
+test_cc_object(
+    name = "foo_object",
+    src = "foo.c",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+    visibility = ["//visibility:private"],
+)
+
+test_cc_object(
+    name = "bar_object",
+    src = "bar.c",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+    visibility = ["//visibility:private"],
+)
+
+# Wrap the foo.o file and generate a fake .foo.o.cmd file so it can be used
+# in ddk_module.srcs.
+ddk_prebuilt_object(
+    name = "foo",
+
+    # In practice, just say `src = "foo.o"` to point to the prebuilt file.
+    src = ":foo_object",
+    visibility = ["//visibility:private"],
+)
+
+# Wrap the bar.o file and generate a fake .bar.o.cmd file so it can be used
+# in ddk_module.conditional_srcs.
+ddk_prebuilt_object(
+    name = "bar",
+
+    # In practice, just say `src = "bar.o"` to point to the prebuilt file.
+    src = ":bar_object",
+
+    # If the object should be conditional on some config, add the conditional here.
+    config = "CONFIG_ARM64",
+    config_bool_value = True,
+    visibility = ["//visibility:private"],
+)
+
+ddk_module(
+    name = "mymod",
+    srcs = ["mod.c"],
+    out = "mymod.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+
+    # Add the ddk_prebuilt_object target to ddk_module.deps. This adds
+    # the foo.o and the .foo.o.cmd file. If CONFIG_ARM64 is set (which is
+    # True in this case), bar.o and .bar.o.cmd are also added.
+    deps = [
+        ":bar",
+        ":foo",
+    ],
+)

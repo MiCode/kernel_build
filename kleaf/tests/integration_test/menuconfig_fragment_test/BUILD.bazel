@@ -1,0 +1,25 @@
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "kernel_build",
+)
+
+kernel_build(
+    name = "menuconfig_fragment_test",
+    srcs = [
+        "defconfig.fragment",
+        "//common:kernel_aarch64_sources",
+    ],
+    outs = [
+        "goldfish_battery.ko",
+    ],
+    # The integration test is only executed on AOSP branches, so
+    # using //common is okay here.
+    base_kernel = "//common:kernel_aarch64",
+
+    # This test intentionally uses the deprecated build_config here to test the FRAGMENT_CONFIG
+    # variable. Production builds should use defconfig and pre_defconfig_fragments instead.
+    build_config = "build.config",
+    tags = [
+        "manual",
+    ],
+)

@@ -1,0 +1,114 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# (c) 2024-2025, Google
+#
+# Print out a subset of git commits based on a list of files to match against.
+#
+# Takes a git kernel range, and a set of files that are used to build a kernel
+# and spits out only the commits that actually are affected based on the files
+# used to build.
+#
+# This is used in changelog comments to highlight at a merge-point exactly what
+# upstream LTS commits are relevent for the specific system.
+
+# set to 1 to get some debugging logging messages
+DEBUG=0
+
+# set where the tool was run from,
+# the name of our script,
+# and the git version of it
+DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+SCRIPT=${0##*/}
+
+help() {
+	echo "Usage: ${SCRIPT} git_range file_list"
+	exit 1
+}
+
+dbg() {
+	if [[ ${DEBUG} -ge 1 ]] ; then
+		echo "$1"
+	fi
+}
+
+GIT_RANGE=$1
+FILE_LIST=$2
+
+# don't use unset variables
+set -o nounset
+
+if [[ "${FILE_LIST}" == "" || "${GIT_RANGE}" == "" ]] ; then
+	help
+fi
+
+# Grab the git range being proposed, with no merges
+GIT_COMMITS=$(git log --oneline --no-merges --reverse --format=%h ${GIT_RANGE})
+if [[ "${GIT_COMMITS}" == "" ]] ; then
+	echo "need a valid git range"
+	exit 1
+fi
+
+c=0
+tc=0
+ac=0
+rc=0
+fc=0
+
+output=()
+
+# Iterate over all commits and fill up the output buffer
+while IFS= read -r commit; do
+	dbg "commit=${commit}"
+	tc=$((tc+1))
+
+	# Get the list of files modified in this commit
+	files=$(git diff --name-only "${commit}"^.."${commit}" 2> /dev/null)
+	while IFS= read -r file; do
+		dbg "	file=${file}"
+
+		# search the list of files to see if the files in this commit are there.
+		hit=$(grep "${file}" "${FILE_LIST}")
+		if [[ "${hit}" != "" ]] ; then
+			log=$(git show -s --abbrev-commit --abbrev=12 --pretty=format:"%h %s%n" ${commit})
+			diffstat=$(git show --oneline --numstat ${commit})
+			dbg "${log}"
+
+			c=$((c+1))
+
+			a=0
+			r=0
+			f=0
+			while IFS= read -r d; do
+				if [[ ${f} = 0 ]]; then
+					f=1
+					continue
+				fi
+				a1=$(echo "${d}" | cut -f 1 -d '	')
+				r1=$(echo "${d}" | cut -f 2 -d '	')
+				a=$((a+a1))
+				r=$((r+r1))
+				f=$((f+1))
+				dbg "d='${d}' a1='${a1}' r1='${r1}' a=${a} r=${r} f=${f}"
+			done <<< ${diffstat}
+			f=$((f-1))
+			ac=$((ac+a))
+			rc=$((rc+r))
+			fc=$((fc+f))
+			if [[ ${f} != 1 ]]; then
+				files="files"
+			else
+				files="file"
+			fi
+			#echo "  ${log} [${f} ${files}, +${a}/-${r}]"
+			output+=("  ${log} [${f} ${files}, +${a}/-${r}]")
+		fi
+		break
+	done <<< "${files}"
+done <<< "${GIT_COMMITS}"
+
+echo "GKI (arm64) relevant ${c} out of ${tc} changes, affecting ${fc} files +${ac}/-${rc}"
+for line in "${output[@]}"; do
+	echo "${line}"
+done
+#echo "commits=${c}  added=${ac}  removed=${rc}"

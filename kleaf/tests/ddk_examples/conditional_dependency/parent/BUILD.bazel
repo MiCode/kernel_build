@@ -1,0 +1,71 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
+
+# The API target that contains the interface for child modules.
+# This usually contains:
+# - headers and include directory
+#   - The headers should provide a stub implementation if config is not set
+# - Kconfig that declares the config
+ddk_headers(
+    name = "parent_api",
+    hdrs = ["include/parent/parent_do_thing.h"],
+    includes = ["include"],
+    # Declare CONFIG_DDK_EXAMPLE_PARENT
+    kconfigs = ["Kconfig"],
+    visibility = ["//visibility:private"],
+)
+
+# The stub module when the device does not need this module.
+ddk_headers(
+    name = "parent_stub",
+
+    # Export the API
+    hdrs = [":parent_api"],
+
+    # Unset CONFIG_DDK_EXAMPLE_PARENT to indicate that parent module is disabled.
+    # This is so that the common code can use it as a directive.
+    defconfigs = ["parent_disabled_defconfig"],
+    visibility = ["//visibility:private"],
+)
+
+# The real module when the device needs this module.
+ddk_module(
+    name = "parent_real",
+    srcs = ["parent.c"],
+    out = "parent.ko",
+
+    # Export the API
+    hdrs = [":parent_api"],
+
+    # Set CONFIG_DDK_EXAMPLE_PARENT to indicate that parent module is enabled.
+    # This is so that the common code can use it as a directive.
+    defconfig = "parent_enabled_defconfig",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+    visibility = ["//visibility:private"],
+)
+
+# A flag that enables parent module for the device.
+bool_flag(
+    name = "enable_parent",
+    build_setting_default = True,
+    visibility = ["//visibility:private"],
+)
+
+# Helper target to `select()` based on the flag.
+config_setting(
+    name = "parent_is_enabled",
+    flag_values = {":enable_parent": "1"},
+    visibility = ["//visibility:private"],
+)
+
+# The exposed target that switches between the real and stub implementation based on the flag.
+alias(
+    name = "parent",
+    actual = select({
+        ":parent_is_enabled": ":parent_real",
+        "//conditions:default": ":parent_stub",
+    }),
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+)

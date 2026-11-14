@@ -1,0 +1,19 @@
+load(
+    "@kleaf//build/kernel/kleaf:kernel.bzl",
+    "ddk_library",
+)
+
+ddk_library(
+    name = "libfoo",
+    srcs = [
+        "foo.c",
+    ],
+    # Export headers for the main module to use.
+    hdrs = ["foo.h"],
+    includes = ["."],
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # These flags are only applicable to foo.c
+    local_defines = ["FOO"],
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples/ddk_library:__pkg__"],
+)
