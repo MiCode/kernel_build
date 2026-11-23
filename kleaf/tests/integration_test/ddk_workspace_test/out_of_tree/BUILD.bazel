@@ -1,0 +1,42 @@
+load(
+    "@kleaf//build/kernel/kleaf:kernel.bzl",
+    "ddk_module",
+    "kernel_modules_install",
+    "system_dlkm_image",
+    "vendor_dlkm_image",
+)
+
+# Test building no-op DDK module against kernel from sources
+ddk_module(
+    name = "out_of_tree",
+    srcs = ["mydriver.c"],
+    out = "out_of_tree.ko",
+    kernel_build = "//tests:kernel",
+)
+
+kernel_modules_install(
+    name = "device_modules_install",
+    kernel_modules = [
+        ":out_of_tree",
+    ],
+)
+
+system_dlkm_image(
+    name = "device_system_dlkm_image",
+    base = "//tests:base_system_dlkm",
+    kernel_modules_install = ":device_modules_install",
+)
+
+vendor_dlkm_image(
+    name = "device_vendor_dlkm_image",
+    kernel_modules_install = ":device_modules_install",
+)
+
+filegroup(
+    name = "device_images",
+    srcs = [
+        ":device_system_dlkm_image",
+        ":device_vendor_dlkm_image",
+    ],
+    visibility = ["//tests:__pkg__"],
+)

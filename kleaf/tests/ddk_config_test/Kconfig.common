@@ -1,0 +1,15 @@
+menu "Kleaf Testing"
+
+config KLEAF_TEST_COMMON_IMPLICIT_N
+	tristate "Kleaf test 1"
+	default n
+	help
+	  A test config.
+
+config KLEAF_TEST_COMMON_EXPLICIT_Y
+	tristate "Kleaf test 2"
+	default n
+	help
+	  A test config.
+
+endmenu

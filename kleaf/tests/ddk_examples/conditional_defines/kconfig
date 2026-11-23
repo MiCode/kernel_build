@@ -1,0 +1,4 @@
+config DDK_EXAMPLE_FOO_DEBUG
+	bool "Enable debug mode for foo"
+	help
+	  If set, foo is built with debug mode.
