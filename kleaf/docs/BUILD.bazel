@@ -1,0 +1,100 @@
+# Copyright (C) 2023 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Kleaf API Docs.
+
+To update:
+
+```
+rm -rf build/kernel/kleaf/docs/api_reference
+tools/bazel run --config=docs //build/kernel/kleaf/docs:docs_dist
+```
+"""
+
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
+load("@rules_pkg//pkg:install.bzl", "pkg_install")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
+
+_SRCS = [
+    "//build/kernel/kleaf:common_kernels.bzl",
+    "//build/kernel/kleaf:constants.bzl",
+    "//build/kernel/kleaf:directory_with_structure.bzl",
+    "//build/kernel/kleaf:fail.bzl",
+    "//build/kernel/kleaf:hermetic_tools.bzl",
+    "//build/kernel/kleaf:kernel.bzl",
+    "//build/kernel/kleaf:kernel_prebuilt_ext.bzl",
+    "//build/kernel/kleaf:key_value_repo.bzl",
+    "//build/kernel/kleaf:print_debug.bzl",
+    "//build/kernel/kleaf:update_source_file.bzl",
+]
+
+_DESTDIR = package_name() + "/api_reference"
+
+bzl_library(
+    name = "deps",
+    srcs = [
+        "//build/kernel/kleaf/impl/exec",
+        "//build/kernel/kleaf/artifact_tests",
+        "//build/kernel/kleaf/impl",
+        "//build/kernel/kleaf/tests/defconfig_test:bzl_lib",
+        "//build/kernel/kleaf/tests:runtime_protection_presence_test/symbol_presence_test_bzl_lib",
+        "//prebuilts/clang/host/linux-x86/kleaf:clang_toolchain_repository",
+        "@bazel_skylib//:workspace",
+        "@bazel_skylib//lib:dicts",
+        "@bazel_skylib//lib:paths",
+        "@bazel_skylib//lib:selects",
+        "@bazel_skylib//lib:unittest",
+        "@bazel_skylib//rules:common_settings",
+        "@kernel_toolchain_info//:dict",
+        "@rules_cc//cc/common",
+        "@rules_cc//cc/toolchains:toolchain_rules",
+        "@rules_pkg//pkg:bzl_srcs",
+        # TODO(b/371596399): remove once https://github.com/bazelbuild/rules_pkg/pull/898 is taken in.
+        "@rules_python//python:defs_bzl",
+    ] + _SRCS,
+)
+
+[
+    stardoc(
+        name = package_relative_label(src).name,
+        out = package_relative_label(src).name.removesuffix(".bzl") + ".md",
+        header_template = "header.vm",
+        input = src,
+        deps = [":deps"],
+    )
+    for src in _SRCS
+]
+
+filegroup(
+    name = "docs",
+    srcs = [package_relative_label(src).name for src in _SRCS],
+    visibility = ["//build/kernel/kleaf:__subpackages__"],
+)
+
+pkg_files(
+    name = "docs_dist_files",
+    srcs = [":docs"],
+    attributes = pkg_attributes(
+        mode = "644",
+    ),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:private"],
+)
+
+pkg_install(
+    name = "docs_dist",
+    srcs = [":docs_dist_files"],
+    destdir = _DESTDIR,
+)

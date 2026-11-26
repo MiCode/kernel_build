@@ -1,0 +1,110 @@
+load("@bazel_skylib//rules:select_file.bzl", "select_file")
+load(
+    "@kleaf//build/kernel/kleaf:kernel.bzl",
+    "ddk_headers",
+    "ddk_library",
+    "ddk_module",
+    "ddk_prebuilt_object",
+)
+load("@kleaf//build/kernel/kleaf/tests/utils:test_cc_object.bzl", "test_cc_object")
+
+# For the purpose of this example, ignore these targets.
+# This example uses a custom rule to build the .o files to avoid checking in
+# prebuilts artifacts.
+# In practice, you can use prebuilt files checked into the source tree.
+test_cc_object(
+    name = "foo_object",
+    src = "foo.c",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+    visibility = ["//visibility:private"],
+)
+
+test_cc_object(
+    name = "bar_object",
+    src = "bar.c",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+    visibility = ["//visibility:private"],
+)
+
+ddk_library(
+    name = "baz_lib",
+    srcs = ["baz.c"],
+    kernel_build = "@kleaf//common:kernel_aarch64",
+    visibility = ["//visibility:private"],
+)
+
+select_file(
+    name = "baz_object",
+    srcs = ":baz_lib",
+    subpath = "baz_lib/baz.o_shipped",
+)
+
+select_file(
+    name = "baz_cmd",
+    srcs = ":baz_lib",
+    subpath = "baz_lib/.baz.o.cmd_shipped",
+)
+
+# Wrap the foo.o file and generate a fake .foo.o.cmd file so it can be used
+# in ddk_module.srcs.
+ddk_prebuilt_object(
+    name = "foo",
+
+    # In practice, just say `src = "foo.o"` to point to the prebuilt file.
+    src = ":foo_object",
+    visibility = ["//visibility:private"],
+)
+
+# Wrap the bar.o file and generate a fake .bar.o.cmd file so it can be used
+# in ddk_module.conditional_srcs.
+ddk_prebuilt_object(
+    name = "bar",
+
+    # In practice, just say `src = "bar.o"` to point to the prebuilt file.
+    src = ":bar_object",
+
+    # If the object should be conditional on some config, add the conditional here.
+    config = "CONFIG_ARM64",
+    config_bool_value = True,
+    visibility = ["//visibility:private"],
+)
+
+# Wrap the baz.o and .baz.o.cmd file so it can be used in ddk_module.srcs.
+ddk_prebuilt_object(
+    name = "provide_cmd",
+    # In practice, just say `src = "baz.o"` to point to the prebuilt file.
+    src = ":baz_object",
+    # In practice, just say `src = ".baz.o.cmd"` to point to the prebuilt file.
+    cmd = ":baz_cmd",
+    visibility = ["//visibility:private"],
+)
+
+# Because `provide_cmd` has cmd, and mod.c has MODULE_VERSION(), we have to
+# provide the sources that are originally used to build baz.o, a.k.a. baz.c, to
+# mymod. For details, see README.md.
+ddk_headers(
+    name = "provide_cmd_srcs",
+    hdrs = ["baz.c"],
+    visibility = ["//visibility:private"],
+)
+
+ddk_module(
+    name = "mymod",
+    srcs = ["mod.c"],
+    out = "mymod.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+
+    # Add the ddk_prebuilt_object target to ddk_module.deps. This adds
+    # the foo.o and the .foo.o.cmd file. If CONFIG_ARM64 is set (which is
+    # True in this case), bar.o and .bar.o.cmd are also added.
+    deps = [
+        ":bar",
+        ":foo",
+        ":provide_cmd",
+        ":provide_cmd_srcs",
+    ],
+)

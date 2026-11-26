@@ -1,0 +1,24 @@
+load(
+    "@kleaf//build/kernel/kleaf:kernel.bzl",
+    "ddk_module",
+)
+
+ddk_module(
+    name = "mymod",
+    srcs = ["mod.c"],
+    out = "mymod.ko",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # These flags are only applicable to mod.c
+    local_defines = ["MAIN_MODULE"],
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+
+    # Add the ddk_library target to ddk_module.deps. This adds
+    # the foo.o and the .foo.o.cmd file.
+    deps = [
+        "//build/kernel/kleaf/tests/ddk_examples/ddk_library/libfoo",
+    ],
+)

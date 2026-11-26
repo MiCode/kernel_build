@@ -1,0 +1,6 @@
+# CONFIG_LTO_CLANG is not set
+CONFIG_LTO_NONE=y
+# CONFIG_LTO_CLANG_THIN is not set
+# CONFIG_LTO_CLANG_FULL is not set
+# CONFIG_THINLTO is not set # nocheck: Not in upstream
+CONFIG_FRAME_WARN=0

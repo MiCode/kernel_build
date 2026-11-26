@@ -1,0 +1,20 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+
+ddk_module(
+    name = "parent_2",
+    srcs = ["parent_2.c"],
+    out = "parent_2.ko",
+
+    # List of exported headers. Use `hdrs` not `deps` so they are exported
+    # to children.
+    hdrs = ["include/parent_2/parent_2_do_thing.h"],
+
+    # List of include directories. By adding `-Iinclude`, the source
+    # file can use `#include "parent_2/parent_2_do_thing.h"`.
+    includes = ["include"],
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+)

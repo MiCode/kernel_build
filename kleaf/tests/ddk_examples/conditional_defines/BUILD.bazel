@@ -1,0 +1,25 @@
+load("@kleaf//build/kernel/kleaf:kernel.bzl", "ddk_module")
+
+ddk_module(
+    name = "foo",
+    srcs = [
+        # Add debug.h so it can be included
+        "debug.h",
+        "foo.c",
+    ],
+    out = "foo.ko",
+
+    # Add -include debug.h unconditonally so DEBUG can be used.
+    # Alternatively, just `#include "debug.h"`; see local_includes for details.
+    copts = [
+        "-include",
+        "$(location debug.h)",
+    ],
+    defconfig = "defconfig",
+    kconfig = "kconfig",
+    kernel_build = "@kleaf//common:kernel_aarch64",
+
+    # Adjust visibility of the module accordingly. See
+    # https://bazel.build/concepts/visibility#target-visibility
+    visibility = ["//build/kernel/kleaf/tests/ddk_examples:__subpackages__"],
+)

@@ -1,0 +1,154 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load(":files_test.bzl", "files_test", "single_file_test")
+
+# Not using a label_flag because @gki_prebuilts and @gki_prebuilts_aarch64_16k
+# is unknown.
+string_flag(
+    name = "kernel_flag",
+    build_setting_default = "@kleaf//common:kernel_aarch64",
+    values = [
+        "@kleaf//common:kernel_aarch64",
+        "@gki_prebuilts//kernel_aarch64",
+        "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "kernel_flag_is_source",
+    flag_values = {
+        ":kernel_flag": "@kleaf//common:kernel_aarch64",
+    },
+)
+
+config_setting(
+    name = "kernel_flag_is_prebuilt_4k",
+    flag_values = {
+        ":kernel_flag": "@gki_prebuilts//kernel_aarch64",
+    },
+)
+
+config_setting(
+    name = "kernel_flag_is_prebuilt_16k",
+    flag_values = {
+        ":kernel_flag": "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k",
+    },
+)
+
+alias(
+    name = "kernel",
+    actual = select({
+        ":kernel_flag_is_source": "@kleaf//common:kernel_aarch64",
+        ":kernel_flag_is_prebuilt_4k": "@gki_prebuilts//kernel_aarch64",
+        ":kernel_flag_is_prebuilt_16k": "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k",
+    }),
+    visibility = ["//out_of_tree:__pkg__"],
+)
+
+alias(
+    name = "base_system_dlkm",
+    actual = select({
+        ":kernel_flag_is_source": "@kleaf//common:kernel_aarch64_system_dlkm_image",
+        ":kernel_flag_is_prebuilt_4k": "@gki_prebuilts//kernel_aarch64:kernel_aarch64_system_dlkm_staging_archive",
+        ":kernel_flag_is_prebuilt_16k": "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k:kernel_aarch64_16k_system_dlkm_staging_archive",
+    }),
+    visibility = ["//out_of_tree:__pkg__"],
+)
+
+filegroup(
+    name = "build_test_targets",
+    srcs = [
+        "//out_of_tree:device_images",
+    ] + select({
+        ":kernel_flag_is_source": [
+            # Test that the device modules and images can be built.
+            "//in_tree:device_images",
+            # Test that full kernel dist can be built.
+            "@kleaf//common:kernel_aarch64_dist",
+        ],
+        # If using prebuilts, we don't care about the tests against
+        # the kernel built from source.
+        "//conditions:default": [],
+    }),
+)
+
+build_test(
+    name = "build_test",
+    targets = [":build_test_targets"],
+)
+
+# TODO: Add tests on the image content
+
+write_file(
+    name = "fake_zram",
+    out = "fake/zram.ko",
+    content = [],
+)
+
+write_file(
+    name = "fake_zsmalloc",
+    out = "fake/zsmalloc.ko",
+    content = [],
+)
+
+filegroup(
+    name = "fake_modules",
+    srcs = [
+        ":fake_zram",
+        ":fake_zsmalloc",
+    ],
+)
+
+# Test that @gki_prebuilts//kernel_aarch64:kernel_aarch64/drivers/block/zram/zram.ko
+# exists and contains a single file zram.ko
+single_file_test(
+    name = "zram_test",
+    src = select({
+        # Stub test when not using prebuilts
+        ":kernel_flag_is_source": ":fake_zram",
+        ":kernel_flag_is_prebuilt_16k": "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k:kernel_aarch64_16k/drivers/block/zram/zram.ko",
+        "//conditions:default": "@gki_prebuilts//kernel_aarch64:kernel_aarch64/drivers/block/zram/zram.ko",
+    }),
+    expected_basename = "zram.ko",
+    tags = ["manual"],
+)
+
+# Test that @gki_prebuilts//kernel_aarch64:kernel_aarch64_modules contains modules,
+# including zram.ko and zsmalloc.ko.
+files_test(
+    name = "modules_test",
+    src = select({
+        # Stub test when not using prebuilts
+        ":kernel_flag_is_source": ":fake_modules",
+        ":kernel_flag_is_prebuilt_16k": "@gki_prebuilts_aarch64_16k//kernel_aarch64_16k:kernel_aarch64_16k_modules",
+        "//conditions:default": "@gki_prebuilts//kernel_aarch64:kernel_aarch64_modules",
+    }),
+    expected_basenames = [
+        "zram.ko",
+        "zsmalloc.ko",
+    ],
+)
+
+# Test that @gki_prebuilts//kernel_aarch64 contains a file named kernel_aarch64_Module.symvers,
+# align with @kleaf//common:kernel_aarch64, because keep_module_symvers = True.
+files_test(
+    name = "module_symvers_test",
+    src = ":kernel",
+    expected_basenames = select({
+        ":kernel_flag_is_prebuilt_16k": ["kernel_aarch64_16k_Module.symvers"],
+        "//conditions:default": ["kernel_aarch64_Module.symvers"],
+    }),
+)
+
+test_suite(
+    name = "tests",
+    tests = [
+        ":build_test",
+        ":module_symvers_test",
+        ":modules_test",
+        ":zram_test",
+        "@kleaf//build/kernel/kleaf/tests/ddk_menuconfig_test",
+    ],
+)
